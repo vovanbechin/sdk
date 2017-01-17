@@ -14,21 +14,23 @@ void main() {
   setUp(doSetUp);
   tearDown(doTearDown);
 
-  testStatement(
-      "initialize non-nullable local with null",
-      'int i = /*error:INVALID_ASSIGNMENT*/null;');
+  group("initialized local", () {
+    testStatement(
+        "non-nullable with null",
+        'int i = /*error:INVALID_ASSIGNMENT*/null;');
 
-  testStatement(
-      "initialize Object local with null",
-      'Object i = null;');
+    testStatement(
+        "Object with null",
+        'Object i = null;');
 
-  testStatement(
-      "initialize Null with null",
-      'Null i = null;');
+    testStatement(
+        "Null with null",
+        'Null i = null;');
 
-  testStatement(
-      "initialize Null with other type",
-      'Null i = /*error:INVALID_ASSIGNMENT*/123;');
+    testStatement(
+        "Null with other type",
+        'Null i = /*error:INVALID_ASSIGNMENT*/123;');
+  });
 
   group("uninitialized local", () {
     // TODO(rnystrom): Better error message.
@@ -48,12 +50,42 @@ void main() {
         "dynamic",
         'dynamic i;');
   });
+
+  group("uninitialized field", () {
+    // TODO(rnystrom): Better error message.
+    testMember(
+        "non-nullable",
+        'int /*error:NON_NULLABLE_FIELD_NOT_INITIALIZED*/i;');
+
+    testMember(
+        "untyped",
+        'var i;');
+
+    testMember(
+        "nullable",
+        'Object i;');
+
+    testMember(
+        "dynamic",
+        'dynamic i;');
+  });
 }
 
 void testStatement(String message, String code) {
   test(message, () {
     addFile('''
 void main() {
+  $code
+}
+''');
+    check();
+  });
+}
+
+void testMember(String message, String code) {
+  test(message, () {
+    addFile('''
+class Foo {
   $code
 }
 ''');

@@ -646,7 +646,7 @@ class CodeChecker extends RecursiveAstVisitor {
     if (!node.isConst &&
         !node.isFinal &&
         node.initializer == null &&
-        rules.isNonNullableType(variableElement?.type)) {
+        variableElement?.type?.isNonNullable == true) {
       _recordMessage(
           node,
           StaticTypeWarningCode.NON_NULLABLE_FIELD_NOT_INITIALIZED,
@@ -854,7 +854,9 @@ class CodeChecker extends RecursiveAstVisitor {
   /// non-nullable type and `true` otherwise.
   bool _checkNonNullAssignment(
       Expression expression, DartType to, DartType from) {
-    if (rules.isNonNullableType(to) && rules.isNullableType(from)) {
+    // TODO(nnbd): Shouldn't need this once the general assignability rules
+    // handle non-nullable types.
+    if (to.isNonNullable && from.isNullable) {
       _recordMessage(
           expression, StaticTypeWarningCode.INVALID_ASSIGNMENT, [from, to]);
       return false;

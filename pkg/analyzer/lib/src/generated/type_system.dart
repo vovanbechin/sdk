@@ -304,7 +304,7 @@ class StrongTypeSystemImpl extends TypeSystem {
     // compute set of supertypes
     List<InterfaceType> s = InterfaceTypeImpl
         .computeSuperinterfaceSet(type)
-        .where(isNullableType)
+        .where((type) => type.isNullable)
         .toList();
     return InterfaceTypeImpl.computeTypeAtMaxUniqueDepth(s);
   }
@@ -315,11 +315,11 @@ class StrongTypeSystemImpl extends TypeSystem {
   @override
   DartType getLeastUpperBound(DartType type1, DartType type2,
       {bool dynamicIsBottom: false}) {
-    if (isNullableType(type1) && isNonNullableType(type2)) {
+    if (type1.isNullable && type2.isNonNullable) {
       assert(type2 is InterfaceType);
       type2 = getLeastNullableSupertype(type2 as InterfaceType);
     }
-    if (isNullableType(type2) && isNonNullableType(type1)) {
+    if (type2.isNullable && type1.isNonNullable) {
       assert(type1 is InterfaceType);
       type1 = getLeastNullableSupertype(type1 as InterfaceType);
     }
@@ -546,21 +546,6 @@ class StrongTypeSystemImpl extends TypeSystem {
 
   @override
   bool isMoreSpecificThan(DartType t1, DartType t2) => isSubtypeOf(t1, t2);
-
-  /// Check if [type] is in a set of preselected non-nullable types.
-  /// [FunctionType]s are always nullable.
-  bool isNonNullableType(DartType type) {
-    return !isNullableType(type);
-  }
-
-  /// Opposite of [isNonNullableType].
-  bool isNullableType(DartType type) {
-    // TODO(nnbd): Implement actual nullable types. Right now, just handle
-    // the built in types that are nullable.
-    return type == typeProvider.dynamicType ||
-        type == typeProvider.nullType ||
-        type == typeProvider.objectType;
-  }
 
   /// Check that [f1] is a subtype of [f2] for an override.
   ///

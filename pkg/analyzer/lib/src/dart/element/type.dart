@@ -50,6 +50,9 @@ class BottomTypeImpl extends TypeImpl {
   bool get isBottom => true;
 
   @override
+  bool get isNullable => true;
+
+  @override
   bool operator ==(Object object) => identical(object, this);
 
   @override
@@ -286,6 +289,9 @@ class DynamicTypeImpl extends TypeImpl {
 
   @override
   bool get isDynamic => true;
+
+  @override
+  bool get isNullable => true;
 
   @override
   bool operator ==(Object object) => identical(object, this);
@@ -2384,6 +2390,12 @@ abstract class TypeImpl implements DartType {
 
   @override
   bool get isDynamic => false;
+
+  @override
+  bool get isNonNullable => !isNullable;
+
+  @override
+  bool get isNullable => isObject;
 
   @override
   bool get isObject => false;

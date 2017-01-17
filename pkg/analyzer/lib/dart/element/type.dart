@@ -81,6 +81,16 @@ abstract class DartType implements ResolutionType {
   bool get isDynamic;
 
   /**
+   * Return `true` if this type is not a subtype of `Null`.
+   */
+  bool get isNonNullable;
+
+  /**
+   * Return `true` if this type is a subtype of `Null`.
+   */
+  bool get isNullable;
+
+  /**
    * Return `true` if this type represents the type 'Object'.
    */
   bool get isObject;
