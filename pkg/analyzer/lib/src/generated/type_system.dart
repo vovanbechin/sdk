@@ -157,16 +157,10 @@ class StrongTypeSystemImpl extends TypeSystem {
    */
   final bool implicitCasts;
 
-  /**
-   * A list of non-nullable type names (e.g., 'int', 'bool', etc.).
-   */
-  final List<String> nonnullableTypes;
-
   final TypeProvider typeProvider;
 
   StrongTypeSystemImpl(this.typeProvider,
-      {this.implicitCasts: true,
-      this.nonnullableTypes: AnalysisOptionsImpl.NONNULLABLE_TYPES});
+      {this.implicitCasts: true});
 
   bool anyParameterType(FunctionType ft, bool predicate(DartType t)) {
     return ft.parameters.any((p) => predicate(p.type));
@@ -561,8 +555,11 @@ class StrongTypeSystemImpl extends TypeSystem {
 
   /// Opposite of [isNonNullableType].
   bool isNullableType(DartType type) {
-    return type is FunctionType ||
-        !nonnullableTypes.contains(_getTypeFullyQualifiedName(type));
+    // TODO(nnbd): Implement actual nullable types. Right now, just handle
+    // the built in types that are nullable.
+    return type == typeProvider.dynamicType ||
+        type == typeProvider.nullType ||
+        type == typeProvider.objectType;
   }
 
   /// Check that [f1] is a subtype of [f2] for an override.
@@ -733,12 +730,6 @@ class StrongTypeSystemImpl extends TypeSystem {
   @override
   DartType _functionParameterBound(DartType f, DartType g) =>
       getGreatestLowerBound(f, g, dynamicIsBottom: true);
-
-  /// Given a type return its name prepended with the URI to its containing
-  /// library and separated by a comma.
-  String _getTypeFullyQualifiedName(DartType type) {
-    return "${type?.element?.library?.identifier},$type";
-  }
 
   /**
    * Guard against loops in the class hierarchy
@@ -1403,8 +1394,7 @@ abstract class TypeSystem {
     var options = context.analysisOptions as AnalysisOptionsImpl;
     return options.strongMode
         ? new StrongTypeSystemImpl(context.typeProvider,
-            implicitCasts: options.implicitCasts,
-            nonnullableTypes: options.nonnullableTypes)
+            implicitCasts: options.implicitCasts)
         : new TypeSystemImpl(context.typeProvider);
   }
 }

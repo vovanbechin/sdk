@@ -6172,8 +6172,7 @@ class StrongModeVerifyUnitTask extends SourceBasedAnalysisTask {
       CodeChecker checker = new CodeChecker(
           typeProvider,
           new StrongTypeSystemImpl(typeProvider,
-              implicitCasts: options.implicitCasts,
-              nonnullableTypes: options.nonnullableTypes),
+              implicitCasts: options.implicitCasts),
           errorListener,
           options);
       checker.visitCompilationUnit(unit);

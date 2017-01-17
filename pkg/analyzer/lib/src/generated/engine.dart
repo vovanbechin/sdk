@@ -1372,11 +1372,6 @@ class AnalysisOptionsImpl implements AnalysisOptions {
   static const int DEFAULT_CACHE_SIZE = 64;
 
   /**
-   * The default list of non-nullable type names.
-   */
-  static const List<String> NONNULLABLE_TYPES = const <String>[];
-
-  /**
    * A predicate indicating whether analysis is to parse and analyze function
    * bodies.
    */
@@ -1481,12 +1476,6 @@ class AnalysisOptionsImpl implements AnalysisOptions {
    */
   bool implicitCasts = true;
 
-  /**
-   * A list of non-nullable type names, prefixed by the library URI they belong
-   * to, e.g., 'dart:core,int', 'dart:core,bool', 'file:///foo.dart,bar', etc.
-   */
-  List<String> nonnullableTypes = NONNULLABLE_TYPES;
-
   @override
   bool finerGrainedInvalidation = false;
 
@@ -1535,7 +1524,6 @@ class AnalysisOptionsImpl implements AnalysisOptions {
     if (options is AnalysisOptionsImpl) {
       strongModeHints = options.strongModeHints;
       implicitCasts = options.implicitCasts;
-      nonnullableTypes = options.nonnullableTypes;
       implicitDynamic = options.implicitDynamic;
     }
     trackCacheDependencies = options.trackCacheDependencies;
@@ -1692,7 +1680,6 @@ class AnalysisOptionsImpl implements AnalysisOptions {
     incrementalValidation = false;
     lint = false;
     _lintRules = null;
-    nonnullableTypes = NONNULLABLE_TYPES;
     patchPaths = {};
     preserveComments = true;
     strongMode = false;

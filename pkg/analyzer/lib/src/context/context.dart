@@ -293,9 +293,6 @@ class AnalysisContextImpl implements InternalAnalysisContext {
             ? this._options.implicitCasts != options.implicitCasts
             : false) ||
         ((options is AnalysisOptionsImpl)
-            ? this._options.nonnullableTypes != options.nonnullableTypes
-            : false) ||
-        ((options is AnalysisOptionsImpl)
             ? this._options.implicitDynamic != options.implicitDynamic
             : false) ||
         this._options.enableStrictCallChecks !=
@@ -333,7 +330,6 @@ class AnalysisContextImpl implements InternalAnalysisContext {
     if (options is AnalysisOptionsImpl) {
       this._options.strongModeHints = options.strongModeHints;
       this._options.implicitCasts = options.implicitCasts;
-      this._options.nonnullableTypes = options.nonnullableTypes;
       this._options.implicitDynamic = options.implicitDynamic;
     }
     if (needsRecompute) {

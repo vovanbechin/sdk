@@ -7,6 +7,11 @@
 // intention to officially support non-nullable primitives in Dart (or general
 // NNBD, for that matter) so don't get too crazy about it.
 
+// TODO(nnbd): Disabled since the old whitelisted way of making some types
+// non-nullable is gone. Should move most of these tests over to work with the
+// new nndb stuff.
+/*
+
 library analyzer.test.src.task.non_null_primitives.checker_test;
 
 import 'package:test_reflective_loader/test_reflective_loader.dart';
@@ -322,3 +327,4 @@ class A {
     check(nonnullableTypes: <String>['dart:core,int']);
   }
 }
+*/

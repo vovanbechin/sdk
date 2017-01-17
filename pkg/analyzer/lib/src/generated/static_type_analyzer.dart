@@ -982,7 +982,7 @@ class StaticTypeAnalyzer extends SimpleAstVisitor<Object> {
   @override
   Object visitNullLiteral(NullLiteral node) {
     // TODO(jmesserly): in strong mode, should we just use the context type?
-    _recordStaticType(node, _typeProvider.bottomType);
+    _recordStaticType(node, _typeProvider.nullType);
     return null;
   }
 
