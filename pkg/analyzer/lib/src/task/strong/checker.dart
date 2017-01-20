@@ -639,23 +639,6 @@ class CodeChecker extends RecursiveAstVisitor {
   }
 
   @override
-  Object visitVariableDeclaration(VariableDeclaration node) {
-    VariableElement variableElement = node == null
-        ? null
-        : resolutionMap.elementDeclaredByVariableDeclaration(node);
-    if (!node.isConst &&
-        !node.isFinal &&
-        node.initializer == null &&
-        variableElement?.type?.isNonNullable == true) {
-      _recordMessage(
-          node,
-          StaticTypeWarningCode.NON_NULLABLE_FIELD_NOT_INITIALIZED,
-          [node.name, variableElement?.type]);
-    }
-    return super.visitVariableDeclaration(node);
-  }
-
-  @override
   void visitVariableDeclarationList(VariableDeclarationList node) {
     TypeAnnotation type = node.type;
     if (type == null) {
@@ -849,21 +832,6 @@ class CodeChecker extends RecursiveAstVisitor {
     }
   }
 
-  /// Checks if the assignment is valid with respect to non-nullable types.
-  /// Returns `false` if a nullable expression is assigned to a variable of
-  /// non-nullable type and `true` otherwise.
-  bool _checkNonNullAssignment(
-      Expression expression, DartType to, DartType from) {
-    // TODO(nnbd): Shouldn't need this once the general assignability rules
-    // handle non-nullable types.
-    if (to.isNonNullable && from.isNullable) {
-      _recordMessage(
-          expression, StaticTypeWarningCode.INVALID_ASSIGNMENT, [from, to]);
-      return false;
-    }
-    return true;
-  }
-
   void _checkReturnOrYield(Expression expression, AstNode node,
       {bool yieldStar: false}) {
     FunctionBody body = node.getAncestor((n) => n is FunctionBody);
@@ -1016,8 +984,6 @@ class CodeChecker extends RecursiveAstVisitor {
   /// If [from] is omitted, uses the static type of [expr].
   bool _needsImplicitCast(Expression expr, DartType to, {DartType from}) {
     from ??= _getDefiniteType(expr);
-
-    if (!_checkNonNullAssignment(expr, to, from)) return false;
 
     // We can use anything as void.
     if (to.isVoid) return false;

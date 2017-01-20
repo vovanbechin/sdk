@@ -1652,10 +1652,17 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
     }
     // Prepare a list of not initialized fields.
     List<FieldElement> notInitFinalFields = <FieldElement>[];
+    var notInitNonNullableFields = <FieldElement>[];
     fieldElementsMap.forEach((FieldElement fieldElement, INIT_STATE state) {
       if (state == INIT_STATE.NOT_INIT) {
         if (fieldElement.isFinal) {
           notInitFinalFields.add(fieldElement);
+        }
+
+        // TODO(nnbd): What if a field is both final and non-nullable? Both
+        // errors?
+        if (fieldElement.type.isNonNullable) {
+          notInitNonNullableFields.add(fieldElement);
         }
       }
     });
@@ -1691,6 +1698,14 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
             constructor.returnType,
             [names[0], names[1], names.length - 2]);
       }
+    }
+
+    // Report errors for uninitialized non-nullable fields.
+    for (var field in notInitNonNullableFields) {
+        _errorReporter.reportErrorForNode(
+            StaticTypeWarningCode.NON_NULLABLE_FIELD_NOT_INITIALIZED,
+            constructor.returnType,
+            [field.name, field.type]);
     }
   }
 
@@ -3771,6 +3786,9 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
     if (_isInNativeClass || list.isSynthetic) {
       return;
     }
+
+    _checkForNonNullableNotInitialized(list);
+
     bool isConst = list.isConst;
     if (!(isConst || list.isFinal)) {
       return;
@@ -3789,6 +3807,18 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
               variable.name,
               [variable.name.name]);
         }
+      }
+    }
+  }
+
+  void _checkForNonNullableNotInitialized(VariableDeclarationList list) {
+    for (VariableDeclaration variable in list.variables) {
+      var type = variable.element.type;
+      if (variable.initializer == null && type.isNonNullable) {
+        _errorReporter.reportErrorForNode(
+            StaticTypeWarningCode.NON_NULLABLE_FIELD_NOT_INITIALIZED,
+            variable.name,
+            [variable.name.name, type]);
       }
     }
   }

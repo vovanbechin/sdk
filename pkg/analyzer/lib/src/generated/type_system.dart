@@ -315,14 +315,15 @@ class StrongTypeSystemImpl extends TypeSystem {
   @override
   DartType getLeastUpperBound(DartType type1, DartType type2,
       {bool dynamicIsBottom: false}) {
-    if (type1.isNullable && type2.isNonNullable) {
-      assert(type2 is InterfaceType);
-      type2 = getLeastNullableSupertype(type2 as InterfaceType);
-    }
-    if (type2.isNullable && type1.isNonNullable) {
-      assert(type1 is InterfaceType);
-      type1 = getLeastNullableSupertype(type1 as InterfaceType);
-    }
+    // TODO(nnbd): Incorporate nullable types directly into least upper bound.
+//    if (type1.isNullable && type2.isNonNullable) {
+//      assert(type2 is InterfaceType);
+//      type2 = getLeastNullableSupertype(type2 as InterfaceType);
+//    }
+//    if (type2.isNullable && type1.isNonNullable) {
+//      assert(type1 is InterfaceType);
+//      type1 = getLeastNullableSupertype(type1 as InterfaceType);
+//    }
     return super
         .getLeastUpperBound(type1, type2, dynamicIsBottom: dynamicIsBottom);
   }
