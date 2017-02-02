@@ -484,6 +484,9 @@ class StrongTypeSystemImpl extends TypeSystem {
       return false;
     }
 
+    // Don't allow implicitly stripping off a nullable type.
+    if (fromType is NullableType && toType is! NullableType) return false;
+
     // Don't allow implicit downcasts between function types
     // and call method objects, as these will almost always fail.
     if (fromType is FunctionType && getCallMethodType(toType) != null) {
@@ -921,6 +924,18 @@ class StrongTypeSystemImpl extends TypeSystem {
           guardedSubtype(t1, t2.type, visited);
     }
 
+    if (t1 is NullableType && t2 is NullableType) {
+      return isSubtypeOf(t1.baseType, t2.baseType);
+    }
+
+    if (t1 is NullableType) {
+      return t2.isObject;
+    }
+
+    if (t2 is NullableType) {
+      return t1 == typeProvider.nullType || isSubtypeOf(t1, t2.baseType);
+    }
+
     // Void only appears as the return type of a function, and we handle it
     // directly in the function subtype rules. We should not get to a point
     // where we're doing a subtype test on a "bare" void, but just in case we
@@ -1155,6 +1170,12 @@ abstract class TypeSystem {
    * if leftType <: rightType).
    */
   bool isSubtypeOf(DartType leftType, DartType rightType);
+
+  /// Wraps [type] in a nullable type if it is not already nullable.
+  DartType makeNullable(DartType type) {
+    if (type == typeProvider.objectType || type is NullableType) return type;
+    return new NullableType(this, type);
+  }
 
   /**
    * Searches the superinterfaces of [type] for implementations of [genericType]

@@ -998,6 +998,10 @@ class CodeChecker extends RecursiveAstVisitor {
       return false;
     }
 
+    // We report a downcast from a nullable type as a hard error elsewhere, so
+    // we don't need to treat it like a downcast here.
+    if (from is NullableType) return false;
+
     // Downcast if toT <: fromT
     if (rules.isSubtypeOf(to, from)) {
       return true;

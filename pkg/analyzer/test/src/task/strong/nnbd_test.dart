@@ -30,6 +30,22 @@ void main() {
     testStatements(
         "Null with other type",
         'Null i = /*error:INVALID_ASSIGNMENT*/123;');
+
+    testStatements(
+        "nullable with null",
+        "int? i = null;");
+
+    testStatements(
+        "nullable with value",
+        "int? i = 123;");
+
+    testStatements(
+        "nullable with other type",
+        "int? i = /*error:INVALID_ASSIGNMENT*/123.4;");
+
+    testStatements(
+        "non-nullable with nullable",
+        "int i = /*error:INVALID_ASSIGNMENT*/(123 as int?);");
   });
 
   group("uninitialized local", () {
@@ -43,12 +59,16 @@ void main() {
         'var i;');
 
     testStatements(
-        "nullable",
+        "object",
         'Object i;');
 
     testStatements(
         "dynamic",
         'dynamic i;');
+
+    testStatements(
+        "nullable",
+        "int? i;");
   });
 
   group("field", () {
@@ -61,12 +81,16 @@ void main() {
         'var i;');
 
     testMembers(
-        "nullable",
+        "Object",
         'Object i;');
 
     testMembers(
         "dynamic",
         'dynamic i;');
+
+    testMembers(
+        "nullable",
+        'int? i;');
 
     testUnit(
         "initialized with initializing formal",
@@ -107,6 +131,12 @@ void main() {
         '''class Foo<T> {
           T /*error:NON_NULLABLE_FIELD_NOT_INITIALIZED*/t;
         }''');
+
+    testUnit(
+        "uninitialized nullable type parameter",
+        '''class Foo<T> {
+          T? t;
+        }''');
   });
 
   group("assignment", () {
@@ -125,8 +155,87 @@ void main() {
     testStatements(
         "null to inferred non-nullable",
         "var i = 1; i = /*error:INVALID_ASSIGNMENT*/null;");
-    // TODO: null to nullable type.
+
+    testStatements(
+        "value to nullable",
+        "int? i = 1; i = 2;");
+
+    testStatements(
+        "null to nullable",
+        "int? i = 1; i = null;");
+
+    testStatements(
+        "wrong type to nullable",
+        "int? i = 1; i = /*error:INVALID_ASSIGNMENT*/2.4;");
   });
+
+  group("subtype", () {
+    testEquivalent("int?", "int?");
+    testEquivalent("Object?", "Object");
+
+    testMoreSpecific("int", "int?");
+    testMoreSpecific("Null", "int?");
+    testMoreSpecific("int?", "num?");
+    testMoreSpecific("int?", "Object");
+
+    // Unrelated types.
+    testNotSubtype("String?", "num?");
+  });
+
+  testUnit("repeated nullables flatten", """
+  class Nullify<T> {
+    T? field;
+  }
+
+  main() {
+    int? i = new Nullify<int>().field;
+    int? j = new Nullify<int?>().field;
+  }
+  """);
+
+
+  // TODO: variable of nullable type parameter type when instantiated with
+  // nullable type argument.
+}
+
+void testMoreSpecific(String t1, String t2) {
+  testSubtype(t1, t2);
+  testNotSubtype(t2, t1);
+}
+
+void testEquivalent(String t1, String t2) {
+  testSubtype(t1, t2);
+  testSubtype(t2, t1);
+}
+
+void testSubtype(String t1, String t2) {
+  // TODO(bob): Hokey. Using covariant return type and assuming that strong mode
+  // uses regular subtype rules for override (instead of assignability). Could
+  // test this more directly, but this works.
+  testUnit("$t1 should be a subtype of $t2", """
+abstract class A {
+  $t2 method();
+}
+
+abstract class B extends A {
+  $t1 method();
+}
+""");
+}
+
+void testNotSubtype(String t1, String t2) {
+  // TODO(bob): Hokey. Using covariant return type and assuming that strong mode
+  // uses regular subtype rules for override (instead of assignability). Could
+  // test this more directly, but this works.
+  testUnit("$t1 should not be a subtype of $t2", """
+abstract class A {
+  $t2 method();
+}
+
+abstract class B extends A {
+  /*error:INVALID_METHOD_OVERRIDE*/$t1 method();
+}
+""");
 }
 
 void testStatements(String message, String code) {

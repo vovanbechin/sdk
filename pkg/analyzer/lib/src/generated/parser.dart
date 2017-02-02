@@ -196,7 +196,7 @@ class Parser {
    * A flag indicating whether the parser is to parse the non-nullable modifier
    * in type names.
    */
-  bool _enableNnbd = false;
+  bool _enableNnbd = true;
 
   /**
    * A flag indicating whether the parser is to allow URI's in part-of
@@ -290,7 +290,7 @@ class Parser {
    * Return `true` if the parser is to parse the non-nullable modifier in type
    * names.
    */
-  bool get enableNnbd => _enableNnbd;
+  bool get enableNnbd => true;
 
   /**
    * Set whether the parser is to parse the non-nullable modifier in type names
@@ -5548,6 +5548,11 @@ class Parser {
     }
     if (_tokenMatches(token, TokenType.LT)) {
       token = skipTypeArgumentList(token);
+    }
+    // TODO(nnbd): This is a bug-fix in the parser. Need to roll this back into
+    // master.
+    if (enableNnbd && token != null && _tokenMatches(token, TokenType.QUESTION)) {
+      token = token.next;
     }
     return token;
   }

@@ -8143,6 +8143,7 @@ class TypeNameResolver {
 //        }
         typeName.staticType = voidType;
         node.type = voidType;
+        // TODO(nnbd): What about "void?"?
         return;
       }
       if (nameScope.shouldIgnoreUndefined(typeName)) {
@@ -8378,6 +8379,11 @@ class TypeNameResolver {
     } else {
       type = typeSystem.instantiateToBounds(type);
     }
+
+    if (node.question != null) {
+      type = typeSystem.makeNullable(type);
+    }
+
     typeName.staticType = type;
     node.type = type;
   }

@@ -2810,3 +2810,51 @@ class VoidTypeImpl extends TypeImpl implements VoidType {
           [List<FunctionTypeAliasElement> prune]) =>
       this;
 }
+
+class NullableType extends TypeImpl {
+  // TODO(rnystrom): Hack. Need access to this to check for Object class since
+  // isObject doesn't seem to always work in tests.
+  final StrongTypeSystemImpl _typeSystem;
+
+  final TypeImpl baseType;
+
+  NullableType(this._typeSystem, this.baseType) : super(null, null);
+
+  @override
+  String get displayName => "${baseType.displayName}?";
+
+  /**
+   * Append a textual representation of this type to the given [buffer]. The set
+   * of [visitedTypes] is used to prevent infinite recursion.
+   */
+  void appendTo(StringBuffer buffer) {
+    baseType.appendTo(buffer);
+    buffer.write("?");
+  }
+
+  @override
+  DartType flattenFutures(TypeSystem typeSystem) {
+    throw "implement flattenFutures";
+  }
+
+  @override
+  bool isMoreSpecificThan(DartType type,
+      [bool withDynamic = false, Set<Element> visitedElements]) {
+    throw new UnsupportedError("Strong mode should not use this.");
+  }
+
+  @override
+  bool get isNullable => true;
+
+  @override
+  TypeImpl pruned(List<FunctionTypeAliasElement> prune) {
+    if (prune == null) return this;
+    return _typeSystem.makeNullable(baseType.pruned(prune));
+  }
+
+  @override
+  DartType substitute2(List<DartType> argumentTypes, List<DartType> parameterTypes, [List<FunctionTypeAliasElement> prune]) {
+    // TODO(nnbd): Is this right?
+    return _typeSystem.makeNullable(baseType.substitute2(argumentTypes, parameterTypes, prune));
+  }
+}
