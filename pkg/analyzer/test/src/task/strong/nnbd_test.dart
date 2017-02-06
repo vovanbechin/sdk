@@ -188,6 +188,10 @@ void main() {
     testMoreSpecific("int?", "num?");
     testMoreSpecific("int?", "Object");
 
+    testMoreSpecific("int", "num?");
+    testMoreSpecific("int?", "num?");
+    testNotSubtype("int?", "num");
+
     // Unrelated types.
     testNotSubtype("String?", "num?");
   });
