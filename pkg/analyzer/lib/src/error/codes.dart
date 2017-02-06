@@ -2760,6 +2760,11 @@ class StaticTypeWarningCode extends ErrorCode {
           "Try adding an initializer to the declaration, or "
           "making the variable nullable by adding a '?' after the type name.");
 
+  static const StaticTypeWarningCode NON_NULLABLE_PARAMETER_WITHOUT_DEFAULT =
+  const StaticTypeWarningCode(
+      'NON_NULLABLE_PARAMETER_WITHOUT_DEFAULT',
+      "Parameter '{0}' of non-nullable type '{1}' must have a default value.");
+
   /**
    * 15.8 Parameterized Types: It is a static type warning if <i>A<sub>i</sub>,
    * 1 &lt;= i &lt;= n</i> does not denote a type in the enclosing lexical scope.

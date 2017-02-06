@@ -787,6 +787,7 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
       _checkForTypeAnnotationDeferredClass(returnType);
       _checkForIllegalReturnType(returnType);
       _checkForImplicitDynamicReturn(node.name, node.element);
+
       return super.visitFunctionDeclaration(node);
     } finally {
       _enclosingFunction = outerFunction;
@@ -795,6 +796,8 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
 
   @override
   Object visitFunctionExpression(FunctionExpression node) {
+    _checkForNonnullableParameterWithoutDefault(node.parameters, node.element);
+
     // If this function expression is wrapped in a function declaration, don't
     // change the enclosingFunction field.
     if (node.parent is! FunctionDeclaration) {
@@ -1012,6 +1015,10 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
       _checkForIllegalReturnType(returnType);
       _checkForImplicitDynamicReturn(node, node.element);
       _checkForMustCallSuper(node);
+
+      _checkForNonnullableParameterWithoutDefault(
+          node.parameters, node.element);
+
       return super.visitMethodDeclaration(node);
     } finally {
       _enclosingFunction = previousFunction;
@@ -1702,10 +1709,10 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
 
     // Report errors for uninitialized non-nullable fields.
     for (var field in notInitNonNullableFields) {
-        _errorReporter.reportErrorForNode(
-            StaticTypeWarningCode.NON_NULLABLE_FIELD_NOT_INITIALIZED,
-            constructor.returnType,
-            [field.name, field.type]);
+      _errorReporter.reportErrorForNode(
+          StaticTypeWarningCode.NON_NULLABLE_FIELD_NOT_INITIALIZED,
+          constructor.returnType,
+          [field.name, field.type]);
     }
   }
 
@@ -4058,6 +4065,55 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
           : StrongModeCode.IMPLICIT_DYNAMIC_MAP_LITERAL;
       _errorReporter.reportErrorForNode(errorCode, node);
     }
+  }
+
+  void _checkForNonnullableParameterWithoutDefault(
+      FormalParameterList parameters, ExecutableElement element) {
+    // Getters don't have a parameter list.
+    if (parameters == null) return;
+
+    // Make sure that optional parameters of non-nullable types have a default
+    // value. Otherwise, they could end up initialized with null.
+    var methodType = element.type;
+    var optional = parameters.parameters
+        .where((p) => p.kind == ParameterKind.POSITIONAL)
+        .toList();
+    var optionalTypes = methodType.optionalParameterTypes;
+
+    for (var i = 0; i < optional.length; i++) {
+      var param = optional[i];
+
+      var hasDefault = false;
+      if (param is DefaultFormalParameter) {
+        hasDefault = param.defaultValue != null;
+      }
+
+      if (optionalTypes[i].isNonNullable && !hasDefault) {
+        _errorReporter.reportErrorForNode(
+            StaticTypeWarningCode.NON_NULLABLE_PARAMETER_WITHOUT_DEFAULT,
+            param,
+            [param.identifier.name, optionalTypes[i]]);
+      }
+    }
+
+    var named = new Map.fromIterable(
+        parameters.parameters.where((p) => p.kind == ParameterKind.NAMED),
+        key: (p) => p.identifier.name);
+    var namedTypes = methodType.namedParameterTypes;
+
+    named.forEach((name, param) {
+      var hasDefault = false;
+      if (param is DefaultFormalParameter) {
+        hasDefault = param.defaultValue != null;
+      }
+
+      if (namedTypes[name].isNonNullable && !hasDefault) {
+        _errorReporter.reportErrorForNode(
+            StaticTypeWarningCode.NON_NULLABLE_PARAMETER_WITHOUT_DEFAULT,
+            param,
+            [param.identifier.name, namedTypes[name]]);
+      }
+    });
   }
 
   /**

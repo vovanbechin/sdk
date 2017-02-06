@@ -890,6 +890,18 @@ class StrongTypeSystemImpl extends TypeSystem {
       return guardedInferTypeParameter(t1, t2, visited);
     }
 
+    if (t1 is NullableType && t2 is NullableType) {
+      return isSubtypeOf(t1.baseType, t2.baseType);
+    }
+
+    if (t1 is NullableType) {
+      return t2.isObject;
+    }
+
+    if (t2 is NullableType) {
+      return t1 == typeProvider.nullType || isSubtypeOf(t1, t2.baseType);
+    }
+
     // S <: T where S is a type variable
     //  T is not dynamic or object (handled above)
     //  True if T == S
@@ -922,18 +934,6 @@ class StrongTypeSystemImpl extends TypeSystem {
       // t1 <: (Future<A> | A) iff t1 <: Future<A> or t1 <: A
       return guardedSubtype(t1, t2.futureOfType, visited) ||
           guardedSubtype(t1, t2.type, visited);
-    }
-
-    if (t1 is NullableType && t2 is NullableType) {
-      return isSubtypeOf(t1.baseType, t2.baseType);
-    }
-
-    if (t1 is NullableType) {
-      return t2.isObject;
-    }
-
-    if (t2 is NullableType) {
-      return t1 == typeProvider.nullType || isSubtypeOf(t1, t2.baseType);
     }
 
     // Void only appears as the return type of a function, and we handle it
