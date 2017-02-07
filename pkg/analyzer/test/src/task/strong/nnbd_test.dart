@@ -8,6 +8,9 @@
 
 import 'package:test/test.dart';
 
+import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/src/error/codes.dart';
+
 import '../strong/strong_test_helper.dart';
 
 void main() {
@@ -180,8 +183,8 @@ void main() {
   });
 
   group("subtype", () {
-    testEquivalent("int?", "int?");
-    testEquivalent("Object?", "Object");
+    testEquivalentTypes("int?", "int?");
+    testEquivalentTypes("Object?", "Object");
 
     testMoreSpecific("int", "int?");
     testMoreSpecific("Null", "int?");
@@ -364,20 +367,84 @@ void main() {
           foo<T>([T? t]) {}
           """);
     });
+
+    group("lub", () {
+      group("ternary", () {
+        testHasType("b ? 123 : 12.34", "num");
+
+        // Ternary with null.
+        testHasType("b ? null : null", "Null");
+        testHasType("b ? 123 : null", "int?");
+        testHasType("b ? 's' : null", "String?");
+        testHasType("b ? (123 as int?) : null", "int?");
+
+        // Ternary with nullable.
+        testHasType("b ? (1 as int?) : (1 as int?)", "int?");
+        testHasType("b ? (1 as int?) : (1.2 as num?)", "num?");
+        testHasType("b ? (1 as int?) : (1.2 as double?)", "num?");
+        testHasType("b ? (1 as int?) : ('s' as String?)", "Object");
+        testHasType("b ? (1 as int?) : 's'", "Object");
+      });
+
+      group("lists", () {
+        testHasType("[null, null]", "List<Null>");
+        testHasType("[1, null]", "List<int?>");
+        testHasType("[1, null, 2.0]", "List<num?>");
+        testHasType("[1, null, 'str']", "List<Object>");
+        testHasType("[[null], [1]]", "List<List<int?>>");
+        // TODO(nnbd): Could provide a better type if we infer Null for empty
+        // lists.
+        testHasType("[[], [1]]", "List<List<dynamic>>");
+      });
+
+      group("maps", () {
+        testHasType("{'a': null, 'b': null}", "Map<String, Null>");
+        testHasType("{'a': 1, 'b': null}", "Map<String, int?>");
+        testHasType("{'a': 1, 'b': null, 'c': 2.0}", "Map<String, num?>");
+        testHasType("{'a': 1, 'b': null, 'c': 'str'}", "Map<String, Object>");
+        testHasType("{'a': [null], 'b': [1]}", "Map<String, List<int?>>");
+        // TODO(nnbd): Could provide a better type if we infer Null for empty
+        // maps.
+        testHasType("{'a': {}, 'b': {1: 1}}", "Map<String, Map<dynamic, dynamic>>");
+      });
+
+      // TODO(nnbd): More complex tests with function types and generics.
+    });
+  });
+}
+
+void testHasType(String expression, String type, {String context}) {
+  if (context == null) context = "";
+
+  test("`$expression` has type $type", () {
+    addFile("""
+        main() {
+          bool b = true;
+          $context
+          var f = $expression;
+        }
+        """);
+
+    var unit = check(ignoredErrors: [StrongModeCode.INFERRED_TYPE_LITERAL]);
+    var main = unit.declarations[0] as FunctionDeclaration;
+    var body = main.functionExpression.body as BlockFunctionBody;
+    var f = body.block.statements.last as VariableDeclarationStatement;
+    var variable = f.variables.variables.first.element;
+    expect(variable.type.toString(), type);
   });
 }
 
 void testMoreSpecific(String t1, String t2) {
-  testSubtype(t1, t2);
+  expectSubtype(t1, t2);
   testNotSubtype(t2, t1);
 }
 
-void testEquivalent(String t1, String t2) {
-  testSubtype(t1, t2);
-  testSubtype(t2, t1);
+void testEquivalentTypes(String t1, String t2) {
+  expectSubtype(t1, t2);
+  expectSubtype(t2, t1);
 }
 
-void testSubtype(String t1, String t2) {
+void expectSubtype(String t1, String t2) {
   // TODO(bob): Hokey. Using covariant return type and assuming that strong mode
   // uses regular subtype rules for override (instead of assignability). Could
   // test this more directly, but this works.

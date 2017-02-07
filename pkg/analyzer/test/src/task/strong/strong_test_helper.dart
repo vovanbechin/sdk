@@ -59,7 +59,8 @@ void addFile(String content, {String name: '/main.dart'}) {
 /// Returns the main resolved library. This can be used for further checks.
 CompilationUnit check(
     {bool implicitCasts: true,
-    bool implicitDynamic: true}) {
+    bool implicitDynamic: true,
+    Iterable<ErrorCode> ignoredErrors: const []}) {
   _checkCalled = true;
 
   File mainFile = files.getFile(files.convertPath('/main.dart'));
@@ -107,7 +108,8 @@ CompilationUnit check(
           e.errorCode != HintCode.UNUSED_FIELD &&
           e.errorCode != HintCode.UNUSED_IMPORT &&
           e.errorCode != HintCode.UNUSED_LOCAL_VARIABLE &&
-          e.errorCode != TodoCode.TODO));
+          e.errorCode != TodoCode.TODO &&
+          !ignoredErrors.contains(e.errorCode)));
       _expectErrors(context, resolved, errors);
     }
   }

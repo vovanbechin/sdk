@@ -315,15 +315,6 @@ class StrongTypeSystemImpl extends TypeSystem {
   @override
   DartType getLeastUpperBound(DartType type1, DartType type2,
       {bool dynamicIsBottom: false}) {
-    // TODO(nnbd): Incorporate nullable types directly into least upper bound.
-//    if (type1.isNullable && type2.isNonNullable) {
-//      assert(type2 is InterfaceType);
-//      type2 = getLeastNullableSupertype(type2 as InterfaceType);
-//    }
-//    if (type2.isNullable && type1.isNonNullable) {
-//      assert(type1 is InterfaceType);
-//      type1 = getLeastNullableSupertype(type1 as InterfaceType);
-//    }
     return super
         .getLeastUpperBound(type1, type2, dynamicIsBottom: dynamicIsBottom);
   }
@@ -1082,6 +1073,7 @@ abstract class TypeSystem {
     if (identical(type1, type2)) {
       return type1;
     }
+
     // The least upper bound of top and any type T is top.
     // The least upper bound of bottom and any type T is T.
     if (_isTop(type1, dynamicIsBottom: dynamicIsBottom) ||
@@ -1092,6 +1084,7 @@ abstract class TypeSystem {
         _isBottom(type1, dynamicIsBottom: dynamicIsBottom)) {
       return type2;
     }
+
     // The least upper bound of void and any type T != dynamic is void.
     if (type1.isVoid) {
       return type1;
@@ -1102,6 +1095,20 @@ abstract class TypeSystem {
 
     if (type1 is TypeParameterType || type2 is TypeParameterType) {
       return _typeParameterLeastUpperBound(type1, type2);
+    }
+
+    if (type1 == typeProvider.nullType) {
+      return makeNullable(type2);
+    }
+    if (type2 == typeProvider.nullType) {
+      return makeNullable(type1);
+    }
+
+    if (type1 is NullableType) {
+      return makeNullable(getLeastUpperBound(type1.baseType, type2));
+    }
+    if (type2 is NullableType) {
+      return makeNullable(getLeastUpperBound(type1, type2.baseType));
     }
 
     // The least upper bound of a function type and an interface type T is the
@@ -1783,5 +1790,6 @@ class _TypeParameterVariance {
     } else if (type is InterfaceType) {
       _visitInterfaceType(typeParam, type, paramIn);
     }
+    // TODO(nnbd): Handle nullable types here.
   }
 }
