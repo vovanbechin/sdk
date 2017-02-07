@@ -2012,7 +2012,7 @@ void Parser::ParseFormalParameter(bool allow_explicit_default_value,
       // It is too early to resolve the type here, since it can be a result type
       // referring to a not yet declared function type parameter.
       parameter.type = &AbstractType::ZoneHandle(
-          Z, ParseType(ClassFinalizer::kDoNotResolve));
+          Z, ParseNullableType(ClassFinalizer::kDoNotResolve));
     } else {
       // If this is an initializing formal, its type will be set to the type of
       // the respective field when the constructor is fully parsed.
@@ -4336,7 +4336,7 @@ void Parser::ParseClassMemberDefinition(ClassDesc* members,
       // It is too early to resolve the type here, since it can be a result type
       // referring to a not yet declared function type parameter.
       member.type = &AbstractType::ZoneHandle(
-          Z, ParseType(ClassFinalizer::kDoNotResolve));
+          Z, ParseNullableType(ClassFinalizer::kDoNotResolve));
     }
   }
 
@@ -5122,7 +5122,7 @@ void Parser::ParseTypedef(const GrowableObjectArray& pending_classes,
   } else if (!IsFunctionTypeAliasName()) {
     // Type annotations in typedef are never ignored, even in production mode.
     // Wait until we have an owner class before resolving the result type.
-    result_type = ParseType(ClassFinalizer::kDoNotResolve);
+    result_type = ParseNullableType(ClassFinalizer::kDoNotResolve);
   }
 
   const TokenPosition alias_name_pos = TokenPos();
@@ -5315,7 +5315,7 @@ void Parser::ParseTypeParameters(bool parameterizing_class) {
         // i.e. to the class or function currently being parsed.
         // Postpone resolution in order to avoid resolving the owner and its
         // type parameters, as they are not fully parsed yet.
-        type_parameter_bound = ParseType(ClassFinalizer::kDoNotResolve);
+        type_parameter_bound = ParseNullableType(ClassFinalizer::kDoNotResolve);
         if (!parameterizing_class) {
           // TODO(regis): Resolve and finalize function type parameter bounds in
           // class finalizer. For now, ignore parsed bounds to avoid unresolved
@@ -5376,7 +5376,7 @@ RawTypeArguments* Parser::ParseTypeArguments(
     AbstractType& type = AbstractType::Handle(Z);
     do {
       ConsumeToken();
-      type = ParseType(finalization);
+      type = ParseNullableType(finalization);
       // Map a malformed type argument to dynamic.
       if (type.IsMalformed()) {
         type = Type::DynamicType();
@@ -5590,7 +5590,7 @@ void Parser::ParseTopLevelFunction(TopLevel* top_level,
     if (IsFunctionReturnType()) {
       // It is too early to resolve the type here, since it can be a result type
       // referring to a not yet declared function type parameter.
-      result_type = ParseType(ClassFinalizer::kDoNotResolve);
+      result_type = ParseNullableType(ClassFinalizer::kDoNotResolve);
     }
   }
   const TokenPosition name_pos = TokenPos();
@@ -5728,7 +5728,7 @@ void Parser::ParseTopLevelAccessor(TopLevel* top_level,
       ConsumeToken();
       result_type = Type::VoidType();
     } else {
-      result_type = ParseType(ClassFinalizer::kResolveTypeParameters);
+      result_type = ParseNullableType(ClassFinalizer::kResolveTypeParameters);
     }
     is_getter = (CurrentToken() == Token::kGET);
     if (CurrentToken() == Token::kGET || CurrentToken() == Token::kSET) {
@@ -7559,7 +7559,7 @@ RawAbstractType* Parser::ParseConstFinalVarOrType(
       return Type::DynamicType();
     }
   }
-  return ParseType(finalization);
+  return ParseNullableType(finalization);
 }
 
 
@@ -7630,7 +7630,7 @@ AstNode* Parser::ParseFunctionStatement(bool is_literal) {
     } else if (IsFunctionReturnType()) {
       // It is too early to resolve the type here, since it can be a result type
       // referring to a not yet declared function type parameter.
-      result_type = ParseType(ClassFinalizer::kDoNotResolve);
+      result_type = ParseNullableType(ClassFinalizer::kDoNotResolve);
     }
     function_name_pos = TokenPos();
     function_name = ExpectIdentifier("function name expected");
@@ -7860,6 +7860,11 @@ bool Parser::TryParseTypeParameters() {
       return false;
     }
     ConsumeToken();
+    
+    // Allow a "?" after a type.
+    if (CurrentToken() == Token::kCONDITIONAL) {
+      ConsumeToken();
+    }
   } while (nesting_level > 0);
   if (nesting_level < 0) {
     return false;
@@ -7920,6 +7925,11 @@ bool Parser::TryParseTypeArguments() {
       return false;
     }
     ConsumeToken();
+    
+    // Allow a "?" after a type.
+    if (CurrentToken() == Token::kCONDITIONAL) {
+      ConsumeToken();
+    }
   } while (nesting_level > 0);
   if (nesting_level < 0) {
     return false;
@@ -8029,6 +8039,11 @@ bool Parser::TryParseOptionalType() {
     if ((CurrentToken() == Token::kLT) && !TryParseTypeParameters()) {
       return false;
     }
+    
+    // Allow a "?" after a type.
+    if (CurrentToken() == Token::kCONDITIONAL) {
+      ConsumeToken();
+    }
   }
   return true;
 }
@@ -8083,6 +8098,7 @@ bool Parser::IsVariableDeclaration() {
     Token::Kind follower = LookaheadToken(1);
     if ((follower == Token::kLT) ||       // Parameterized type.
         (follower == Token::kPERIOD) ||   // Qualified class name of type.
+        (follower == Token::kCONDITIONAL) || // "?" Nullable suffix.
         Token::IsIdentifier(follower)) {  // Variable name following a type.
       // We see the beginning of something that could be a type.
       const TokenPosition type_pos = TokenPos();
@@ -10625,6 +10641,8 @@ AstNode* Parser::ParseBinaryExpr(int min_preced) {
           op_kind = Token::kISNOT;
         }
         const TokenPosition type_pos = TokenPos();
+        // TODO(nnbd): Should allow a "?" for a nullable type here, but only if
+        // we are not parsing a conditional operator.
         const AbstractType& type = AbstractType::ZoneHandle(
             Z, ParseType(ClassFinalizer::kCanonicalize));
         if (!type.IsInstantiated() && (FunctionLevel() > 0)) {
@@ -12718,7 +12736,16 @@ RawAbstractType* Parser::ParseType(
     bool consume_unresolved_prefix) {
   LibraryPrefix& prefix = LibraryPrefix::Handle(Z);
   return ParseType(finalization, allow_deferred_type, consume_unresolved_prefix,
-                   &prefix);
+                   false, &prefix);
+}
+
+RawAbstractType* Parser::ParseNullableType(
+                                   ClassFinalizer::FinalizationKind finalization,
+                                   bool allow_deferred_type,
+                                   bool consume_unresolved_prefix) {
+  LibraryPrefix& prefix = LibraryPrefix::Handle(Z);
+  return ParseType(finalization, allow_deferred_type, consume_unresolved_prefix,
+                   true, &prefix);
 }
 
 // Parses type = [ident "."] ident ["<" type { "," type } ">"], then resolve and
@@ -12727,6 +12754,7 @@ RawAbstractType* Parser::ParseType(
     ClassFinalizer::FinalizationKind finalization,
     bool allow_deferred_type,
     bool consume_unresolved_prefix,
+    bool allow_question_mark,
     LibraryPrefix* prefix) {
   TRACE_PARSER("ParseType");
   CheckToken(Token::kIDENT, "type name expected");
@@ -12819,6 +12847,16 @@ RawAbstractType* Parser::ParseType(
   }
   TypeArguments& type_arguments =
       TypeArguments::Handle(Z, ParseTypeArguments(finalization));
+
+
+  // TODO(nnbd): Hack. Ignore a "?". This lets us start sprinkling them in the
+  // core libraries without breaking the VM. Note that placing this here is
+  // technically wrong since it allows "?" in things like extends clauses.
+  // Since this is just for the prototype, we'll allow that.
+  if (allow_question_mark && CurrentToken() == Token::kCONDITIONAL) {
+    ConsumeToken();
+  }
+
   if (finalization == ClassFinalizer::kIgnore) {
     return Type::DynamicType();
   }
@@ -13419,7 +13457,9 @@ void Parser::ParseConstructorClosurization(Function* constructor,
   AbstractType& type =
       AbstractType::Handle(Z, ParseType(ClassFinalizer::kCanonicalizeWellFormed,
                                         true,  // allow deferred type
-                                        consume_unresolved_prefix, &prefix));
+                                        consume_unresolved_prefix,
+                                        false, // allow question mark
+                                        &prefix));
   // A constructor tear-off closure can only have been created for a
   // type that is loaded.
   ASSERT(prefix.IsNull() || prefix.is_loaded());
@@ -13480,8 +13520,11 @@ AstNode* Parser::ParseNewOperator(Token::Kind op_kind) {
 
   LibraryPrefix& prefix = LibraryPrefix::ZoneHandle(Z);
   AbstractType& type = AbstractType::ZoneHandle(
-      Z, ParseType(ClassFinalizer::kCanonicalizeWellFormed, allow_deferred_type,
-                   consume_unresolved_prefix, &prefix));
+      Z, ParseType(ClassFinalizer::kCanonicalizeWellFormed,
+                   allow_deferred_type,
+                   consume_unresolved_prefix,
+                   false, // allow question mark
+                   &prefix));
 
   if (FLAG_load_deferred_eagerly && !prefix.IsNull() &&
       prefix.is_deferred_load() && !prefix.is_loaded()) {

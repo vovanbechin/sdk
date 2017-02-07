@@ -518,9 +518,13 @@ class Parser : public ValueObject {
   RawAbstractType* ParseType(ClassFinalizer::FinalizationKind finalization,
                              bool allow_deferred_type = false,
                              bool consume_unresolved_prefix = true);
+  RawAbstractType* ParseNullableType(ClassFinalizer::FinalizationKind finalization,
+                             bool allow_deferred_type = false,
+                             bool consume_unresolved_prefix = true);
   RawAbstractType* ParseType(ClassFinalizer::FinalizationKind finalization,
                              bool allow_deferred_type,
                              bool consume_unresolved_prefix,
+                             bool allow_question_mark,
                              LibraryPrefix* prefix);
 
   void ParseTypeParameters(bool parameterizing_class);
