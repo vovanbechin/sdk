@@ -51,6 +51,7 @@ import '../tokens/token_constants.dart'
         OPEN_PAREN_TOKEN,
         OPEN_SQUARE_BRACKET_TOKEN,
         PERIOD_TOKEN,
+        QUESTION_TOKEN,
         SEMICOLON_TOKEN,
         STRING_INTERPOLATION_IDENTIFIER_TOKEN,
         STRING_INTERPOLATION_TOKEN,
@@ -457,10 +458,10 @@ class Parser {
 
     Token thisKeyword = null;
     if (inFunctionType && isNamedParameter) {
-      token = parseType(token);
+      token = parseType(token, allowQuestion: true);
       token = parseIdentifier(token);
     } else if (inFunctionType) {
-      token = parseType(token);
+      token = parseType(token, allowQuestion: true);
       if (token.isIdentifier()) {
         token = parseIdentifier(token);
       } else {
@@ -489,6 +490,9 @@ class Parser {
         listener.handleFunctionTypedFormalParameter(token);
       }
     }
+
+    if (optional('?', token)) token = token.next;
+
     String value = token.stringValue;
     if ((identical('=', value)) || (identical(':', value))) {
       // TODO(ahe): Validate that these are only used for optional parameters.
@@ -544,11 +548,11 @@ class Parser {
   Token parseTypeOpt(Token token) {
     if (isGeneralizedFunctionType(token)) {
       // Function type without return type.
-      return parseType(token);
+      return parseType(token, allowQuestion: true);
     }
     Token peek = peekAfterIfType(token);
     if (peek != null && (peek.isIdentifier() || optional('this', peek))) {
-      return parseType(token);
+      return parseType(token, allowQuestion: true);
     }
     listener.handleNoType(token);
     return token;
@@ -805,7 +809,7 @@ class Parser {
     Token extendsOrSuper = null;
     if (optional('extends', token) || optional('super', token)) {
       extendsOrSuper = token;
-      token = parseType(token.next);
+      token = parseType(token.next, allowQuestion: true);
     } else {
       listener.handleNoType(token);
     }
@@ -856,7 +860,7 @@ class Parser {
         token.value == "Function";
   }
 
-  Token parseType(Token token) {
+  Token parseType(Token token, {bool allowQuestion: false}) {
     Token begin = token;
     if (isGeneralizedFunctionType(token)) {
       // A function type without return type.
@@ -871,6 +875,9 @@ class Parser {
         token = listener.expectedType(token);
       }
       token = parseTypeArgumentsOpt(token);
+
+      if (allowQuestion && optional('?', token)) token = token.next;
+
       listener.endType(begin, token);
     }
 
@@ -903,7 +910,7 @@ class Parser {
     return parseStuff(
         token,
         (t) => listener.beginTypeArguments(t),
-        (t) => parseType(t),
+        (t) => parseType(t, allowQuestion: true),
         (c, bt, et) => listener.endTypeArguments(c, bt, et),
         (t) => listener.handleNoTypeArguments(t));
   }
@@ -1301,6 +1308,9 @@ class Parser {
           token = beginGroup.endGroup.next;
         }
       }
+
+      // Skip a "?" nullable suffix.
+      if (optional('?', token)) token = token.next;
     }
     return const Link<Token>();
   }
@@ -1414,6 +1424,7 @@ class Parser {
     while (isGeneralizedFunctionType(peek)) {
       peek = peekAfterFunctionType(peek);
     }
+
     return peek;
   }
 
@@ -1441,6 +1452,10 @@ class Parser {
         peek = gtToken.next;
       }
     }
+
+    // Allow an nullable "?" suffix.
+    if (identical(peek.kind, QUESTION_TOKEN)) peek = peek.next;
+
     return peek;
   }
 
@@ -1484,6 +1499,9 @@ class Parser {
     if (closeToken != null) {
       peek = closeToken.next;
     }
+
+    // Allow a nullable "?" suffix.
+    if (identical(peek.kind, QUESTION_TOKEN)) peek = peek.next;
 
     return peek;
   }
@@ -2773,6 +2791,8 @@ class Parser {
       token = token.next;
       not = token;
     }
+    // TODO(nnbd): Allow "?" here when we can disambiguate with a following
+    // conditional operator.
     token = parseType(token.next);
     listener.handleIsOperator(operator, not, token);
     String value = token.stringValue;
@@ -2787,6 +2807,8 @@ class Parser {
   Token parseAsOperatorRest(Token token) {
     assert(optional('as', token));
     Token operator = token;
+    // TODO(nnbd): Allow "?" here when we can disambiguate with a following
+    // conditional operator.
     token = parseType(token.next);
     listener.handleAsOperator(operator, token);
     String value = token.stringValue;

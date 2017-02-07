@@ -2098,6 +2098,11 @@ void Parser::ParseFormalParameter(bool allow_explicit_default_value,
 
       const bool no_explicit_default_values = false;
       ParseFormalParameterList(no_explicit_default_values, false, &func_params);
+      
+      // Allow a "?" after a type.
+      if (CurrentToken() == Token::kCONDITIONAL) {
+        ConsumeToken();
+      }
 
       signature_function.set_result_type(result_type);
       AddFormalParamsToFunction(&func_params, signature_function);
