@@ -453,6 +453,33 @@ void main() {
         }
         """);
   });
+
+  group("conditions", () {
+    testStatements("do", """
+        bool? b;
+        do {} while (/*error:NON_BOOL_CONDITION*/b);
+        """);
+
+    testStatements("for", """
+        bool? b;
+        for (;/*error:NON_BOOL_CONDITION*/b;) {}
+        """);
+
+    testStatements("if", """
+        bool? b;
+        if (/*error:NON_BOOL_CONDITION*/b) {}
+        """);
+
+    testStatements("while", """
+        bool? b;
+        while (/*error:NON_BOOL_CONDITION*/b) {}
+        """);
+
+    testStatements("ternary", """
+        bool? b;
+        /*error:NON_BOOL_CONDITION*/b ? 1 : 2;
+        """);
+  });
 }
 
 void testHasType(String expression, String type, {String context}) {
