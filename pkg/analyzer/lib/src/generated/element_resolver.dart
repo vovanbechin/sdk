@@ -1728,6 +1728,13 @@ class ElementResolver extends SimpleAstVisitor<Object> {
   PropertyAccessorElement _lookUpGetter(
       Expression target, DartType type, String getterName) {
     type = _resolveTypeParameter(type);
+
+    // A union type's method set is the intersection of the method sets of the
+    // two arms. For "Null | ...", it is always just Object.
+    if (type is NullableType) {
+      type = _resolver.typeProvider.objectType;
+    }
+
     if (type is InterfaceType) {
       return type.lookUpInheritedGetter(getterName,
           library: _definingLibrary, thisType: target is! SuperExpression);
@@ -1742,6 +1749,7 @@ class ElementResolver extends SimpleAstVisitor<Object> {
    */
   ExecutableElement _lookupGetterOrMethod(DartType type, String memberName) {
     type = _resolveTypeParameter(type);
+
     if (type is InterfaceType) {
       return type.lookUpInheritedGetterOrMethod(memberName,
           library: _definingLibrary);
@@ -1758,6 +1766,13 @@ class ElementResolver extends SimpleAstVisitor<Object> {
   MethodElement _lookUpMethod(
       Expression target, DartType type, String methodName) {
     type = _resolveTypeParameter(type);
+
+    // A union type's method set is the intersection of the method sets of the
+    // two arms. For "Null | ...", it is always just Object.
+    if (type is NullableType) {
+      type = _resolver.typeProvider.objectType;
+    }
+
     if (type is InterfaceType) {
       return type.lookUpInheritedMethod(methodName,
           library: _definingLibrary, thisType: target is! SuperExpression);
@@ -2227,6 +2242,13 @@ class ElementResolver extends SimpleAstVisitor<Object> {
   Element _resolveInvokedElementWithTarget(Expression target,
       DartType targetType, SimpleIdentifier methodName, bool isConditional) {
     String name = methodName.name;
+
+    // A union type's method set is the intersection of the method sets of the
+    // two arms. For "Null | ...", it is always just Object.
+    if (targetType is NullableType) {
+      targetType = _resolver.typeProvider.objectType;
+    }
+
     if (targetType is InterfaceType) {
       Element element = _lookUpMethod(target, targetType, name);
       if (element == null) {

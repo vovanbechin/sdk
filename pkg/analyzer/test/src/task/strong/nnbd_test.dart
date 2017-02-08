@@ -418,6 +418,41 @@ void main() {
       // TODO(nnbd): More complex tests with function types and generics.
     });
   });
+
+  group("methods", () {
+    testStatements("has Object methods", """
+        int? i;
+        i == i;
+        i.toString();
+        i.hashCode;
+        i.runtimeType;
+        """);
+
+    testStatements("does not have base type methods", """
+        int? i;
+        i./*error:UNDEFINED_METHOD*/toInt();
+        i /*error:UNDEFINED_OPERATOR*/+ 1;
+        i./*error:UNDEFINED_GETTER*/isEven;
+        """);
+
+    // For setters and functions, we need some more setup.
+    testUnit("does not have base type methods", """
+        typedef void Callback();
+
+        class Foo {
+          Object settable;
+        }
+
+        main() {
+          Foo? f;
+          f./*error:UNDEFINED_SETTER*/settable = 123;
+
+          Callback? c;
+          // TODO(nnbd): Use a more specific error message in a real implementation.
+          /*error:INVOCATION_OF_NON_FUNCTION*/c();
+        }
+        """);
+  });
 }
 
 void testHasType(String expression, String type, {String context}) {
@@ -492,7 +527,9 @@ void main() {
   $code
 }
 ''');
-    check();
+    check(
+        ignoreUndefinedMethod: false,
+        ignoredErrors: [StrongModeCode.DYNAMIC_INVOKE]);
   });
 }
 
@@ -503,13 +540,17 @@ class Foo {
   $code
 }
 ''');
-    check();
+    check(
+        ignoreUndefinedMethod: false,
+        ignoredErrors: [StrongModeCode.DYNAMIC_INVOKE]);
   });
 }
 
 void testUnit(String message, String code) {
   test(message, () {
     addFile(code);
-    check();
+    check(
+        ignoreUndefinedMethod: false,
+        ignoredErrors: [StrongModeCode.DYNAMIC_INVOKE]);
   });
 }

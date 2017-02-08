@@ -1941,11 +1941,8 @@ dart:io/http_impl.dart (1970:44) Parameter 'scheme' of non-nullable type '_Authe
 dart:io/http_impl.dart (1978:12) The return type 'Null' isn't a '_ProxyCredentials', as defined by the method '_findProxyCredentials'.
 dart:io/http_impl.dart (2038:12) Variable 'proxyCfg' of non-nullable type 'String' must be initialized.
 dart:io/http_impl.dart (2042:21) A value of type 'String?' can't be assigned to a variable of type 'String'.
-dart:io/http_impl.dart (2042:44) The operator '==' isn't defined for the class 'String?'.
 dart:io/http_impl.dart (2049:23) A value of type 'String?' can't be assigned to a variable of type 'String'.
-dart:io/http_impl.dart (2049:42) The operator '==' isn't defined for the class 'String?'.
 dart:io/http_impl.dart (2055:23) A value of type 'String?' can't be assigned to a variable of type 'String'.
-dart:io/http_impl.dart (2055:42) The operator '==' isn't defined for the class 'String?'.
 dart:io/http_impl.dart (2085:3) Variable '_streamFuture' of non-nullable type 'Future<dynamic>' must be initialized.
 dart:io/http_impl.dart (2085:3) Variable '_subscription' of non-nullable type 'StreamSubscription<dynamic>' must be initialized.
 dart:io/http_impl.dart (2110:37) A value of type 'Null' can't be assigned to a variable of type 'Duration'.

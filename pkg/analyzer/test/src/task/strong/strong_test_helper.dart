@@ -60,6 +60,7 @@ void addFile(String content, {String name: '/main.dart'}) {
 CompilationUnit check(
     {bool implicitCasts: true,
     bool implicitDynamic: true,
+    bool ignoreUndefinedMethod: true,
     Iterable<ErrorCode> ignoredErrors: const []}) {
   _checkCalled = true;
 
@@ -100,16 +101,27 @@ CompilationUnit check(
       var librarySource = context.getLibrariesContaining(source).single;
       var resolved = context.resolveCompilationUnit2(source, librarySource);
 
-      errors.addAll(context.computeErrors(source).where((e) =>
-          // TODO(jmesserly): these are usually intentional dynamic calls.
-          e.errorCode.name != 'UNDEFINED_METHOD' &&
-          // We don't care about any of these:
-          e.errorCode != HintCode.UNUSED_ELEMENT &&
-          e.errorCode != HintCode.UNUSED_FIELD &&
-          e.errorCode != HintCode.UNUSED_IMPORT &&
-          e.errorCode != HintCode.UNUSED_LOCAL_VARIABLE &&
-          e.errorCode != TodoCode.TODO &&
-          !ignoredErrors.contains(e.errorCode)));
+      // We never care about any of these:
+      const alwaysIgnored = const [
+        HintCode.UNUSED_ELEMENT,
+        HintCode.UNUSED_FIELD,
+        HintCode.UNUSED_IMPORT,
+        HintCode.UNUSED_LOCAL_VARIABLE,
+        TodoCode.TODO
+      ];
+
+      errors.addAll(context.computeErrors(source).where((e) {
+        if (alwaysIgnored.contains(e.errorCode)) return false;
+
+        if (ignoredErrors.contains(e.errorCode)) return false;
+
+        // TODO(jmesserly): these are usually intentional dynamic calls.
+        if (ignoreUndefinedMethod && e.errorCode.name == 'UNDEFINED_METHOD') {
+          return false;
+        }
+
+        return true;
+      }));
       _expectErrors(context, resolved, errors);
     }
   }
