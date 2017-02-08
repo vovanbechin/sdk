@@ -962,7 +962,7 @@ class ElementResolver extends SimpleAstVisitor<Object> {
     // Otherwise, the prefix is really an expression that happens to be a simple
     // identifier and this is really equivalent to a property access node.
     //
-    _resolvePropertyAccess(prefix, identifier, false);
+    _resolvePropertyAccess(prefix, identifier, false, false);
     return null;
   }
 
@@ -1018,7 +1018,8 @@ class ElementResolver extends SimpleAstVisitor<Object> {
       return null;
     }
     SimpleIdentifier propertyName = node.propertyName;
-    _resolvePropertyAccess(target, propertyName, node.isCascaded);
+    _resolvePropertyAccess(target, propertyName, node.isCascaded,
+        node.operator.type == TokenType.QUESTION_PERIOD);
     return null;
   }
 
@@ -2243,10 +2244,16 @@ class ElementResolver extends SimpleAstVisitor<Object> {
       DartType targetType, SimpleIdentifier methodName, bool isConditional) {
     String name = methodName.name;
 
-    // A union type's method set is the intersection of the method sets of the
-    // two arms. For "Null | ...", it is always just Object.
     if (targetType is NullableType) {
-      targetType = _resolver.typeProvider.objectType;
+      if (isConditional) {
+        // A null-aware call checks for null first, so is allowed access to the
+        // base type's members.
+        targetType = (targetType as NullableType).baseType;
+      } else {
+        // A union type's method set is the intersection of the method sets of
+        // the two arms. For "Null | ...", it is always just Object.
+        targetType = _resolver.typeProvider.objectType;
+      }
     }
 
     if (targetType is InterfaceType) {
@@ -2326,10 +2333,23 @@ class ElementResolver extends SimpleAstVisitor<Object> {
     return memberElement;
   }
 
-  void _resolvePropertyAccess(
-      Expression target, SimpleIdentifier propertyName, bool isCascaded) {
+  void _resolvePropertyAccess(Expression target, SimpleIdentifier propertyName,
+      bool isCascaded, bool isNullAware) {
     DartType staticType = _getStaticType(target);
     DartType propagatedType = _getPropagatedType(target);
+
+    // Null-aware calls on a nullable type look at the underlying base type
+    // since they check for null first.
+    if (isNullAware) {
+      if (staticType is NullableType) {
+        staticType = (staticType as NullableType).baseType;
+      }
+
+      if (propagatedType is NullableType) {
+        propagatedType = (propagatedType as NullableType).baseType;
+      }
+    }
+
     Element staticElement = null;
     Element propagatedElement = null;
     //
