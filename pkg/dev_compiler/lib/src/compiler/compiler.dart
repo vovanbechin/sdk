@@ -38,6 +38,13 @@ import 'js_names.dart' as JS;
 import 'module_builder.dart' show transformModuleFormat, ModuleFormat;
 import 'source_map_printer.dart' show SourceMapPrintingContext;
 
+// TODO(nnbd): Total hack to expose the compile errors to
+// tool/generate_nullable_error_report.dart.
+class Hack {
+  static AnalysisContext context;
+  static List<AnalysisError> errors;
+}
+
 /// Compiles a set of Dart files into a single JavaScript module.
 ///
 /// For a single [BuildUnit] definition, this will produce a [JSModuleFile].
@@ -194,6 +201,9 @@ class ModuleCompiler {
     }
 
     sortErrors(context, errors);
+
+    Hack.context = context;
+    Hack.errors = errors.toList();
 
     var messages = <String>[];
     for (var e in errors) {
