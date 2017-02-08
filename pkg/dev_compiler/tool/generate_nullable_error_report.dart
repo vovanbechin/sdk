@@ -74,7 +74,12 @@ main(List<String> arguments) {
     }
 
     // Then by position.
-    return a.offset.compareTo(b.offset);
+    if (a.offset != b.offset) {
+      return a.offset.compareTo(b.offset);
+    }
+
+    // Then message.
+    return a.message.compareTo(b.message);
   });
 
   var messages = [];
