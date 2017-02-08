@@ -667,6 +667,10 @@ abstract class InterfaceType implements ParameterizedType {
       InterfaceTypeImpl.getSmartLeastUpperBound(first, second);
 }
 
+abstract class NullableType extends DartType {
+  DartType get baseType;
+}
+
 /**
  * A type that can track substituted type parameters, either for itself after
  * instantiation, or from a surrounding context.

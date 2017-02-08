@@ -1181,7 +1181,7 @@ abstract class TypeSystem {
   /// Wraps [type] in a nullable type if it is not already nullable.
   DartType makeNullable(DartType type) {
     if (type == typeProvider.objectType || type is NullableType) return type;
-    return new NullableType(this, type);
+    return new NullableTypeImpl(this, type);
   }
 
   /**

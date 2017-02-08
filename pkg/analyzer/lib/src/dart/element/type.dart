@@ -2811,14 +2811,16 @@ class VoidTypeImpl extends TypeImpl implements VoidType {
       this;
 }
 
-class NullableType extends TypeImpl {
+class NullableTypeImpl extends TypeImpl implements NullableType {
   // TODO(rnystrom): Hack. Need access to this to check for Object class since
   // isObject doesn't seem to always work in tests.
   final StrongTypeSystemImpl _typeSystem;
 
   final TypeImpl baseType;
 
-  NullableType(this._typeSystem, this.baseType) : super(null, null);
+  // TODO(nnbd): Using base type's element for this element so that DDC codegen
+  // doesn't choke on a type with no element.
+  NullableTypeImpl(this._typeSystem, this.baseType) : super(baseType.element, null);
 
   @override
   String get displayName => "${baseType.displayName}?";

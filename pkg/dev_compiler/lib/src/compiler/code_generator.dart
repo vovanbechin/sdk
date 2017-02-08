@@ -3037,6 +3037,12 @@ class CodeGenerator extends GeneralizingAstVisitor
       bool hoistType: true,
       ClassElement subClass,
       JS.Expression className}) {
+    // TODO(nnbd): We don't support nullable types at runtime yet, so if we
+    // see one, just use the base type.
+    if (type is NullableType) {
+      type = (type as NullableType).baseType;
+    }
+
     // The void and dynamic types are not defined in core.
     if (type.isVoid) {
       return _callHelper('void');
