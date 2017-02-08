@@ -9789,7 +9789,8 @@ class TypeResolverVisitor extends ScopedVisitor {
         }
         element.declaredType = type ?? _dynamicType;
       } else {
-        _setFunctionTypedParameterType(element, node.type, node.parameters);
+        _setFunctionTypedParameterType(
+            element, node.type, node.parameters, null);
       }
     } else {
       // TODO(brianwilkerson) Report this internal error
@@ -9831,7 +9832,8 @@ class TypeResolverVisitor extends ScopedVisitor {
     super.visitFunctionTypedFormalParameter(node);
     Element element = node.identifier.staticElement;
     if (element is ParameterElementImpl) {
-      _setFunctionTypedParameterType(element, node.returnType, node.parameters);
+      _setFunctionTypedParameterType(
+          element, node.returnType, node.parameters, node.question);
     } else {
       // TODO(brianwilkerson) Report this internal error
     }
@@ -10276,8 +10278,11 @@ class TypeResolverVisitor extends ScopedVisitor {
    * [returnType] and [parameterList] and associate the created type with the
    * element.
    */
-  void _setFunctionTypedParameterType(ParameterElementImpl element,
-      TypeAnnotation returnType, FormalParameterList parameterList) {
+  void _setFunctionTypedParameterType(
+      ParameterElementImpl element,
+      TypeAnnotation returnType,
+      FormalParameterList parameterList,
+      Token question) {
     List<ParameterElement> parameters = _getElements(parameterList);
     FunctionElementImpl functionElement = new FunctionElementImpl.forNode(null);
     functionElement.isSynthetic = true;
@@ -10285,8 +10290,13 @@ class TypeResolverVisitor extends ScopedVisitor {
     functionElement.declaredReturnType = _computeReturnType(returnType);
     functionElement.enclosingElement = element;
     functionElement.shareTypeParameters(element.typeParameters);
-    element.type = new FunctionTypeImpl(functionElement);
-    functionElement.type = element.type;
+    functionElement.type = new FunctionTypeImpl(functionElement);
+
+    element.type = functionElement.type;
+    // If there is a "?", make it a nullable type. Note that the function
+    // element itself always has the non-nullable real function type. Only the
+    // element for the parameter gets the nullable type.
+    if (question != null) element.type = _typeSystem.makeNullable(element.type);
   }
 }
 

@@ -257,6 +257,13 @@ void main() {
           pos([int? param = 123]) {}
           named({int? param = 123}) {}
           """);
+
+      testUnit(
+          "function type",
+          """
+          pos([int param()?]) {}
+          named({int param()?}) {}
+          """);
     });
 
     group("Object", () {
