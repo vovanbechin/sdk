@@ -535,6 +535,10 @@ class StrongTypeSystemImpl extends TypeSystem {
       return true;
     }
 
+    if (t is NullableType) {
+      return isGroundType(t.baseType);
+    }
+
     // We should not see any other type aside from malformed code.
     return false;
   }

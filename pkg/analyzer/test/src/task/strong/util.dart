@@ -79,36 +79,32 @@ abstract class B extends A {
 }
 
 void testStatements(String message, String code) {
-  test(message, () {
-    addFile('''
+  testUnit(
+      message,
+      '''
 void main() {
   $code
 }
 ''');
-    check(
-        ignoreUndefinedMethod: false,
-        ignoredErrors: [StrongModeCode.DYNAMIC_INVOKE]);
-  });
 }
 
 void testMembers(String message, String code) {
-  test(message, () {
-    addFile('''
+  testUnit(
+      message,
+      '''
 class Foo {
   $code
 }
 ''');
-    check(
-        ignoreUndefinedMethod: false,
-        ignoredErrors: [StrongModeCode.DYNAMIC_INVOKE]);
-  });
 }
 
 void testUnit(String message, String code) {
   test(message, () {
     addFile(code);
-    check(
-        ignoreUndefinedMethod: false,
-        ignoredErrors: [StrongModeCode.DYNAMIC_INVOKE]);
+    check(ignoreUndefinedMethod: false, ignoredErrors: [
+      StrongModeCode.DYNAMIC_INVOKE,
+      HintCode.TYPE_CHECK_IS_NULL,
+      HintCode.TYPE_CHECK_IS_NOT_NULL
+    ]);
   });
 }

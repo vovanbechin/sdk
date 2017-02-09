@@ -2842,7 +2842,17 @@ class NullableTypeImpl extends TypeImpl implements NullableType {
   @override
   bool isMoreSpecificThan(DartType type,
       [bool withDynamic = false, Set<Element> visitedElements]) {
-    throw new UnsupportedError("Strong mode should not use this.");
+    // If both types are nullable, compare the base types.
+    if (type is NullableTypeImpl) {
+      return baseType.isMoreSpecificThan(type.baseType, withDynamic,
+          visitedElements);
+    }
+
+    // A nullable type is only more specific than Object.
+    return type.isObject;
+
+    // TODO(nnbd): What about isMoreSpecific() on the other DartType subclasses
+    // where the RHS is a NullableType?
   }
 
   @override

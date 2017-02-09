@@ -7004,6 +7004,18 @@ class ResolverVisitor extends ScopedVisitor {
         _promoteTypes(left);
         _promoteTypes(right);
         _clearTypePromotionsIfPotentiallyMutatedIn(right);
+      } else if (condition.operator.type == TokenType.BANG_EQ) {
+        // After "!= null", try to promote the LHS to non-nullable type.
+        if (condition.rightOperand is NullLiteral &&
+            condition.leftOperand.staticType is NullableType) {
+          var type = condition.leftOperand.staticType as NullableType;
+          _promote(condition.leftOperand, type.baseType);
+        }
+      } else if (condition.operator.type == TokenType.EQ_EQ) {
+        // After "== null", try to promote the LHS to Null.
+        if (condition.rightOperand is NullLiteral) {
+          _promote(condition.leftOperand, typeProvider.nullType);
+        }
       }
     } else if (condition is IsExpression) {
       if (condition.notOperator == null) {
