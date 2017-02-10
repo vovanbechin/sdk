@@ -501,4 +501,9 @@ void main() {
       }
       """);
   });
+
+  testStatements("as works with non-nullable", """
+    String? s;
+    (s as String).length;
+    """);
 }
