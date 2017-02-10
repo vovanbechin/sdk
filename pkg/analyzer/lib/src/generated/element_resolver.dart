@@ -1285,7 +1285,13 @@ class ElementResolver extends SimpleAstVisitor<Object> {
           }
         }
       } else if (element is VariableElement) {
-        DartType variableType = element.type;
+        // TODO(nnbd): Is this right? Originally was:
+        // DartType variableType = element.type;
+        // But that doesn't take into account that you can promote from a
+        // nullable function type which is not invokable to a non-nullable
+        // one which is.
+        DartType variableType = _promoteManager.getStaticType(element);
+
         if (!_isExecutableType(variableType)) {
           return StaticTypeWarningCode.INVOCATION_OF_NON_FUNCTION;
         }

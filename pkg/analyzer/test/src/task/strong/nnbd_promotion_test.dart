@@ -66,6 +66,14 @@ void main() {
         }
       }
       """);
+
+    // Note: Testing this specifically because there was an issue in
+    // ElementResolver where this didn't work.
+    testUnit("handles function types", """
+      main(callback()?) {
+        if (callback != null) callback();
+      }
+      """);
   });
 
   group("is", () {
