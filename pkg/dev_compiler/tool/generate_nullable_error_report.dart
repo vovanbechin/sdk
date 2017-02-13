@@ -64,9 +64,6 @@ main(List<String> arguments) {
     // Don't print anything. We'll print ourself below.
   });
 
-  new File("temp_dart_sdk.js").deleteSync();
-  new File("temp_ddc_sdk.sum").deleteSync();
-
   Hack.errors.sort((a, b) {
     // Sort by library.
     if (a.source.uri.toString() != b.source.uri.toString()) {
@@ -82,21 +79,29 @@ main(List<String> arguments) {
     return a.message.compareTo(b.message);
   });
 
-  var messages = [];
+  var messages = <String>[];
+
+  write(String message) {
+    messages.add(message);
+    print(message);
+  }
+
   for (var error in Hack.errors) {
     if (error.errorCode.errorSeverity == ErrorSeverity.INFO) continue;
 
     var lineInfo = Hack.context.computeLineInfo(error.source);
     var location = lineInfo.getLocation(error.offset);
 
-    var msg = "${error.source.uri} "
+    write("${error.source.uri} "
         "(${location.lineNumber}:${location.columnNumber}) "
-        "${error.message}";
-    messages.add(msg);
-    print(msg);
+        "${error.message}");
   }
+
+  write("${messages.length} total errors.");
 
   var file = new File('tool/nullable_sdk_errors.txt');
   file.writeAsStringSync(messages.join('\n'));
-  print("${messages.length} total errors.");
+
+  new File("temp_dart_sdk.js").deleteSync();
+  new File("temp_ddc_sdk.sum").deleteSync();
 }

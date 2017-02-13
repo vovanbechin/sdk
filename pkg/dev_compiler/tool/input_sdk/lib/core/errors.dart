@@ -251,10 +251,12 @@ class RangeError extends ArgumentError {
    * The [length] is the length of [indexable] at the time of the error.
    * If `length` is omitted, it defaults to `indexable.length`.
    */
+  // TODO(nnbd-optional): Could be more terse if we implicitly make optional
+  // parameters without defaults nullable.
   factory RangeError.index(int index, indexable,
-                           [String name,
-                            String message,
-                            int length]) = IndexError;
+                           [String? name,
+                            String? message,
+                            int? length]) = IndexError;
 
   /**
    * Check that a [value] lies in a specific interval.
@@ -379,8 +381,10 @@ class IndexError extends ArgumentError implements RangeError {
    *
    * The message is used as part of the string representation of the error.
    */
+  // TODO(nnbd-optional): Could be more terse if we implicitly make optional
+  // parameters without defaults nullable.
   IndexError(int invalidValue, indexable,
-             [String name, String message, int length])
+             [String? name, String? message, int? length])
       : this.indexable = indexable,
         this.length = (length != null) ? length : indexable.length,
         super.value(invalidValue, name,

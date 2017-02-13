@@ -117,7 +117,8 @@ class Primitives {
       // regexp wouldn't have matched. Lowercasing by doing `| 0x20` is thus
       // guaranteed to be a safe operation, since it preserves digits
       // and lower-cases ASCII letters.
-      int maxCharCode;
+      // TODO(nnbd-flow): Definite assignment analysis would help here.
+      int maxCharCode = 0;
       if (radix <= 10) {
         // Allow all digits less than the radix. For example 0, 1, 2 for
         // radix 3.
@@ -213,8 +214,8 @@ class Primitives {
     timerTicks = () => (1000 * JS('num', '#.now()', performance)).floor();
   }
 
-  static int timerFrequency;
-  static Function timerTicks;
+  static int? timerFrequency;
+  static Function? timerTicks;
 
   static bool get isD8 {
     return JS('bool',
@@ -227,7 +228,7 @@ class Primitives {
               'typeof version == "function" && typeof system == "function"');
   }
 
-  static String currentUri() {
+  static String? currentUri() {
     // In a browser return self.location.href.
     if (JS('bool', '!!self.location')) {
       return JS('String', 'self.location.href');
@@ -359,7 +360,7 @@ class Primitives {
     return -JS('int', r'#.getTimezoneOffset()', lazyAsJsDate(receiver));
   }
 
-  static num valueFromDecomposedDate(int years, int month, int day, int hours,
+  static num? valueFromDecomposedDate(int years, int month, int day, int hours,
         int minutes, int seconds, int milliseconds, bool isUtc) {
     final int MAX_MILLISECONDS_SINCE_EPOCH = 8640000000000000;
     checkInt(years);
@@ -371,7 +372,8 @@ class Primitives {
     checkInt(milliseconds);
     checkBool(isUtc);
     var jsMonth = month - 1;
-    num value;
+    // TODO(nnbd-flow): Definite assignment analysis would help here.
+    num value = 0;
     if (isUtc) {
       value = JS('num', r'Date.UTC(#, #, #, #, #, #, #)',
                  years, jsMonth, day, hours, minutes, seconds, milliseconds);
@@ -625,18 +627,21 @@ StackTrace getTraceFromException(exception) => new _StackTrace(exception);
 
 class _StackTrace implements StackTrace {
   var _exception;
-  String _trace;
+  String? _trace;
   _StackTrace(this._exception);
 
   String toString() {
     if (_trace != null) return JS('String', '#', _trace);
 
-    String trace;
+    String? trace;
     if (JS('bool', '# !== null', _exception) &&
         JS('bool', 'typeof # === "object"', _exception)) {
       trace = JS("String|Null", r"#.stack", _exception);
     }
-    return _trace = (trace == null) ? '' : trace;
+    return _trace = (trace != null) ? trace : '';
+    // TODO(nnbd-promote): Had to flip condition since promotion doesn't handle
+    // negative case of conditional expression. Was:
+    //return _trace = (trace == null) ? '' : trace;
   }
 }
 
@@ -882,11 +887,14 @@ String jsonEncodeNative(String string) {
 // https://github.com/dart-lang/sdk/issues/28320
 class SyncIterator<E> implements Iterator<E> {
   final dynamic _jsIterator;
-  E _current;
+  E? _current;
 
   SyncIterator(this._jsIterator);
 
-  E get current => _current;
+  // TODO(nnbd): This will now throw if you call .current before advancing to
+  // the first element if the element type is not nullable. This may be a good
+  // thing.
+  E get current => _current as E;
 
   bool moveNext() {
     final ret = JS('', '#.next()', _jsIterator);

@@ -85,16 +85,6 @@ dart:_isolate_helper/isolate_serialization.dart (68:24) Parameter 'message' of n
 dart:_isolate_helper/isolate_serialization.dart (301:14) Variable 'result' of non-nullable type 'SendPort' must be initialized.
 dart:_isolate_helper/isolate_serialization.dart (306:35) The return type 'Null' isn't a 'SendPort', as defined by the method 'deserializeSendPort'.
 dart:_isolate_helper/isolate_serialization.dart (308:39) The return type 'Null' isn't a 'SendPort', as defined by the method 'deserializeSendPort'.
-dart:_js_helper (120:11) Variable 'maxCharCode' of non-nullable type 'int' must be initialized.
-dart:_js_helper (216:14) Variable 'timerFrequency' of non-nullable type 'int' must be initialized.
-dart:_js_helper (217:19) Variable 'timerTicks' of non-nullable type 'Function' must be initialized.
-dart:_js_helper (236:12) The return type 'Null' isn't a 'String', as defined by the method 'currentUri'.
-dart:_js_helper (374:9) Variable 'value' of non-nullable type 'num' must be initialized.
-dart:_js_helper (385:14) The return type 'Null' isn't a 'num', as defined by the method 'valueFromDecomposedDate'.
-dart:_js_helper (500:60) The argument type 'Null' can't be assigned to the parameter type 'String'.
-dart:_js_helper (629:3) Variable '_trace' of non-nullable type 'String' must be initialized.
-dart:_js_helper (634:12) Variable 'trace' of non-nullable type 'String' must be initialized.
-dart:_js_helper (887:3) Variable '_current' of non-nullable type 'E' must be initialized.
 dart:_js_helper/linked_hash_map.dart (43:3) Variable '_first' of non-nullable type 'LinkedHashMapCell<K, V>' must be initialized.
 dart:_js_helper/linked_hash_map.dart (43:3) Variable '_last' of non-nullable type 'LinkedHashMapCell<K, V>' must be initialized.
 dart:_js_helper/linked_hash_map.dart (100:35) The return type 'Null' isn't a 'V', as defined by the method '[]'.
@@ -279,7 +269,6 @@ dart:async/stream.dart (1159:24) Variable 'subscription' of non-nullable type 'S
 dart:async/stream.dart (1201:16) A value of type 'Null' can't be assigned to a variable of type 'T'.
 dart:async/stream.dart (1203:24) Variable 'subscription' of non-nullable type 'StreamSubscription<dynamic>' must be initialized.
 dart:async/stream.dart (1260:24) Variable 'subscription' of non-nullable type 'StreamSubscription<dynamic>' must be initialized.
-dart:async/stream.dart (1273:56) The argument type 'Null' can't be assigned to the parameter type 'String'.
 dart:async/stream.dart (1301:42) Parameter 'onTimeout' of non-nullable type '(EventSink<T>) → void' must have a default value.
 dart:async/stream.dart (1302:25) Variable 'controller' of non-nullable type 'StreamController<T>' must be initialized.
 dart:async/stream.dart (1304:27) Variable 'subscription' of non-nullable type 'StreamSubscription<T>' must be initialized.
@@ -519,7 +508,6 @@ dart:collection/iterable.dart (151:38) Parameter 'orElse' of non-nullable type '
 dart:collection/iterable.dart (159:37) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
 dart:collection/iterable.dart (160:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:collection/iterable.dart (174:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
-dart:collection/iterable.dart (197:54) The argument type 'Null' can't be assigned to the parameter type 'String'.
 dart:collection/iterable.dart (322:10) Variable 'penultimateString' of non-nullable type 'String' must be initialized.
 dart:collection/iterable.dart (323:10) Variable 'ultimateString' of non-nullable type 'String' must be initialized.
 dart:collection/iterable.dart (379:20) A value of type 'Null' can't be assigned to a variable of type 'String'.
@@ -580,7 +568,6 @@ dart:collection/set.dart (235:38) Parameter 'orElse' of non-nullable type '() �
 dart:collection/set.dart (243:37) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
 dart:collection/set.dart (244:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:collection/set.dart (258:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
-dart:collection/set.dart (281:54) The argument type 'Null' can't be assigned to the parameter type 'String'.
 dart:collection/splay_tree.dart (18:3) Variable 'left' of non-nullable type '_SplayTreeNode<K>' must be initialized.
 dart:collection/splay_tree.dart (18:3) Variable 'right' of non-nullable type '_SplayTreeNode<K>' must be initialized.
 dart:collection/splay_tree.dart (96:9) Variable 'comp' of non-nullable type 'int' must be initialized.
@@ -670,6 +657,7 @@ dart:convert/utf.dart (358:26) Variable 'stringSink' of non-nullable type 'Strin
 dart:convert/utf.dart (377:12) The return type 'Null' isn't a 'String', as defined by the method '_convertIntercepted'.
 dart:core/bool.dart (41:9) Only redirecting factory constructors can be declared to be 'const'.
 dart:core/bool.dart (42:5) Const constructors can't throw exceptions.
+dart:core/date_time.dart (661:12) The return type 'num?' isn't a 'int', as defined by the method '_brokenDownDateToValue'.
 dart:core/double.dart (205:30) Parameter 'onError' of non-nullable type '(String) → double' must have a default value.
 dart:core/errors.dart (149:15) The initializer type 'Null' can't be assigned to the field type 'String'.
 dart:core/errors.dart (212:17) The initializer type 'Null' can't be assigned to the field type 'num'.
@@ -687,6 +675,7 @@ dart:core/errors.dart (315:32) Parameter 'message' of non-nullable type 'String'
 dart:core/errors.dart (337:44) Parameter 'name' of non-nullable type 'String' must have a default value.
 dart:core/errors.dart (337:57) Parameter 'message' of non-nullable type 'String' must have a default value.
 dart:core/errors.dart (338:57) The argument type 'Null' can't be assigned to the parameter type 'int'.
+dart:core/errors.dart (390:35) The argument type 'String?' can't be assigned to the parameter type 'String'.
 dart:core/errors.dart (470:51) A value of type 'Null' can't be assigned to a variable of type 'List'.
 dart:core/errors.dart (595:32) The return type 'Null' isn't a 'StackTrace', as defined by the method 'stackTrace'.
 dart:core/errors.dart (603:32) The return type 'Null' isn't a 'StackTrace', as defined by the method 'stackTrace'.
@@ -702,7 +691,6 @@ dart:core/iterable.dart (503:40) Parameter 'orElse' of non-nullable type '() →
 dart:core/iterable.dart (525:38) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
 dart:core/iterable.dart (526:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:core/iterable.dart (548:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
-dart:core/iterable.dart (582:54) The argument type 'Null' can't be assigned to the parameter type 'String'.
 dart:core/iterable.dart (656:3) Variable '_current' of non-nullable type 'E' must be initialized.
 dart:core/iterable.dart (664:18) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:core/list.dart (145:13) Variable 'result' of non-nullable type 'List<E>' must be initialized.
@@ -719,6 +707,8 @@ dart:core/stopwatch.dart (32:3) Variable '_frequency' of non-nullable type 'int'
 dart:core/stopwatch.dart (32:3) Variable '_start' of non-nullable type 'int' must be initialized.
 dart:core/stopwatch.dart (32:3) Variable '_stop' of non-nullable type 'int' must be initialized.
 dart:core/stopwatch.dart (54:15) A value of type 'Null' can't be assigned to a variable of type 'int'.
+dart:core/stopwatch.dart (143:18) A value of type 'int?' can't be assigned to a variable of type 'int'.
+dart:core/stopwatch.dart (145:35) 'timerTicks' isn't a function.
 dart:core/string.dart (156:9) Only redirecting factory constructors can be declared to be 'const'.
 dart:core/string.dart (157:5) Const constructors can't throw exceptions.
 dart:core/string.dart (268:33) Parameter 'start' of non-nullable type 'int' must have a default value.
@@ -751,6 +741,7 @@ dart:core/uri.dart (641:45) A value of type 'int' can't be assigned to a variabl
 dart:core/uri.dart (645:14) A value of type 'String' can't be assigned to a variable of type 'Null'.
 dart:core/uri.dart (649:20) The argument type 'Null' can't be assigned to the parameter type 'String'.
 dart:core/uri.dart (650:20) The argument type 'Null' can't be assigned to the parameter type 'int'.
+dart:core/uri.dart (833:18) A value of type 'String?' can't be assigned to a variable of type 'String'.
 dart:core/uri.dart (1010:16) Parameter 'scheme' of non-nullable type 'String' must have a default value.
 dart:core/uri.dart (1011:16) Parameter 'userInfo' of non-nullable type 'String' must have a default value.
 dart:core/uri.dart (1012:16) Parameter 'host' of non-nullable type 'String' must have a default value.
@@ -2663,3 +2654,4 @@ dart:web_sql (120:54) Parameter 'errorCallback' of non-nullable type '(SqlError)
 dart:web_sql (120:97) Parameter 'successCallback' of non-nullable type '() → void' must have a default value.
 dart:web_sql (295:65) Parameter 'callback' of non-nullable type '(SqlTransaction, SqlResultSet) → void' must have a default value.
 dart:web_sql (295:96) Parameter 'errorCallback' of non-nullable type '(SqlTransaction, SqlError) → void' must have a default value.
+2656 total errors.
