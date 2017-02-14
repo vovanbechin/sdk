@@ -344,6 +344,15 @@ void main() {
         var n = ({/*error:NON_NULLABLE_PARAMETER_WITHOUT_DEFAULT*/int p}) {};
       }
       """);
+
+      testUnit(
+          "constructor",
+          """
+      class Foo {
+        Foo({/*error:NON_NULLABLE_PARAMETER_WITHOUT_DEFAULT*/int i});
+        factory Foo.named({/*error:NON_NULLABLE_PARAMETER_WITHOUT_DEFAULT*/int i}) => new Foo();
+      }
+      """);
     });
 
     // TODO(nnbd): If we make passing an explicit null substitute the default

@@ -594,6 +594,10 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
       _checkForUndefinedConstructorInInitializerImplicit(node);
       _checkForRedirectToNonConstConstructor(node, constructorElement);
       _checkForReturnInGenerativeConstructor(node);
+
+      _checkForNonnullableParameterWithoutDefault(
+          node.parameters, node.element);
+
       return super.visitConstructorDeclaration(node);
     } finally {
       _isEnclosingConstructorConst = false;
