@@ -5724,6 +5724,11 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
     if (type == null) {
       return;
     }
+
+    if (type is NullableType) {
+      type = (type as NullableType).baseType;
+    }
+
     Element element = type.element;
     if (element is ClassElement) {
       // prepare type parameters

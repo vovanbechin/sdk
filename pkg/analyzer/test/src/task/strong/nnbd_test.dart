@@ -502,6 +502,13 @@ void main() {
       """);
   });
 
+  group("if-null", () {
+    testStatements("removes nullity of LHS in '??'", """
+      String? s;
+      String s2 = s ?? "";
+      """);
+  });
+
   testStatements("as works with non-nullable", """
     String? s;
     (s as String).length;

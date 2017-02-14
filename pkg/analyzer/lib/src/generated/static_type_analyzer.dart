@@ -241,7 +241,8 @@ class StaticTypeAnalyzer extends SimpleAstVisitor<Object> {
     } else if (operator == TokenType.QUESTION_QUESTION_EQ) {
       // The static type of a compound assignment using ??= is the least upper
       // bound of the static types of the LHS and RHS.
-      _analyzeLeastUpperBound(node, node.leftHandSide, node.rightHandSide);
+      _analyzeLeastUpperBound(node, node.leftHandSide, node.rightHandSide,
+          isIfNull: true);
       return null;
     } else if (operator == TokenType.AMPERSAND_AMPERSAND_EQ ||
         operator == TokenType.BAR_BAR_EQ) {
@@ -336,7 +337,8 @@ class StaticTypeAnalyzer extends SimpleAstVisitor<Object> {
       // equivalent to the evaluation of the expression
       // ((x) => x == null ? e2 : x)(e1).  The static type of e is the least
       // upper bound of the static type of e1 and the static type of e2.
-      _analyzeLeastUpperBound(node, node.leftOperand, node.rightOperand);
+      _analyzeLeastUpperBound(node, node.leftOperand, node.rightOperand,
+          isIfNull: true);
       return null;
     }
     ExecutableElement staticMethodElement = node.staticElement;
@@ -1408,9 +1410,18 @@ class StaticTypeAnalyzer extends SimpleAstVisitor<Object> {
    * of the static (propagated) types of subexpressions [expr1] and [expr2].
    */
   void _analyzeLeastUpperBound(
-      Expression node, Expression expr1, Expression expr2) {
+      Expression node, Expression expr1, Expression expr2,
+      {bool isIfNull = false}) {
     DartType staticType1 = _getDefiniteType(expr1);
     DartType staticType2 = _getDefiniteType(expr2);
+
+    // If we're calculating the LUB for a "??" or "??=" expression, then we can
+    // ignore the nullity of the LHS. It's value will only ever be chosen if it
+    // is *not* null.
+    if (isIfNull && staticType1 is NullableType) {
+      staticType1 = (staticType1 as NullableType).baseType;
+    }
+
     if (staticType1 == null) {
       // TODO(brianwilkerson) Determine whether this can still happen.
       staticType1 = _dynamicType;
