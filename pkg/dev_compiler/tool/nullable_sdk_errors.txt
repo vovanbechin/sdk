@@ -1,3 +1,4 @@
+dart:_debugger (113:8) Parameter 'name' of non-nullable type 'String' must have a default value.
 dart:_debugger (223:3) Variable '_jsonML' of non-nullable type 'List<dynamic>' must be initialized.
 dart:_debugger (368:3) Variable '_formatters' of non-nullable type 'List<Formatter>' must be initialized.
 dart:_debugger (404:12) The return type 'Null' isn't a 'String', as defined by the method 'preview'.
@@ -85,6 +86,7 @@ dart:_isolate_helper/isolate_serialization.dart (68:24) Parameter 'message' of n
 dart:_isolate_helper/isolate_serialization.dart (301:14) Variable 'result' of non-nullable type 'SendPort' must be initialized.
 dart:_isolate_helper/isolate_serialization.dart (306:35) The return type 'Null' isn't a 'SendPort', as defined by the method 'deserializeSendPort'.
 dart:_isolate_helper/isolate_serialization.dart (308:39) The return type 'Null' isn't a 'SendPort', as defined by the method 'deserializeSendPort'.
+dart:_js_helper/annotations.dart (29:26) Parameter 'name' of non-nullable type 'String' must have a default value.
 dart:_js_helper/linked_hash_map.dart (43:3) Variable '_first' of non-nullable type 'LinkedHashMapCell<K, V>' must be initialized.
 dart:_js_helper/linked_hash_map.dart (43:3) Variable '_last' of non-nullable type 'LinkedHashMapCell<K, V>' must be initialized.
 dart:_js_helper/linked_hash_map.dart (100:35) The return type 'Null' isn't a 'V', as defined by the method '[]'.
@@ -135,6 +137,7 @@ dart:_js_mirrors (553:3) Variable '_params' of non-nullable type 'List<Parameter
 dart:_js_mirrors (558:3) Variable '_metadata' of non-nullable type 'List<InstanceMirror>' must be initialized.
 dart:_js_mirrors (558:3) Variable '_params' of non-nullable type 'List<ParameterMirror>' must be initialized.
 dart:_js_mirrors (564:33) The return type 'Symbol?' isn't a 'Symbol', as defined by the method 'constructorName'.
+dart:_metadata (27:45) Parameter 'minimumVersion' of non-nullable type 'String' must have a default value.
 dart:_native_typed_data (29:49) Parameter 'length' of non-nullable type 'int' must have a default value.
 dart:_native_typed_data (33:47) Parameter 'length' of non-nullable type 'int' must have a default value.
 dart:_native_typed_data (37:63) Parameter 'length' of non-nullable type 'int' must have a default value.
@@ -195,6 +198,9 @@ dart:async/broadcast_stream_controller.dart (494:32) Parameter 'stackTrace' of n
 dart:async/broadcast_stream_controller.dart (520:18) A value of type 'Null' can't be assigned to a variable of type '_StreamImplEvents<T>'.
 dart:async/broadcast_stream_controller.dart (533:15) Parameter 'resumeSignal' of non-nullable type 'Future<dynamic>' must have a default value.
 dart:async/broadcast_stream_controller.dart (543:43) Parameter 'value' of non-nullable type 'E' must have a default value.
+dart:async/deferred_load.dart (18:44) Parameter 'uri' of non-nullable type 'String' must have a default value.
+dart:async/future.dart (194:39) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
+dart:async/future.dart (224:46) Parameter 'computation' of non-nullable type '() → dynamic' must have a default value.
 dart:async/future.dart (259:29) Parameter 'cleanUp' of non-nullable type '(T) → void' must have a default value.
 dart:async/future.dart (261:17) Variable 'values' of non-nullable type 'List<T>' must be initialized.
 dart:async/future.dart (264:16) Variable 'stackTrace' of non-nullable type 'StackTrace' must be initialized.
@@ -202,10 +208,12 @@ dart:async/future.dart (278:18) A value of type 'Null' can't be assigned to a va
 dart:async/future.dart (435:49) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:async/future.dart (499:29) Parameter 'test' of non-nullable type '(Object) → bool' must have a default value.
 dart:async/future.dart (563:42) Parameter 'onTimeout' of non-nullable type '() → dynamic' must have a default value.
+dart:async/future.dart (575:35) Parameter 'duration' of non-nullable type 'Duration' must have a default value.
 dart:async/future.dart (743:37) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:async/future_impl.dart (19:37) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:async/future_impl.dart (74:35) A value of type 'Null' can't be assigned to a variable of type '_FutureListener'.
 dart:async/future_impl.dart (97:25) The initializer type 'Null' can't be assigned to the field type 'Function'.
+dart:async/future_impl.dart (216:38) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:async/future_impl.dart (234:49) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:async/future_impl.dart (236:23) Variable 'registered' of non-nullable type '(dynamic) → dynamic' must be initialized.
 dart:async/future_impl.dart (253:48) Parameter 'test' of non-nullable type '(dynamic) → bool' must have a default value.
@@ -228,6 +236,7 @@ dart:async/schedule_microtask.dart (143:28) The argument type 'Null' can't be as
 dart:async/schedule_microtask.dart (143:34) The argument type 'Null' can't be assigned to the parameter type 'ZoneDelegate'.
 dart:async/schedule_microtask.dart (171:17) Variable 'storedCallback' of non-nullable type '() → void' must be initialized.
 dart:async/schedule_microtask.dart (176:26) A value of type 'Null' can't be assigned to a variable of type '_Callback() → void'.
+dart:async/stream.dart (184:28) Parameter 'computation' of non-nullable type '(int) → T' must have a default value.
 dart:async/stream.dart (185:11) Variable 'timer' of non-nullable type 'Timer' must be initialized.
 dart:async/stream.dart (187:25) Variable 'controller' of non-nullable type 'StreamController<T>' must be initialized.
 dart:async/stream.dart (193:9) Variable 'data' of non-nullable type 'T' must be initialized.
@@ -289,7 +298,16 @@ dart:async/stream.dart (1514:8) Parameter 'onCancel' of non-nullable type '(Stre
 dart:async/stream.dart (1518:34) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:async/stream.dart (1519:34) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
 dart:async/stream.dart (1520:34) Parameter 'cancelOnError' of non-nullable type 'bool' must have a default value.
+dart:async/stream.dart (1724:7) Parameter 'handleData' of non-nullable type '(S, EventSink<T>) → void' must have a default value.
+dart:async/stream.dart (1725:7) Parameter 'handleError' of non-nullable type '(Object, StackTrace, EventSink<T>) → void' must have a default value.
+dart:async/stream.dart (1726:7) Parameter 'handleDone' of non-nullable type '(EventSink<T>) → void' must have a default value.
 dart:async/stream.dart (1816:25) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
+dart:async/stream_controller.dart (94:29) Parameter 'onListen' of non-nullable type '() → void' must have a default value.
+dart:async/stream_controller.dart (95:29) Parameter 'onPause' of non-nullable type '() → void' must have a default value.
+dart:async/stream_controller.dart (96:29) Parameter 'onResume' of non-nullable type '() → void' must have a default value.
+dart:async/stream_controller.dart (97:29) Parameter 'onCancel' of non-nullable type '() → dynamic' must have a default value.
+dart:async/stream_controller.dart (155:39) Parameter 'onListen' of non-nullable type '() → void' must have a default value.
+dart:async/stream_controller.dart (156:39) Parameter 'onCancel' of non-nullable type '() → void' must have a default value.
 dart:async/stream_controller.dart (242:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:async/stream_controller.dart (352:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:async/stream_controller.dart (371:63) The return type 'Null' isn't a 'Future', as defined by the method '_recordCancel'.
@@ -378,9 +396,25 @@ dart:async/stream_transformers.dart (182:34) Parameter 'onError' of non-nullable
 dart:async/stream_transformers.dart (183:34) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
 dart:async/stream_transformers.dart (184:34) Parameter 'cancelOnError' of non-nullable type 'bool' must have a default value.
 dart:async/stream_transformers.dart (218:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
+dart:async/stream_transformers.dart (232:7) Parameter 'handleData' of non-nullable type '(S, EventSink<T>) → void' must have a default value.
+dart:async/stream_transformers.dart (233:7) Parameter 'handleError' of non-nullable type '(Object, StackTrace, EventSink<T>) → void' must have a default value.
+dart:async/stream_transformers.dart (234:7) Parameter 'handleDone' of non-nullable type '(EventSink<T>) → void' must have a default value.
 dart:async/stream_transformers.dart (303:34) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:async/stream_transformers.dart (304:34) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
 dart:async/stream_transformers.dart (305:34) Parameter 'cancelOnError' of non-nullable type 'bool' must have a default value.
+dart:async/zone.dart (90:7) Parameter 'handleUncaughtError' of non-nullable type '(Zone, ZoneDelegate, Zone, dynamic, StackTrace) → dynamic' must have a default value.
+dart:async/zone.dart (91:7) Parameter 'run' of non-nullable type '(Zone, ZoneDelegate, Zone, () → dynamic) → dynamic' must have a default value.
+dart:async/zone.dart (92:7) Parameter 'runUnary' of non-nullable type '(Zone, ZoneDelegate, Zone, (dynamic) → dynamic, dynamic) → dynamic' must have a default value.
+dart:async/zone.dart (93:7) Parameter 'runBinary' of non-nullable type '(Zone, ZoneDelegate, Zone, (dynamic, dynamic) → dynamic, dynamic, dynamic) → dynamic' must have a default value.
+dart:async/zone.dart (94:7) Parameter 'registerCallback' of non-nullable type '(Zone, ZoneDelegate, Zone, () → dynamic) → () → dynamic' must have a default value.
+dart:async/zone.dart (95:7) Parameter 'registerUnaryCallback' of non-nullable type '(Zone, ZoneDelegate, Zone, (dynamic) → dynamic) → (dynamic) → dynamic' must have a default value.
+dart:async/zone.dart (96:7) Parameter 'registerBinaryCallback' of non-nullable type '(Zone, ZoneDelegate, Zone, (dynamic, dynamic) → dynamic) → (dynamic, dynamic) → dynamic' must have a default value.
+dart:async/zone.dart (97:7) Parameter 'errorCallback' of non-nullable type '(Zone, ZoneDelegate, Zone, Object, StackTrace) → AsyncError' must have a default value.
+dart:async/zone.dart (98:7) Parameter 'scheduleMicrotask' of non-nullable type '(Zone, ZoneDelegate, Zone, () → void) → void' must have a default value.
+dart:async/zone.dart (99:7) Parameter 'createTimer' of non-nullable type '(Zone, ZoneDelegate, Zone, Duration, () → void) → Timer' must have a default value.
+dart:async/zone.dart (100:7) Parameter 'createPeriodicTimer' of non-nullable type '(Zone, ZoneDelegate, Zone, Duration, (Timer) → void) → Timer' must have a default value.
+dart:async/zone.dart (101:7) Parameter 'print' of non-nullable type '(Zone, ZoneDelegate, Zone, String) → void' must have a default value.
+dart:async/zone.dart (102:7) Parameter 'fork' of non-nullable type '(Zone, ZoneDelegate, Zone, ZoneSpecification, Map<dynamic, dynamic>) → Zone' must have a default value.
 dart:async/zone.dart (110:55) A value of type 'Null' can't be assigned to a variable of type 'HandleUncaughtErrorHandler(Zone, ZoneDelegate, Zone, dynamic, StackTrace) → dynamic'.
 dart:async/zone.dart (111:23) A value of type 'Null' can't be assigned to a variable of type 'RunHandler(Zone, ZoneDelegate, Zone, () → dynamic) → dynamic'.
 dart:async/zone.dart (112:33) A value of type 'Null' can't be assigned to a variable of type 'RunUnaryHandler(Zone, ZoneDelegate, Zone, (dynamic) → dynamic, dynamic) → dynamic'.
@@ -503,6 +537,14 @@ dart:collection (1464:3) Variable '_previous' of non-nullable type '_LinkedHashS
 dart:collection (1472:3) Variable '_cell' of non-nullable type '_LinkedHashSetCell<dynamic>' must be initialized.
 dart:collection (1472:3) Variable '_current' of non-nullable type 'E' must be initialized.
 dart:collection (1482:18) A value of type 'Null' can't be assigned to a variable of type 'E'.
+dart:collection/hash_map.dart (86:21) Parameter 'equals' of non-nullable type '(K, K) → bool' must have a default value.
+dart:collection/hash_map.dart (87:21) Parameter 'hashCode' of non-nullable type '(K) → int' must have a default value.
+dart:collection/hash_map.dart (88:21) Parameter 'isValidKey' of non-nullable type '(Object) → bool' must have a default value.
+dart:collection/hash_map.dart (148:8) Parameter 'key' of non-nullable type '(dynamic) → K' must have a default value.
+dart:collection/hash_map.dart (148:24) Parameter 'value' of non-nullable type '(dynamic) → V' must have a default value.
+dart:collection/hash_set.dart (94:21) Parameter 'equals' of non-nullable type '(E, E) → bool' must have a default value.
+dart:collection/hash_set.dart (95:21) Parameter 'hashCode' of non-nullable type '(E) → int' must have a default value.
+dart:collection/hash_set.dart (96:21) Parameter 'isValidKey' of non-nullable type '(Object) → bool' must have a default value.
 dart:collection/iterable.dart (136:7) Variable 'result' of non-nullable type 'E' must be initialized.
 dart:collection/iterable.dart (151:38) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
 dart:collection/iterable.dart (159:37) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
@@ -511,6 +553,14 @@ dart:collection/iterable.dart (174:16) A value of type 'Null' can't be assigned 
 dart:collection/iterable.dart (322:10) Variable 'penultimateString' of non-nullable type 'String' must be initialized.
 dart:collection/iterable.dart (323:10) Variable 'ultimateString' of non-nullable type 'String' must be initialized.
 dart:collection/iterable.dart (379:20) A value of type 'Null' can't be assigned to a variable of type 'String'.
+dart:collection/linked_hash_map.dart (73:27) Parameter 'equals' of non-nullable type '(K, K) → bool' must have a default value.
+dart:collection/linked_hash_map.dart (74:27) Parameter 'hashCode' of non-nullable type '(K) → int' must have a default value.
+dart:collection/linked_hash_map.dart (75:27) Parameter 'isValidKey' of non-nullable type '(Object) → bool' must have a default value.
+dart:collection/linked_hash_map.dart (135:8) Parameter 'key' of non-nullable type '(dynamic) → K' must have a default value.
+dart:collection/linked_hash_map.dart (135:24) Parameter 'value' of non-nullable type '(dynamic) → V' must have a default value.
+dart:collection/linked_hash_set.dart (77:27) Parameter 'equals' of non-nullable type '(E, E) → bool' must have a default value.
+dart:collection/linked_hash_set.dart (78:27) Parameter 'hashCode' of non-nullable type '(E) → int' must have a default value.
+dart:collection/linked_hash_set.dart (79:27) Parameter 'isValidKey' of non-nullable type '(Object) → bool' must have a default value.
 dart:collection/linked_list.dart (41:3) Variable '_first' of non-nullable type 'E' must be initialized.
 dart:collection/linked_list.dart (94:21) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:collection/linked_list.dart (94:39) A value of type 'Null' can't be assigned to a variable of type 'E'.
@@ -555,6 +605,7 @@ dart:collection/queue.dart (439:18) A value of type 'Null' can't be assigned to 
 dart:collection/queue.dart (440:20) A value of type 'Null' can't be assigned to a variable of type '_DoubleLinkedQueueEntry<E>'.
 dart:collection/queue.dart (441:19) A value of type 'Null' can't be assigned to a variable of type '_DoubleLinkedQueueSentinel<E>'.
 dart:collection/queue.dart (478:3) Variable '_table' of non-nullable type 'List<E>' must be initialized.
+dart:collection/queue.dart (478:14) Parameter 'initialCapacity' of non-nullable type 'int' must have a default value.
 dart:collection/queue.dart (557:13) Variable 'list' of non-nullable type 'List<E>' must be initialized.
 dart:collection/queue.dart (653:21) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:collection/queue.dart (677:21) A value of type 'Null' can't be assigned to a variable of type 'E'.
@@ -583,6 +634,16 @@ dart:collection/splay_tree.dart (237:13) A value of type 'Null' can't be assigne
 dart:collection/splay_tree.dart (274:35) The argument type 'Null' can't be assigned to the parameter type 'K'.
 dart:collection/splay_tree.dart (274:41) The argument type 'Null' can't be assigned to the parameter type 'V'.
 dart:collection/splay_tree.dart (279:3) Variable '_root' of non-nullable type '_SplayTreeMapNode<K, V>' must be initialized.
+dart:collection/splay_tree.dart (279:17) Parameter 'compare' of non-nullable type '(K, K) → int' must have a default value.
+dart:collection/splay_tree.dart (279:46) Parameter 'isValidKey' of non-nullable type '(dynamic) → bool' must have a default value.
+dart:collection/splay_tree.dart (287:30) Parameter 'compare' of non-nullable type '(K, K) → int' must have a default value.
+dart:collection/splay_tree.dart (288:30) Parameter 'isValidKey' of non-nullable type '(dynamic) → bool' must have a default value.
+dart:collection/splay_tree.dart (308:38) Parameter 'key' of non-nullable type '(dynamic) → K' must have a default value.
+dart:collection/splay_tree.dart (309:38) Parameter 'value' of non-nullable type '(dynamic) → V' must have a default value.
+dart:collection/splay_tree.dart (310:38) Parameter 'compare' of non-nullable type '(K, K) → int' must have a default value.
+dart:collection/splay_tree.dart (311:38) Parameter 'isValidKey' of non-nullable type '(dynamic) → bool' must have a default value.
+dart:collection/splay_tree.dart (329:8) Parameter 'compare' of non-nullable type '(K, K) → int' must have a default value.
+dart:collection/splay_tree.dart (329:37) Parameter 'isValidKey' of non-nullable type '(dynamic) → bool' must have a default value.
 dart:collection/splay_tree.dart (337:3) Variable '_comparator' of non-nullable type '(K, K) → int' must be initialized.
 dart:collection/splay_tree.dart (337:3) Variable '_root' of non-nullable type '_SplayTreeMapNode<K, V>' must be initialized.
 dart:collection/splay_tree.dart (337:3) Variable '_validKey' of non-nullable type '(dynamic) → bool' must be initialized.
@@ -603,6 +664,10 @@ dart:collection/splay_tree.dart (555:38) The return type 'Null' isn't a 'T', as 
 dart:collection/splay_tree.dart (596:22) A value of type 'Null' can't be assigned to a variable of type '_SplayTreeNode<K>'.
 dart:collection/splay_tree.dart (679:58) The argument type 'Null' can't be assigned to the parameter type 'E'.
 dart:collection/splay_tree.dart (708:3) Variable '_root' of non-nullable type '_SplayTreeNode<E>' must be initialized.
+dart:collection/splay_tree.dart (708:17) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
+dart:collection/splay_tree.dart (708:46) Parameter 'isValidKey' of non-nullable type '(dynamic) → bool' must have a default value.
+dart:collection/splay_tree.dart (721:30) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
+dart:collection/splay_tree.dart (722:30) Parameter 'isValidKey' of non-nullable type '(dynamic) → bool' must have a default value.
 dart:collection/splay_tree.dart (812:36) The return type 'Null' isn't a 'E', as defined by the method 'lookup'.
 dart:collection/splay_tree.dart (814:27) The return type 'Null' isn't a 'E', as defined by the method 'lookup'.
 dart:collection/splay_tree.dart (848:30) The return type 'Null' isn't a '_SplayTreeNode<E>', as defined by the method '_copyNode'.
@@ -633,12 +698,19 @@ dart:convert/encoding.dart (75:30) The return type 'Null' isn't a 'Encoding', as
 dart:convert/html_escape.dart (182:27) A value of type 'Null' can't be assigned to a variable of type 'StringBuffer'.
 dart:convert/html_escape.dart (185:28) A value of type 'Null' can't be assigned to a variable of type 'String'.
 dart:convert/html_escape.dart (201:32) The return type 'Null' isn't a 'String', as defined by the method '_convert'.
+dart:convert/json.dart (101:20) Parameter 'reviver' of non-nullable type '(dynamic, dynamic) → dynamic' must have a default value.
+dart:convert/json.dart (101:49) Parameter 'toEncodable' of non-nullable type '(dynamic) → dynamic' must have a default value.
 dart:convert/json.dart (125:34) Parameter 'reviver' of non-nullable type '(dynamic, dynamic) → dynamic' must have a default value.
 dart:convert/json.dart (142:32) Parameter 'toEncodable' of non-nullable type '(dynamic) → dynamic' must have a default value.
+dart:convert/json.dart (191:22) Parameter 'toEncodable' of non-nullable type '(dynamic) → dynamic' must have a default value.
 dart:convert/json.dart (192:23) The initializer type 'Null' can't be assigned to the field type 'String'.
 dart:convert/json.dart (192:23) The initializer type 'Null' can't be assigned to the field type 'String'.
+dart:convert/json.dart (213:46) Parameter 'toEncodable' of non-nullable type '(dynamic) → dynamic' must have a default value.
+dart:convert/json.dart (322:20) Parameter 'indent' of non-nullable type 'String' must have a default value.
+dart:convert/json.dart (323:20) Parameter 'toEncodable' of non-nullable type '(dynamic) → dynamic' must have a default value.
 dart:convert/json.dart (330:32) The return type 'Null' isn't a 'List<int>', as defined by the method '_utf8Encode'.
 dart:convert/json.dart (384:24) Variable 'byteSink' of non-nullable type 'ByteConversionSink' must be initialized.
+dart:convert/json.dart (480:22) Parameter 'reviver' of non-nullable type '(dynamic, dynamic) → dynamic' must have a default value.
 dart:convert/json.dart (939:26) Variable 'stringifier' of non-nullable type '_JsonUtf8Stringifier' must be initialized.
 dart:convert/json.dart (958:14) A value of type 'Null' can't be assigned to a variable of type 'Uint8List'.
 dart:convert/latin1.dart (53:36) Parameter 'allowInvalid' of non-nullable type 'bool' must have a default value.
@@ -657,35 +729,49 @@ dart:convert/utf.dart (358:26) Variable 'stringSink' of non-nullable type 'Strin
 dart:convert/utf.dart (377:12) The return type 'Null' isn't a 'String', as defined by the method '_convertIntercepted'.
 dart:core/bool.dart (41:9) Only redirecting factory constructors can be declared to be 'const'.
 dart:core/bool.dart (42:5) Const constructors can't throw exceptions.
+dart:core/date_time.dart (368:37) Parameter 'isUtc' of non-nullable type 'bool' must have a default value.
 dart:core/date_time.dart (661:12) The return type 'num?' isn't a 'int', as defined by the method '_brokenDownDateToValue'.
 dart:core/double.dart (205:30) Parameter 'onError' of non-nullable type '(String) → double' must have a default value.
 dart:core/errors.dart (149:15) The initializer type 'Null' can't be assigned to the field type 'String'.
+dart:core/errors.dart (165:24) Parameter 'name' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (166:24) Parameter 'message' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (173:26) Parameter 'name' of non-nullable type 'String' must have a default value.
 dart:core/errors.dart (212:17) The initializer type 'Null' can't be assigned to the field type 'num'.
 dart:core/errors.dart (212:29) The initializer type 'Null' can't be assigned to the field type 'num'.
+dart:core/errors.dart (221:32) Parameter 'name' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (221:45) Parameter 'message' of non-nullable type 'String' must have a default value.
 dart:core/errors.dart (222:17) The initializer type 'Null' can't be assigned to the field type 'num'.
 dart:core/errors.dart (222:29) The initializer type 'Null' can't be assigned to the field type 'num'.
-dart:core/errors.dart (270:37) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (270:50) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (288:32) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (288:45) Parameter 'length' of non-nullable type 'int' must have a default value.
-dart:core/errors.dart (288:57) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (314:32) Parameter 'startName' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (314:50) Parameter 'endName' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (315:32) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (337:44) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (337:57) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (338:57) The argument type 'Null' can't be assigned to the parameter type 'int'.
-dart:core/errors.dart (390:35) The argument type 'String?' can't be assigned to the parameter type 'String'.
-dart:core/errors.dart (470:51) A value of type 'Null' can't be assigned to a variable of type 'List'.
-dart:core/errors.dart (595:32) The return type 'Null' isn't a 'StackTrace', as defined by the method 'stackTrace'.
-dart:core/errors.dart (603:32) The return type 'Null' isn't a 'StackTrace', as defined by the method 'stackTrace'.
+dart:core/errors.dart (241:21) Parameter 'name' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (241:34) Parameter 'message' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (272:37) Parameter 'name' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (272:50) Parameter 'message' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (290:32) Parameter 'name' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (290:45) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:core/errors.dart (290:57) Parameter 'message' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (316:32) Parameter 'startName' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (316:50) Parameter 'endName' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (317:32) Parameter 'message' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (339:44) Parameter 'name' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (339:57) Parameter 'message' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (340:57) The argument type 'Null' can't be assigned to the parameter type 'int'.
+dart:core/errors.dart (394:35) The argument type 'String?' can't be assigned to the parameter type 'String'.
+dart:core/errors.dart (474:51) A value of type 'Null' can't be assigned to a variable of type 'List'.
+dart:core/errors.dart (552:23) Parameter 'message' of non-nullable type 'String' must have a default value.
+dart:core/errors.dart (599:32) The return type 'Null' isn't a 'StackTrace', as defined by the method 'stackTrace'.
+dart:core/errors.dart (607:32) The return type 'Null' isn't a 'StackTrace', as defined by the method 'stackTrace'.
+dart:core/errors.dart (619:30) Parameter 'variableName' of non-nullable type 'String' must have a default value.
+dart:core/exceptions.dart (79:58) Parameter 'offset' of non-nullable type 'int' must have a default value.
 dart:core/exceptions.dart (109:16) A value of type 'Null' can't be assigned to a variable of type 'int'.
 dart:core/exceptions.dart (121:10) Variable 'lastWasCR' of non-nullable type 'bool' must be initialized.
+dart:core/expando.dart (39:12) Parameter 'name' of non-nullable type 'String' must have a default value.
 dart:core/function.dart (38:17) Parameter 'namedArguments' of non-nullable type 'Map<Symbol, dynamic>' must have a default value.
 dart:core/int.dart (33:9) Only redirecting factory constructors can be declared to be 'const'.
+dart:core/int.dart (33:51) Parameter 'defaultValue' of non-nullable type 'int' must have a default value.
 dart:core/int.dart (34:5) Const constructors can't throw exceptions.
 dart:core/int.dart (321:28) Parameter 'radix' of non-nullable type 'int' must have a default value.
 dart:core/int.dart (322:28) Parameter 'onError' of non-nullable type '(String) → int' must have a default value.
+dart:core/iterable.dart (99:41) Parameter 'generator' of non-nullable type '(int) → E' must have a default value.
 dart:core/iterable.dart (474:7) Variable 'result' of non-nullable type 'E' must be initialized.
 dart:core/iterable.dart (503:40) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
 dart:core/iterable.dart (525:38) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
@@ -693,12 +779,15 @@ dart:core/iterable.dart (526:16) A value of type 'Null' can't be assigned to a v
 dart:core/iterable.dart (548:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:core/iterable.dart (656:3) Variable '_current' of non-nullable type 'E' must be initialized.
 dart:core/iterable.dart (664:18) A value of type 'Null' can't be assigned to a variable of type 'E'.
+dart:core/list.dart (77:17) Parameter 'length' of non-nullable type 'int' must have a default value.
 dart:core/list.dart (145:13) Variable 'result' of non-nullable type 'List<E>' must be initialized.
 dart:core/list.dart (247:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
 dart:core/list.dart (252:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
 dart:core/list.dart (291:31) Parameter 'start' of non-nullable type 'int' must have a default value.
 dart:core/list.dart (425:31) Parameter 'end' of non-nullable type 'int' must have a default value.
 dart:core/list.dart (489:39) Parameter 'fillValue' of non-nullable type 'E' must have a default value.
+dart:core/map.dart (117:8) Parameter 'key' of non-nullable type '(dynamic) → K' must have a default value.
+dart:core/map.dart (117:24) Parameter 'value' of non-nullable type '(dynamic) → V' must have a default value.
 dart:core/num.dart (360:33) Parameter 'fractionDigits' of non-nullable type 'int' must have a default value.
 dart:core/num.dart (439:35) Parameter 'onError' of non-nullable type '(String) → num' must have a default value.
 dart:core/num.dart (451:42) The return type 'Null' isn't a 'int', as defined by the method '_returnIntNull'.
@@ -709,7 +798,9 @@ dart:core/stopwatch.dart (32:3) Variable '_stop' of non-nullable type 'int' must
 dart:core/stopwatch.dart (54:15) A value of type 'Null' can't be assigned to a variable of type 'int'.
 dart:core/stopwatch.dart (143:18) A value of type 'int?' can't be assigned to a variable of type 'int'.
 dart:core/stopwatch.dart (145:35) 'timerTicks' isn't a function.
+dart:core/string.dart (114:48) Parameter 'end' of non-nullable type 'int' must have a default value.
 dart:core/string.dart (156:9) Only redirecting factory constructors can be declared to be 'const'.
+dart:core/string.dart (156:54) Parameter 'defaultValue' of non-nullable type 'String' must have a default value.
 dart:core/string.dart (157:5) Const constructors can't throw exceptions.
 dart:core/string.dart (268:33) Parameter 'start' of non-nullable type 'int' must have a default value.
 dart:core/string.dart (284:37) Parameter 'start' of non-nullable type 'int' must have a default value.
@@ -726,7 +817,16 @@ dart:core/string.dart (830:27) A value of type 'Null' can't be assigned to a var
 dart:core/uri.dart (82:3) Variable '_pathSegments' of non-nullable type 'List<String>' must be initialized.
 dart:core/uri.dart (82:3) Variable '_queryParameterLists' of non-nullable type 'Map<String, List<String>>' must be initialized.
 dart:core/uri.dart (82:3) Variable '_queryParameters' of non-nullable type 'Map<String, String>' must be initialized.
+dart:core/uri.dart (163:16) Parameter 'host' of non-nullable type 'String' must have a default value.
+dart:core/uri.dart (164:16) Parameter 'port' of non-nullable type 'int' must have a default value.
+dart:core/uri.dart (165:16) Parameter 'path' of non-nullable type 'String' must have a default value.
+dart:core/uri.dart (166:16) Parameter 'pathSegments' of non-nullable type 'Iterable<String>' must have a default value.
+dart:core/uri.dart (167:16) Parameter 'query' of non-nullable type 'String' must have a default value.
+dart:core/uri.dart (168:16) Parameter 'queryParameters' of non-nullable type 'Map<String, dynamic>' must have a default value.
+dart:core/uri.dart (169:16) Parameter 'fragment' of non-nullable type 'String' must have a default value.
 dart:core/uri.dart (174:30) A value of type 'Null' can't be assigned to a variable of type 'String'.
+dart:core/uri.dart (230:21) Parameter 'queryParameters' of non-nullable type 'Map<String, String>' must have a default value.
+dart:core/uri.dart (242:22) Parameter 'queryParameters' of non-nullable type 'Map<String, String>' must have a default value.
 dart:core/uri.dart (343:48) Parameter 'end' of non-nullable type 'int' must have a default value.
 dart:core/uri.dart (401:19) A value of type 'Null' can't be assigned to a variable of type 'String'.
 dart:core/uri.dart (402:16) A value of type 'Null' can't be assigned to a variable of type 'int'.
@@ -741,6 +841,12 @@ dart:core/uri.dart (641:45) A value of type 'int' can't be assigned to a variabl
 dart:core/uri.dart (645:14) A value of type 'String' can't be assigned to a variable of type 'Null'.
 dart:core/uri.dart (649:20) The argument type 'Null' can't be assigned to the parameter type 'String'.
 dart:core/uri.dart (650:20) The argument type 'Null' can't be assigned to the parameter type 'int'.
+dart:core/uri.dart (736:34) Parameter 'windows' of non-nullable type 'bool' must have a default value.
+dart:core/uri.dart (749:39) Parameter 'windows' of non-nullable type 'bool' must have a default value.
+dart:core/uri.dart (784:31) Parameter 'mimeType' of non-nullable type 'String' must have a default value.
+dart:core/uri.dart (785:31) Parameter 'encoding' of non-nullable type 'Encoding' must have a default value.
+dart:core/uri.dart (786:31) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
+dart:core/uri.dart (814:30) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
 dart:core/uri.dart (833:18) A value of type 'String?' can't be assigned to a variable of type 'String'.
 dart:core/uri.dart (1010:16) Parameter 'scheme' of non-nullable type 'String' must have a default value.
 dart:core/uri.dart (1011:16) Parameter 'userInfo' of non-nullable type 'String' must have a default value.
@@ -777,9 +883,13 @@ dart:core/uri.dart (2222:14) Variable 'key' of non-nullable type 'String' must b
 dart:core/uri.dart (2223:14) Variable 'value' of non-nullable type 'String' must be initialized.
 dart:core/uri.dart (2296:66) Parameter 'end' of non-nullable type 'int' must have a default value.
 dart:core/uri.dart (2505:15) Variable 'bytes' of non-nullable type 'List<int>' must be initialized.
+dart:core/uri.dart (2858:31) Parameter 'mimeType' of non-nullable type 'String' must have a default value.
+dart:core/uri.dart (2859:31) Parameter 'encoding' of non-nullable type 'Encoding' must have a default value.
+dart:core/uri.dart (2860:31) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
 dart:core/uri.dart (2864:12) Variable 'charsetName' of non-nullable type 'String' must be initialized.
 dart:core/uri.dart (2865:12) Variable 'encodingName' of non-nullable type 'String' must be initialized.
 dart:core/uri.dart (2886:54) The argument type 'Null' can't be assigned to the parameter type 'Uri'.
+dart:core/uri.dart (2897:30) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
 dart:core/uri.dart (2901:25) The argument type 'Null' can't be assigned to the parameter type 'String'.
 dart:core/uri.dart (2915:54) The argument type 'Null' can't be assigned to the parameter type 'Uri'.
 dart:core/uri.dart (3052:27) The argument type 'Null' can't be assigned to the parameter type 'Uri'.
@@ -811,63 +921,22 @@ dart:developer/timeline.dart (209:3) Variable '_arguments' of non-nullable type 
 dart:developer/timeline.dart (228:39) The argument type 'Null' can't be assigned to the parameter type 'Map'.
 dart:developer/timeline.dart (254:3) Variable '_arguments' of non-nullable type 'Map<dynamic, dynamic>' must be initialized.
 dart:developer/timeline.dart (280:8) Variable '_fastPathArguments' of non-nullable type 'String' must be initialized.
-dart:html (177:3) The final variable 'origin' must be initialized.
-dart:html (177:3) Variable 'download' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'hash' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'host' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'hostname' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'href' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'hreflang' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'origin' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'password' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'pathname' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'port' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'protocol' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'rel' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'search' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'target' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (177:3) Variable 'username' of non-nullable type 'String' must be initialized.
-dart:html (813:3) The final variable 'origin' must be initialized.
-dart:html (813:3) Variable 'alt' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'coords' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'hash' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'host' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'hostname' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'href' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'origin' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'password' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'pathname' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'port' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'protocol' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'search' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'shape' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'target' of non-nullable type 'String' must be initialized.
-dart:html (813:3) Variable 'username' of non-nullable type 'String' must be initialized.
-dart:html (1080:3) Variable 'href' of non-nullable type 'String' must be initialized.
-dart:html (1080:3) Variable 'target' of non-nullable type 'String' must be initialized.
+dart:html (167:26) Parameter 'href' of non-nullable type 'String' must have a default value.
+dart:html (443:40) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (478:46) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (753:52) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (897:27) Parameter 'src' of non-nullable type 'String' must have a default value.
+dart:html (912:25) Parameter 'src' of non-nullable type 'String' must have a default value.
+dart:html (1006:48) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (1135:50) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (1202:15) Parameter 'start' of non-nullable type 'int' must have a default value.
 dart:html (1202:26) Parameter 'end' of non-nullable type 'int' must have a default value.
 dart:html (1202:35) Parameter 'contentType' of non-nullable type 'String' must have a default value.
-dart:html (1691:3) The final variables 'form', 'labels' and '3' more must be initialized.
-dart:html (1691:3) Variable 'autofocus' of non-nullable type 'bool' must be initialized.
-dart:html (1691:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (1691:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (1691:3) Variable 'formAction' of non-nullable type 'String' must be initialized.
-dart:html (1691:3) Variable 'formEnctype' of non-nullable type 'String' must be initialized.
-dart:html (1691:3) Variable 'formMethod' of non-nullable type 'String' must be initialized.
-dart:html (1691:3) Variable 'formNoValidate' of non-nullable type 'bool' must be initialized.
-dart:html (1691:3) Variable 'formTarget' of non-nullable type 'String' must be initialized.
-dart:html (1691:3) Variable 'labels' of non-nullable type 'List<Node>' must be initialized.
-dart:html (1691:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (1691:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (1691:3) Variable 'validationMessage' of non-nullable type 'String' must be initialized.
-dart:html (1691:3) Variable 'validity' of non-nullable type 'ValidityState' must be initialized.
-dart:html (1691:3) Variable 'value' of non-nullable type 'String' must be initialized.
-dart:html (1691:3) Variable 'willValidate' of non-nullable type 'bool' must be initialized.
+dart:html (1204:33) Parameter 'type' of non-nullable type 'String' must have a default value.
+dart:html (1204:46) Parameter 'endings' of non-nullable type 'String' must have a default value.
 dart:html (1814:42) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
-dart:html (1881:3) Variable 'height' of non-nullable type 'int' must be initialized.
-dart:html (1881:3) Variable 'width' of non-nullable type 'int' must be initialized.
+dart:html (1870:26) Parameter 'width' of non-nullable type 'int' must have a default value.
+dart:html (1870:37) Parameter 'height' of non-nullable type 'int' must have a default value.
 dart:html (1897:40) Parameter 'attributes' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (2007:48) Parameter 'quality' of non-nullable type 'num' must have a default value.
 dart:html (2227:22) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
@@ -887,23 +956,27 @@ dart:html (2572:8) Parameter 'sourceRect' of non-nullable type 'Rectangle<num>' 
 dart:html (2760:45) Parameter 'maxWidth' of non-nullable type 'num' must have a default value.
 dart:html (2949:56) Parameter 'transfer' of non-nullable type 'List<MessagePort>' must have a default value.
 dart:html (2991:20) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (3046:36) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (3077:20) Parameter 'data' of non-nullable type 'String' must have a default value.
+dart:html (3097:55) Parameter 'view' of non-nullable type 'Window' must have a default value.
+dart:html (3098:7) Parameter 'data' of non-nullable type 'String' must have a default value.
+dart:html (3098:20) Parameter 'locale' of non-nullable type 'String' must have a default value.
+dart:html (3118:44) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (3221:56) Parameter 'transfer' of non-nullable type 'List<MessagePort>' must have a default value.
 dart:html (3283:38) Parameter 'transfer' of non-nullable type 'List<MessagePort>' must have a default value.
-dart:html (3471:3) Variable 'select' of non-nullable type 'String' must be initialized.
 dart:html (3581:19) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (3653:56) Parameter 'transfer' of non-nullable type 'List<MessagePort>' must have a default value.
 dart:html (4098:56) Parameter 'priority' of non-nullable type 'String' must have a default value.
 dart:html (4129:63) Parameter 'priority' of non-nullable type 'String' must have a default value.
-dart:html (5170:3) Variable '_elementCssStyleDeclarationSetIterable' of non-nullable type 'Iterable<CssStyleDeclaration>' must be initialized.
 dart:html (5179:56) Parameter 'priority' of non-nullable type 'String' must have a default value.
 dart:html (5652:56) Parameter 'priority' of non-nullable type 'String' must have a default value.
 dart:html (8790:47) Parameter 'index' of non-nullable type 'int' must have a default value.
 dart:html (8798:32) Parameter 'index' of non-nullable type 'int' must have a default value.
-dart:html (8972:3) The final variable 'options' must be initialized.
-dart:html (8972:3) Variable 'options' of non-nullable type 'List<Node>' must be initialized.
+dart:html (8899:39) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (9026:19) Parameter 'format' of non-nullable type 'String' must have a default value.
 dart:html (9112:39) Parameter 'type' of non-nullable type 'String' must have a default value.
 dart:html (9181:38) Parameter 'transfer' of non-nullable type 'List<MessagePort>' must have a default value.
+dart:html (9223:50) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (9264:45) Parameter 'usageCallback' of non-nullable type '(int, int) → void' must have a default value.
 dart:html (9264:81) Parameter 'errorCallback' of non-nullable type '(DomError) → void' must have a default value.
 dart:html (9269:60) Parameter 'quotaCallback' of non-nullable type '(int) → void' must have a default value.
@@ -911,9 +984,7 @@ dart:html (9269:96) Parameter 'errorCallback' of non-nullable type '(DomError) �
 dart:html (9287:64) Parameter 'errorCallback' of non-nullable type '(DomError) → void' must have a default value.
 dart:html (9292:43) Parameter 'quotaCallback' of non-nullable type '(int) → void' must have a default value.
 dart:html (9292:79) Parameter 'errorCallback' of non-nullable type '(DomError) → void' must have a default value.
-dart:html (9317:3) Variable 'open' of non-nullable type 'bool' must be initialized.
-dart:html (9504:3) Variable 'open' of non-nullable type 'bool' must be initialized.
-dart:html (9504:3) Variable 'returnValue' of non-nullable type 'String' must be initialized.
+dart:html (9367:42) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (9583:37) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (9583:50) Parameter 'successCallback' of non-nullable type '(Entry) → void' must have a default value.
 dart:html (9583:82) Parameter 'errorCallback' of non-nullable type '(FileError) → void' must have a default value.
@@ -935,9 +1006,15 @@ dart:html (10668:8) Parameter 'whatToShow' of non-nullable type 'int' must have 
 dart:html (10668:24) Parameter 'filter' of non-nullable type 'NodeFilter' must have a default value.
 dart:html (10674:8) Parameter 'whatToShow' of non-nullable type 'int' must have a default value.
 dart:html (10674:24) Parameter 'filter' of non-nullable type 'NodeFilter' must have a default value.
+dart:html (10698:8) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
+dart:html (10698:33) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
+dart:html (10705:8) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
+dart:html (10705:33) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
 dart:html (10760:6) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
 dart:html (10760:31) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
 dart:html (10780:33) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
+dart:html (10871:34) Parameter 'message' of non-nullable type 'String' must have a default value.
+dart:html (11004:22) Parameter 'other' of non-nullable type 'DomMatrixReadOnly' must have a default value.
 dart:html (11183:37) Parameter 'originX' of non-nullable type 'num' must have a default value.
 dart:html (11183:50) Parameter 'originY' of non-nullable type 'num' must have a default value.
 dart:html (11183:63) Parameter 'originZ' of non-nullable type 'num' must have a default value.
@@ -960,6 +1037,9 @@ dart:html (11279:67) Parameter 'originX' of non-nullable type 'num' must have a 
 dart:html (11279:80) Parameter 'originY' of non-nullable type 'num' must have a default value.
 dart:html (11279:93) Parameter 'originZ' of non-nullable type 'num' must have a default value.
 dart:html (11294:40) Parameter 'tz' of non-nullable type 'num' must have a default value.
+dart:html (11334:33) Parameter 'y' of non-nullable type 'num' must have a default value.
+dart:html (11334:40) Parameter 'z' of non-nullable type 'num' must have a default value.
+dart:html (11334:47) Parameter 'w' of non-nullable type 'num' must have a default value.
 dart:html (11468:12) The return type 'Null' isn't a 'Rectangle<num>', as defined by the method 'intersection'.
 dart:html (11689:30) Parameter 'force' of non-nullable type 'bool' must have a default value.
 dart:html (11760:14) Parameter 'compare' of non-nullable type '(Element, Element) → int' must have a default value.
@@ -967,46 +1047,9 @@ dart:html (11764:17) Parameter 'random' of non-nullable type 'Random' must have 
 dart:html (11795:39) Parameter 'fillValue' of non-nullable type 'Element' must have a default value.
 dart:html (12448:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
 dart:html (12452:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
-dart:html (13009:3) The final variables '_attributes', '_childElementCount' and '16' more must be initialized.
-dart:html (13009:3) Variable '_attributes' of non-nullable type '_NamedNodeMap' must be initialized.
-dart:html (13009:3) Variable '_childElementCount' of non-nullable type 'int' must be initialized.
-dart:html (13009:3) Variable '_children' of non-nullable type 'List<Node>' must be initialized.
-dart:html (13009:3) Variable '_defaultSanitizer' of non-nullable type '_ValidatingTreeSanitizer' must be initialized.
-dart:html (13009:3) Variable '_defaultValidator' of non-nullable type 'NodeValidatorBuilder' must be initialized.
-dart:html (13009:3) Variable '_firstElementChild' of non-nullable type 'Element' must be initialized.
-dart:html (13009:3) Variable '_innerHtml' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable '_lastElementChild' of non-nullable type 'Element' must be initialized.
-dart:html (13009:3) Variable '_parseDocument' of non-nullable type 'HtmlDocument' must be initialized.
-dart:html (13009:3) Variable '_parseRange' of non-nullable type 'Range' must be initialized.
-dart:html (13009:3) Variable '_scrollHeight' of non-nullable type 'int' must be initialized.
-dart:html (13009:3) Variable '_scrollLeft' of non-nullable type 'num' must be initialized.
-dart:html (13009:3) Variable '_scrollTop' of non-nullable type 'num' must be initialized.
-dart:html (13009:3) Variable '_scrollWidth' of non-nullable type 'int' must be initialized.
-dart:html (13009:3) Variable '_xtag' of non-nullable type 'Element' must be initialized.
-dart:html (13009:3) Variable 'className' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable 'clientHeight' of non-nullable type 'int' must be initialized.
-dart:html (13009:3) Variable 'clientLeft' of non-nullable type 'int' must be initialized.
-dart:html (13009:3) Variable 'clientTop' of non-nullable type 'int' must be initialized.
-dart:html (13009:3) Variable 'clientWidth' of non-nullable type 'int' must be initialized.
-dart:html (13009:3) Variable 'computedName' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable 'computedRole' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable 'contentEditable' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable 'contextMenu' of non-nullable type 'MenuElement' must be initialized.
-dart:html (13009:3) Variable 'dir' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable 'draggable' of non-nullable type 'bool' must be initialized.
-dart:html (13009:3) Variable 'dropzone' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable 'hidden' of non-nullable type 'bool' must be initialized.
-dart:html (13009:3) Variable 'id' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable 'lang' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable 'nextElementSibling' of non-nullable type 'Element' must be initialized.
-dart:html (13009:3) Variable 'offsetParent' of non-nullable type 'Element' must be initialized.
-dart:html (13009:3) Variable 'previousElementSibling' of non-nullable type 'Element' must be initialized.
-dart:html (13009:3) Variable 'spellcheck' of non-nullable type 'bool' must be initialized.
-dart:html (13009:3) Variable 'style' of non-nullable type 'CssStyleDeclaration' must be initialized.
-dart:html (13009:3) Variable 'tabIndex' of non-nullable type 'int' must be initialized.
-dart:html (13009:3) Variable 'tagName' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable 'title' of non-nullable type 'String' must be initialized.
-dart:html (13009:3) Variable 'translate' of non-nullable type 'bool' must be initialized.
+dart:html (12986:8) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
+dart:html (12986:33) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
+dart:html (13030:36) Parameter 'typeExtention' of non-nullable type 'String' must have a default value.
 dart:html (13335:41) Parameter 'pseudoElement' of non-nullable type 'String' must have a default value.
 dart:html (13366:33) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
 dart:html (13367:7) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
@@ -1025,11 +1068,6 @@ dart:html (15152:32) Parameter 'y' of non-nullable type 'num' must have a defaul
 dart:html (15187:25) Parameter 'alignWithTop' of non-nullable type 'bool' must have a default value.
 dart:html (15194:33) Parameter 'centerIfNeeded' of non-nullable type 'bool' must have a default value.
 dart:html (15199:32) Parameter 'y' of non-nullable type 'num' must have a default value.
-dart:html (15841:3) Variable 'height' of non-nullable type 'String' must be initialized.
-dart:html (15841:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (15841:3) Variable 'src' of non-nullable type 'String' must be initialized.
-dart:html (15841:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (15841:3) Variable 'width' of non-nullable type 'String' must be initialized.
 dart:html (15922:40) Parameter 'name' of non-nullable type 'String' must have a default value.
 dart:html (15922:53) Parameter 'successCallback' of non-nullable type '(Entry) → void' must have a default value.
 dart:html (15922:85) Parameter 'errorCallback' of non-nullable type '(FileError) → void' must have a default value.
@@ -1042,52 +1080,41 @@ dart:html (15970:53) Parameter 'successCallback' of non-nullable type '(Entry) �
 dart:html (15970:85) Parameter 'errorCallback' of non-nullable type '(FileError) → void' must have a default value.
 dart:html (15975:48) Parameter 'name' of non-nullable type 'String' must have a default value.
 dart:html (15986:47) Parameter 'errorCallback' of non-nullable type '(FileError) → void' must have a default value.
+dart:html (16041:36) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (16136:33) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (16311:55) Parameter 'eventSourceInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (16467:63) Parameter 'useCapture' of non-nullable type 'bool' must have a default value.
 dart:html (16476:66) Parameter 'useCapture' of non-nullable type 'bool' must have a default value.
 dart:html (16491:64) Parameter 'capture' of non-nullable type 'bool' must have a default value.
 dart:html (16500:67) Parameter 'capture' of non-nullable type 'bool' must have a default value.
-dart:html (16625:3) The final variables 'elements', 'form' and '4' more must be initialized.
-dart:html (16625:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (16625:3) Variable 'elements' of non-nullable type 'HtmlFormControlsCollection' must be initialized.
-dart:html (16625:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (16625:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (16625:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (16625:3) Variable 'validationMessage' of non-nullable type 'String' must be initialized.
-dart:html (16625:3) Variable 'validity' of non-nullable type 'ValidityState' must be initialized.
-dart:html (16625:3) Variable 'willValidate' of non-nullable type 'bool' must be initialized.
+dart:html (16518:41) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (16579:36) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (16686:57) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (16751:60) Parameter 'errorCallback' of non-nullable type '(FileError) → void' must have a default value.
 dart:html (16767:46) Parameter 'errorCallback' of non-nullable type '(FileError) → void' must have a default value.
 dart:html (17035:31) Parameter 'label' of non-nullable type 'String' must have a default value.
+dart:html (17296:36) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (17330:51) Parameter 'descriptors' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (17421:28) Parameter 'text' of non-nullable type 'String' must have a default value.
+dart:html (17489:21) Parameter 'form' of non-nullable type 'FormElement' must have a default value.
 dart:html (17508:45) Parameter 'filename' of non-nullable type 'String' must have a default value.
 dart:html (17533:33) Parameter 'filename' of non-nullable type 'String' must have a default value.
-dart:html (17555:3) The final variable 'length' must be initialized.
-dart:html (17555:3) Variable 'acceptCharset' of non-nullable type 'String' must be initialized.
-dart:html (17555:3) Variable 'action' of non-nullable type 'String' must be initialized.
-dart:html (17555:3) Variable 'autocomplete' of non-nullable type 'String' must be initialized.
-dart:html (17555:3) Variable 'encoding' of non-nullable type 'String' must be initialized.
-dart:html (17555:3) Variable 'enctype' of non-nullable type 'String' must be initialized.
-dart:html (17555:3) Variable 'length' of non-nullable type 'int' must be initialized.
-dart:html (17555:3) Variable 'method' of non-nullable type 'String' must be initialized.
-dart:html (17555:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (17555:3) Variable 'noValidate' of non-nullable type 'bool' must be initialized.
-dart:html (17555:3) Variable 'target' of non-nullable type 'String' must be initialized.
+dart:html (17733:38) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (17829:43) Parameter 'enableHighAccuracy' of non-nullable type 'bool' must have a default value.
 dart:html (17830:7) Parameter 'timeout' of non-nullable type 'Duration' must have a default value.
 dart:html (17830:25) Parameter 'maximumAge' of non-nullable type 'Duration' must have a default value.
 dart:html (17858:38) Parameter 'enableHighAccuracy' of non-nullable type 'bool' must have a default value.
 dart:html (17859:7) Parameter 'timeout' of non-nullable type 'Duration' must have a default value.
 dart:html (17859:25) Parameter 'maximumAge' of non-nullable type 'Duration' must have a default value.
-dart:html (17872:9) Variable 'watchId' of non-nullable type 'int' must be initialized.
-dart:html (17876:35) Variable 'controller' of non-nullable type 'StreamController<Geoposition>' must be initialized.
 dart:html (17917:64) Parameter 'errorCallback' of non-nullable type '(PositionError) → void' must have a default value.
 dart:html (17917:102) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (17945:58) Parameter 'errorCallback' of non-nullable type '(PositionError) → void' must have a default value.
 dart:html (17945:96) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (18015:70) Parameter 'useCapture' of non-nullable type 'bool' must have a default value.
 dart:html (18017:73) Parameter 'useCapture' of non-nullable type 'bool' must have a default value.
-dart:html (18566:3) Variable 'color' of non-nullable type 'String' must be initialized.
+dart:html (18587:53) Parameter 'oldUrl' of non-nullable type 'String' must have a default value.
+dart:html (18588:7) Parameter 'newUrl' of non-nullable type 'String' must have a default value.
+dart:html (18603:43) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (18788:12) Parameter 'delta' of non-nullable type 'int' must have a default value.
 dart:html (18796:77) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (18830:80) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
@@ -1113,208 +1140,49 @@ dart:html (19530:23) Parameter 'sendData' of non-nullable type 'String' must hav
 dart:html (19619:41) Parameter 'async' of non-nullable type 'bool' must have a default value.
 dart:html (19619:53) Parameter 'user' of non-nullable type 'String' must have a default value.
 dart:html (19619:66) Parameter 'password' of non-nullable type 'String' must have a default value.
-dart:html (20113:3) The final variables '_get_contentWindow' and 'sandbox' must be initialized.
-dart:html (20113:3) Variable 'allowFullscreen' of non-nullable type 'bool' must be initialized.
-dart:html (20113:3) Variable 'height' of non-nullable type 'String' must be initialized.
-dart:html (20113:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (20113:3) Variable 'sandbox' of non-nullable type 'DomSettableTokenList' must be initialized.
-dart:html (20113:3) Variable 'src' of non-nullable type 'String' must be initialized.
-dart:html (20113:3) Variable 'srcdoc' of non-nullable type 'String' must be initialized.
-dart:html (20113:3) Variable 'width' of non-nullable type 'String' must be initialized.
-dart:html (20246:3) The final variables 'complete', 'currentSrc' and '2' more must be initialized.
-dart:html (20246:3) Variable 'alt' of non-nullable type 'String' must be initialized.
-dart:html (20246:3) Variable 'complete' of non-nullable type 'bool' must be initialized.
-dart:html (20246:3) Variable 'crossOrigin' of non-nullable type 'String' must be initialized.
-dart:html (20246:3) Variable 'currentSrc' of non-nullable type 'String' must be initialized.
-dart:html (20246:3) Variable 'height' of non-nullable type 'int' must be initialized.
-dart:html (20246:3) Variable 'isMap' of non-nullable type 'bool' must be initialized.
-dart:html (20246:3) Variable 'naturalHeight' of non-nullable type 'int' must be initialized.
-dart:html (20246:3) Variable 'naturalWidth' of non-nullable type 'int' must be initialized.
-dart:html (20246:3) Variable 'sizes' of non-nullable type 'String' must be initialized.
-dart:html (20246:3) Variable 'src' of non-nullable type 'String' must be initialized.
-dart:html (20246:3) Variable 'srcset' of non-nullable type 'String' must be initialized.
-dart:html (20246:3) Variable 'useMap' of non-nullable type 'String' must be initialized.
-dart:html (20246:3) Variable 'width' of non-nullable type 'int' must be initialized.
-dart:html (20400:3) The final variables '_get_valueAsDate', 'entries' and '6' more must be initialized.
-dart:html (20400:3) Variable 'accept' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'alt' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'autocapitalize' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'autocomplete' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'autofocus' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'capture' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'checked' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'defaultChecked' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'defaultValue' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'dirName' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'directory' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'entries' of non-nullable type 'List<Entry>' must be initialized.
-dart:html (20400:3) Variable 'files' of non-nullable type 'List<File>' must be initialized.
-dart:html (20400:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (20400:3) Variable 'formAction' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'formEnctype' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'formMethod' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'formNoValidate' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'formTarget' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'height' of non-nullable type 'int' must be initialized.
-dart:html (20400:3) Variable 'incremental' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'indeterminate' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'inputMode' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'labels' of non-nullable type 'List<Node>' must be initialized.
-dart:html (20400:3) Variable 'list' of non-nullable type 'HtmlElement' must be initialized.
-dart:html (20400:3) Variable 'max' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'maxLength' of non-nullable type 'int' must be initialized.
-dart:html (20400:3) Variable 'min' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'minLength' of non-nullable type 'int' must be initialized.
-dart:html (20400:3) Variable 'multiple' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'pattern' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'placeholder' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'readOnly' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'required' of non-nullable type 'bool' must be initialized.
-dart:html (20400:3) Variable 'selectionDirection' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'selectionEnd' of non-nullable type 'int' must be initialized.
-dart:html (20400:3) Variable 'selectionStart' of non-nullable type 'int' must be initialized.
-dart:html (20400:3) Variable 'size' of non-nullable type 'int' must be initialized.
-dart:html (20400:3) Variable 'src' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'step' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'validationMessage' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'validity' of non-nullable type 'ValidityState' must be initialized.
-dart:html (20400:3) Variable 'value' of non-nullable type 'String' must be initialized.
-dart:html (20400:3) Variable 'valueAsNumber' of non-nullable type 'num' must be initialized.
-dart:html (20400:3) Variable 'width' of non-nullable type 'int' must be initialized.
-dart:html (20400:3) Variable 'willValidate' of non-nullable type 'bool' must be initialized.
+dart:html (20190:48) Parameter 'sh' of non-nullable type 'int' must have a default value.
+dart:html (20234:25) Parameter 'src' of non-nullable type 'String' must have a default value.
+dart:html (20234:37) Parameter 'width' of non-nullable type 'int' must have a default value.
+dart:html (20234:48) Parameter 'height' of non-nullable type 'int' must have a default value.
+dart:html (20337:24) Parameter 'deviceInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (20382:25) Parameter 'type' of non-nullable type 'String' must have a default value.
 dart:html (20655:42) Parameter 'start' of non-nullable type 'int' must have a default value.
 dart:html (20655:53) Parameter 'end' of non-nullable type 'int' must have a default value.
 dart:html (20655:62) Parameter 'selectionMode' of non-nullable type 'String' must have a default value.
 dart:html (20659:47) Parameter 'direction' of non-nullable type 'String' must have a default value.
 dart:html (20663:18) Parameter 'n' of non-nullable type 'int' must have a default value.
 dart:html (20667:16) Parameter 'n' of non-nullable type 'int' must have a default value.
-dart:html (20681:8) Variable 'autofocus' of non-nullable type 'bool' must be initialized.
-dart:html (20684:8) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (20687:8) Variable 'incremental' of non-nullable type 'bool' must be initialized.
-dart:html (20690:8) Variable 'indeterminate' of non-nullable type 'bool' must be initialized.
-dart:html (20696:10) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (20705:10) Variable 'value' of non-nullable type 'String' must be initialized.
-dart:html (20730:10) Variable 'autocomplete' of non-nullable type 'String' must be initialized.
-dart:html (20733:7) Variable 'maxLength' of non-nullable type 'int' must be initialized.
-dart:html (20736:10) Variable 'pattern' of non-nullable type 'String' must be initialized.
-dart:html (20739:10) Variable 'placeholder' of non-nullable type 'String' must be initialized.
-dart:html (20742:8) Variable 'readOnly' of non-nullable type 'bool' must be initialized.
-dart:html (20745:8) Variable 'required' of non-nullable type 'bool' must be initialized.
-dart:html (20748:7) Variable 'size' of non-nullable type 'int' must be initialized.
-dart:html (20754:10) Variable 'selectionDirection' of non-nullable type 'String' must be initialized.
-dart:html (20757:7) Variable 'selectionEnd' of non-nullable type 'int' must be initialized.
-dart:html (20760:7) Variable 'selectionStart' of non-nullable type 'int' must be initialized.
 dart:html (20763:47) Parameter 'direction' of non-nullable type 'String' must have a default value.
-dart:html (20913:10) Variable 'max' of non-nullable type 'String' must be initialized.
-dart:html (20916:10) Variable 'min' of non-nullable type 'String' must be initialized.
-dart:html (20919:10) Variable 'step' of non-nullable type 'String' must be initialized.
-dart:html (20922:7) Variable 'valueAsNumber' of non-nullable type 'num' must be initialized.
 dart:html (20925:18) Parameter 'n' of non-nullable type 'int' must have a default value.
 dart:html (20928:16) Parameter 'n' of non-nullable type 'int' must have a default value.
-dart:html (21436:3) The final variables 'form', 'labels' and '4' more must be initialized.
-dart:html (21436:3) Variable 'autofocus' of non-nullable type 'bool' must be initialized.
-dart:html (21436:3) Variable 'challenge' of non-nullable type 'String' must be initialized.
-dart:html (21436:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (21436:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (21436:3) Variable 'keytype' of non-nullable type 'String' must be initialized.
-dart:html (21436:3) Variable 'labels' of non-nullable type 'List<Node>' must be initialized.
-dart:html (21436:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (21436:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (21436:3) Variable 'validationMessage' of non-nullable type 'String' must be initialized.
-dart:html (21436:3) Variable 'validity' of non-nullable type 'ValidityState' must be initialized.
-dart:html (21436:3) Variable 'willValidate' of non-nullable type 'bool' must be initialized.
-dart:html (21521:3) Variable 'value' of non-nullable type 'int' must be initialized.
-dart:html (21547:3) The final variables 'control' and 'form' must be initialized.
-dart:html (21547:3) Variable 'control' of non-nullable type 'HtmlElement' must be initialized.
-dart:html (21547:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (21547:3) Variable 'htmlFor' of non-nullable type 'String' must be initialized.
-dart:html (21581:3) The final variable 'form' must be initialized.
-dart:html (21581:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (21607:3) The final variables 'import', 'sheet' and '1' more must be initialized.
-dart:html (21607:3) Variable 'crossOrigin' of non-nullable type 'String' must be initialized.
-dart:html (21607:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (21607:3) Variable 'href' of non-nullable type 'String' must be initialized.
-dart:html (21607:3) Variable 'hreflang' of non-nullable type 'String' must be initialized.
-dart:html (21607:3) Variable 'import' of non-nullable type 'Document' must be initialized.
-dart:html (21607:3) Variable 'integrity' of non-nullable type 'String' must be initialized.
-dart:html (21607:3) Variable 'media' of non-nullable type 'String' must be initialized.
-dart:html (21607:3) Variable 'rel' of non-nullable type 'String' must be initialized.
-dart:html (21607:3) Variable 'sheet' of non-nullable type 'StyleSheet' must be initialized.
-dart:html (21607:3) Variable 'sizes' of non-nullable type 'DomSettableTokenList' must be initialized.
-dart:html (21607:3) Variable 'type' of non-nullable type 'String' must be initialized.
+dart:html (21254:8) Parameter 'view' of non-nullable type 'Window' must have a default value.
+dart:html (21297:41) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (21716:16) Parameter 'url' of non-nullable type 'String' must have a default value.
-dart:html (21759:3) The final variable 'areas' must be initialized.
-dart:html (21759:3) Variable 'areas' of non-nullable type 'List<Node>' must be initialized.
-dart:html (21759:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (21985:3) The final variables 'audioDecodedByteCount', 'audioTracks' and '16' more must be initialized.
-dart:html (21985:3) Variable 'audioDecodedByteCount' of non-nullable type 'int' must be initialized.
-dart:html (21985:3) Variable 'audioTracks' of non-nullable type 'AudioTrackList' must be initialized.
-dart:html (21985:3) Variable 'autoplay' of non-nullable type 'bool' must be initialized.
-dart:html (21985:3) Variable 'buffered' of non-nullable type 'TimeRanges' must be initialized.
-dart:html (21985:3) Variable 'controller' of non-nullable type 'MediaController' must be initialized.
-dart:html (21985:3) Variable 'controls' of non-nullable type 'bool' must be initialized.
-dart:html (21985:3) Variable 'crossOrigin' of non-nullable type 'String' must be initialized.
-dart:html (21985:3) Variable 'currentSrc' of non-nullable type 'String' must be initialized.
-dart:html (21985:3) Variable 'currentTime' of non-nullable type 'num' must be initialized.
-dart:html (21985:3) Variable 'defaultMuted' of non-nullable type 'bool' must be initialized.
-dart:html (21985:3) Variable 'defaultPlaybackRate' of non-nullable type 'num' must be initialized.
-dart:html (21985:3) Variable 'duration' of non-nullable type 'double' must be initialized.
-dart:html (21985:3) Variable 'ended' of non-nullable type 'bool' must be initialized.
-dart:html (21985:3) Variable 'error' of non-nullable type 'MediaError' must be initialized.
-dart:html (21985:3) Variable 'loop' of non-nullable type 'bool' must be initialized.
-dart:html (21985:3) Variable 'mediaGroup' of non-nullable type 'String' must be initialized.
-dart:html (21985:3) Variable 'mediaKeys' of non-nullable type 'MediaKeys' must be initialized.
-dart:html (21985:3) Variable 'muted' of non-nullable type 'bool' must be initialized.
-dart:html (21985:3) Variable 'networkState' of non-nullable type 'int' must be initialized.
-dart:html (21985:3) Variable 'paused' of non-nullable type 'bool' must be initialized.
-dart:html (21985:3) Variable 'playbackRate' of non-nullable type 'num' must be initialized.
-dart:html (21985:3) Variable 'played' of non-nullable type 'TimeRanges' must be initialized.
-dart:html (21985:3) Variable 'preload' of non-nullable type 'String' must be initialized.
-dart:html (21985:3) Variable 'readyState' of non-nullable type 'int' must be initialized.
-dart:html (21985:3) Variable 'seekable' of non-nullable type 'TimeRanges' must be initialized.
-dart:html (21985:3) Variable 'seeking' of non-nullable type 'bool' must be initialized.
-dart:html (21985:3) Variable 'session' of non-nullable type 'MediaSession' must be initialized.
-dart:html (21985:3) Variable 'sinkId' of non-nullable type 'String' must be initialized.
-dart:html (21985:3) Variable 'src' of non-nullable type 'String' must be initialized.
-dart:html (21985:3) Variable 'textTracks' of non-nullable type 'TextTrackList' must be initialized.
-dart:html (21985:3) Variable 'videoDecodedByteCount' of non-nullable type 'int' must be initialized.
-dart:html (21985:3) Variable 'videoTracks' of non-nullable type 'VideoTrackList' must be initialized.
-dart:html (21985:3) Variable 'volume' of non-nullable type 'num' must be initialized.
 dart:html (22178:40) Parameter 'label' of non-nullable type 'String' must have a default value.
 dart:html (22178:54) Parameter 'language' of non-nullable type 'String' must have a default value.
 dart:html (22183:36) Parameter 'keySystem' of non-nullable type 'String' must have a default value.
 dart:html (22214:49) Parameter 'initData' of non-nullable type 'Uint8List' must have a default value.
 dart:html (22214:69) Parameter 'sessionId' of non-nullable type 'String' must have a default value.
 dart:html (22232:46) Parameter 'initData' of non-nullable type 'Uint8List' must have a default value.
+dart:html (22277:45) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (22393:39) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (22448:46) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (22594:35) Parameter 'sessionType' of non-nullable type 'String' must have a default value.
+dart:html (22688:45) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (22786:21) Parameter 'error' of non-nullable type 'String' must have a default value.
-dart:html (23178:3) Variable 'label' of non-nullable type 'String' must be initialized.
-dart:html (23178:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (23207:3) Variable 'checked' of non-nullable type 'bool' must be initialized.
-dart:html (23207:3) Variable 'defaultValue' of non-nullable type 'bool' must be initialized.
-dart:html (23207:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (23207:3) Variable 'icon' of non-nullable type 'String' must be initialized.
-dart:html (23207:3) Variable 'label' of non-nullable type 'String' must be initialized.
-dart:html (23207:3) Variable 'radiogroup' of non-nullable type 'String' must be initialized.
-dart:html (23207:3) Variable 'type' of non-nullable type 'String' must be initialized.
+dart:html (22962:42) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (23278:7) Parameter 'origin' of non-nullable type 'String' must have a default value.
+dart:html (23278:22) Parameter 'lastEventId' of non-nullable type 'String' must have a default value.
+dart:html (23279:7) Parameter 'source' of non-nullable type 'Window' must have a default value.
+dart:html (23279:22) Parameter 'messagePorts' of non-nullable type 'List<MessagePort>' must have a default value.
+dart:html (23313:40) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (23377:38) Parameter 'transfer' of non-nullable type 'List<MessagePort>' must have a default value.
-dart:html (23425:3) Variable 'content' of non-nullable type 'String' must be initialized.
-dart:html (23425:3) Variable 'httpEquiv' of non-nullable type 'String' must be initialized.
-dart:html (23425:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (23501:3) The final variable 'labels' must be initialized.
-dart:html (23501:3) Variable 'high' of non-nullable type 'num' must be initialized.
-dart:html (23501:3) Variable 'labels' of non-nullable type 'List<Node>' must be initialized.
-dart:html (23501:3) Variable 'low' of non-nullable type 'num' must be initialized.
-dart:html (23501:3) Variable 'max' of non-nullable type 'num' must be initialized.
-dart:html (23501:3) Variable 'min' of non-nullable type 'num' must be initialized.
-dart:html (23501:3) Variable 'optimum' of non-nullable type 'num' must be initialized.
-dart:html (23501:3) Variable 'value' of non-nullable type 'num' must be initialized.
+dart:html (23580:45) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (23657:42) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (23691:30) Parameter 'timestamp' of non-nullable type 'num' must have a default value.
-dart:html (23880:3) Variable 'cite' of non-nullable type 'String' must be initialized.
-dart:html (23880:3) Variable 'dateTime' of non-nullable type 'String' must be initialized.
+dart:html (23899:8) Parameter 'view' of non-nullable type 'Window' must have a default value.
+dart:html (23902:50) Parameter 'relatedTarget' of non-nullable type 'EventTarget' must have a default value.
+dart:html (23916:38) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (24192:17) Parameter 'childList' of non-nullable type 'bool' must have a default value.
 dart:html (24193:17) Parameter 'attributes' of non-nullable type 'bool' must have a default value.
 dart:html (24194:17) Parameter 'characterData' of non-nullable type 'bool' must have a default value.
@@ -1326,22 +1194,6 @@ dart:html (24508:29) Parameter 'options' of non-nullable type 'Map<dynamic, dyna
 dart:html (24900:14) Parameter 'compare' of non-nullable type '(Node, Node) → int' must have a default value.
 dart:html (24904:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
 dart:html (24914:39) Parameter 'fill' of non-nullable type 'Node' must have a default value.
-dart:html (24939:3) The final variables '_localName', '_namespaceUri' and '12' more must be initialized.
-dart:html (24939:3) Variable '_localName' of non-nullable type 'String' must be initialized.
-dart:html (24939:3) Variable '_namespaceUri' of non-nullable type 'String' must be initialized.
-dart:html (24939:3) Variable 'baseUri' of non-nullable type 'String' must be initialized.
-dart:html (24939:3) Variable 'childNodes' of non-nullable type 'List<Node>' must be initialized.
-dart:html (24939:3) Variable 'firstChild' of non-nullable type 'Node' must be initialized.
-dart:html (24939:3) Variable 'lastChild' of non-nullable type 'Node' must be initialized.
-dart:html (24939:3) Variable 'nextNode' of non-nullable type 'Node' must be initialized.
-dart:html (24939:3) Variable 'nodeName' of non-nullable type 'String' must be initialized.
-dart:html (24939:3) Variable 'nodeType' of non-nullable type 'int' must be initialized.
-dart:html (24939:3) Variable 'nodeValue' of non-nullable type 'String' must be initialized.
-dart:html (24939:3) Variable 'ownerDocument' of non-nullable type 'Document' must be initialized.
-dart:html (24939:3) Variable 'parent' of non-nullable type 'Element' must be initialized.
-dart:html (24939:3) Variable 'parentNode' of non-nullable type 'Node' must be initialized.
-dart:html (24939:3) Variable 'previousNode' of non-nullable type 'Node' must be initialized.
-dart:html (24939:3) Variable 'text' of non-nullable type 'String' must be initialized.
 dart:html (25410:59) The argument type 'Null' can't be assigned to the parameter type 'NodeFilter'.
 dart:html (25561:51) A value of type 'Null' can't be assigned to a variable of type 'String'.
 dart:html (25561:70) A value of type 'Null' can't be assigned to a variable of type 'String'.
@@ -1350,59 +1202,29 @@ dart:html (25562:38) A value of type 'Null' can't be assigned to a variable of t
 dart:html (25562:57) A value of type 'Null' can't be assigned to a variable of type 'String'.
 dart:html (25617:59) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (25688:35) Parameter 'callback' of non-nullable type '(String) → void' must have a default value.
-dart:html (25782:3) Variable 'reversed' of non-nullable type 'bool' must be initialized.
-dart:html (25782:3) Variable 'start' of non-nullable type 'int' must be initialized.
-dart:html (25782:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (25820:3) The final variables 'form', 'validationMessage' and '2' more must be initialized.
-dart:html (25820:3) Variable 'data' of non-nullable type 'String' must be initialized.
-dart:html (25820:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (25820:3) Variable 'height' of non-nullable type 'String' must be initialized.
-dart:html (25820:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (25820:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (25820:3) Variable 'useMap' of non-nullable type 'String' must be initialized.
-dart:html (25820:3) Variable 'validationMessage' of non-nullable type 'String' must be initialized.
-dart:html (25820:3) Variable 'validity' of non-nullable type 'ValidityState' must be initialized.
-dart:html (25820:3) Variable 'width' of non-nullable type 'String' must be initialized.
-dart:html (25820:3) Variable 'willValidate' of non-nullable type 'bool' must be initialized.
-dart:html (25906:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (25906:3) Variable 'label' of non-nullable type 'String' must be initialized.
+dart:html (25736:43) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (25925:45) The argument type 'Null' can't be assigned to the parameter type 'bool'.
-dart:html (25955:3) The final variables 'form' and 'index' must be initialized.
-dart:html (25955:3) Variable 'defaultSelected' of non-nullable type 'bool' must be initialized.
-dart:html (25955:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (25955:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (25955:3) Variable 'index' of non-nullable type 'int' must be initialized.
-dart:html (25955:3) Variable 'label' of non-nullable type 'String' must be initialized.
-dart:html (25955:3) Variable 'selected' of non-nullable type 'bool' must be initialized.
-dart:html (25955:3) Variable 'value' of non-nullable type 'String' must be initialized.
-dart:html (26009:3) The final variables 'form', 'htmlFor' and '5' more must be initialized.
-dart:html (26009:3) Variable 'defaultValue' of non-nullable type 'String' must be initialized.
-dart:html (26009:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (26009:3) Variable 'htmlFor' of non-nullable type 'DomSettableTokenList' must be initialized.
-dart:html (26009:3) Variable 'labels' of non-nullable type 'List<Node>' must be initialized.
-dart:html (26009:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (26009:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (26009:3) Variable 'validationMessage' of non-nullable type 'String' must be initialized.
-dart:html (26009:3) Variable 'validity' of non-nullable type 'ValidityState' must be initialized.
-dart:html (26009:3) Variable 'value' of non-nullable type 'String' must be initialized.
-dart:html (26009:3) Variable 'willValidate' of non-nullable type 'bool' must be initialized.
-dart:html (26143:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (26143:3) Variable 'value' of non-nullable type 'String' must be initialized.
+dart:html (25930:28) Parameter 'data' of non-nullable type 'String' must have a default value.
+dart:html (25930:41) Parameter 'value' of non-nullable type 'String' must have a default value.
+dart:html (25930:55) Parameter 'defaultSelected' of non-nullable type 'bool' must have a default value.
+dart:html (25930:77) Parameter 'selected' of non-nullable type 'bool' must have a default value.
+dart:html (26086:45) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (26192:59) Parameter 'name' of non-nullable type 'String' must have a default value.
+dart:html (26192:72) Parameter 'iconURL' of non-nullable type 'String' must have a default value.
 dart:html (26249:30) Parameter 'transform' of non-nullable type 'Matrix' must have a default value.
 dart:html (26784:20) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
-dart:html (27037:3) Variable 'closeable' of non-nullable type 'bool' must be initialized.
-dart:html (27037:3) Variable 'message' of non-nullable type 'String' must be initialized.
-dart:html (27415:3) The final variables 'labels' and 'position' must be initialized.
-dart:html (27415:3) Variable 'labels' of non-nullable type 'List<Node>' must be initialized.
-dart:html (27415:3) Variable 'max' of non-nullable type 'num' must be initialized.
-dart:html (27415:3) Variable 'position' of non-nullable type 'double' must be initialized.
-dart:html (27415:3) Variable 'value' of non-nullable type 'num' must be initialized.
+dart:html (27069:38) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (27137:39) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (27453:39) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (27490:47) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (27525:35) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (27561:27) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (27582:21) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
-dart:html (27683:3) Variable 'cite' of non-nullable type 'String' must be initialized.
 dart:html (27790:18) Parameter 'toStart' of non-nullable type 'bool' must have a default value.
+dart:html (28014:38) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (28279:34) Parameter 'duration' of non-nullable type 'int' must have a default value.
 dart:html (28279:48) Parameter 'interToneGap' of non-nullable type 'int' must have a default value.
+dart:html (28378:49) Parameter 'mediaConstraints' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (28407:46) Parameter 'mediaConstraints' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (28415:47) Parameter 'mediaConstraints' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (28528:39) Parameter 'mediaConstraints' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
@@ -1417,137 +1239,74 @@ dart:html (28653:66) Parameter 'successCallback' of non-nullable type '() → vo
 dart:html (28653:96) Parameter 'failureCallback' of non-nullable type '(String) → void' must have a default value.
 dart:html (28668:19) Parameter 'configuration' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (28668:38) Parameter 'mediaConstraints' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
-dart:html (28952:3) Variable 'async' of non-nullable type 'bool' must be initialized.
-dart:html (28952:3) Variable 'charset' of non-nullable type 'String' must be initialized.
-dart:html (28952:3) Variable 'crossOrigin' of non-nullable type 'String' must be initialized.
-dart:html (28952:3) Variable 'defer' of non-nullable type 'bool' must be initialized.
-dart:html (28952:3) Variable 'integrity' of non-nullable type 'String' must be initialized.
-dart:html (28952:3) Variable 'nonce' of non-nullable type 'String' must be initialized.
-dart:html (28952:3) Variable 'src' of non-nullable type 'String' must be initialized.
-dart:html (28952:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (29186:3) The final variables 'form', 'labels' and '4' more must be initialized.
-dart:html (29186:3) Variable 'autofocus' of non-nullable type 'bool' must be initialized.
-dart:html (29186:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (29186:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (29186:3) Variable 'labels' of non-nullable type 'List<Node>' must be initialized.
-dart:html (29186:3) Variable 'length' of non-nullable type 'int' must be initialized.
-dart:html (29186:3) Variable 'multiple' of non-nullable type 'bool' must be initialized.
-dart:html (29186:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (29186:3) Variable 'required' of non-nullable type 'bool' must be initialized.
-dart:html (29186:3) Variable 'selectedIndex' of non-nullable type 'int' must be initialized.
-dart:html (29186:3) Variable 'size' of non-nullable type 'int' must be initialized.
-dart:html (29186:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (29186:3) Variable 'validationMessage' of non-nullable type 'String' must be initialized.
-dart:html (29186:3) Variable 'validity' of non-nullable type 'ValidityState' must be initialized.
-dart:html (29186:3) Variable 'value' of non-nullable type 'String' must be initialized.
-dart:html (29186:3) Variable 'willValidate' of non-nullable type 'bool' must be initialized.
+dart:html (29006:24) Parameter 'deltaX' of non-nullable type 'num' must have a default value.
+dart:html (29006:36) Parameter 'deltaY' of non-nullable type 'num' must have a default value.
+dart:html (29006:48) Parameter 'deltaGranularity' of non-nullable type 'num' must have a default value.
+dart:html (29006:70) Parameter 'velocityX' of non-nullable type 'num' must have a default value.
+dart:html (29006:85) Parameter 'velocityY' of non-nullable type 'num' must have a default value.
+dart:html (29006:100) Parameter 'inInertialPhase' of non-nullable type 'bool' must have a default value.
+dart:html (29006:122) Parameter 'isBeginning' of non-nullable type 'bool' must have a default value.
+dart:html (29006:140) Parameter 'isEnding' of non-nullable type 'bool' must have a default value.
+dart:html (29114:54) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (29366:29) Parameter 'offset' of non-nullable type 'int' must have a default value.
 dart:html (29392:27) Parameter 'offset' of non-nullable type 'int' must have a default value.
 dart:html (29419:32) Parameter 'offset' of non-nullable type 'int' must have a default value.
 dart:html (29458:56) Parameter 'transfer' of non-nullable type 'List<MessagePort>' must have a default value.
 dart:html (29500:31) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (29534:20) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (29572:49) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (29629:27) Parameter 'documentURL' of non-nullable type 'String' must have a default value.
 dart:html (29639:32) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (29738:51) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (29827:28) Parameter 'filter' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (29848:42) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (30054:43) Parameter 'name' of non-nullable type 'String' must have a default value.
 dart:html (30171:41) Parameter 'maxSize' of non-nullable type 'int' must have a default value.
-dart:html (30270:3) Variable 'media' of non-nullable type 'String' must be initialized.
-dart:html (30270:3) Variable 'sizes' of non-nullable type 'String' must be initialized.
-dart:html (30270:3) Variable 'src' of non-nullable type 'String' must be initialized.
-dart:html (30270:3) Variable 'srcset' of non-nullable type 'String' must be initialized.
-dart:html (30270:3) Variable 'type' of non-nullable type 'String' must be initialized.
 dart:html (30449:38) Parameter 'weight' of non-nullable type 'num' must have a default value.
 dart:html (30453:32) Parameter 'weight' of non-nullable type 'num' must have a default value.
-dart:html (31442:3) The final variable 'sheet' must be initialized.
-dart:html (31442:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (31442:3) Variable 'media' of non-nullable type 'String' must be initialized.
-dart:html (31442:3) Variable 'sheet' of non-nullable type 'StyleSheet' must be initialized.
-dart:html (31442:3) Variable 'type' of non-nullable type 'String' must be initialized.
+dart:html (30729:48) Parameter 'initDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (30764:48) Parameter 'initDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (30982:37) Parameter 'text' of non-nullable type 'String' must have a default value.
+dart:html (31289:53) Parameter 'key' of non-nullable type 'String' must have a default value.
+dart:html (31289:65) Parameter 'oldValue' of non-nullable type 'String' must have a default value.
+dart:html (31290:5) Parameter 'newValue' of non-nullable type 'String' must have a default value.
+dart:html (31290:22) Parameter 'url' of non-nullable type 'String' must have a default value.
+dart:html (31290:34) Parameter 'storageArea' of non-nullable type 'Storage' must have a default value.
+dart:html (31300:40) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (31579:20) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
-dart:html (31662:3) The final variable 'cellIndex' must be initialized.
-dart:html (31662:3) Variable 'cellIndex' of non-nullable type 'int' must be initialized.
-dart:html (31662:3) Variable 'colSpan' of non-nullable type 'int' must be initialized.
-dart:html (31662:3) Variable 'headers' of non-nullable type 'String' must be initialized.
-dart:html (31662:3) Variable 'rowSpan' of non-nullable type 'int' must be initialized.
-dart:html (31700:3) Variable 'span' of non-nullable type 'int' must be initialized.
 dart:html (31747:8) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
 dart:html (31747:33) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
-dart:html (31773:3) The final variables '_rows' and '_tBodies' must be initialized.
-dart:html (31773:3) Variable '_rows' of non-nullable type 'List<Node>' must be initialized.
-dart:html (31773:3) Variable '_tBodies' of non-nullable type 'List<Node>' must be initialized.
-dart:html (31773:3) Variable 'caption' of non-nullable type 'TableCaptionElement' must be initialized.
-dart:html (31773:3) Variable 'tFoot' of non-nullable type 'TableSectionElement' must be initialized.
-dart:html (31773:3) Variable 'tHead' of non-nullable type 'TableSectionElement' must be initialized.
 dart:html (31835:27) Parameter 'index' of non-nullable type 'int' must have a default value.
 dart:html (31858:8) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
 dart:html (31858:33) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
-dart:html (31883:3) The final variables '_cells', 'rowIndex' and '1' more must be initialized.
-dart:html (31883:3) Variable '_cells' of non-nullable type 'List<Node>' must be initialized.
-dart:html (31883:3) Variable 'rowIndex' of non-nullable type 'int' must be initialized.
-dart:html (31883:3) Variable 'sectionRowIndex' of non-nullable type 'int' must be initialized.
 dart:html (31907:28) Parameter 'index' of non-nullable type 'int' must have a default value.
 dart:html (31930:8) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
 dart:html (31930:33) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
-dart:html (31950:3) The final variable '_rows' must be initialized.
-dart:html (31950:3) Variable '_rows' of non-nullable type 'List<Node>' must be initialized.
 dart:html (31966:27) Parameter 'index' of non-nullable type 'int' must have a default value.
-dart:html (31993:3) The final variable 'content' must be initialized.
-dart:html (31993:3) Variable 'content' of non-nullable type 'DocumentFragment' must be initialized.
 dart:html (32011:6) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
 dart:html (32011:31) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
 dart:html (32012:12) A value of type 'Null' can't be assigned to a variable of type 'String'.
-dart:html (32069:3) The final variables 'form', 'labels' and '5' more must be initialized.
-dart:html (32069:3) Variable 'autocapitalize' of non-nullable type 'String' must be initialized.
-dart:html (32069:3) Variable 'autofocus' of non-nullable type 'bool' must be initialized.
-dart:html (32069:3) Variable 'cols' of non-nullable type 'int' must be initialized.
-dart:html (32069:3) Variable 'defaultValue' of non-nullable type 'String' must be initialized.
-dart:html (32069:3) Variable 'dirName' of non-nullable type 'String' must be initialized.
-dart:html (32069:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:html (32069:3) Variable 'form' of non-nullable type 'FormElement' must be initialized.
-dart:html (32069:3) Variable 'inputMode' of non-nullable type 'String' must be initialized.
-dart:html (32069:3) Variable 'labels' of non-nullable type 'List<Node>' must be initialized.
-dart:html (32069:3) Variable 'maxLength' of non-nullable type 'int' must be initialized.
-dart:html (32069:3) Variable 'minLength' of non-nullable type 'int' must be initialized.
-dart:html (32069:3) Variable 'name' of non-nullable type 'String' must be initialized.
-dart:html (32069:3) Variable 'placeholder' of non-nullable type 'String' must be initialized.
-dart:html (32069:3) Variable 'readOnly' of non-nullable type 'bool' must be initialized.
-dart:html (32069:3) Variable 'required' of non-nullable type 'bool' must be initialized.
-dart:html (32069:3) Variable 'rows' of non-nullable type 'int' must be initialized.
-dart:html (32069:3) Variable 'selectionDirection' of non-nullable type 'String' must be initialized.
-dart:html (32069:3) Variable 'selectionEnd' of non-nullable type 'int' must be initialized.
-dart:html (32069:3) Variable 'selectionStart' of non-nullable type 'int' must be initialized.
-dart:html (32069:3) Variable 'textLength' of non-nullable type 'int' must be initialized.
-dart:html (32069:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:html (32069:3) Variable 'validationMessage' of non-nullable type 'String' must be initialized.
-dart:html (32069:3) Variable 'validity' of non-nullable type 'ValidityState' must be initialized.
-dart:html (32069:3) Variable 'value' of non-nullable type 'String' must be initialized.
-dart:html (32069:3) Variable 'willValidate' of non-nullable type 'bool' must be initialized.
-dart:html (32069:3) Variable 'wrap' of non-nullable type 'String' must be initialized.
 dart:html (32204:42) Parameter 'start' of non-nullable type 'int' must have a default value.
 dart:html (32204:53) Parameter 'end' of non-nullable type 'int' must have a default value.
 dart:html (32204:62) Parameter 'selectionMode' of non-nullable type 'String' must have a default value.
 dart:html (32208:47) Parameter 'direction' of non-nullable type 'String' must have a default value.
+dart:html (32222:53) Parameter 'view' of non-nullable type 'Window' must have a default value.
+dart:html (32222:66) Parameter 'data' of non-nullable type 'String' must have a default value.
+dart:html (32814:8) Parameter 'view' of non-nullable type 'Window' must have a default value.
 dart:html (32886:26) The return type 'Null' isn't a 'TouchList', as defined by the method ''.
-dart:html (33056:3) The final variables 'readyState' and 'track' must be initialized.
-dart:html (33056:3) Variable 'defaultValue' of non-nullable type 'bool' must be initialized.
-dart:html (33056:3) Variable 'kind' of non-nullable type 'String' must be initialized.
-dart:html (33056:3) Variable 'label' of non-nullable type 'String' must be initialized.
-dart:html (33056:3) Variable 'readyState' of non-nullable type 'int' must be initialized.
-dart:html (33056:3) Variable 'src' of non-nullable type 'String' must be initialized.
-dart:html (33056:3) Variable 'srclang' of non-nullable type 'String' must be initialized.
-dart:html (33056:3) Variable 'track' of non-nullable type 'TextTrack' must be initialized.
+dart:html (32961:89) Parameter 'byteStreamTrackID' of non-nullable type 'String' must have a default value.
+dart:html (33012:29) Parameter 'trackDefaults' of non-nullable type 'List<TrackDefault>' must have a default value.
+dart:html (33121:36) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (33150:41) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (33182:57) The argument type 'Null' can't be assigned to the parameter type 'NodeFilter'.
-dart:html (33754:3) The final variables 'decodedFrameCount', 'droppedFrameCount' and '2' more must be initialized.
-dart:html (33754:3) Variable 'decodedFrameCount' of non-nullable type 'int' must be initialized.
-dart:html (33754:3) Variable 'droppedFrameCount' of non-nullable type 'int' must be initialized.
-dart:html (33754:3) Variable 'height' of non-nullable type 'int' must be initialized.
-dart:html (33754:3) Variable 'poster' of non-nullable type 'String' must be initialized.
-dart:html (33754:3) Variable 'videoHeight' of non-nullable type 'int' must be initialized.
-dart:html (33754:3) Variable 'videoWidth' of non-nullable type 'int' must be initialized.
-dart:html (33754:3) Variable 'width' of non-nullable type 'int' must be initialized.
+dart:html (33249:8) Parameter 'view' of non-nullable type 'Window' must have a default value.
+dart:html (33261:35) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (33600:26) Parameter 'fov' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (34251:15) Parameter 'code' of non-nullable type 'int' must have a default value.
 dart:html (34251:25) Parameter 'reason' of non-nullable type 'String' must have a default value.
+dart:html (34342:8) Parameter 'view' of non-nullable type 'Window' must have a default value.
+dart:html (34347:50) Parameter 'relatedTarget' of non-nullable type 'EventTarget' must have a default value.
+dart:html (34382:38) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (34605:45) Parameter 'options' of non-nullable type 'String' must have a default value.
 dart:html (35489:15) Parameter 'message' of non-nullable type 'String' must have a default value.
 dart:html (35505:17) Parameter 'message' of non-nullable type 'String' must have a default value.
@@ -1565,7 +1324,6 @@ dart:html (36084:24) Parameter 'handle' of non-nullable type 'int' must have a d
 dart:html (36089:23) Parameter 'handle' of non-nullable type 'int' must have a default value.
 dart:html (36094:37) Parameter 'timeout' of non-nullable type 'int' must have a default value.
 dart:html (36099:36) Parameter 'timeout' of non-nullable type 'int' must have a default value.
-dart:html (36550:3) Variable '_returnValue' of non-nullable type 'String' must be initialized.
 dart:html (36778:56) Parameter 'transfer' of non-nullable type 'List<MessagePort>' must have a default value.
 dart:html (36907:40) Parameter 'init' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:html (36934:54) Parameter 'successCallback' of non-nullable type '(FileSystem) → void' must have a default value.
@@ -1580,6 +1338,13 @@ dart:html (37032:36) Parameter 'timeout' of non-nullable type 'int' must have a 
 dart:html (37147:88) Parameter 'type' of non-nullable type 'int' must have a default value.
 dart:html (37165:43) Parameter 'type' of non-nullable type 'int' must have a default value.
 dart:html (37471:12) The return type 'Null' isn't a 'Rectangle<num>', as defined by the method 'intersection'.
+dart:html (37798:21) Parameter 'x' of non-nullable type 'num' must have a default value.
+dart:html (37798:28) Parameter 'y' of non-nullable type 'num' must have a default value.
+dart:html (37798:35) Parameter 'width' of non-nullable type 'num' must have a default value.
+dart:html (37798:46) Parameter 'height' of non-nullable type 'num' must have a default value.
+dart:html (38244:35) Parameter 'requestInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (38304:35) Parameter 'responseInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (38499:29) Parameter 'cssValue' of non-nullable type 'String' must have a default value.
 dart:html (38520:44) Parameter 'timeout' of non-nullable type 'int' must have a default value.
 dart:html (38522:43) Parameter 'timeout' of non-nullable type 'int' must have a default value.
 dart:html (38524:24) Parameter 'handle' of non-nullable type 'int' must have a default value.
@@ -1589,12 +1354,9 @@ dart:html (38530:36) Parameter 'timeout' of non-nullable type 'int' must have a 
 dart:html (39034:55) Parameter 'messagePorts' of non-nullable type 'List<MessagePort>' must have a default value.
 dart:html (39071:30) Parameter 'shouldAdd' of non-nullable type 'bool' must have a default value.
 dart:html (39155:46) Parameter 'shouldAdd' of non-nullable type 'bool' must have a default value.
-dart:html (39230:3) Variable '_elementList' of non-nullable type 'List<Element>' must be initialized.
 dart:html (39458:12) The return type 'Null' isn't a 'Rectangle<num>', as defined by the method 'intersection'.
 dart:html (39573:30) Parameter 'shouldAdd' of non-nullable type 'bool' must have a default value.
 dart:html (39631:30) Parameter 'shouldAdd' of non-nullable type 'bool' must have a default value.
-dart:html (39834:3) Variable '_unit' of non-nullable type 'String' must be initialized.
-dart:html (39834:3) Variable '_value' of non-nullable type 'num' must be initialized.
 dart:html (39993:32) Parameter 'onListen' of non-nullable type '(StreamSubscription<T>) → void' must have a default value.
 dart:html (39994:32) Parameter 'onCancel' of non-nullable type '(StreamSubscription<T>) → void' must have a default value.
 dart:html (39999:9) Parameter 'onError' of non-nullable type 'Function' must have a default value.
@@ -1613,19 +1375,16 @@ dart:html (40115:12) The return type 'Null' isn't a 'Future', as defined by the 
 dart:html (40126:45) Unsafe implicit cast from '(T) → void' to '(Event) → dynamic'. This usually indicates that type information was lost and resulted in 'dynamic' and/or a place that will have a failure at runtime.
 dart:html (40136:15) Parameter 'resumeSignal' of non-nullable type 'Future<dynamic>' must have a default value.
 dart:html (40166:40) Parameter 'futureValue' of non-nullable type 'E' must have a default value.
-dart:html (40191:3) Variable '_streamController' of non-nullable type 'StreamController<T>' must be initialized.
-dart:html (40191:3) Variable '_type' of non-nullable type 'String' must be initialized.
 dart:html (40198:9) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:html (40199:9) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
 dart:html (40200:9) Parameter 'cancelOnError' of non-nullable type 'bool' must have a default value.
 dart:html (40205:32) Parameter 'onListen' of non-nullable type '(StreamSubscription<T>) → void' must have a default value.
 dart:html (40206:32) Parameter 'onCancel' of non-nullable type '(StreamSubscription<T>) → void' must have a default value.
-dart:html (40246:3) Variable '_controller' of non-nullable type 'StreamController<T>' must be initialized.
+dart:html (40726:24) Parameter 'uriPolicy' of non-nullable type 'UriPolicy' must have a default value.
 dart:html (40790:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
 dart:html (40794:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
 dart:html (40842:39) Parameter 'fillValue' of non-nullable type 'E' must have a default value.
 dart:html (41745:67) The initializer type 'Null' can't be assigned to the field type 'EventTarget'.
-dart:html (41752:3) Variable '_stream' of non-nullable type '_CustomKeyEventStreamImpl' must be initialized.
 dart:html (42001:30) A value of type 'Null' can't be assigned to a variable of type 'KeyboardEvent'.
 dart:html (42108:25) Parameter 'uriPolicy' of non-nullable type 'UriPolicy' must have a default value.
 dart:html (42121:21) Parameter 'uriPolicy' of non-nullable type 'UriPolicy' must have a default value.
@@ -1642,13 +1401,14 @@ dart:html (42242:8) Parameter 'uriPolicy' of non-nullable type 'UriPolicy' must 
 dart:html (42243:7) Parameter 'attributes' of non-nullable type 'Iterable<String>' must have a default value.
 dart:html (42244:7) Parameter 'uriAttributes' of non-nullable type 'Iterable<String>' must have a default value.
 dart:html (42334:37) The argument type 'Null' can't be assigned to the parameter type 'UriPolicy'.
+dart:html (42361:8) Parameter 'allowedElements' of non-nullable type 'Iterable<String>' must have a default value.
+dart:html (42362:7) Parameter 'allowedAttributes' of non-nullable type 'Iterable<String>' must have a default value.
+dart:html (42363:7) Parameter 'allowedUriAttributes' of non-nullable type 'Iterable<String>' must have a default value.
 dart:html (42455:15) The argument type 'Null' can't be assigned to the parameter type 'UriPolicy'.
 dart:html (42564:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
 dart:html (42568:36) Parameter 'start' of non-nullable type 'int' must have a default value.
 dart:html (42584:39) Parameter 'fillValue' of non-nullable type 'E' must have a default value.
-dart:html (42647:3) Variable '_current' of non-nullable type 'T' must be initialized.
 dart:html (42659:16) A value of type 'Null' can't be assigned to a variable of type 'T'.
-dart:html (42673:3) Variable '_current' of non-nullable type 'T' must be initialized.
 dart:html (42684:16) A value of type 'Null' can't be assigned to a variable of type 'T'.
 dart:html (42704:27) The return type 'Null' isn't a 'WindowBase', as defined by the method '_convertNativeToDart_Window'.
 dart:html (42710:12) The return type 'Null' isn't a 'EventTarget', as defined by the method '_convertNativeToDart_EventTarget'.
@@ -1658,14 +1418,11 @@ dart:html (42985:64) Parameter 'useCapture' of non-nullable type 'bool' must hav
 dart:html (42989:63) Parameter 'useCapture' of non-nullable type 'bool' must have a default value.
 dart:html (42997:8) Parameter 'useCapture' of non-nullable type 'bool' must have a default value.
 dart:html (43001:8) Parameter 'useCapture' of non-nullable type 'bool' must have a default value.
-dart:html (43131:3) Variable '_currentTarget' of non-nullable type 'EventTarget' must be initialized.
-dart:html (43131:3) Variable '_parent' of non-nullable type 'KeyboardEvent' must be initialized.
-dart:html (43131:3) Variable '_shadowAltKey' of non-nullable type 'bool' must be initialized.
-dart:html (43131:3) Variable '_shadowCharCode' of non-nullable type 'int' must be initialized.
-dart:html (43131:3) Variable '_shadowKeyCode' of non-nullable type 'int' must be initialized.
-dart:html (43318:3) Variable '_selector' of non-nullable type 'String' must be initialized.
+dart:html (43141:8) Parameter 'view' of non-nullable type 'Window' must have a default value.
+dart:html (43144:7) Parameter 'currentTarget' of non-nullable type 'EventTarget' must have a default value.
 dart:html (43403:32) The return type 'Null' isn't a '_wrapZoneCallback(A) → R', as defined by the method '_wrapZone'.
 dart:html (43409:32) The return type 'Null' isn't a '_wrapZoneBinaryCallback(A, B) → R', as defined by the method '_wrapBinaryZone'.
+dart:html (43495:26) Parameter 'uriPolicy' of non-nullable type 'UriPolicy' must have a default value.
 dart:html (43648:16) The argument type 'Null' can't be assigned to the parameter type 'Node'.
 dart:html_common/conversions_dart2js.dart (6:30) The return type 'Null' isn't a 'Map', as defined by the method 'convertNativeToDart_Dictionary'.
 dart:html_common/conversions_dart2js.dart (16:43) Parameter 'postCreate' of non-nullable type '(dynamic) → void' must have a default value.
@@ -1716,6 +1473,7 @@ dart:indexed_db (1122:33) Parameter 'maxCount' of non-nullable type 'int' must h
 dart:indexed_db (1127:37) Parameter 'maxCount' of non-nullable type 'int' must have a default value.
 dart:indexed_db (1139:38) Parameter 'direction' of non-nullable type 'String' must have a default value.
 dart:indexed_db (1144:40) Parameter 'direction' of non-nullable type 'String' must have a default value.
+dart:indexed_db (1447:44) Parameter 'eventInitDict' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:io/bytes_builder.dart (87:13) Variable '_buffer' of non-nullable type 'Uint8List' must be initialized.
 dart:io/bytes_builder.dart (139:15) A value of type 'Null' can't be assigned to a variable of type 'Uint8List'.
 dart:io/crypto.dart (182:3) Variable '_currentChunk' of non-nullable type 'List<int>' must be initialized.
@@ -1746,6 +1504,7 @@ dart:io/file.dart (589:58) Parameter 'end' of non-nullable type 'int' must have 
 dart:io/file.dart (600:54) Parameter 'end' of non-nullable type 'int' must have a default value.
 dart:io/file.dart (626:41) Parameter 'end' of non-nullable type 'int' must have a default value.
 dart:io/file.dart (636:56) Parameter 'end' of non-nullable type 'int' must have a default value.
+dart:io/file.dart (862:65) Parameter 'osError' of non-nullable type 'OSError' must have a default value.
 dart:io/file_impl.dart (31:3) Variable '_controller' of non-nullable type 'StreamController<List<int>>' must be initialized.
 dart:io/file_impl.dart (31:3) Variable '_openedFile' of non-nullable type 'RandomAccessFile' must be initialized.
 dart:io/file_impl.dart (35:3) Variable '_controller' of non-nullable type 'StreamController<List<int>>' must be initialized.
@@ -1788,13 +1547,19 @@ dart:io/http.dart (555:15) Variable 'contentType' of non-nullable type 'ContentT
 dart:io/http.dart (560:7) Variable 'contentLength' of non-nullable type 'int' must be initialized.
 dart:io/http.dart (565:8) Variable 'persistentConnection' of non-nullable type 'bool' must be initialized.
 dart:io/http.dart (570:8) Variable 'chunkedTransferEncoding' of non-nullable type 'bool' must be initialized.
+dart:io/http.dart (676:43) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
 dart:io/http.dart (686:52) A value of type 'Null' can't be assigned to a variable of type 'String'.
+dart:io/http.dart (783:24) Parameter 'charset' of non-nullable type 'String' must have a default value.
+dart:io/http.dart (783:40) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
+dart:io/http.dart (878:19) Parameter 'name' of non-nullable type 'String' must have a default value.
+dart:io/http.dart (878:32) Parameter 'value' of non-nullable type 'String' must have a default value.
 dart:io/http.dart (1100:7) Variable 'contentLength' of non-nullable type 'int' must be initialized.
 dart:io/http.dart (1112:7) Variable 'statusCode' of non-nullable type 'int' must be initialized.
 dart:io/http.dart (1122:10) Variable 'reasonPhrase' of non-nullable type 'String' must be initialized.
 dart:io/http.dart (1129:8) Variable 'persistentConnection' of non-nullable type 'bool' must be initialized.
 dart:io/http.dart (1141:12) Variable 'deadline' of non-nullable type 'Duration' must be initialized.
 dart:io/http.dart (1151:8) Variable 'bufferOutput' of non-nullable type 'bool' must be initialized.
+dart:io/http.dart (1351:23) Parameter 'context' of non-nullable type 'SecurityContext' must have a default value.
 dart:io/http.dart (1612:43) Parameter 'environment' of non-nullable type 'Map<String, String>' must have a default value.
 dart:io/http.dart (1720:8) Variable 'persistentConnection' of non-nullable type 'bool' must be initialized.
 dart:io/http.dart (1740:8) Variable 'followRedirects' of non-nullable type 'bool' must be initialized.
@@ -1804,6 +1569,7 @@ dart:io/http.dart (1776:8) Variable 'bufferOutput' of non-nullable type 'bool' m
 dart:io/http.dart (1896:40) Parameter 'method' of non-nullable type 'String' must have a default value.
 dart:io/http.dart (1897:40) Parameter 'url' of non-nullable type 'Uri' must have a default value.
 dart:io/http.dart (1898:40) Parameter 'followLoops' of non-nullable type 'bool' must have a default value.
+dart:io/http.dart (2010:45) Parameter 'uri' of non-nullable type 'Uri' must have a default value.
 dart:io/http_date.dart (100:12) Variable 'tmp' of non-nullable type 'String' must be initialized.
 dart:io/http_date.dart (101:9) Variable 'format' of non-nullable type 'int' must be initialized.
 dart:io/http_date.dart (115:11) Variable 'weekday' of non-nullable type 'int' must be initialized.
@@ -1821,6 +1587,7 @@ dart:io/http_date.dart (272:12) Variable 'yearStr' of non-nullable type 'String'
 dart:io/http_headers.dart (22:3) Variable '_host' of non-nullable type 'String' must be initialized.
 dart:io/http_headers.dart (22:3) Variable '_noFoldingHeaders' of non-nullable type 'List<String>' must be initialized.
 dart:io/http_headers.dart (22:3) Variable '_port' of non-nullable type 'int' must be initialized.
+dart:io/http_headers.dart (24:17) Parameter 'initialHeaders' of non-nullable type '_HttpHeaders' must have a default value.
 dart:io/http_headers.dart (46:32) The return type 'Null' isn't a 'String', as defined by the method 'value'.
 dart:io/http_headers.dart (206:16) The return type 'Null' isn't a 'DateTime', as defined by the method 'ifModifiedSince'.
 dart:io/http_headers.dart (209:12) The return type 'Null' isn't a 'DateTime', as defined by the method 'ifModifiedSince'.
@@ -1835,6 +1602,7 @@ dart:io/http_headers.dart (392:19) A value of type 'Null' can't be assigned to a
 dart:io/http_headers.dart (400:21) A value of type 'Null' can't be assigned to a variable of type 'int'.
 dart:io/http_headers.dart (625:3) Variable '_parameters' of non-nullable type 'Map<String, String>' must be initialized.
 dart:io/http_headers.dart (625:3) Variable '_unmodifiableParameters' of non-nullable type 'Map<String, String>' must be initialized.
+dart:io/http_headers.dart (625:42) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
 dart:io/http_headers.dart (748:18) The return type 'String?' isn't a 'String', as defined by the method 'parseParameterValue'.
 dart:io/http_headers.dart (758:30) A value of type 'Null' can't be assigned to a variable of type 'String'.
 dart:io/http_headers.dart (764:30) A value of type 'Null' can't be assigned to a variable of type 'String'.
@@ -1843,6 +1611,8 @@ dart:io/http_headers.dart (856:3) Variable 'domain' of non-nullable type 'String
 dart:io/http_headers.dart (856:3) Variable 'expires' of non-nullable type 'DateTime' must be initialized.
 dart:io/http_headers.dart (856:3) Variable 'maxAge' of non-nullable type 'int' must be initialized.
 dart:io/http_headers.dart (856:3) Variable 'path' of non-nullable type 'String' must be initialized.
+dart:io/http_headers.dart (856:12) Parameter 'name' of non-nullable type 'String' must have a default value.
+dart:io/http_headers.dart (856:23) Parameter 'value' of non-nullable type 'String' must have a default value.
 dart:io/http_headers.dart (862:3) Variable 'domain' of non-nullable type 'String' must be initialized.
 dart:io/http_headers.dart (862:3) Variable 'expires' of non-nullable type 'DateTime' must be initialized.
 dart:io/http_headers.dart (862:3) Variable 'maxAge' of non-nullable type 'int' must be initialized.
@@ -1874,6 +1644,7 @@ dart:io/http_impl.dart (263:41) Parameter 'cancelOnError' of non-nullable type '
 dart:io/http_impl.dart (269:14) Unsafe implicit cast from 'StreamSubscription<dynamic>' to 'StreamSubscription<List<int>>'. This usually indicates that type information was lost and resulted in 'dynamic' and/or a place that will have a failure at runtime.
 dart:io/http_impl.dart (269:49) The argument type 'Null' can't be assigned to the parameter type '(dynamic) → void'.
 dart:io/http_impl.dart (402:12) A value of type 'Null' can't be assigned to a variable of type '_Credentials'.
+dart:io/http_impl.dart (432:25) Parameter 'initialHeaders' of non-nullable type '_HttpHeaders' must have a default value.
 dart:io/http_impl.dart (441:25) The argument type 'Null' can't be assigned to the parameter type 'Encoding'.
 dart:io/http_impl.dart (504:3) Variable '_cookies' of non-nullable type 'List<Cookie>' must be initialized.
 dart:io/http_impl.dart (504:3) Variable '_deadline' of non-nullable type 'Duration' must be initialized.
@@ -1907,6 +1678,7 @@ dart:io/http_impl.dart (1276:3) Variable '_idleTimer' of non-nullable type 'Time
 dart:io/http_impl.dart (1276:3) Variable '_nextResponseCompleter' of non-nullable type 'Completer<_HttpIncoming>' must be initialized.
 dart:io/http_impl.dart (1276:3) Variable '_streamFuture' of non-nullable type 'Future<dynamic>' must be initialized.
 dart:io/http_impl.dart (1276:3) Variable '_subscription' of non-nullable type 'StreamSubscription<dynamic>' must be initialized.
+dart:io/http_impl.dart (1277:53) Parameter '_context' of non-nullable type 'SecurityContext' must have a default value.
 dart:io/http_impl.dart (1302:36) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:io/http_impl.dart (1306:40) A value of type 'Null' can't be assigned to a variable of type 'Completer<_HttpIncoming>'.
 dart:io/http_impl.dart (1310:38) A value of type 'Null' can't be assigned to a variable of type 'Completer<_HttpIncoming>'.
@@ -2148,6 +1920,9 @@ dart:io/socket.dart (663:20) Variable 'multicastInterface' of non-nullable type 
 dart:io/socket.dart (674:8) Variable 'broadcastEnabled' of non-nullable type 'bool' must be initialized.
 dart:io/socket.dart (722:46) Parameter 'interface' of non-nullable type 'NetworkInterface' must have a default value.
 dart:io/socket.dart (730:47) Parameter 'interface' of non-nullable type 'NetworkInterface' must have a default value.
+dart:io/socket.dart (740:40) Parameter 'osError' of non-nullable type 'OSError' must have a default value.
+dart:io/socket.dart (740:54) Parameter 'address' of non-nullable type 'InternetAddress' must have a default value.
+dart:io/socket.dart (740:68) Parameter 'port' of non-nullable type 'int' must have a default value.
 dart:io/socket.dart (743:19) The initializer type 'Null' can't be assigned to the field type 'OSError'.
 dart:io/socket.dart (743:19) The initializer type 'Null' can't be assigned to the field type 'OSError'.
 dart:io/socket.dart (744:19) The initializer type 'Null' can't be assigned to the field type 'InternetAddress'.
@@ -2166,20 +1941,29 @@ dart:io/stdio.dart (109:28) Unsafe implicit cast from 'List<dynamic>' to 'List<i
 dart:io/stdio.dart (126:12) The name 'echoMode=' is already defined.
 dart:io/stdio.dart (145:12) The name 'lineMode=' is already defined.
 dart:io/stdio.dart (179:3) Variable '_nonBlocking' of non-nullable type 'IOSink' must be initialized.
+dart:io/stdio.dart (228:40) Parameter 'osError' of non-nullable type 'OSError' must have a default value.
 dart:io/stdio.dart (277:25) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:io/stdio.dart (299:7) Variable '_stdin' of non-nullable type 'Stdin' must be initialized.
 dart:io/stdio.dart (300:8) Variable '_stdout' of non-nullable type 'Stdout' must be initialized.
 dart:io/stdio.dart (301:8) Variable '_stderr' of non-nullable type 'Stdout' must be initialized.
+dart:io/websocket.dart (75:7) Parameter 'clientMaxWindowBits' of non-nullable type 'int' must have a default value.
+dart:io/websocket.dart (76:7) Parameter 'serverMaxWindowBits' of non-nullable type 'int' must have a default value.
 dart:io/websocket.dart (87:9) Variable 'mwb' of non-nullable type 'int' must be initialized.
 dart:io/websocket.dart (88:12) Variable 'part' of non-nullable type 'String' must be initialized.
 dart:io/websocket.dart (140:44) Parameter 'requested' of non-nullable type 'HeaderValue' must have a default value.
+dart:io/websocket.dart (215:12) Parameter 'protocolSelector' of non-nullable type '(List<String>) → dynamic' must have a default value.
 dart:io/websocket.dart (237:8) Parameter 'protocolSelector' of non-nullable type '(List<String>) → dynamic' must have a default value.
 dart:io/websocket.dart (310:12) Parameter 'protocols' of non-nullable type 'Iterable<String>' must have a default value.
 dart:io/websocket.dart (311:11) Parameter 'headers' of non-nullable type 'Map<String, dynamic>' must have a default value.
 dart:io/websocket.dart (317:3) Variable 'pingInterval' of non-nullable type 'Duration' must be initialized.
+dart:io/websocket.dart (339:8) Parameter 'protocol' of non-nullable type 'String' must have a default value.
+dart:io/websocket.dart (340:7) Parameter 'serverSide' of non-nullable type 'bool' must have a default value.
 dart:io/websocket.dart (388:17) Parameter 'code' of non-nullable type 'int' must have a default value.
 dart:io/websocket.dart (388:27) Parameter 'reason' of non-nullable type 'String' must have a default value.
+dart:io/websocket_impl.dart (47:30) Parameter 'headerValue' of non-nullable type 'String' must have a default value.
+dart:io/websocket_impl.dart (47:48) Parameter 'maxWindowBits' of non-nullable type 'int' must have a default value.
 dart:io/websocket_impl.dart (97:3) Variable '_eventSink' of non-nullable type 'EventSink<dynamic>' must be initialized.
+dart:io/websocket_impl.dart (97:60) Parameter '_deflate' of non-nullable type '_WebSocketPerMessageDeflate' must have a default value.
 dart:io/websocket_impl.dart (109:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:io/websocket_impl.dart (389:34) A value of type 'Null' can't be assigned to a variable of type 'List<int>'.
 dart:io/websocket_impl.dart (394:34) A value of type 'Null' can't be assigned to a variable of type 'List<int>'.
@@ -2224,6 +2008,7 @@ dart:io/websocket_impl.dart (1082:3) Variable '_pingInterval' of non-nullable ty
 dart:io/websocket_impl.dart (1082:3) Variable '_pingTimer' of non-nullable type 'Timer' must be initialized.
 dart:io/websocket_impl.dart (1082:3) Variable '_sink' of non-nullable type 'StreamSink<dynamic>' must be initialized.
 dart:io/websocket_impl.dart (1082:3) Variable '_subscription' of non-nullable type 'StreamSubscription<dynamic>' must be initialized.
+dart:io/websocket_impl.dart (1084:34) Parameter 'deflate' of non-nullable type '_WebSocketPerMessageDeflate' must have a default value.
 dart:io/websocket_impl.dart (1131:23) A value of type 'Null' can't be assigned to a variable of type 'StreamSubscription'.
 dart:io/websocket_impl.dart (1141:8) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:io/websocket_impl.dart (1141:26) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
@@ -2234,6 +2019,8 @@ dart:io/websocket_impl.dart (1178:17) Parameter 'code' of non-nullable type 'int
 dart:io/websocket_impl.dart (1178:27) Parameter 'reason' of non-nullable type 'String' must have a default value.
 dart:io/websocket_impl.dart (1210:16) Parameter 'code' of non-nullable type 'int' must have a default value.
 dart:io/websocket_impl.dart (1210:26) Parameter 'reason' of non-nullable type 'String' must have a default value.
+dart:isolate (126:30) Parameter 'pauseCapability' of non-nullable type 'Capability' must have a default value.
+dart:isolate (127:30) Parameter 'terminateCapability' of non-nullable type 'Capability' must have a default value.
 dart:isolate (222:50) Parameter 'packageRoot' of non-nullable type 'Uri' must have a default value.
 dart:isolate (268:21) Parameter 'resumeCapability' of non-nullable type 'Capability' must have a default value.
 dart:isolate (490:22) Variable 'controller' of non-nullable type 'StreamController<dynamic>' must be initialized.
@@ -2242,12 +2029,15 @@ dart:isolate (507:18) A value of type 'Null' can't be assigned to a variable of 
 dart:isolate (605:31) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:isolate (606:31) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
 dart:isolate (607:31) Parameter 'cancelOnError' of non-nullable type 'bool' must have a default value.
+dart:isolate (633:27) Parameter 'handler' of non-nullable type '(dynamic) → void' must have a default value.
+dart:js (118:45) Parameter 'arguments' of non-nullable type 'List<dynamic>' must have a default value.
 dart:js (270:31) Parameter 'args' of non-nullable type 'List<dynamic>' must have a default value.
 dart:js (363:3) Invalid override. The type of 'JsArray.[]=' ('(Object, E) → void') isn't a subtype of 'JsObject.[]=' ('(Object, dynamic) → dynamic').
 dart:js (428:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
 dart:js_util (112:29) The argument type 'List' can't be assigned to the parameter type 'Iterable<Null>'.
 dart:math (380:9) Variable 'rnd32' of non-nullable type 'int' must be initialized.
 dart:math (381:9) Variable 'result' of non-nullable type 'int' must be initialized.
+dart:math/random.dart (24:19) Parameter 'seed' of non-nullable type 'int' must have a default value.
 dart:math/rectangle.dart (78:12) The return type 'Null' isn't a 'Rectangle<T>', as defined by the method 'intersection'.
 dart:math/rectangle.dart (158:22) Unsafe implicit cast from 'num' to 'T'. This usually indicates that type information was lost and resulted in 'dynamic' and/or a place that will have a failure at runtime.
 dart:math/rectangle.dart (159:23) Unsafe implicit cast from 'num' to 'T'. This usually indicates that type information was lost and resulted in 'dynamic' and/or a place that will have a failure at runtime.
@@ -2256,364 +2046,12 @@ dart:mirrors (134:41) Parameter 'library' of non-nullable type 'LibraryMirror' m
 dart:mirrors (404:26) Parameter 'namedArguments' of non-nullable type 'Map<Symbol, dynamic>' must have a default value.
 dart:mirrors (588:25) Parameter 'namedArguments' of non-nullable type 'Map<Symbol, dynamic>' must have a default value.
 dart:mirrors (858:31) Parameter 'namedArguments' of non-nullable type 'Map<Symbol, dynamic>' must have a default value.
-dart:svg (60:3) The final variables 'href' and 'target' must be initialized.
-dart:svg (60:3) Variable 'href' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (60:3) Variable 'target' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (489:3) The final variables 'requiredExtensions', 'requiredFeatures' and '2' more must be initialized.
-dart:svg (489:3) Variable 'requiredExtensions' of non-nullable type 'StringList' must be initialized.
-dart:svg (489:3) Variable 'requiredFeatures' of non-nullable type 'StringList' must be initialized.
-dart:svg (489:3) Variable 'systemLanguage' of non-nullable type 'StringList' must be initialized.
-dart:svg (489:3) Variable 'targetElement' of non-nullable type 'SvgElement' must be initialized.
-dart:svg (562:3) The final variables 'cx', 'cy' and '1' more must be initialized.
-dart:svg (562:3) Variable 'cx' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (562:3) Variable 'cy' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (562:3) Variable 'r' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (597:3) The final variable 'clipPathUnits' must be initialized.
-dart:svg (597:3) Variable 'clipPathUnits' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (689:3) The final variables 'cx', 'cy' and '2' more must be initialized.
-dart:svg (689:3) Variable 'cx' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (689:3) Variable 'cy' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (689:3) Variable 'rx' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (689:3) Variable 'ry' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (732:3) The final variables 'height', 'in1' and '6' more must be initialized.
-dart:svg (732:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (732:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (732:3) Variable 'in2' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (732:3) Variable 'mode' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (732:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (732:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (732:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (732:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (820:3) The final variables 'height', 'in1' and '6' more must be initialized.
-dart:svg (820:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (820:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (820:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (820:3) Variable 'type' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (820:3) Variable 'values' of non-nullable type 'AnimatedNumberList' must be initialized.
-dart:svg (820:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (820:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (820:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (904:3) The final variables 'height', 'in1' and '4' more must be initialized.
-dart:svg (904:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (904:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (904:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (904:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (904:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (904:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (952:3) The final variables 'height', 'in1' and '10' more must be initialized.
-dart:svg (952:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (952:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (952:3) Variable 'in2' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (952:3) Variable 'k1' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (952:3) Variable 'k2' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (952:3) Variable 'k3' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (952:3) Variable 'k4' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (952:3) Variable 'operator' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (952:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (952:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (952:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (952:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1057:3) The final variables 'bias', 'divisor' and '15' more must be initialized.
-dart:svg (1057:3) Variable 'bias' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1057:3) Variable 'divisor' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1057:3) Variable 'edgeMode' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (1057:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1057:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1057:3) Variable 'kernelMatrix' of non-nullable type 'AnimatedNumberList' must be initialized.
-dart:svg (1057:3) Variable 'kernelUnitLengthX' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1057:3) Variable 'kernelUnitLengthY' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1057:3) Variable 'orderX' of non-nullable type 'AnimatedInteger' must be initialized.
-dart:svg (1057:3) Variable 'orderY' of non-nullable type 'AnimatedInteger' must be initialized.
-dart:svg (1057:3) Variable 'preserveAlpha' of non-nullable type 'AnimatedBoolean' must be initialized.
-dart:svg (1057:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1057:3) Variable 'targetX' of non-nullable type 'AnimatedInteger' must be initialized.
-dart:svg (1057:3) Variable 'targetY' of non-nullable type 'AnimatedInteger' must be initialized.
-dart:svg (1057:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1057:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1057:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1173:3) The final variables 'diffuseConstant', 'height' and '8' more must be initialized.
-dart:svg (1173:3) Variable 'diffuseConstant' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1173:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1173:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1173:3) Variable 'kernelUnitLengthX' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1173:3) Variable 'kernelUnitLengthY' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1173:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1173:3) Variable 'surfaceScale' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1173:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1173:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1173:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1245:3) The final variables 'height', 'in1' and '8' more must be initialized.
-dart:svg (1245:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1245:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1245:3) Variable 'in2' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1245:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1245:3) Variable 'scale' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1245:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1245:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1245:3) Variable 'xChannelSelector' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (1245:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1245:3) Variable 'yChannelSelector' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (1337:3) The final variables 'azimuth' and 'elevation' must be initialized.
-dart:svg (1337:3) Variable 'azimuth' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1337:3) Variable 'elevation' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1375:3) The final variables 'height', 'result' and '3' more must be initialized.
-dart:svg (1375:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1375:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1375:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1375:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1375:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1547:3) The final variables 'height', 'in1' and '6' more must be initialized.
-dart:svg (1547:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1547:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1547:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1547:3) Variable 'stdDeviationX' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1547:3) Variable 'stdDeviationY' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1547:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1547:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1547:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1615:3) The final variables 'height', 'href' and '5' more must be initialized.
-dart:svg (1615:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1615:3) Variable 'href' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1615:3) Variable 'preserveAspectRatio' of non-nullable type 'AnimatedPreserveAspectRatio' must be initialized.
-dart:svg (1615:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1615:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1615:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1615:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1677:3) The final variables 'height', 'result' and '3' more must be initialized.
-dart:svg (1677:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1677:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1677:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1677:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1677:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1729:3) The final variable 'in1' must be initialized.
-dart:svg (1729:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1759:3) The final variables 'height', 'in1' and '7' more must be initialized.
-dart:svg (1759:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1759:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1759:3) Variable 'operator' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (1759:3) Variable 'radiusX' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1759:3) Variable 'radiusY' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1759:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1759:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1759:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1759:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1836:3) The final variables 'dx', 'dy' and '6' more must be initialized.
-dart:svg (1836:3) Variable 'dx' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1836:3) Variable 'dy' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1836:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1836:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1836:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1836:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1836:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1836:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1900:3) The final variables 'x', 'y' and '1' more must be initialized.
-dart:svg (1900:3) Variable 'x' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1900:3) Variable 'y' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1900:3) Variable 'z' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1942:3) The final variables 'height', 'in1' and '9' more must be initialized.
-dart:svg (1942:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1942:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1942:3) Variable 'kernelUnitLengthX' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1942:3) Variable 'kernelUnitLengthY' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1942:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (1942:3) Variable 'specularConstant' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1942:3) Variable 'specularExponent' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1942:3) Variable 'surfaceScale' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (1942:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1942:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (1942:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2020:3) The final variables 'limitingConeAngle', 'pointsAtX' and '6' more must be initialized.
-dart:svg (2020:3) Variable 'limitingConeAngle' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2020:3) Variable 'pointsAtX' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2020:3) Variable 'pointsAtY' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2020:3) Variable 'pointsAtZ' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2020:3) Variable 'specularExponent' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2020:3) Variable 'x' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2020:3) Variable 'y' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2020:3) Variable 'z' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2082:3) The final variables 'height', 'in1' and '4' more must be initialized.
-dart:svg (2082:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2082:3) Variable 'in1' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (2082:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (2082:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2082:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2082:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2138:3) The final variables 'baseFrequencyX', 'baseFrequencyY' and '9' more must be initialized.
-dart:svg (2138:3) Variable 'baseFrequencyX' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2138:3) Variable 'baseFrequencyY' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2138:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2138:3) Variable 'numOctaves' of non-nullable type 'AnimatedInteger' must be initialized.
-dart:svg (2138:3) Variable 'result' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (2138:3) Variable 'seed' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (2138:3) Variable 'stitchTiles' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (2138:3) Variable 'type' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (2138:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2138:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2138:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2238:3) The final variables 'filterUnits', 'height' and '5' more must be initialized.
-dart:svg (2238:3) Variable 'filterUnits' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (2238:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2238:3) Variable 'href' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (2238:3) Variable 'primitiveUnits' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (2238:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2238:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2238:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2335:3) The final variables 'height', 'width' and '2' more must be initialized.
-dart:svg (2335:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2335:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2335:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2335:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2425:3) The final variables 'farthestViewportElement', 'nearestViewportElement' and '4' more must be initialized.
-dart:svg (2425:3) Variable 'farthestViewportElement' of non-nullable type 'SvgElement' must be initialized.
-dart:svg (2425:3) Variable 'nearestViewportElement' of non-nullable type 'SvgElement' must be initialized.
-dart:svg (2425:3) Variable 'requiredExtensions' of non-nullable type 'StringList' must be initialized.
-dart:svg (2425:3) Variable 'requiredFeatures' of non-nullable type 'StringList' must be initialized.
-dart:svg (2425:3) Variable 'systemLanguage' of non-nullable type 'StringList' must be initialized.
-dart:svg (2425:3) Variable 'transform' of non-nullable type 'AnimatedTransformList' must be initialized.
-dart:svg (2507:3) The final variables 'height', 'href' and '4' more must be initialized.
-dart:svg (2507:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2507:3) Variable 'href' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (2507:3) Variable 'preserveAspectRatio' of non-nullable type 'AnimatedPreserveAspectRatio' must be initialized.
-dart:svg (2507:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2507:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2507:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2736:3) The final variables 'x1', 'x2' and '2' more must be initialized.
-dart:svg (2736:3) Variable 'x1' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2736:3) Variable 'x2' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2736:3) Variable 'y1' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2736:3) Variable 'y2' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2775:3) The final variables 'x1', 'x2' and '2' more must be initialized.
-dart:svg (2775:3) Variable 'x1' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2775:3) Variable 'x2' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2775:3) Variable 'y1' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2775:3) Variable 'y2' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2814:3) The final variables 'markerHeight', 'markerUnits' and '7' more must be initialized.
-dart:svg (2814:3) Variable 'markerHeight' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2814:3) Variable 'markerUnits' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (2814:3) Variable 'markerWidth' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2814:3) Variable 'orientAngle' of non-nullable type 'AnimatedAngle' must be initialized.
-dart:svg (2814:3) Variable 'orientType' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (2814:3) Variable 'preserveAspectRatio' of non-nullable type 'AnimatedPreserveAspectRatio' must be initialized.
-dart:svg (2814:3) Variable 'refX' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2814:3) Variable 'refY' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2814:3) Variable 'viewBox' of non-nullable type 'AnimatedRect' must be initialized.
-dart:svg (2907:3) The final variables 'height', 'maskContentUnits' and '7' more must be initialized.
-dart:svg (2907:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2907:3) Variable 'maskContentUnits' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (2907:3) Variable 'maskUnits' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (2907:3) Variable 'requiredExtensions' of non-nullable type 'StringList' must be initialized.
-dart:svg (2907:3) Variable 'requiredFeatures' of non-nullable type 'StringList' must be initialized.
-dart:svg (2907:3) Variable 'systemLanguage' of non-nullable type 'StringList' must be initialized.
-dart:svg (2907:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2907:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (2907:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (3188:3) The final variables 'animatedNormalizedPathSegList', 'animatedPathSegList' and '3' more must be initialized.
-dart:svg (3188:3) Variable 'animatedNormalizedPathSegList' of non-nullable type 'PathSegList' must be initialized.
-dart:svg (3188:3) Variable 'animatedPathSegList' of non-nullable type 'PathSegList' must be initialized.
-dart:svg (3188:3) Variable 'normalizedPathSegList' of non-nullable type 'PathSegList' must be initialized.
-dart:svg (3188:3) Variable 'pathLength' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (3188:3) Variable 'pathSegList' of non-nullable type 'PathSegList' must be initialized.
-dart:svg (4017:3) The final variables 'height', 'href' and '11' more must be initialized.
-dart:svg (4017:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4017:3) Variable 'href' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (4017:3) Variable 'patternContentUnits' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (4017:3) Variable 'patternTransform' of non-nullable type 'AnimatedTransformList' must be initialized.
-dart:svg (4017:3) Variable 'patternUnits' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (4017:3) Variable 'preserveAspectRatio' of non-nullable type 'AnimatedPreserveAspectRatio' must be initialized.
-dart:svg (4017:3) Variable 'requiredExtensions' of non-nullable type 'StringList' must be initialized.
-dart:svg (4017:3) Variable 'requiredFeatures' of non-nullable type 'StringList' must be initialized.
-dart:svg (4017:3) Variable 'systemLanguage' of non-nullable type 'StringList' must be initialized.
-dart:svg (4017:3) Variable 'viewBox' of non-nullable type 'AnimatedRect' must be initialized.
-dart:svg (4017:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4017:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4017:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4182:3) The final variables 'animatedPoints' and 'points' must be initialized.
-dart:svg (4182:3) Variable 'animatedPoints' of non-nullable type 'PointList' must be initialized.
-dart:svg (4182:3) Variable 'points' of non-nullable type 'PointList' must be initialized.
-dart:svg (4213:3) The final variables 'animatedPoints' and 'points' must be initialized.
-dart:svg (4213:3) Variable 'animatedPoints' of non-nullable type 'PointList' must be initialized.
-dart:svg (4213:3) Variable 'points' of non-nullable type 'PointList' must be initialized.
-dart:svg (4321:3) The final variables 'cx', 'cy' and '4' more must be initialized.
-dart:svg (4321:3) Variable 'cx' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4321:3) Variable 'cy' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4321:3) Variable 'fr' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4321:3) Variable 'fx' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4321:3) Variable 'fy' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4321:3) Variable 'r' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4397:3) The final variables 'height', 'rx' and '4' more must be initialized.
-dart:svg (4397:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4397:3) Variable 'rx' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4397:3) Variable 'ry' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4397:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4397:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4397:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (4444:3) The final variable 'href' must be initialized.
-dart:svg (4444:3) Variable 'href' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (4444:3) Variable 'type' of non-nullable type 'String' must be initialized.
-dart:svg (4506:3) The final variable 'gradientOffset' must be initialized.
-dart:svg (4506:3) Variable 'gradientOffset' of non-nullable type 'AnimatedNumber' must be initialized.
-dart:svg (4634:3) The final variable 'sheet' must be initialized.
-dart:svg (4634:3) Variable 'disabled' of non-nullable type 'bool' must be initialized.
-dart:svg (4634:3) Variable 'media' of non-nullable type 'String' must be initialized.
-dart:svg (4634:3) Variable 'sheet' of non-nullable type 'StyleSheet' must be initialized.
-dart:svg (4634:3) Variable 'type' of non-nullable type 'String' must be initialized.
+dart:svg (4696:8) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
+dart:svg (4696:33) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
 dart:svg (4743:8) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
 dart:svg (4743:33) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
 dart:svg (4775:55) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
 dart:svg (4776:7) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
-dart:svg (5072:3) The final variables 'ownerSvgElement' and 'viewportElement' must be initialized.
-dart:svg (5072:3) Variable 'ownerSvgElement' of non-nullable type 'SvgSvgElement' must be initialized.
-dart:svg (5072:3) Variable 'viewportElement' of non-nullable type 'SvgElement' must be initialized.
-dart:svg (5386:3) The final variables 'currentTranslate', 'currentView' and '12' more must be initialized.
-dart:svg (5386:3) Variable 'currentScale' of non-nullable type 'num' must be initialized.
-dart:svg (5386:3) Variable 'currentTranslate' of non-nullable type 'Point' must be initialized.
-dart:svg (5386:3) Variable 'currentView' of non-nullable type 'ViewSpec' must be initialized.
-dart:svg (5386:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (5386:3) Variable 'pixelUnitToMillimeterX' of non-nullable type 'double' must be initialized.
-dart:svg (5386:3) Variable 'pixelUnitToMillimeterY' of non-nullable type 'double' must be initialized.
-dart:svg (5386:3) Variable 'preserveAspectRatio' of non-nullable type 'AnimatedPreserveAspectRatio' must be initialized.
-dart:svg (5386:3) Variable 'screenPixelToMillimeterX' of non-nullable type 'double' must be initialized.
-dart:svg (5386:3) Variable 'screenPixelToMillimeterY' of non-nullable type 'double' must be initialized.
-dart:svg (5386:3) Variable 'useCurrentView' of non-nullable type 'bool' must be initialized.
-dart:svg (5386:3) Variable 'viewBox' of non-nullable type 'AnimatedRect' must be initialized.
-dart:svg (5386:3) Variable 'viewport' of non-nullable type 'Rect' must be initialized.
-dart:svg (5386:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (5386:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (5386:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (5386:3) Variable 'zoomAndPan' of non-nullable type 'int' must be initialized.
-dart:svg (5605:3) The final variables 'preserveAspectRatio' and 'viewBox' must be initialized.
-dart:svg (5605:3) Variable 'preserveAspectRatio' of non-nullable type 'AnimatedPreserveAspectRatio' must be initialized.
-dart:svg (5605:3) Variable 'viewBox' of non-nullable type 'AnimatedRect' must be initialized.
-dart:svg (5677:3) The final variables 'lengthAdjust' and 'textLength' must be initialized.
-dart:svg (5677:3) Variable 'lengthAdjust' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (5677:3) Variable 'textLength' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (5775:3) The final variables 'href', 'method' and '2' more must be initialized.
-dart:svg (5775:3) Variable 'href' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (5775:3) Variable 'method' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (5775:3) Variable 'spacing' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (5775:3) Variable 'startOffset' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (5836:3) The final variables 'dx', 'dy' and '3' more must be initialized.
-dart:svg (5836:3) Variable 'dx' of non-nullable type 'AnimatedLengthList' must be initialized.
-dart:svg (5836:3) Variable 'dy' of non-nullable type 'AnimatedLengthList' must be initialized.
-dart:svg (5836:3) Variable 'rotate' of non-nullable type 'AnimatedNumberList' must be initialized.
-dart:svg (5836:3) Variable 'x' of non-nullable type 'AnimatedLengthList' must be initialized.
-dart:svg (5836:3) Variable 'y' of non-nullable type 'AnimatedLengthList' must be initialized.
-dart:svg (6126:3) The final variables 'height', 'href' and '3' more must be initialized.
-dart:svg (6126:3) Variable 'height' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (6126:3) Variable 'href' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (6126:3) Variable 'width' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (6126:3) Variable 'x' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (6126:3) Variable 'y' of non-nullable type 'AnimatedLength' must be initialized.
-dart:svg (6171:3) The final variables 'preserveAspectRatio', 'viewBox' and '1' more must be initialized.
-dart:svg (6171:3) Variable 'preserveAspectRatio' of non-nullable type 'AnimatedPreserveAspectRatio' must be initialized.
-dart:svg (6171:3) Variable 'viewBox' of non-nullable type 'AnimatedRect' must be initialized.
-dart:svg (6171:3) Variable 'viewTarget' of non-nullable type 'StringList' must be initialized.
-dart:svg (6171:3) Variable 'zoomAndPan' of non-nullable type 'int' must be initialized.
-dart:svg (6325:3) The final variables 'gradientTransform', 'gradientUnits' and '2' more must be initialized.
-dart:svg (6325:3) Variable 'gradientTransform' of non-nullable type 'AnimatedTransformList' must be initialized.
-dart:svg (6325:3) Variable 'gradientUnits' of non-nullable type 'AnimatedEnumeration' must be initialized.
-dart:svg (6325:3) Variable 'href' of non-nullable type 'AnimatedString' must be initialized.
-dart:svg (6325:3) Variable 'spreadMethod' of non-nullable type 'AnimatedEnumeration' must be initialized.
 dart:typed_data (45:49) Parameter 'length' of non-nullable type 'int' must have a default value.
 dart:typed_data (63:47) Parameter 'length' of non-nullable type 'int' must have a default value.
 dart:typed_data (81:63) Parameter 'length' of non-nullable type 'int' must have a default value.
@@ -2629,6 +2067,21 @@ dart:typed_data (295:53) Parameter 'length' of non-nullable type 'int' must have
 dart:typed_data (319:57) Parameter 'length' of non-nullable type 'int' must have a default value.
 dart:typed_data (343:57) Parameter 'length' of non-nullable type 'int' must have a default value.
 dart:typed_data (361:47) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (452:49) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (767:49) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (817:50) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (868:57) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (922:50) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (977:51) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (1031:50) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (1086:51) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (1143:50) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (1201:51) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (1256:52) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (1304:52) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (1351:54) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (1398:54) Parameter 'length' of non-nullable type 'int' must have a default value.
+dart:typed_data (1445:54) Parameter 'length' of non-nullable type 'int' must have a default value.
 dart:web_audio (134:25) Parameter 'grainOffset' of non-nullable type 'num' must have a default value.
 dart:web_audio (134:42) Parameter 'grainDuration' of non-nullable type 'num' must have a default value.
 dart:web_audio (264:42) Parameter 'numberOfInputs' of non-nullable type 'int' must have a default value.
@@ -2654,4 +2107,4 @@ dart:web_sql (120:54) Parameter 'errorCallback' of non-nullable type '(SqlError)
 dart:web_sql (120:97) Parameter 'successCallback' of non-nullable type '() → void' must have a default value.
 dart:web_sql (295:65) Parameter 'callback' of non-nullable type '(SqlTransaction, SqlResultSet) → void' must have a default value.
 dart:web_sql (295:96) Parameter 'errorCallback' of non-nullable type '(SqlTransaction, SqlError) → void' must have a default value.
-2656 total errors.
+2109 total errors.

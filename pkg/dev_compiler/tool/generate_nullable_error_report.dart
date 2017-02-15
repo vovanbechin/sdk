@@ -20,6 +20,15 @@ import 'package:front_end/src/base/errors.dart';
 import 'package:dev_compiler/src/compiler/command.dart';
 import 'package:dev_compiler/src/compiler/compiler.dart';
 
+final webLibraries = [
+    'dart:html',
+    'dart:html_common',
+    'dart:svg',
+    'dart:web_audio',
+    'dart:web_gl',
+    'dart:web_sql'
+].toSet();
+
 main(List<String> arguments) {
   compile([
     '--unsafe-force-compile',
@@ -81,23 +90,27 @@ main(List<String> arguments) {
 
   var messages = <String>[];
 
-  write(String message) {
-    messages.add(message);
-    print(message);
-  }
-
   for (var error in Hack.errors) {
     if (error.errorCode.errorSeverity == ErrorSeverity.INFO) continue;
+
+    // TODO(rnystrom): Hack. The code generator for the HTML libraries produces
+    // a bunch of fields marked external instead of external getters, which is
+    // what they really are. We don't care about errors related to those.
+    if (webLibraries.contains(error.source.uri.toString()) &&
+        error.message.contains("must be initialized.")) {
+      continue;
+    }
 
     var lineInfo = Hack.context.computeLineInfo(error.source);
     var location = lineInfo.getLocation(error.offset);
 
-    write("${error.source.uri} "
+    messages.add("${error.source.uri} "
         "(${location.lineNumber}:${location.columnNumber}) "
         "${error.message}");
   }
 
-  write("${messages.length} total errors.");
+  messages.add("${messages.length} total errors.");
+  print("${messages.length} total errors.");
 
   var file = new File('tool/nullable_sdk_errors.txt');
   file.writeAsStringSync(messages.join('\n'));
