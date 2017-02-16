@@ -321,7 +321,7 @@ class Maps {
    */
   static void _fillMapWithMappedIterable(Map map, Iterable iterable,
                                          key(element)?, value(element)?) {
-    // TODO(nnbd-promote): Was:
+    // TODO(nnbd-assign): Was:
     // if (key == null) key = _id;
     // if (value == null) value = _id;
     var key_ = key ?? _id;
