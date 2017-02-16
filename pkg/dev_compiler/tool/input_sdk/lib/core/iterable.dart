@@ -96,7 +96,7 @@ abstract class Iterable<E> {
    * As an `Iterable`, `new Iterable.generate(n, generator))` is equivalent to
    * `const [0, ..., n - 1].map(generator)`.
    */
-  factory Iterable.generate(int count, [E generator(int index)]) {
+  factory Iterable.generate(int count, [E generator(int index)?]) {
     if (count <= 0) return new EmptyIterable<E>();
     return new _GeneratorIterable<E>(count, generator);
   }
@@ -471,10 +471,10 @@ abstract class Iterable<E> {
     if (!it.moveNext()) {
       throw IterableElementError.noElement();
     }
-    E result;
-    do {
+    E result = it.current;
+    while (it.moveNext()) {
       result = it.current;
-    } while(it.moveNext());
+    }
     return result;
   }
 
@@ -500,7 +500,7 @@ abstract class Iterable<E> {
    * function is returned.
    * If [orElse] is omitted, it defaults to throwing a [StateError].
    */
-  E firstWhere(bool test(E element), { E orElse() }) {
+  E firstWhere(bool test(E element), { E orElse()? }) {
     for (E element in this) {
       if (test(element)) return element;
     }
@@ -522,16 +522,12 @@ abstract class Iterable<E> {
    * function is returned.
    * If [orElse] is omitted, it defaults to throwing a [StateError].
    */
-  E lastWhere(bool test(E element), {E orElse()}) {
-    E result = null;
-    bool foundMatching = false;
+  E lastWhere(bool test(E element), {E orElse()?}) {
     for (E element in this) {
       if (test(element)) {
-        result = element;
-        foundMatching = true;
+        orElse = () => element;
       }
     }
-    if (foundMatching) return result;
     if (orElse != null) return orElse();
     throw IterableElementError.noElement();
   }
@@ -545,7 +541,7 @@ abstract class Iterable<E> {
    * one matching element, a [StateError] is thrown.
    */
   E singleWhere(bool test(E element)) {
-    E result = null;
+    E? result;
     bool foundMatching = false;
     for (E element in this) {
       if (test(element)) {
@@ -556,7 +552,7 @@ abstract class Iterable<E> {
         foundMatching = true;
       }
     }
-    if (foundMatching) return result;
+    if (foundMatching) return result as E;
     throw IterableElementError.noElement();
   }
 
@@ -616,11 +612,13 @@ class _GeneratorIterable<E> extends Iterable<E>
   /// be assignable to [E] when no generator is provided. In practice this means
   /// that the generator can only be emitted when [E] is equal to `dynamic`,
   /// `int`, or `num`. The constructor will check that the types match.
-  _GeneratorIterable(this._end, E generator(int n))
+  _GeneratorIterable(this._end, E generator(int n)?)
       : _start = 0,
         // The `as` below is used as check to make sure that `int` is assignable
         // to [E].
-        _generator = (generator != null) ? generator : _id as _Generator<E>;
+        // TODO(nnbd): Switch to "??" to avoid promotion problem. Was:
+        // _generator = (generator != null) ? generator : _id as _Generator<E>;
+        _generator = generator ?? _id as _Generator<E>;
 
   _GeneratorIterable.slice(this._start, this._end, this._generator);
 
@@ -651,7 +649,7 @@ class _GeneratorIterator<E> implements Iterator<E> {
   final int _end;
   final _Generator<E> _generator;
   int _index;
-  E _current;
+  E? _current;
 
   _GeneratorIterator(this._index, this._end, this._generator);
 
@@ -666,7 +664,7 @@ class _GeneratorIterator<E> implements Iterator<E> {
     }
   }
 
-  E get current => _current;
+  E get current => _current as E;
 }
 
 /**

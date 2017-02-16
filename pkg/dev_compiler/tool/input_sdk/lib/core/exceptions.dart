@@ -68,7 +68,7 @@ class FormatException implements Exception {
    *
    * May be omitted. If present, [source] should also be present if possible.
    */
-  final int offset;
+  final int? offset;
 
   /**
    * Creates a new FormatException with an optional error [message].
@@ -98,7 +98,7 @@ class FormatException implements Exception {
     if (message != null && "" != message) {
       report = "$report: $message";
     }
-    int offset = this.offset;
+    int? offset = this.offset;
     if (source is! String) {
       if (offset != null) {
         report += " (at offset $offset)";
@@ -116,10 +116,16 @@ class FormatException implements Exception {
       }
       return "$report\n$source";
     }
+    // TODO(nnbd-exit): Since the null case exits, we could know offset is
+    // non-null here.
+    var offset_ = offset as int;
     int lineNum = 1;
     int lineStart = 0;
-    bool lastWasCR;
-    for (int i = 0; i < offset; i++) {
+    // TODO(nnbd-bug): This was uninitialized, but it looks like it can be
+    // read in the loop before it's ever assigned. I'm guessing it inadvertently
+    // relies on null being truthy?
+    bool lastWasCR = true;
+    for (int i = 0; i < offset_; i++) {
       int char = source.codeUnitAt(i);
       if (char == 0x0a) {
         if (lineStart != i || !lastWasCR) {
@@ -134,12 +140,12 @@ class FormatException implements Exception {
       }
     }
     if (lineNum > 1) {
-      report += " (at line $lineNum, character ${offset - lineStart + 1})\n";
+      report += " (at line $lineNum, character ${offset_ - lineStart + 1})\n";
     } else {
-      report += " (at character ${offset + 1})\n";
+      report += " (at character ${offset_ + 1})\n";
     }
     int lineEnd = source.length;
-    for (int i = offset; i < source.length; i++) {
+    for (int i = offset_; i < source.length; i++) {
       int char = source.codeUnitAt(i);
       if (char == 0x0a || char == 0x0d) {
         lineEnd = i;
@@ -154,22 +160,22 @@ class FormatException implements Exception {
     if (length > 78) {
       // Can't show entire line. Try to anchor at the nearest end, if
       // one is within reach.
-      int index = offset - lineStart;
+      int index = offset_ - lineStart;
       if (index < 75) {
         end = start + 75;
         postfix = "...";
-      } else if (end - offset < 75) {
+      } else if (end - offset_ < 75) {
         start = end - 75;
         prefix = "...";
       } else {
         // Neither end is near, just pick an area around the offset.
-        start = offset - 36;
-        end = offset + 36;
+        start = offset_ - 36;
+        end = offset_ + 36;
         prefix = postfix = "...";
       }
     }
     String slice = source.substring(start, end);
-    int markOffset = offset - start + prefix.length;
+    int markOffset = offset_ - start + prefix.length;
     return "$report$prefix$slice$postfix\n${" " * markOffset}^\n";
   }
 }

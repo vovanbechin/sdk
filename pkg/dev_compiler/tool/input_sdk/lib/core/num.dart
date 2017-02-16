@@ -357,7 +357,7 @@ abstract class num implements Comparable<num> {
    *     123456.toStringAsExponential(3); // 1.235e+5
    *     123.toStringAsExponential(0);    // 1e+2
    */
-  String toStringAsExponential([int fractionDigits]);
+  String toStringAsExponential([int? fractionDigits]);
 
   /**
    * Converts `this` to a double and returns a string representation with
@@ -436,18 +436,37 @@ abstract class num implements Comparable<num> {
    * `identical(n, num.parse(n.toString()))` (except when `n` is a NaN `double`
    * with a payload).
    */
-  static num parse(String input, [num onError(String input)]) {
+  static num parse(String input, [num onError(String input)?]) {
     String source = input.trim();
     // TODO(lrn): Optimize to detect format and result type in one check.
-    num result = int.parse(source, onError: _returnIntNull);
-    if (result != null) return result;
-    result = double.parse(source, _returnDoubleNull);
-    if (result != null) return result;
-    if (onError == null) throw new FormatException(input);
-    return onError(input);
+    // TODO(nnbd): This was providing an error callback that returned null and
+    // checking for that to see if the parse failed. That would require
+    // int.parse() to return "int?" which seems dumb given that it already
+    // throws an exception on a failed parse. Was:
+    // num result = int.parse(source, onError: _returnIntNull);
+    // if (result != null) return result;
+    // result = double.parse(source, _returnDoubleNull);
+    // if (result != null) return result;
+    try {
+      return int.parse(source);
+    } on FormatException {
+      // Continue below.
+    }
+
+    try {
+      return double.parse(source);
+    } on FormatException {
+      // Continue below.
+    }
+
+    // TODO(nnbd-exit): Should know onError is non-null after if. Was:
+    // if (onError == null) throw new FormatException(input);
+    // return onError(input);
+    if (onError != null) return onError(input);
+    throw new FormatException(input);
   }
 
-  /** Helper functions for [parse]. */
-  static int _returnIntNull(String _) => null;
-  static double _returnDoubleNull(String _) => null;
+  // /** Helper functions for [parse]. */
+  // static int _returnIntNull(String _) => null;
+  // static double _returnDoubleNull(String _) => null;
 }

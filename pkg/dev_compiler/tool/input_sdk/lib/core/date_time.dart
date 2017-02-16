@@ -361,13 +361,16 @@ class DateTime implements Comparable<DateTime> {
    *
    * If [isUtc] is false then the date is in the local time zone.
    */
-  DateTime._withValue(this._value, {this.isUtc}) {
+  // TODO(nnbd): isUtc is actually a required parameter, even though it is
+  // named. Was "{this.isUtc}". Changed it to just cast in the initializer.
+  DateTime._withValue(this._value, {bool? isUtc})
+      : isUtc = isUtc as bool {
     if (millisecondsSinceEpoch.abs() > _MAX_MILLISECONDS_SINCE_EPOCH ||
         (millisecondsSinceEpoch.abs() == _MAX_MILLISECONDS_SINCE_EPOCH &&
          microsecond != 0)) {
       throw new ArgumentError(millisecondsSinceEpoch);
     }
-    if (isUtc == null) throw new ArgumentError(isUtc);
+    // if (isUtc == null) throw new ArgumentError(isUtc);
   }
 
   /**

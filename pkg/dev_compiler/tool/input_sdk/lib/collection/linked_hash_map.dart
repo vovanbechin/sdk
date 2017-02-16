@@ -107,7 +107,7 @@ abstract class LinkedHashMap<K, V> implements HashMap<K, V> {
    * identity function.
    */
   factory LinkedHashMap.fromIterable(Iterable iterable,
-      {K key(element), V value(element)}) {
+      {K key(element)?, V value(element)?}) {
     LinkedHashMap<K, V> map = new LinkedHashMap<K, V>();
     Maps._fillMapWithMappedIterable(map, iterable, key, value);
     return map;

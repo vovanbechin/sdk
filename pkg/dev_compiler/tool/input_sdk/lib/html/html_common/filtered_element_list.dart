@@ -70,7 +70,7 @@ class FilteredElementList extends ListBase<Element> implements NodeListWrapper {
 
   Iterable<Element> get reversed => _filtered.reversed;
 
-  void sort([int compare(Element a, Element b)]) {
+  void sort([int compare(Element a, Element b)?]) {
     throw new UnsupportedError('Cannot sort filtered list');
   }
 
@@ -79,7 +79,7 @@ class FilteredElementList extends ListBase<Element> implements NodeListWrapper {
     throw new UnsupportedError('Cannot setRange on filtered list');
   }
 
-  void fillRange(int start, int end, [Element fillValue]) {
+  void fillRange(int start, int end, Element fillValue) {
     throw new UnsupportedError('Cannot fillRange on filtered list');
   }
 

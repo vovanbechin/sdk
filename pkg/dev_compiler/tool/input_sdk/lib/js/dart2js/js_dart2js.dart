@@ -425,7 +425,7 @@ class JsArray<E> extends JsObject with ListMixin<E> {
     callMethod('splice', args);
   }
 
-  void sort([int compare(E a, E b)]) {
+  void sort([int compare(E a, E b)?]) {
     // Note: arr.sort(null) is a type error in FF
     callMethod('sort', compare == null ? [] : [compare]);
   }

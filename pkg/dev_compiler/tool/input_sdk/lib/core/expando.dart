@@ -28,7 +28,7 @@ class Expando<T> {
    * The name of the this [Expando] as passed to the constructor. If
    * no name was passed to the constructor, the name is [:null:].
    */
-  final String name;
+  final String? name;
 
   /**
    * Creates a new [Expando]. The optional name is only used for
@@ -36,7 +36,7 @@ class Expando<T> {
    * same name yields two [Expando]s that work on different properties
    * of the objects they are used on.
    */
-  external Expando([String name]);
+  external Expando([String? name]);
 
   /**
    * Expando toString method override.

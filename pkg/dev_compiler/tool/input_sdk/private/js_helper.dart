@@ -66,14 +66,17 @@ class Primitives {
   }
 
   @NoInline()
-  static int _parseIntError(String source, int handleError(String source)) {
-    if (handleError == null) throw new FormatException(source);
-    return handleError(source);
+  static int _parseIntError(String source, int handleError(String source)?) {
+    if (handleError != null) return handleError(source);
+    throw new FormatException(source);
+    // TODO(nnbd-exit): Exit analysis would help here. Was originally:
+    // if (handleError == null) throw new FormatException(source);
+    // return handleError(source);
   }
 
   static int parseInt(String source,
-                      int radix,
-                      int handleError(String source)) {
+                      int? radix,
+                      int handleError(String source)?) {
     checkString(source);
     var re = JS('', r'/^\s*[+-]?((0x[a-f0-9]+)|(\d+)|([a-z0-9]+))\s*$/i');
     var/*=JSArray<String>*/ match = JS('JSExtendableArray|Null', '#.exec(#)', re, source);
@@ -103,34 +106,38 @@ class Primitives {
     if (radix is! int) {
       throw new ArgumentError.value(radix, 'radix', 'is not an integer');
     }
-    if (radix < 2 || radix > 36) {
-      throw new RangeError.range(radix, 2, 36, 'radix');
+    // TODO(nnbd-exit): From the above "radix == null" test, we should
+    // statically know it is not null here, but we need smarter flow analysis
+    // for that. Instead...
+    var radix_ = radix as int;
+    if (radix_ < 2 || radix_ > 36) {
+      throw new RangeError.range(radix_, 2, 36, 'radix');
     }
-    if (radix == 10 && decimalMatch != null) {
+    if (radix_ == 10 && decimalMatch != null) {
       // Cannot fail because we know that the digits are all decimal.
       return JS('int', r'parseInt(#, 10)', source);
     }
     // If radix >= 10 and we have only decimal digits the string is safe.
     // Otherwise we need to check the digits.
-    if (radix < 10 || decimalMatch == null) {
+    if (radix_ < 10 || decimalMatch == null) {
       // We know that the characters must be ASCII as otherwise the
       // regexp wouldn't have matched. Lowercasing by doing `| 0x20` is thus
       // guaranteed to be a safe operation, since it preserves digits
       // and lower-cases ASCII letters.
-      // TODO(nnbd-flow): Definite assignment analysis would help here.
+      // TODO(nnbd-definite): Definite assignment analysis would help here.
       int maxCharCode = 0;
-      if (radix <= 10) {
+      if (radix_ <= 10) {
         // Allow all digits less than the radix. For example 0, 1, 2 for
         // radix 3.
         // "0".codeUnitAt(0) + radix - 1;
-        maxCharCode = (0x30 - 1) + radix;
+        maxCharCode = (0x30 - 1) + radix_;
       } else {
         // Letters are located after the digits in ASCII. Therefore we
         // only check for the character code. The regexp above made already
         // sure that the string does not contain anything but digits or
         // letters.
         // "a".codeUnitAt(0) + (radix - 10) - 1;
-        maxCharCode = (0x61 - 10 - 1) + radix;
+        maxCharCode = (0x61 - 10 - 1) + radix_;
       }
       assert(match[digitsIndex] is String);
       String digitsPart = JS('String', '#[#]', match, digitsIndex);
@@ -143,19 +150,22 @@ class Primitives {
     }
     // The above matching and checks ensures the source has at least one digits
     // and all digits are suitable for the radix, so parseInt cannot return NaN.
-    return JS('int', r'parseInt(#, #)', source, radix);
+    return JS('int', r'parseInt(#, #)', source, radix_);
   }
 
   @NoInline()
   static double _parseDoubleError(String source,
-                                  double handleError(String source)) {
-    if (handleError == null) {
-      throw new FormatException('Invalid double', source);
-    }
-    return handleError(source);
+                                  double handleError(String source)?) {
+    // TODO(nnbd-exit): Smarter exit analysis would help here. Was originally:
+    // if (handleError == null) {
+    //   throw new FormatException('Invalid double', source);
+    // }
+    // return handleError(source);
+    if (handleError != null) return handleError(source);
+    throw new FormatException('Invalid double', source);
   }
 
-  static double parseDouble(String source, double handleError(String source)) {
+  static double parseDouble(String source, double handleError(String source)?) {
     checkString(source);
     // Notice that JS parseFloat accepts garbage at the end of the string.
     // Accept only:
@@ -200,22 +210,25 @@ class Primitives {
   static int dateNow() => JS('int', r'Date.now()');
 
   static void initTicker() {
-    if (timerFrequency != null) return;
+    if (_timerFrequency != null) return;
     // Start with low-resolution. We overwrite the fields if we find better.
-    timerFrequency = 1000;
-    timerTicks = dateNow;
+    _timerFrequency = 1000;
+    _timerTicks = dateNow;
     if (JS('bool', 'typeof window == "undefined"')) return;
     var jsWindow = JS('var', 'window');
     if (jsWindow == null) return;
     var performance = JS('var', '#.performance', jsWindow);
     if (performance == null) return;
     if (JS('bool', 'typeof #.now != "function"', performance)) return;
-    timerFrequency = 1000000;
-    timerTicks = () => (1000 * JS('num', '#.now()', performance)).floor();
+    _timerFrequency = 1000000;
+    _timerTicks = () => (1000 * JS('num', '#.now()', performance)).floor();
   }
 
-  static int? timerFrequency;
-  static Function? timerTicks;
+  static int get timerFrequency => _timerFrequency as int;
+  static int? _timerFrequency;
+
+  static int timerTicks() => (_timerTicks as Function)();
+  static Function? _timerTicks;
 
   static bool get isD8 {
     return JS('bool',
@@ -360,7 +373,7 @@ class Primitives {
     return -JS('int', r'#.getTimezoneOffset()', lazyAsJsDate(receiver));
   }
 
-  static num? valueFromDecomposedDate(int years, int month, int day, int hours,
+  static int? valueFromDecomposedDate(int years, int month, int day, int hours,
         int minutes, int seconds, int milliseconds, bool isUtc) {
     final int MAX_MILLISECONDS_SINCE_EPOCH = 8640000000000000;
     checkInt(years);
@@ -372,13 +385,13 @@ class Primitives {
     checkInt(milliseconds);
     checkBool(isUtc);
     var jsMonth = month - 1;
-    // TODO(nnbd-flow): Definite assignment analysis would help here.
-    num value = 0;
+    // TODO(nnbd-definite): Definite assignment analysis would help here.
+    int value = 0;
     if (isUtc) {
-      value = JS('num', r'Date.UTC(#, #, #, #, #, #, #)',
+      value = JS('int', r'Date.UTC(#, #, #, #, #, #, #)',
                  years, jsMonth, day, hours, minutes, seconds, milliseconds);
     } else {
-      value = JS('num', r'new Date(#, #, #, #, #, #, #).valueOf()',
+      value = JS('int', r'new Date(#, #, #, #, #, #, #).valueOf()',
                  years, jsMonth, day, hours, minutes, seconds, milliseconds);
     }
     if (value.isNaN ||
@@ -393,11 +406,11 @@ class Primitives {
   static patchUpY2K(value, years, isUtc) {
     var date = JS('', r'new Date(#)', value);
     if (isUtc) {
-      JS('num', r'#.setUTCFullYear(#)', date, years);
+      JS('int', r'#.setUTCFullYear(#)', date, years);
     } else {
-      JS('num', r'#.setFullYear(#)', date, years);
+      JS('int', r'#.setFullYear(#)', date, years);
     }
-    return JS('num', r'#.valueOf()', date);
+    return JS('int', r'#.valueOf()', date);
   }
 
   // Lazily keep a JS Date stored in the JS object.
@@ -638,10 +651,10 @@ class _StackTrace implements StackTrace {
         JS('bool', 'typeof # === "object"', _exception)) {
       trace = JS("String|Null", r"#.stack", _exception);
     }
-    return _trace = (trace != null) ? trace : '';
-    // TODO(nnbd-promote): Had to flip condition since promotion doesn't handle
+    // TODO(nnbd-else): Had to flip condition since promotion doesn't handle
     // negative case of conditional expression. Was:
     //return _trace = (trace == null) ? '' : trace;
+    return _trace = (trace != null) ? trace : '';
   }
 }
 

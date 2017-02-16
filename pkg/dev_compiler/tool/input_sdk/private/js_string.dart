@@ -66,8 +66,8 @@ class JSString extends Interceptor implements String, JSIndexable<String> {
   }
 
   String splitMapJoin(Pattern from,
-                      {String onMatch(Match match),
-                       String onNonMatch(String nonMatch)}) {
+                      {String onMatch(Match match)?,
+                       String onNonMatch(String nonMatch)?}) {
     return stringReplaceAllFuncUnchecked(this, from, onMatch, onNonMatch);
   }
 
@@ -149,13 +149,15 @@ class JSString extends Interceptor implements String, JSIndexable<String> {
     return pattern.matchAsPrefix(this, index) != null;
   }
 
-  String substring(int startIndex, [int endIndex]) {
+  String substring(int startIndex, [int? endIndex]) {
     checkInt(startIndex);
     if (endIndex == null) endIndex = length;
+    // TODO(nnbd-assign): Should know endIndex is non-null here. Maybe use to
+    // ??= to simplify analysis.
     checkInt(endIndex);
     if (startIndex < 0 ) throw new RangeError.value(startIndex);
     if (startIndex > endIndex) throw new RangeError.value(startIndex);
-    if (endIndex > length) throw new RangeError.value(endIndex);
+    if ((endIndex as int) > length) throw new RangeError.value(endIndex);
     return JS('String', r'#.substring(#, #)', this, startIndex, endIndex);
   }
 
@@ -398,7 +400,7 @@ class JSString extends Interceptor implements String, JSIndexable<String> {
     return -1;
   }
 
-  int lastIndexOf(Pattern pattern, [int start]) {
+  int lastIndexOf(Pattern pattern, [int? start]) {
     checkNull(pattern);
     if (start == null) {
       start = length;

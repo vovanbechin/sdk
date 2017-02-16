@@ -18,8 +18,8 @@ class Stopwatch {
   // If _start is null, then the [Stopwatch] has not been started yet.
   // If _stop is null, then the [Stopwatch] has not been stopped yet,
   // or is running.
-  int _start;
-  int _stop;
+  int? _start;
+  int? _stop;
 
   /**
    * Creates a [Stopwatch] in stopped state with a zero elapsed count.
@@ -50,7 +50,9 @@ class Stopwatch {
     } else {
       // Restart this stopwatch. Prepend the elapsed time to the current
       // start time.
-      _start = _now() - (_stop - _start);
+      // TODO(nnbd-assert): Can't rely on inference here, so probably just
+      // want to cast or maybe have some "!!" syntax.
+      _start = _now() - ((_stop as int) - (_start as int));
       _stop = null;
     }
   }
@@ -99,7 +101,11 @@ class Stopwatch {
     if (_start == null) {
       return 0;
     }
-    return (_stop == null) ? (_now() - _start) : (_stop - _start);
+    // TODO(nnbd-assert): Can't rely on inference here, so probably just
+    // want to cast or maybe have some "!!" syntax.
+    return (_stop == null)
+        ? (_now() - (_start as int))
+        : ((_stop as int) - (_start as int));
   }
 
   /**
@@ -132,7 +138,9 @@ class Stopwatch {
   /**
    * Cached frequency of the system. Must be initialized in [_initTicker];
    */
-  static int _frequency;
+  // TODO(nnbd): Setting to bogus value because we know it will be assigned
+  // before it's accessed.
+  static int _frequency = 0;
 
   /**
    * Initializes the time-measuring system. *Must* initialize the [_frequency]

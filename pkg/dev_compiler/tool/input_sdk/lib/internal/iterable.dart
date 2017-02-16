@@ -94,7 +94,7 @@ abstract class ListIterable<E> extends Iterable<E>
     return false;
   }
 
-  E firstWhere(bool test(E element), { E orElse() }) {
+  E firstWhere(bool test(E element), { E orElse()? }) {
     int length = this.length;
     for (int i = 0; i < length; i++) {
       E element = elementAt(i);
@@ -107,7 +107,7 @@ abstract class ListIterable<E> extends Iterable<E>
     throw IterableElementError.noElement();
   }
 
-  E lastWhere(bool test(E element), { E orElse() }) {
+  E lastWhere(bool test(E element), { E orElse()? }) {
     int length = this.length;
     for (int i = length - 1; i >= 0; i--) {
       E element = elementAt(i);
@@ -696,17 +696,17 @@ class EmptyIterable<E> extends Iterable<E> implements EfficientLength {
 
   bool any(bool test(E element)) => false;
 
-  E firstWhere(bool test(E element), {E orElse()}) {
+  E firstWhere(bool test(E element), {E orElse()?}) {
     if (orElse != null) return orElse();
     throw IterableElementError.noElement();
   }
 
-  E lastWhere(bool test(E element), {E orElse()}) {
+  E lastWhere(bool test(E element), {E orElse()?}) {
     if (orElse != null) return orElse();
     throw IterableElementError.noElement();
   }
 
-  E singleWhere(bool test(E element), {E orElse()}) {
+  E singleWhere(bool test(E element), {E orElse()?}) {
     if (orElse != null) return orElse();
     throw IterableElementError.noElement();
   }

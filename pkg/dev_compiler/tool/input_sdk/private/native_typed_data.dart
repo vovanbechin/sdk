@@ -167,7 +167,7 @@ class NativeFloat32x4List
     _storage[(index * 4) + 3] = value.w;
   }
 
-  List<Float32x4> sublist(int start, [int end]) {
+  List<Float32x4> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     return new NativeFloat32x4List._externalStorage(
         _storage.sublist(start * 4, end * 4));
@@ -247,7 +247,7 @@ class NativeInt32x4List
     _storage[(index * 4) + 3] = value.w;
   }
 
-  List<Int32x4> sublist(int start, [int end]) {
+  List<Int32x4> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     return new NativeInt32x4List._externalStorage(
         _storage.sublist(start * 4, end * 4));
@@ -322,7 +322,7 @@ class NativeFloat64x2List
     _storage[(index * 2) + 1] = value.y;
   }
 
-  List<Float64x2> sublist(int start, [int end]) {
+  List<Float64x2> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     return new NativeFloat64x2List._externalStorage(
         _storage.sublist(start * 2, end * 2));
@@ -850,7 +850,7 @@ class NativeFloat32List
 
   Type get runtimeType => Float32List;
 
-  List<double> sublist(int start, [int end]) {
+  List<double> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     var source = JS('NativeFloat32List', '#.subarray(#, #)', this, start, end);
     return _create1(source);
@@ -887,7 +887,7 @@ class NativeFloat64List
 
   Type get runtimeType => Float64List;
 
-  List<double> sublist(int start, [int end]) {
+  List<double> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     var source = JS('NativeFloat64List', '#.subarray(#, #)', this, start, end);
     return _create1(source);
@@ -929,7 +929,7 @@ class NativeInt16List
     return JS('int', '#[#]', this, index);
   }
 
-  List<int> sublist(int start, [int end]) {
+  List<int> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     var source = JS('NativeInt16List', '#.subarray(#, #)', this, start, end);
     return _create1(source);
@@ -969,7 +969,7 @@ class NativeInt32List extends NativeTypedArrayOfInt implements Int32List {
     return JS('int', '#[#]', this, index);
   }
 
-  List<int> sublist(int start, [int end]) {
+  List<int> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     var source = JS('NativeInt32List', '#.subarray(#, #)', this, start, end);
     return _create1(source);
@@ -1009,7 +1009,7 @@ class NativeInt8List extends NativeTypedArrayOfInt implements Int8List {
     return JS('int', '#[#]', this, index);
   }
 
-  List<int> sublist(int start, [int end]) {
+  List<int> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     var source = JS('NativeInt8List', '#.subarray(#, #)', this, start, end);
     return _create1(source);
@@ -1049,7 +1049,7 @@ class NativeUint16List extends NativeTypedArrayOfInt implements Uint16List {
     return JS('int', '#[#]', this, index);
   }
 
-  List<int> sublist(int start, [int end]) {
+  List<int> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     var source = JS('NativeUint16List', '#.subarray(#, #)', this, start, end);
     return _create1(source);
@@ -1089,7 +1089,7 @@ class NativeUint32List extends NativeTypedArrayOfInt implements Uint32List {
     return JS('int', '#[#]', this, index);
   }
 
-  List<int> sublist(int start, [int end]) {
+  List<int> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     var source = JS('NativeUint32List', '#.subarray(#, #)', this, start, end);
     return _create1(source);
@@ -1133,7 +1133,7 @@ class NativeUint8ClampedList
     return JS('int', '#[#]', this, index);
   }
 
-  List<int> sublist(int start, [int end]) {
+  List<int> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     var source = JS('NativeUint8ClampedList', '#.subarray(#, #)',
         this, start, end);
@@ -1181,7 +1181,7 @@ class NativeUint8List extends NativeTypedArrayOfInt implements Uint8List {
     return JS('int', '#[#]', this, index);
   }
 
-  List<int> sublist(int start, [int end]) {
+  List<int> sublist(int start, [int? end]) {
     end = _checkValidRange(start, end, this.length);
     var source = JS('NativeUint8List', '#.subarray(#, #)', this, start, end);
     return _create1(source);
@@ -1928,7 +1928,7 @@ void _checkValidIndex(int index, List list, int length) {
 ///
 /// Returns the actual value of `end`, which is `length` if `end` is `null`, and
 /// the original value of `end` otherwise.
-int _checkValidRange(int start, int end, int length) {
+int _checkValidRange(int start, int? end, int length) {
   if (_isInvalidArrayIndex(start) ||  // Ensures start is non-negative int.
       ((end == null) ? start > length
                      : (_isInvalidArrayIndex(end) ||

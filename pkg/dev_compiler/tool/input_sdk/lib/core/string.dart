@@ -111,7 +111,7 @@ abstract class String implements Comparable<String>, Pattern {
    * `0 <= start <= end <= charCodes.length`.
    */
   external factory String.fromCharCodes(Iterable<int> charCodes,
-                                        [int start = 0, int end]);
+                                        [int start = 0, int? end]);
 
   /**
    * Allocates a new String for the specified [charCode].
@@ -144,7 +144,7 @@ abstract class String implements Comparable<String>, Pattern {
    *     var isDeclared = const String.fromEnvironment("maybeDeclared") != null;
    */
   external const factory String.fromEnvironment(String name,
-                                                {String defaultValue});
+                                                {String? defaultValue});
 
   /**
    * Gets the character (as a single-code-unit [String]) at the given [index].
@@ -253,7 +253,7 @@ abstract class String implements Comparable<String>, Pattern {
    *
    * [start] must not be negative or greater than [length].
    */
-  int indexOf(Pattern pattern, [int start]);
+  int indexOf(Pattern pattern, [int start = 0]);
 
   /**
    * Returns the position of the last match [pattern] in this string, searching
@@ -269,7 +269,7 @@ abstract class String implements Comparable<String>, Pattern {
    *
    * [start] must not be negative or greater than [length].
    */
-  int lastIndexOf(Pattern pattern, [int start]);
+  int lastIndexOf(Pattern pattern, [int? start]);
 
   /**
    * Returns true if this string is empty.
@@ -296,7 +296,7 @@ abstract class String implements Comparable<String>, Pattern {
    *     string.substring(1);    // 'artlang'
    *     string.substring(1, 4); // 'art'
    */
-  String substring(int startIndex, [int endIndex]);
+  String substring(int startIndex, [int? endIndex]);
 
   /**
    * Returns the string without any leading and trailing whitespace.
@@ -486,7 +486,7 @@ abstract class String implements Comparable<String>, Pattern {
    * That is `0 <= start <= end <= this.length`.
    * If [end] is `null`, it defaults to [length].
    */
-  String replaceRange(int start, int end, String replacement);
+  String replaceRange(int start, int? end, String replacement);
 
   /**
    * Splits the string at matches of [pattern] and returns a list of substrings.
@@ -555,8 +555,8 @@ abstract class String implements Comparable<String>, Pattern {
    *         onNonMatch: (n) => '*'); // *shoots*
    */
   String splitMapJoin(Pattern pattern,
-                      {String onMatch(Match match),
-                       String onNonMatch(String nonMatch)});
+                      {String onMatch(Match match)?,
+                       String onNonMatch(String nonMatch)?});
 
   /**
    * Returns an unmodifiable list of the UTF-16 code units of this string.
@@ -652,7 +652,7 @@ class RuneIterator implements BidirectionalIterator<int> {
    * If the iterator has hit either end, the [_currentCodePoint] is null
    * and [: _position == _nextPosition :].
    */
-  int _currentCodePoint;
+  int? _currentCodePoint;
 
   /** Create an iterator positioned at the beginning of the string. */
   RuneIterator(String string)
@@ -688,7 +688,7 @@ class RuneIterator implements BidirectionalIterator<int> {
    *
    * Returns null if the [current] rune is null.
    */
-  int get rawIndex => (_position != _nextPosition) ? _position : null;
+  int? get rawIndex => (_position != _nextPosition) ? _position : null;
 
   /**
    * Resets the iterator to the rune at the specified index of the string.
@@ -699,6 +699,8 @@ class RuneIterator implements BidirectionalIterator<int> {
    *
    * Setting the position to the end of then string will set [current] to null.
    */
+  // TODO(nnbd): This generates a warning because it doesn't match the
+  // getter's nullable type. Allow it?
   void set rawIndex(int rawIndex) {
     RangeError.checkValidIndex(rawIndex, string, "rawIndex");
     reset(rawIndex);
@@ -725,7 +727,7 @@ class RuneIterator implements BidirectionalIterator<int> {
   /** The rune (integer Unicode code point) starting at the current position in
    *  the string.
    */
-  int get current => _currentCodePoint;
+  int get current => _currentCodePoint as int;
 
   /**
    * The number of code units comprising the current rune.
@@ -742,7 +744,7 @@ class RuneIterator implements BidirectionalIterator<int> {
    *
    * Returns null if [current] is null.
    */
-  String get currentAsString {
+  String? get currentAsString {
     if (_position == _nextPosition) return null;
     if (_position + 1 == _nextPosition) return string[_position];
     return string.substring(_position, _nextPosition);

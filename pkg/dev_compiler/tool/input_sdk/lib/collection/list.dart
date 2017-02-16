@@ -120,7 +120,7 @@ abstract class ListMixin<E> implements List<E> {
     return false;
   }
 
-  E firstWhere(bool test(E element), { E orElse() }) {
+  E firstWhere(bool test(E element), { E orElse()? }) {
     int length = this.length;
     for (int i = 0; i < length; i++) {
       E element = this[i];
@@ -133,7 +133,7 @@ abstract class ListMixin<E> implements List<E> {
     throw IterableElementError.noElement();
   }
 
-  E lastWhere(bool test(E element), { E orElse() }) {
+  E lastWhere(bool test(E element), { E orElse()? }) {
     int length = this.length;
     for (int i = length - 1; i >= 0; i--) {
       E element = this[i];
@@ -306,15 +306,21 @@ abstract class ListMixin<E> implements List<E> {
     return result;
   }
 
-  void sort([int compare(E a, E b)]) {
-    if (compare == null) {
-      Sort.sort(this, (a, b) => Comparable.compare(a, b));
-    } else {
+  void sort([int compare(E a, E b)?]) {
+    // TODO(nnbd-else)
+    if (compare != null) {
       Sort.sort(this, compare);
+    } else {
+      Sort.sort(this, (a, b) => Comparable.compare(a, b));
     }
+    // if (compare == null) {
+    //   Sort.sort(this, (a, b) => Comparable.compare(a, b));
+    // } else {
+    //   Sort.sort(this, compare);
+    // }
   }
 
-  void shuffle([Random random]) {
+  void shuffle([Random? random]) {
     if (random == null) random = new Random();
     int length = this.length;
     while (length > 1) {
@@ -330,7 +336,7 @@ abstract class ListMixin<E> implements List<E> {
     return new ListMapView<E>(this);
   }
 
-  List<E> sublist(int start, [int end]) {
+  List<E> sublist(int start, [int? end]) {
     int listLength = this.length;
     if (end == null) end = listLength;
     RangeError.checkValidRange(start, end, listLength);
@@ -354,7 +360,8 @@ abstract class ListMixin<E> implements List<E> {
     this.length -= length;
   }
 
-  void fillRange(int start, int end, [E fill]) {
+
+  void fillRange(int start, int end, E fill) {
     RangeError.checkValidRange(start, end, this.length);
     for (int i = start; i < end; i++) {
       this[i] = fill;
@@ -438,7 +445,7 @@ abstract class ListMixin<E> implements List<E> {
    * the search at index [startIndex] to 0.
    * Returns -1 if [element] is not found.
    */
-  int lastIndexOf(Object element, [int startIndex]) {
+  int lastIndexOf(Object element, [int? startIndex]) {
     if (startIndex == null) {
       startIndex = this.length - 1;
     } else {

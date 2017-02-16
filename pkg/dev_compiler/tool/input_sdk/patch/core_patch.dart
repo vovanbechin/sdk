@@ -55,7 +55,7 @@ class Function {
   @patch
   static apply(Function f,
                List positionalArguments,
-               [Map<Symbol, dynamic> namedArguments]) {
+               [Map<Symbol, dynamic>? namedArguments]) {
     // TODO(vsm): Handle named args:
     // https://github.com/dart-lang/sdk/issues/27257
     return JS('', 'dart.dcall.apply(null, [#].concat(#))', f, positionalArguments);
@@ -76,7 +76,7 @@ class Function {
 @patch
 class Expando<T> {
   @patch
-  Expando([String name]) : this.name = name;
+  Expando([String? name]) : this.name = name;
 
   @patch
   T operator[](Object object) {
@@ -112,13 +112,13 @@ class Expando<T> {
 class int {
   @patch
   static int parse(String source,
-                         { int radix,
-                           int onError(String source) }) {
+                         { int? radix,
+                           int onError(String source)? }) {
     return Primitives.parseInt(source, radix, onError);
   }
 
   @patch
-  factory int.fromEnvironment(String name, {int defaultValue}) {
+  factory int.fromEnvironment(String name, {int? defaultValue}) {
     throw new UnsupportedError(
         'int.fromEnvironment can only be used as a const constructor');
   }
@@ -128,7 +128,7 @@ class int {
 class double {
   @patch
   static double parse(String source,
-                            [double onError(String source)]) {
+                            [double onError(String source)?]) {
     return Primitives.parseDouble(source, onError);
   }
 }
@@ -146,7 +146,7 @@ class Error {
   }
 
   @patch
-  StackTrace get stackTrace => Primitives.extractStackTrace(this);
+  StackTrace? get stackTrace => Primitives.extractStackTrace(this);
 }
 
 /// An interface type for all Strong-mode errors.
@@ -206,7 +206,8 @@ class DateTime {
     return Primitives.valueFromDecomposedDate(
         year, month, day, hour, minute, second,
         millisecond + _microsecondInRoundedMilliseconds(microsecond),
-        isUtc);
+        isUtc) as int;
+    // TODO(nnbd-assert): Some "!!" or other syntax might be nice here.
   }
 
   @patch
@@ -290,17 +291,18 @@ class Stopwatch {
 @patch
 class List<E> {
   @patch
-  factory List([int length]) {
+  factory List([int? length]) {
     dynamic list;
     if (length == null) {
       list = JS('', '[]');
     } else {
       // Explicit type test is necessary to guard against JavaScript conversions
       // in unchecked mode.
-      if ((length is !int) || (length < 0)) {
+      // TODO(nnbd-else): Should promote length to non-null in else branch.
+      if ((length is !int) || ((length as int) < 0)) {
         throw new ArgumentError("Length must be a non-negative integer: $length");
       }
-      list = JSArray.markFixedList(JS('', 'new Array(#)', length));
+      list = JSArray.markFixedList(JS('', 'new Array(#)', length as int));
     }
     return new JSArray<E>.typed(list);
   }
@@ -348,7 +350,7 @@ class Map<K, V> {
 class String {
   @patch
   factory String.fromCharCodes(Iterable<int> charCodes,
-                               [int start = 0, int end]) {
+                               [int start = 0, int? end]) {
     if (charCodes is JSArray) {
       return _stringFromJSArray(charCodes, start, end);
     }
@@ -364,13 +366,14 @@ class String {
   }
 
   @patch
-  factory String.fromEnvironment(String name, {String defaultValue}) {
+  factory String.fromEnvironment(String name, {String? defaultValue}) {
     throw new UnsupportedError(
         'String.fromEnvironment can only be used as a const constructor');
   }
 
   static String _stringFromJSArray(
-      /*=JSArray<int>*/ list, int start, int endOrNull) {
+    // TODO(nnbd): Don't need "OrNull" in the variable name any more!
+      /*=JSArray<int>*/ list, int start, int? endOrNull) {
     int len = list.length;
     int end = RangeError.checkValidRange(start, endOrNull, len);
     if (start > 0 || end < len) {
@@ -380,14 +383,14 @@ class String {
   }
 
   static String _stringFromUint8List(
-      NativeUint8List charCodes, int start, int endOrNull) {
+      NativeUint8List charCodes, int start, int? endOrNull) {
     int len = charCodes.length;
     int end = RangeError.checkValidRange(start, endOrNull, len);
     return Primitives.stringFromNativeUint8List(charCodes, start, end);
   }
 
   static String _stringFromIterable(Iterable<int> charCodes,
-                                    int start, int end) {
+                                    int start, int? end) {
     if (start < 0) throw new RangeError.range(start, 0, charCodes.length);
     if (end != null && end < start) {
       throw new RangeError.range(end, start, charCodes.length);
@@ -402,9 +405,10 @@ class String {
     if (end == null) {
       while (it.moveNext()) list.add(it.current);
     } else {
-      for (int i = start; i < end; i++) {
+      // TODO(nnbd-else): Should promote end to non-null here.
+      for (int i = start; i < (end as int); i++) {
         if (!it.moveNext()) {
-          throw new RangeError.range(end, start, i);
+          throw new RangeError.range((end as int), start, i);
         }
         list.add(it.current);
       }
@@ -533,13 +537,17 @@ class NoSuchMethodError {
           "Receiver: ${Error.safeToString(_receiver)}\n"
           "Arguments: [$sb]";
     } else {
+      // TODO(nnbd-final): Could promote _existingArgumentNames to non-null
+      // here since it's a final field. Hmm, I guess it would have to be a
+      // sealed field too.
+      var names = _existingArgumentNames as List;
       String actualParameters = sb.toString();
       sb = new StringBuffer();
-      for (int i = 0; i < _existingArgumentNames.length; i++) {
+      for (int i = 0; i < names.length; i++) {
         if (i > 0) {
           sb.write(", ");
         }
-        sb.write(_existingArgumentNames[i]);
+        sb.write(names[i]);
       }
       String formalParameters = sb.toString();
       return "NoSuchMethodError: incorrect number of arguments passed to "
@@ -558,7 +566,7 @@ class Uri {
 
   @patch
   static Uri get base {
-    String uri = Primitives.currentUri();
+    String? uri = Primitives.currentUri();
     if (uri != null) return Uri.parse(uri);
     throw new UnsupportedError("'Uri.base' is not supported");
   }

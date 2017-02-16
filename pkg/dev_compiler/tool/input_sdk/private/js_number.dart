@@ -129,7 +129,7 @@ class JSNumber extends Interceptor implements int, double {
     return result;
   }
 
-  String toStringAsExponential([int fractionDigits]) {
+  String toStringAsExponential([int? fractionDigits]) {
     String result;
     if (fractionDigits != null) {
       checkInt(fractionDigits);

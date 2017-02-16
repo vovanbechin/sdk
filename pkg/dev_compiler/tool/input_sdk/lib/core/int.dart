@@ -30,7 +30,7 @@ abstract class int extends num {
    *
    *     const int.fromEnvironment("defaultPort", defaultValue: 80)
    */
-  external const factory int.fromEnvironment(String name, {int defaultValue});
+  external const factory int.fromEnvironment(String name, {int? defaultValue});
 
   /**
    * Bit-wise and operator.
@@ -315,6 +315,6 @@ abstract class int extends num {
    * not invoked if the [source] is, for example, `null`.
    */
   external static int parse(String source,
-                            { int radix,
-                              int onError(String source) });
+                            { int? radix,
+                              int onError(String source)? });
 }

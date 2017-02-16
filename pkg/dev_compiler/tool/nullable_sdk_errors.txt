@@ -3,35 +3,21 @@ dart:_debugger (223:3) Variable '_jsonML' of non-nullable type 'List<dynamic>' m
 dart:_debugger (368:3) Variable '_formatters' of non-nullable type 'List<Formatter>' must be initialized.
 dart:_debugger (404:12) The return type 'Null' isn't a 'String', as defined by the method 'preview'.
 dart:_interceptors/js_array.dart (225:44) The argument type 'Null' can't be assigned to the parameter type 'int'.
-dart:_interceptors/js_array.dart (259:37) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
-dart:_interceptors/js_array.dart (272:39) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
 dart:_interceptors/js_array.dart (289:15) A value of type 'Null' can't be assigned to a variable of type 'E'.
-dart:_interceptors/js_array.dart (314:31) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_interceptors/js_array.dart (370:17) Variable 'otherList' of non-nullable type 'List<E>' must be initialized.
-dart:_interceptors/js_array.dart (371:9) Variable 'otherStart' of non-nullable type 'int' must be initialized.
-dart:_interceptors/js_array.dart (402:39) Parameter 'fillValue' of non-nullable type 'E' must have a default value.
-dart:_interceptors/js_array.dart (464:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
-dart:_interceptors/js_array.dart (473:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
-dart:_interceptors/js_array.dart (501:36) Parameter 'startIndex' of non-nullable type 'int' must have a default value.
-dart:_interceptors/js_array.dart (554:48) The argument type 'Null' can't be assigned to the parameter type 'int'.
-dart:_interceptors/js_array.dart (604:3) Variable '_current' of non-nullable type 'E' must be initialized.
-dart:_interceptors/js_array.dart (620:18) A value of type 'Null' can't be assigned to a variable of type 'E'.
-dart:_interceptors/js_number.dart (132:33) Parameter 'fractionDigits' of non-nullable type 'int' must have a default value.
 dart:_interceptors/js_number.dart (133:12) Variable 'result' of non-nullable type 'String' must be initialized.
-dart:_interceptors/js_number.dart (368:49) The argument type 'Null' can't be assigned to the parameter type 'int'.
-dart:_interceptors/js_number.dart (369:50) The argument type 'Null' can't be assigned to the parameter type 'int'.
-dart:_interceptors/js_number.dart (464:50) The argument type 'Null' can't be assigned to the parameter type 'int'.
 dart:_interceptors/js_string.dart (37:53) The return type 'Null' isn't a 'Match', as defined by the method 'matchAsPrefix'.
 dart:_interceptors/js_string.dart (41:16) The return type 'Null' isn't a 'Match', as defined by the method 'matchAsPrefix'.
-dart:_interceptors/js_string.dart (69:24) Parameter 'onMatch' of non-nullable type '(Match) → String' must have a default value.
-dart:_interceptors/js_string.dart (70:24) Parameter 'onNonMatch' of non-nullable type '(String) → String' must have a default value.
-dart:_interceptors/js_string.dart (152:37) Parameter 'endIndex' of non-nullable type 'int' must have a default value.
-dart:_interceptors/js_string.dart (299:12) Variable 'result' of non-nullable type 'String' must be initialized.
-dart:_interceptors/js_string.dart (325:12) Variable 'result' of non-nullable type 'String' must be initialized.
-dart:_interceptors/js_string.dart (326:9) Variable 'endIndex' of non-nullable type 'int' must be initialized.
-dart:_interceptors/js_string.dart (401:37) Parameter 'start' of non-nullable type 'int' must have a default value.
-dart:_internal/iterable.dart (97:40) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
-dart:_internal/iterable.dart (110:39) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
+dart:_interceptors/js_string.dart (101:3) Invalid override. The type of 'JSString.replaceRange' ('(int, int, String) → String') isn't a subtype of 'String.replaceRange' ('(int, int?, String) → String').
+dart:_interceptors/js_string.dart (159:22) The argument type 'int?' can't be assigned to the parameter type 'num'.
+dart:_interceptors/js_string.dart (160:64) The argument type 'int?' can't be assigned to the parameter type 'num'.
+dart:_interceptors/js_string.dart (301:12) Variable 'result' of non-nullable type 'String' must be initialized.
+dart:_interceptors/js_string.dart (327:12) Variable 'result' of non-nullable type 'String' must be initialized.
+dart:_interceptors/js_string.dart (328:9) Variable 'endIndex' of non-nullable type 'int' must be initialized.
+dart:_interceptors/js_string.dart (409:22) The operator '<' isn't defined for the class 'int?'.
+dart:_interceptors/js_string.dart (409:35) The operator '>' isn't defined for the class 'int?'.
+dart:_interceptors/js_string.dart (410:34) The argument type 'int?' can't be assigned to the parameter type 'num'.
+dart:_interceptors/js_string.dart (414:17) The operator '+' isn't defined for the class 'int?'.
+dart:_interceptors/js_string.dart (419:18) A value of type 'int?' can't be assigned to a variable of type 'int'.
 dart:_internal/iterable.dart (125:15) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:_internal/iterable.dart (205:70) The argument type 'Null' can't be assigned to the parameter type 'int'.
 dart:_internal/iterable.dart (214:13) Variable 'result' of non-nullable type 'List<E>' must be initialized.
@@ -44,13 +30,7 @@ dart:_internal/iterable.dart (475:18) A value of type 'Null' can't be assigned t
 dart:_internal/iterable.dart (479:29) A value of type 'Null' can't be assigned to a variable of type 'Iterator<T>'.
 dart:_internal/iterable.dart (542:32) The return type 'Null' isn't a 'E', as defined by the method 'current'.
 dart:_internal/iterable.dart (575:29) The return type 'Null' isn't a 'E', as defined by the method 'current'.
-dart:_internal/iterable.dart (699:39) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
-dart:_internal/iterable.dart (704:38) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
-dart:_internal/iterable.dart (709:40) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
 dart:_internal/iterable.dart (753:20) The return type 'Null' isn't a 'E', as defined by the method 'current'.
-dart:_internal/list.dart (162:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
-dart:_internal/list.dart (168:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
-dart:_internal/list.dart (210:39) Parameter 'fillValue' of non-nullable type 'E' must have a default value.
 dart:_internal/list.dart (251:32) Unsafe implicit cast from 'Object' to 'E'. This usually indicates that type information was lost and resulted in 'dynamic' and/or a place that will have a failure at runtime.
 dart:_internal/list.dart (254:64) The argument type 'Null' can't be assigned to the parameter type 'int'.
 dart:_internal/print.dart (15:24) A value of type 'Null' can't be assigned to a variable of type 'Function'.
@@ -119,6 +99,7 @@ dart:_js_helper/regexp_helper.dart (229:15) A value of type 'Null' can't be assi
 dart:_js_helper/string_helper.dart (82:3) Variable '_current' of non-nullable type 'Match' must be initialized.
 dart:_js_helper/string_helper.dart (86:18) A value of type 'Null' can't be assigned to a variable of type 'Match'.
 dart:_js_helper/string_helper.dart (92:18) A value of type 'Null' can't be assigned to a variable of type 'Match'.
+dart:_js_helper/string_helper.dart (211:16) 'onNonMatch' isn't a function.
 dart:_js_mirrors (249:51) Parameter 'args' of non-nullable type 'List<dynamic>' must have a default value.
 dart:_js_mirrors (250:7) Parameter 'namedArgs' of non-nullable type 'Map<Symbol, dynamic>' must have a default value.
 dart:_js_mirrors (267:8) Parameter 'namedArgs' of non-nullable type 'Map<Symbol, dynamic>' must have a default value.
@@ -156,9 +137,9 @@ dart:_native_typed_data (80:43) The argument type 'int?' can't be assigned to th
 dart:_native_typed_data (84:57) Parameter 'length' of non-nullable type 'int' must have a default value.
 dart:_native_typed_data (86:43) The argument type 'int?' can't be assigned to the parameter type 'int'.
 dart:_native_typed_data (90:47) Parameter 'length' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (170:39) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (250:37) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (325:39) Parameter 'end' of non-nullable type 'int' must have a default value.
+dart:_native_typed_data (173:41) The operator '*' isn't defined for the class 'int?'.
+dart:_native_typed_data (253:41) The operator '*' isn't defined for the class 'int?'.
+dart:_native_typed_data (328:41) The operator '*' isn't defined for the class 'int?'.
 dart:_native_typed_data (459:39) Parameter 'littleEndian' of non-nullable type 'bool' must have a default value.
 dart:_native_typed_data (474:39) Parameter 'littleEndian' of non-nullable type 'bool' must have a default value.
 dart:_native_typed_data (491:34) Parameter 'littleEndian' of non-nullable type 'bool' must have a default value.
@@ -171,16 +152,12 @@ dart:_native_typed_data (642:46) Parameter 'littleEndian' of non-nullable type '
 dart:_native_typed_data (658:46) Parameter 'littleEndian' of non-nullable type 'bool' must have a default value.
 dart:_native_typed_data (699:47) Parameter 'littleEndian' of non-nullable type 'bool' must have a default value.
 dart:_native_typed_data (715:47) Parameter 'littleEndian' of non-nullable type 'bool' must have a default value.
-dart:_native_typed_data (853:36) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (890:36) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (932:33) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (972:33) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (1012:33) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (1052:33) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (1092:33) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (1136:33) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:_native_typed_data (1184:33) Parameter 'end' of non-nullable type 'int' must have a default value.
+dart:_native_typed_data (1934:46) The argument type 'int?' can't be assigned to the parameter type 'int'.
+dart:_native_typed_data (1935:33) The argument type 'int?' can't be assigned to the parameter type 'num'.
+dart:_native_typed_data (1936:29) The operator '>' isn't defined for the class 'int?'.
+dart:_native_typed_data (1940:10) The return type 'int?' isn't a 'int', as defined by the method '_checkValidRange'.
 dart:_runtime/operations.dart (248:3) Variable 'count' of non-nullable type 'int' must be initialized.
+dart:async/async_error.dart (44:14) The return type 'StackTrace?' isn't a 'StackTrace', as defined by the method '_getBestStackTrace'.
 dart:async/async_error.dart (46:12) The return type 'Null' isn't a 'StackTrace', as defined by the method '_getBestStackTrace'.
 dart:async/broadcast_stream_controller.dart (26:3) Variable '_next' of non-nullable type '_BroadcastSubscription<T>' must be initialized.
 dart:async/broadcast_stream_controller.dart (26:3) Variable '_previous' of non-nullable type '_BroadcastSubscription<T>' must be initialized.
@@ -546,8 +523,6 @@ dart:collection/hash_set.dart (94:21) Parameter 'equals' of non-nullable type '(
 dart:collection/hash_set.dart (95:21) Parameter 'hashCode' of non-nullable type '(E) → int' must have a default value.
 dart:collection/hash_set.dart (96:21) Parameter 'isValidKey' of non-nullable type '(Object) → bool' must have a default value.
 dart:collection/iterable.dart (136:7) Variable 'result' of non-nullable type 'E' must be initialized.
-dart:collection/iterable.dart (151:38) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
-dart:collection/iterable.dart (159:37) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
 dart:collection/iterable.dart (160:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:collection/iterable.dart (174:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:collection/iterable.dart (322:10) Variable 'penultimateString' of non-nullable type 'String' must be initialized.
@@ -556,8 +531,6 @@ dart:collection/iterable.dart (379:20) A value of type 'Null' can't be assigned 
 dart:collection/linked_hash_map.dart (73:27) Parameter 'equals' of non-nullable type '(K, K) → bool' must have a default value.
 dart:collection/linked_hash_map.dart (74:27) Parameter 'hashCode' of non-nullable type '(K) → int' must have a default value.
 dart:collection/linked_hash_map.dart (75:27) Parameter 'isValidKey' of non-nullable type '(Object) → bool' must have a default value.
-dart:collection/linked_hash_map.dart (135:8) Parameter 'key' of non-nullable type '(dynamic) → K' must have a default value.
-dart:collection/linked_hash_map.dart (135:24) Parameter 'value' of non-nullable type '(dynamic) → V' must have a default value.
 dart:collection/linked_hash_set.dart (77:27) Parameter 'equals' of non-nullable type '(E, E) → bool' must have a default value.
 dart:collection/linked_hash_set.dart (78:27) Parameter 'hashCode' of non-nullable type '(E) → int' must have a default value.
 dart:collection/linked_hash_set.dart (79:27) Parameter 'isValidKey' of non-nullable type '(Object) → bool' must have a default value.
@@ -578,18 +551,16 @@ dart:collection/linked_list.dart (241:5) Variable '_next' of non-nullable type '
 dart:collection/linked_list.dart (242:5) Variable '_previous' of non-nullable type 'E' must be initialized.
 dart:collection/linked_list.dart (267:40) The return type 'Null' isn't a 'E', as defined by the method 'next'.
 dart:collection/linked_list.dart (278:44) The return type 'Null' isn't a 'E', as defined by the method 'previous'.
-dart:collection/list.dart (123:40) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
-dart:collection/list.dart (136:39) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
 dart:collection/list.dart (151:15) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:collection/list.dart (210:70) The argument type 'Null' can't be assigned to the parameter type 'int'.
 dart:collection/list.dart (223:13) Variable 'result' of non-nullable type 'List<E>' must be initialized.
-dart:collection/list.dart (309:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
-dart:collection/list.dart (317:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
-dart:collection/list.dart (333:31) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:collection/list.dart (357:39) Parameter 'fill' of non-nullable type 'E' must have a default value.
-dart:collection/list.dart (370:13) Variable 'otherList' of non-nullable type 'List<E>' must be initialized.
-dart:collection/list.dart (371:9) Variable 'otherStart' of non-nullable type 'int' must be initialized.
-dart:collection/list.dart (441:36) Parameter 'startIndex' of non-nullable type 'int' must have a default value.
+dart:collection/list.dart (327:24) The method 'nextInt' isn't defined for the class 'Random?'.
+dart:collection/list.dart (343:22) The operator '-' isn't defined for the class 'int?'.
+dart:collection/list.dart (377:13) Variable 'otherList' of non-nullable type 'List<E>' must be initialized.
+dart:collection/list.dart (378:9) Variable 'otherStart' of non-nullable type 'int' must be initialized.
+dart:collection/list.dart (452:22) The operator '<' isn't defined for the class 'int?'.
+dart:collection/list.dart (455:22) The operator '>=' isn't defined for the class 'int?'.
+dart:collection/list.dart (459:18) A value of type 'int?' can't be assigned to a variable of type 'int'.
 dart:collection/maps.dart (138:16) A value of type 'Null' can't be assigned to a variable of type 'V'.
 dart:collection/maps.dart (149:16) A value of type 'Null' can't be assigned to a variable of type 'V'.
 dart:collection/queue.dart (100:5) Variable '_previousLink' of non-nullable type 'E' must be initialized.
@@ -615,8 +586,6 @@ dart:collection/queue.dart (765:23) A value of type 'Null' can't be assigned to 
 dart:collection/queue.dart (824:3) Variable '_current' of non-nullable type 'E' must be initialized.
 dart:collection/queue.dart (835:18) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:collection/set.dart (228:7) Variable 'result' of non-nullable type 'E' must be initialized.
-dart:collection/set.dart (235:38) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
-dart:collection/set.dart (243:37) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
 dart:collection/set.dart (244:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:collection/set.dart (258:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
 dart:collection/splay_tree.dart (18:3) Variable 'left' of non-nullable type '_SplayTreeNode<K>' must be initialized.
@@ -729,176 +698,11 @@ dart:convert/utf.dart (358:26) Variable 'stringSink' of non-nullable type 'Strin
 dart:convert/utf.dart (377:12) The return type 'Null' isn't a 'String', as defined by the method '_convertIntercepted'.
 dart:core/bool.dart (41:9) Only redirecting factory constructors can be declared to be 'const'.
 dart:core/bool.dart (42:5) Const constructors can't throw exceptions.
-dart:core/date_time.dart (368:37) Parameter 'isUtc' of non-nullable type 'bool' must have a default value.
-dart:core/date_time.dart (661:12) The return type 'num?' isn't a 'int', as defined by the method '_brokenDownDateToValue'.
-dart:core/double.dart (205:30) Parameter 'onError' of non-nullable type '(String) → double' must have a default value.
-dart:core/errors.dart (149:15) The initializer type 'Null' can't be assigned to the field type 'String'.
-dart:core/errors.dart (165:24) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (166:24) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (173:26) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (212:17) The initializer type 'Null' can't be assigned to the field type 'num'.
-dart:core/errors.dart (212:29) The initializer type 'Null' can't be assigned to the field type 'num'.
-dart:core/errors.dart (221:32) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (221:45) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (222:17) The initializer type 'Null' can't be assigned to the field type 'num'.
-dart:core/errors.dart (222:29) The initializer type 'Null' can't be assigned to the field type 'num'.
-dart:core/errors.dart (241:21) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (241:34) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (272:37) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (272:50) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (290:32) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (290:45) Parameter 'length' of non-nullable type 'int' must have a default value.
-dart:core/errors.dart (290:57) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (316:32) Parameter 'startName' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (316:50) Parameter 'endName' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (317:32) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (339:44) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (339:57) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (340:57) The argument type 'Null' can't be assigned to the parameter type 'int'.
-dart:core/errors.dart (394:35) The argument type 'String?' can't be assigned to the parameter type 'String'.
-dart:core/errors.dart (474:51) A value of type 'Null' can't be assigned to a variable of type 'List'.
-dart:core/errors.dart (552:23) Parameter 'message' of non-nullable type 'String' must have a default value.
-dart:core/errors.dart (599:32) The return type 'Null' isn't a 'StackTrace', as defined by the method 'stackTrace'.
-dart:core/errors.dart (607:32) The return type 'Null' isn't a 'StackTrace', as defined by the method 'stackTrace'.
-dart:core/errors.dart (619:30) Parameter 'variableName' of non-nullable type 'String' must have a default value.
-dart:core/exceptions.dart (79:58) Parameter 'offset' of non-nullable type 'int' must have a default value.
-dart:core/exceptions.dart (109:16) A value of type 'Null' can't be assigned to a variable of type 'int'.
-dart:core/exceptions.dart (121:10) Variable 'lastWasCR' of non-nullable type 'bool' must be initialized.
-dart:core/expando.dart (39:12) Parameter 'name' of non-nullable type 'String' must have a default value.
-dart:core/function.dart (38:17) Parameter 'namedArguments' of non-nullable type 'Map<Symbol, dynamic>' must have a default value.
 dart:core/int.dart (33:9) Only redirecting factory constructors can be declared to be 'const'.
-dart:core/int.dart (33:51) Parameter 'defaultValue' of non-nullable type 'int' must have a default value.
 dart:core/int.dart (34:5) Const constructors can't throw exceptions.
-dart:core/int.dart (321:28) Parameter 'radix' of non-nullable type 'int' must have a default value.
-dart:core/int.dart (322:28) Parameter 'onError' of non-nullable type '(String) → int' must have a default value.
-dart:core/iterable.dart (99:41) Parameter 'generator' of non-nullable type '(int) → E' must have a default value.
-dart:core/iterable.dart (474:7) Variable 'result' of non-nullable type 'E' must be initialized.
-dart:core/iterable.dart (503:40) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
-dart:core/iterable.dart (525:38) Parameter 'orElse' of non-nullable type '() → E' must have a default value.
-dart:core/iterable.dart (526:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
-dart:core/iterable.dart (548:16) A value of type 'Null' can't be assigned to a variable of type 'E'.
-dart:core/iterable.dart (656:3) Variable '_current' of non-nullable type 'E' must be initialized.
-dart:core/iterable.dart (664:18) A value of type 'Null' can't be assigned to a variable of type 'E'.
-dart:core/list.dart (77:17) Parameter 'length' of non-nullable type 'int' must have a default value.
-dart:core/list.dart (145:13) Variable 'result' of non-nullable type 'List<E>' must be initialized.
-dart:core/list.dart (247:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
-dart:core/list.dart (252:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
-dart:core/list.dart (291:31) Parameter 'start' of non-nullable type 'int' must have a default value.
-dart:core/list.dart (425:31) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:core/list.dart (489:39) Parameter 'fillValue' of non-nullable type 'E' must have a default value.
-dart:core/map.dart (117:8) Parameter 'key' of non-nullable type '(dynamic) → K' must have a default value.
-dart:core/map.dart (117:24) Parameter 'value' of non-nullable type '(dynamic) → V' must have a default value.
-dart:core/num.dart (360:33) Parameter 'fractionDigits' of non-nullable type 'int' must have a default value.
-dart:core/num.dart (439:35) Parameter 'onError' of non-nullable type '(String) → num' must have a default value.
-dart:core/num.dart (451:42) The return type 'Null' isn't a 'int', as defined by the method '_returnIntNull'.
-dart:core/num.dart (452:48) The return type 'Null' isn't a 'double', as defined by the method '_returnDoubleNull'.
-dart:core/stopwatch.dart (32:3) Variable '_frequency' of non-nullable type 'int' must be initialized.
-dart:core/stopwatch.dart (32:3) Variable '_start' of non-nullable type 'int' must be initialized.
-dart:core/stopwatch.dart (32:3) Variable '_stop' of non-nullable type 'int' must be initialized.
-dart:core/stopwatch.dart (54:15) A value of type 'Null' can't be assigned to a variable of type 'int'.
-dart:core/stopwatch.dart (143:18) A value of type 'int?' can't be assigned to a variable of type 'int'.
-dart:core/stopwatch.dart (145:35) 'timerTicks' isn't a function.
-dart:core/string.dart (114:48) Parameter 'end' of non-nullable type 'int' must have a default value.
 dart:core/string.dart (156:9) Only redirecting factory constructors can be declared to be 'const'.
-dart:core/string.dart (156:54) Parameter 'defaultValue' of non-nullable type 'String' must have a default value.
 dart:core/string.dart (157:5) Const constructors can't throw exceptions.
-dart:core/string.dart (268:33) Parameter 'start' of non-nullable type 'int' must have a default value.
-dart:core/string.dart (284:37) Parameter 'start' of non-nullable type 'int' must have a default value.
-dart:core/string.dart (311:37) Parameter 'endIndex' of non-nullable type 'int' must have a default value.
-dart:core/string.dart (570:24) Parameter 'onMatch' of non-nullable type '(Match) → String' must have a default value.
-dart:core/string.dart (571:24) Parameter 'onNonMatch' of non-nullable type '(String) → String' must have a default value.
-dart:core/string.dart (713:3) Variable '_currentCodePoint' of non-nullable type 'int' must be initialized.
-dart:core/string.dart (726:3) Variable '_currentCodePoint' of non-nullable type 'int' must be initialized.
-dart:core/string.dart (746:23) The return type 'int?' isn't a 'int', as defined by the method 'rawIndex'.
-dart:core/string.dart (777:25) A value of type 'Null' can't be assigned to a variable of type 'int'.
-dart:core/string.dart (801:44) The return type 'Null' isn't a 'String', as defined by the method 'currentAsString'.
-dart:core/string.dart (809:27) A value of type 'Null' can't be assigned to a variable of type 'int'.
-dart:core/string.dart (830:27) A value of type 'Null' can't be assigned to a variable of type 'int'.
-dart:core/uri.dart (82:3) Variable '_pathSegments' of non-nullable type 'List<String>' must be initialized.
-dart:core/uri.dart (82:3) Variable '_queryParameterLists' of non-nullable type 'Map<String, List<String>>' must be initialized.
-dart:core/uri.dart (82:3) Variable '_queryParameters' of non-nullable type 'Map<String, String>' must be initialized.
-dart:core/uri.dart (163:16) Parameter 'host' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (164:16) Parameter 'port' of non-nullable type 'int' must have a default value.
-dart:core/uri.dart (165:16) Parameter 'path' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (166:16) Parameter 'pathSegments' of non-nullable type 'Iterable<String>' must have a default value.
-dart:core/uri.dart (167:16) Parameter 'query' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (168:16) Parameter 'queryParameters' of non-nullable type 'Map<String, dynamic>' must have a default value.
-dart:core/uri.dart (169:16) Parameter 'fragment' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (174:30) A value of type 'Null' can't be assigned to a variable of type 'String'.
-dart:core/uri.dart (230:21) Parameter 'queryParameters' of non-nullable type 'Map<String, String>' must have a default value.
-dart:core/uri.dart (242:22) Parameter 'queryParameters' of non-nullable type 'Map<String, String>' must have a default value.
-dart:core/uri.dart (343:48) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:core/uri.dart (401:19) A value of type 'Null' can't be assigned to a variable of type 'String'.
-dart:core/uri.dart (402:16) A value of type 'Null' can't be assigned to a variable of type 'int'.
-dart:core/uri.dart (403:19) A value of type 'Null' can't be assigned to a variable of type 'String'.
-dart:core/uri.dart (404:20) A value of type 'Null' can't be assigned to a variable of type 'String'.
-dart:core/uri.dart (405:23) A value of type 'Null' can't be assigned to a variable of type 'String'.
-dart:core/uri.dart (453:13) Variable 'portNumber' of non-nullable type 'int' must be initialized.
-dart:core/uri.dart (563:45) The argument type 'Null' can't be assigned to the parameter type 'Iterable<String>'.
-dart:core/uri.dart (574:49) The argument type 'Null' can't be assigned to the parameter type 'Map<String, dynamic>'.
-dart:core/uri.dart (576:61) The argument type 'Null' can't be assigned to the parameter type 'Map<String, dynamic>'.
-dart:core/uri.dart (641:45) A value of type 'int' can't be assigned to a variable of type 'Null'.
-dart:core/uri.dart (645:14) A value of type 'String' can't be assigned to a variable of type 'Null'.
-dart:core/uri.dart (649:20) The argument type 'Null' can't be assigned to the parameter type 'String'.
-dart:core/uri.dart (650:20) The argument type 'Null' can't be assigned to the parameter type 'int'.
-dart:core/uri.dart (736:34) Parameter 'windows' of non-nullable type 'bool' must have a default value.
-dart:core/uri.dart (749:39) Parameter 'windows' of non-nullable type 'bool' must have a default value.
-dart:core/uri.dart (784:31) Parameter 'mimeType' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (785:31) Parameter 'encoding' of non-nullable type 'Encoding' must have a default value.
-dart:core/uri.dart (786:31) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
-dart:core/uri.dart (814:30) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
-dart:core/uri.dart (833:18) A value of type 'String?' can't be assigned to a variable of type 'String'.
-dart:core/uri.dart (1010:16) Parameter 'scheme' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (1011:16) Parameter 'userInfo' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (1012:16) Parameter 'host' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (1013:16) Parameter 'port' of non-nullable type 'int' must have a default value.
-dart:core/uri.dart (1014:16) Parameter 'path' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (1015:16) Parameter 'pathSegments' of non-nullable type 'Iterable<String>' must have a default value.
-dart:core/uri.dart (1016:16) Parameter 'query' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (1017:16) Parameter 'queryParameters' of non-nullable type 'Map<String, dynamic>' must have a default value.
-dart:core/uri.dart (1018:16) Parameter 'fragment' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (1088:45) The argument type 'Null' can't be assigned to the parameter type 'String'.
-dart:core/uri.dart (1189:62) The return type 'Null' isn't a 'int', as defined by the method '_makePort'.
-dart:core/uri.dart (1206:30) The return type 'Null' isn't a 'String', as defined by the method '_makeHost'.
-dart:core/uri.dart (1241:18) Variable 'buffer' of non-nullable type 'StringBuffer' must be initialized.
-dart:core/uri.dart (1383:58) The return type 'Null' isn't a 'String', as defined by the method '_makeQuery'.
-dart:core/uri.dart (1416:34) The return type 'Null' isn't a 'String', as defined by the method '_makeFragment'.
-dart:core/uri.dart (1460:12) The return type 'Null' isn't a 'String', as defined by the method '_normalizeEscape'.
-dart:core/uri.dart (1477:15) Variable 'codeUnits' of non-nullable type 'List<int>' must be initialized.
-dart:core/uri.dart (1521:18) Variable 'buffer' of non-nullable type 'StringBuffer' must be initialized.
-dart:core/uri.dart (1530:16) Variable 'replacement' of non-nullable type 'String' must be initialized.
-dart:core/uri.dart (1531:13) Variable 'sourceLength' of non-nullable type 'int' must be initialized.
-dart:core/uri.dart (1623:43) The argument type 'Null' can't be assigned to the parameter type 'int'.
-dart:core/uri.dart (1734:12) Variable 'targetScheme' of non-nullable type 'String' must be initialized.
-dart:core/uri.dart (1736:12) Variable 'targetHost' of non-nullable type 'String' must be initialized.
-dart:core/uri.dart (1737:9) Variable 'targetPort' of non-nullable type 'int' must be initialized.
-dart:core/uri.dart (1738:12) Variable 'targetPath' of non-nullable type 'String' must be initialized.
-dart:core/uri.dart (1739:12) Variable 'targetQuery' of non-nullable type 'String' must be initialized.
-dart:core/uri.dart (1745:22) A value of type 'int?' can't be assigned to a variable of type 'int'.
-dart:core/uri.dart (1756:32) The argument type 'int?' can't be assigned to the parameter type 'int'.
-dart:core/uri.dart (1800:23) A value of type 'String?' can't be assigned to a variable of type 'String'.
-dart:core/uri.dart (1933:22) Parameter 'windows' of non-nullable type 'bool' must have a default value.
-dart:core/uri.dart (2012:23) The return type 'UriData?' isn't a 'UriData', as defined by the method 'data'.
-dart:core/uri.dart (2222:14) Variable 'key' of non-nullable type 'String' must be initialized.
-dart:core/uri.dart (2223:14) Variable 'value' of non-nullable type 'String' must be initialized.
-dart:core/uri.dart (2296:66) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:core/uri.dart (2505:15) Variable 'bytes' of non-nullable type 'List<int>' must be initialized.
-dart:core/uri.dart (2858:31) Parameter 'mimeType' of non-nullable type 'String' must have a default value.
-dart:core/uri.dart (2859:31) Parameter 'encoding' of non-nullable type 'Encoding' must have a default value.
-dart:core/uri.dart (2860:31) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
-dart:core/uri.dart (2864:12) Variable 'charsetName' of non-nullable type 'String' must be initialized.
-dart:core/uri.dart (2865:12) Variable 'encodingName' of non-nullable type 'String' must be initialized.
-dart:core/uri.dart (2886:54) The argument type 'Null' can't be assigned to the parameter type 'Uri'.
-dart:core/uri.dart (2897:30) Parameter 'parameters' of non-nullable type 'Map<String, String>' must have a default value.
-dart:core/uri.dart (2901:25) The argument type 'Null' can't be assigned to the parameter type 'String'.
-dart:core/uri.dart (2915:54) The argument type 'Null' can't be assigned to the parameter type 'Uri'.
-dart:core/uri.dart (3052:27) The argument type 'Null' can't be assigned to the parameter type 'Uri'.
-dart:core/uri.dart (3064:20) A value of type 'Null' can't be assigned to a variable of type 'String'.
-dart:core/uri.dart (3067:15) A value of type 'Null' can't be assigned to a variable of type 'int'.
-dart:core/uri.dart (3076:47) The argument type 'Null' can't be assigned to the parameter type 'String'.
-dart:core/uri.dart (3076:53) The argument type 'Null' can't be assigned to the parameter type 'int'.
-dart:core/uri.dart (3076:72) The argument type 'Null' can't be assigned to the parameter type 'String'.
-dart:core/uri.dart (3211:27) Parameter 'encoding' of non-nullable type 'Encoding' must have a default value.
+dart:core/string.dart (743:3) The parameter type for setter 'rawIndex' is 'int' which isn't assignable to its getter (of type 'int?').
 dart:developer (39:33) Parameter 'message' of non-nullable type 'String' must have a default value.
 dart:developer (63:11) Parameter 'time' of non-nullable type 'DateTime' must have a default value.
 dart:developer (64:11) Parameter 'sequenceNumber' of non-nullable type 'int' must have a default value.
@@ -1042,10 +846,13 @@ dart:html (11334:40) Parameter 'z' of non-nullable type 'num' must have a defaul
 dart:html (11334:47) Parameter 'w' of non-nullable type 'num' must have a default value.
 dart:html (11468:12) The return type 'Null' isn't a 'Rectangle<num>', as defined by the method 'intersection'.
 dart:html (11689:30) Parameter 'force' of non-nullable type 'bool' must have a default value.
+dart:html (11760:3) Invalid override. The type of '_ChildrenElementList.sort' ('([(Element, Element) → int]) → void') isn't a subtype of 'ListMixin<Element>.sort' ('([(Element, Element) → int?]) → void').
 dart:html (11760:14) Parameter 'compare' of non-nullable type '(Element, Element) → int' must have a default value.
+dart:html (11764:3) Invalid override. The type of '_ChildrenElementList.shuffle' ('([Random]) → void') isn't a subtype of 'ListMixin<Element>.shuffle' ('([Random?]) → void').
 dart:html (11764:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
-dart:html (11795:39) Parameter 'fillValue' of non-nullable type 'Element' must have a default value.
+dart:html (12448:3) Invalid override. The type of '_FrozenElementList.sort' ('([(E, E) → int]) → void') isn't a subtype of 'ListMixin<E>.sort' ('([(E, E) → int?]) → void').
 dart:html (12448:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
+dart:html (12452:3) Invalid override. The type of '_FrozenElementList.shuffle' ('([Random]) → void') isn't a subtype of 'ListMixin<E>.shuffle' ('([Random?]) → void').
 dart:html (12452:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
 dart:html (12986:8) Parameter 'validator' of non-nullable type 'NodeValidator' must have a default value.
 dart:html (12986:33) Parameter 'treeSanitizer' of non-nullable type 'NodeTreeSanitizer' must have a default value.
@@ -1191,9 +998,10 @@ dart:html (24196:17) Parameter 'attributeOldValue' of non-nullable type 'bool' m
 dart:html (24197:17) Parameter 'characterDataOldValue' of non-nullable type 'bool' must have a default value.
 dart:html (24198:17) Parameter 'attributeFilter' of non-nullable type 'List<String>' must have a default value.
 dart:html (24508:29) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
+dart:html (24900:3) Invalid override. The type of '_ChildNodeListLazy.sort' ('([(Node, Node) → int]) → void') isn't a subtype of 'ListMixin<Node>.sort' ('([(Node, Node) → int?]) → void').
 dart:html (24900:14) Parameter 'compare' of non-nullable type '(Node, Node) → int' must have a default value.
+dart:html (24904:3) Invalid override. The type of '_ChildNodeListLazy.shuffle' ('([Random]) → void') isn't a subtype of 'ListMixin<Node>.shuffle' ('([Random?]) → void').
 dart:html (24904:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
-dart:html (24914:39) Parameter 'fill' of non-nullable type 'Node' must have a default value.
 dart:html (25410:59) The argument type 'Null' can't be assigned to the parameter type 'NodeFilter'.
 dart:html (25561:51) A value of type 'Null' can't be assigned to a variable of type 'String'.
 dart:html (25561:70) A value of type 'Null' can't be assigned to a variable of type 'String'.
@@ -1381,9 +1189,6 @@ dart:html (40200:9) Parameter 'cancelOnError' of non-nullable type 'bool' must h
 dart:html (40205:32) Parameter 'onListen' of non-nullable type '(StreamSubscription<T>) → void' must have a default value.
 dart:html (40206:32) Parameter 'onCancel' of non-nullable type '(StreamSubscription<T>) → void' must have a default value.
 dart:html (40726:24) Parameter 'uriPolicy' of non-nullable type 'UriPolicy' must have a default value.
-dart:html (40790:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
-dart:html (40794:17) Parameter 'random' of non-nullable type 'Random' must have a default value.
-dart:html (40842:39) Parameter 'fillValue' of non-nullable type 'E' must have a default value.
 dart:html (41745:67) The initializer type 'Null' can't be assigned to the field type 'EventTarget'.
 dart:html (42001:30) A value of type 'Null' can't be assigned to a variable of type 'KeyboardEvent'.
 dart:html (42108:25) Parameter 'uriPolicy' of non-nullable type 'UriPolicy' must have a default value.
@@ -1405,9 +1210,8 @@ dart:html (42361:8) Parameter 'allowedElements' of non-nullable type 'Iterable<S
 dart:html (42362:7) Parameter 'allowedAttributes' of non-nullable type 'Iterable<String>' must have a default value.
 dart:html (42363:7) Parameter 'allowedUriAttributes' of non-nullable type 'Iterable<String>' must have a default value.
 dart:html (42455:15) The argument type 'Null' can't be assigned to the parameter type 'UriPolicy'.
-dart:html (42564:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
-dart:html (42568:36) Parameter 'start' of non-nullable type 'int' must have a default value.
-dart:html (42584:39) Parameter 'fillValue' of non-nullable type 'E' must have a default value.
+dart:html (42564:52) The argument type '(Node, Node) → dynamic' can't be assigned to the parameter type '(Node, Node) → int?'.
+dart:html (42564:72) 'compare' isn't a function.
 dart:html (42659:16) A value of type 'Null' can't be assigned to a variable of type 'T'.
 dart:html (42684:16) A value of type 'Null' can't be assigned to a variable of type 'T'.
 dart:html (42704:27) The return type 'Null' isn't a 'WindowBase', as defined by the method '_convertNativeToDart_Window'.
@@ -1428,16 +1232,12 @@ dart:html_common/conversions_dart2js.dart (6:30) The return type 'Null' isn't a 
 dart:html_common/conversions_dart2js.dart (16:43) Parameter 'postCreate' of non-nullable type '(dynamic) → void' must have a default value.
 dart:html_common/css_class_set.dart (27:30) Parameter 'shouldAdd' of non-nullable type 'bool' must have a default value.
 dart:html_common/css_class_set.dart (164:46) Parameter 'shouldAdd' of non-nullable type 'bool' must have a default value.
-dart:html_common/css_class_set.dart (204:48) Parameter 'orElse' of non-nullable type '() → String' must have a default value.
-dart:html_common/css_class_set.dart (206:47) Parameter 'orElse' of non-nullable type '() → String' must have a default value.
 dart:html_common/device.dart (11:15) Variable '_isOpera' of non-nullable type 'bool' must be initialized.
 dart:html_common/device.dart (12:15) Variable '_isIE' of non-nullable type 'bool' must be initialized.
 dart:html_common/device.dart (13:15) Variable '_isFirefox' of non-nullable type 'bool' must be initialized.
 dart:html_common/device.dart (14:15) Variable '_isWebKit' of non-nullable type 'bool' must be initialized.
 dart:html_common/device.dart (15:17) Variable '_cachedCssPrefix' of non-nullable type 'String' must be initialized.
 dart:html_common/device.dart (16:17) Variable '_cachedPropertyPrefix' of non-nullable type 'String' must be initialized.
-dart:html_common/filtered_element_list.dart (73:14) Parameter 'compare' of non-nullable type '(Element, Element) → int' must have a default value.
-dart:html_common/filtered_element_list.dart (82:39) Parameter 'fillValue' of non-nullable type 'Element' must have a default value.
 dart:indexed_db (340:8) Parameter 'keyPath' of non-nullable type 'String' must have a default value.
 dart:indexed_db (340:24) Parameter 'autoIncrement' of non-nullable type 'bool' must have a default value.
 dart:indexed_db (461:48) Parameter 'options' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
@@ -1497,6 +1297,7 @@ dart:io/directory_impl.dart (239:12) Unsafe implicit cast from 'Stream<dynamic>'
 dart:io/directory_impl.dart (310:3) Variable '_ops' of non-nullable type '_AsyncDirectoryListerOps' must be initialized.
 dart:io/directory_impl.dart (310:3) Variable 'controller' of non-nullable type 'StreamController<dynamic>' must be initialized.
 dart:io/directory_impl.dart (322:12) The return type 'int?' isn't a 'int', as defined by the method '_pointer'.
+dart:io/directory_impl.dart (334:43) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
 dart:io/directory_impl.dart (406:12) A value of type 'Null' can't be assigned to a variable of type '_AsyncDirectoryListerOps'.
 dart:io/file.dart (367:31) Parameter 'start' of non-nullable type 'int' must have a default value.
 dart:io/file.dart (367:42) Parameter 'end' of non-nullable type 'int' must have a default value.
@@ -1950,6 +1751,7 @@ dart:io/websocket.dart (75:7) Parameter 'clientMaxWindowBits' of non-nullable ty
 dart:io/websocket.dart (76:7) Parameter 'serverMaxWindowBits' of non-nullable type 'int' must have a default value.
 dart:io/websocket.dart (87:9) Variable 'mwb' of non-nullable type 'int' must be initialized.
 dart:io/websocket.dart (88:12) Variable 'part' of non-nullable type 'String' must be initialized.
+dart:io/websocket.dart (98:25) The argument type '(dynamic) → int' can't be assigned to the parameter type '(String) → int?'.
 dart:io/websocket.dart (140:44) Parameter 'requested' of non-nullable type 'HeaderValue' must have a default value.
 dart:io/websocket.dart (215:12) Parameter 'protocolSelector' of non-nullable type '(List<String>) → dynamic' must have a default value.
 dart:io/websocket.dart (237:8) Parameter 'protocolSelector' of non-nullable type '(List<String>) → dynamic' must have a default value.
@@ -1995,6 +1797,7 @@ dart:io/websocket_impl.dart (841:23) A value of type 'Null' can't be assigned to
 dart:io/websocket_impl.dart (872:22) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:io/websocket_impl.dart (879:18) A value of type 'Null' can't be assigned to a variable of type 'Completer'.
 dart:io/websocket_impl.dart (885:21) The argument type 'Null' can't be assigned to the parameter type '(dynamic) → void'.
+dart:io/websocket_impl.dart (1069:29) The argument type '(dynamic) → int' can't be assigned to the parameter type '(String) → int?'.
 dart:io/websocket_impl.dart (1079:12) The return type 'Null' isn't a '_WebSocketPerMessageDeflate', as defined by the method 'negotiateClientCompression'.
 dart:io/websocket_impl.dart (1082:3) Variable '_closeCode' of non-nullable type 'int' must be initialized.
 dart:io/websocket_impl.dart (1082:3) Variable '_closeReason' of non-nullable type 'String' must be initialized.
@@ -2033,7 +1836,6 @@ dart:isolate (633:27) Parameter 'handler' of non-nullable type '(dynamic) → vo
 dart:js (118:45) Parameter 'arguments' of non-nullable type 'List<dynamic>' must have a default value.
 dart:js (270:31) Parameter 'args' of non-nullable type 'List<dynamic>' must have a default value.
 dart:js (363:3) Invalid override. The type of 'JsArray.[]=' ('(Object, E) → void') isn't a subtype of 'JsObject.[]=' ('(Object, dynamic) → dynamic').
-dart:js (428:14) Parameter 'compare' of non-nullable type '(E, E) → int' must have a default value.
 dart:js_util (112:29) The argument type 'List' can't be assigned to the parameter type 'Iterable<Null>'.
 dart:math (380:9) Variable 'rnd32' of non-nullable type 'int' must be initialized.
 dart:math (381:9) Variable 'result' of non-nullable type 'int' must be initialized.
@@ -2107,4 +1909,4 @@ dart:web_sql (120:54) Parameter 'errorCallback' of non-nullable type '(SqlError)
 dart:web_sql (120:97) Parameter 'successCallback' of non-nullable type '() → void' must have a default value.
 dart:web_sql (295:65) Parameter 'callback' of non-nullable type '(SqlTransaction, SqlResultSet) → void' must have a default value.
 dart:web_sql (295:96) Parameter 'errorCallback' of non-nullable type '(SqlTransaction, SqlError) → void' must have a default value.
-2109 total errors.
+1911 total errors.

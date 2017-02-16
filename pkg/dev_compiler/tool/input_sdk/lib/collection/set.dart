@@ -232,7 +232,7 @@ abstract class SetMixin<E> implements Set<E> {
     return result;
   }
 
-  E firstWhere(bool test(E value), { E orElse() }) {
+  E firstWhere(bool test(E value), { E orElse()? }) {
     for (E element in this) {
       if (test(element)) return element;
     }
@@ -240,7 +240,7 @@ abstract class SetMixin<E> implements Set<E> {
     throw IterableElementError.noElement();
   }
 
-  E lastWhere(bool test(E value), { E orElse() }) {
+  E lastWhere(bool test(E value), { E orElse()? }) {
     E result = null;
     bool foundMatching = false;
     for (E element in this) {

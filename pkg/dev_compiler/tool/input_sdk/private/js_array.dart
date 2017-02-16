@@ -256,7 +256,7 @@ class JSArray<E> implements List<E>, JSIndexable<E> {
     return value;
   }
 
-  E firstWhere(bool test(E value), {E orElse()}) {
+  E firstWhere(bool test(E value), {E orElse()?}) {
     int end = this.length;
     for (int i = 0; i < end; ++i) {
       // TODO(22407): Improve bounds check elimination to allow this JS code to
@@ -269,7 +269,7 @@ class JSArray<E> implements List<E>, JSIndexable<E> {
     throw IterableElementError.noElement();
   }
 
-  E lastWhere(bool test(E element), { E orElse() }) {
+  E lastWhere(bool test(E element), { E orElse()? }) {
     int length = this.length;
     for (int i = length - 1; i >= 0; i--) {
       // TODO(22407): Improve bounds check elimination to allow this JS code to
@@ -311,7 +311,7 @@ class JSArray<E> implements List<E>, JSIndexable<E> {
     return this[index];
   }
 
-  List<E> sublist(int start, [int end]) {
+  List<E> sublist(int start, [int? end]) {
     checkNull(start); // TODO(ahe): This is not specified but co19 tests it.
     if (start is !int) throw argumentErrorValue(start);
     if (start < 0 || start > length) {
@@ -321,10 +321,16 @@ class JSArray<E> implements List<E>, JSIndexable<E> {
       end = length;
     } else {
       if (end is !int) throw argumentErrorValue(end);
-      if (end < start || end > length) {
-        throw new RangeError.range(end, start, length, "end");
+      // TODO(nnbd-exit): Promotion should know end is non-nullable here.
+      var end_ = end as int;
+      if (end_ < start || end_ > length) {
+        throw new RangeError.range(end_, start, length, "end");
       }
     }
+    // TODO(nnbd-assign): We may be able to tell that "end" is non-nullable here
+    // because it's known to be non-null in the else case and it is assigned a
+    // non-null value in the then case, but that may be more complex than we
+    // want to get.
     if (start == end) return <E>[];
     return new JSArray<E>.typed(
         JS('', r'#.slice(#, #)', this, start, end));
@@ -367,8 +373,9 @@ class JSArray<E> implements List<E>, JSIndexable<E> {
     if (length == 0) return;
     RangeError.checkNotNegative(skipCount, "skipCount");
 
-    List/*<E>*/ otherList;
-    int otherStart;
+    // TODO(nnbd-definite): Definite assignment analysis would help here.
+    List<E> otherList = const [];
+    int otherStart = -1;
     // TODO(floitsch): Make this accept more.
     if (iterable is List) {
       otherList = iterable;
@@ -399,7 +406,7 @@ class JSArray<E> implements List<E>, JSIndexable<E> {
     }
   }
 
-  void fillRange(int start, int end, [E fillValue]) {
+  void fillRange(int start, int end, E fillValue) {
     checkMutable('fill range');
     RangeError.checkValidRange(start, end, this.length);
     for (int i = start; i < end; i++) {
@@ -461,21 +468,32 @@ class JSArray<E> implements List<E>, JSIndexable<E> {
 
   Iterable<E> get reversed => new ReversedListIterable<E>(this);
 
-  void sort([int compare(E a, E b)]) {
+  void sort([int compare(E a, E b)?]) {
     checkMutable('sort');
-    if (compare == null) {
-      Sort.sort(this, (a, b) => Comparable.compare(a, b));
-    } else {
+    // TODO(nnbd-else): Had to flip this since promotion doesn't handle the
+    // else case. Was:
+    // if (compare == null) {
+    //   Sort.sort(this, (a, b) => Comparable.compare(a, b));
+    // } else {
+    //   Sort.sort(this, compare);
+    // }
+    if (compare != null) {
       Sort.sort(this, compare);
+    } else {
+      Sort.sort(this, (a, b) => Comparable.compare(a, b));
     }
   }
 
-  void shuffle([Random random]) {
+  void shuffle([Random? random]) {
     checkMutable('shuffle');
     if (random == null) random = new Random();
+    // TODO(nnbd-assign): Would be nice if it knew random was non-null here.
+    // Alternatively, a non-const default value ("new Random()") would cover
+    // this.
+    var random_ = random as Random;
     int length = this.length;
     while (length > 1) {
-      int pos = random.nextInt(length);
+      int pos = random_.nextInt(length);
       length -= 1;
       var tmp = this[length];
       this[length] = this[pos];
@@ -498,18 +516,20 @@ class JSArray<E> implements List<E>, JSIndexable<E> {
     return -1;
   }
 
-  int lastIndexOf(Object element, [int startIndex]) {
+  int lastIndexOf(Object element, [int? startIndex]) {
     if (startIndex == null) {
       startIndex = this.length - 1;
     } else {
-      if (startIndex < 0) {
+      // TODO(nnbd-else): Should promote startIndex to non-null in here.
+      if ((startIndex as int) < 0) {
         return -1;
       }
-      if (startIndex >= this.length) {
+      if ((startIndex as int) >= this.length) {
         startIndex = this.length - 1;
       }
     }
-    for (int i = startIndex; i >= 0; i--) {
+    // TODO(nnbd-assign): Would be nice if it knew startIndex was non-null here.
+    for (int i = (startIndex as int); i >= 0; i--) {
       if (this[i] == element) {
         return i;
       }
@@ -599,12 +619,15 @@ class ArrayIterator<E> implements Iterator<E> {
   final JSArray<E> _iterable;
   final int _length;
   int _index;
-  E _current;
+  E? _current;
 
   ArrayIterator(JSArray<E> iterable)
       : _iterable = iterable, _length = iterable.length, _index = 0;
 
-  E get current => _current;
+  // TODO(nnbd): This will now throw if you call .current before advancing to
+  // the first element if the element type is not nullable. This may be a good
+  // thing.
+  E get current => _current as E;
 
   bool moveNext() {
     int length = _iterable.length;

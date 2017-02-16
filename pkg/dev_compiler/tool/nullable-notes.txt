@@ -1,0 +1,188 @@
+This keeps track of various observations I have while converting code to be
+null safe.
+
+---
+
+Here's what the various "TODO(nnbd-...)" labels mean:
+
+- (nnbd-api): This is a public API that was changed in a breaking way to make
+  it work with non-nullable types.
+
+  Marking a parameter type or return nullable is not considered a breaking
+  change, since they are all nullable today. Instead, this covers things like
+  making an optional parameter required, removing a method entirely, etc.
+
+- (nnbd-api-todo): This is a public API that is not currently null-safe but
+  where I haven't changed it yet. We'll need to do something with these.
+
+- (nnbd-bug): It appears that the existing code may get a null in a place where
+  it doesn't correctly handle it. There may not actually be a bug (outside
+  code may ensure the null won't get there) but locally it looks fishy.
+
+- (nnbd-else): Type promoting a variable to non-null in the else case of an if
+  would detect that this is code null-safe. Like:
+
+    if (foo == null) {
+      ...
+    } else {
+      // Should promote foo to non-null here.
+      foo.bar();
+    }
+
+  This is a simple extension to promotion that doesn't require any flow
+  analysis.
+
+- (nnbd-assign): Type promoting using flow analysis after an assignment would
+  detect that some code is null-safe. Like:
+
+    foo(String? s) {
+      s = "default";
+      // We know s is non-null here.
+      s.length;
+    }
+
+  In some of these cases, we may be able to just use "??=" and do smarter
+  analysis of that.
+
+- (nnbd-mutate): A care where promotion is failing because the variable is
+  being mutated in a way where we can tell the mutation shouldn't affect the
+  result. We can probably be smarter about these instead of turning off all
+  promotion on any mutation. This is similar to nnbd-assign except this relates
+  to cases where the non-null use occurs *before* the assignment. Like:
+
+  String? host;
+  if (host != null) {
+    // host is non-null here.
+    host.length;
+    host = "after";
+  }
+
+- (nnbd-exit): Type promoting using flow analysis based on exits would detect
+  that some code is null-safe. Like:
+
+    foo(String? s) {
+      if (s == null) return;
+      // We know s is non-null here.
+      s.length;
+    }
+
+- (nnbd-definite): Using definite assignment analysis to allow undeclared
+  variables of non-nullable type would help here. Like:
+
+    int i;
+    if (b) {
+      i = 1;
+    } else {
+      i = 2;
+    }
+    // i is definitely assigned and definitely non-null here.
+    i.abs();
+
+  This is similar to nnbd-assign, but refers to cases where the variable is
+  not initialized at all. (I may have misbucketed some of these.)
+
+- (nnbd-assert): This is a case where I don't think we can reasonably expect
+  even smart inference to detect that something is non-null and instead the user
+  will have to forcibly assert it. A nice syntax like "!" for that would help
+  here.
+
+    class LazyId {
+      static int _nextId = 0;
+      int? _id;
+
+      int get id {
+        if (_id == null) _id = _nextId++;
+        // Still can't promote "_id" since it's a mutable, potentially
+        // overridden field.
+        return _id as int;
+      }
+    }
+
+- (nnbd-final): A case where we could maybe promote access to a field as
+  non-null after it's checked if the field is final and not overridable. Like:
+
+    class HexBox {
+      final int? _value;
+      String toString() {
+        if (_value == null) return "empty";
+        return _value.toRadixString(16);
+      }
+    }
+
+  This would, of course, require some way of marking or detecting that a field
+  cannot be overridden.
+
+- (nnbd): Everything else. Random observations, missing features, potential
+  bugs in the prototype, etc.
+
+---
+
+The syntax for nullable function-typed parameters really trips me up:
+
+    foo(callback()?) { ... }
+
+Because the "?" comes after the parameter name, I find myself trying to do the
+same thing for normal nullable (usually optional) parameters:
+
+    parseInt({int radix?, onError()?})
+
+This might just be because the first few optional parameters I made nullable
+happened to be functions and that set the habit.
+
+---
+
+Running into a lot of cases where smarter promotion would really help. Even
+knowing a variable is non-null in else cases like this:
+
+    if (foo == null) {
+      ...
+    } else {
+      // foo is non-null here
+    }
+
+Would cover many of them. For now, I'm not going to try to implement that.
+Instead, I'll work around it and leave a comment ("TODO(nnbd-promote)" or
+"TODO(nnbd-flow)") showing where it would help.
+
+---
+
+Search for "(nnbd-api)" to find cases where I've changed a core library's
+public API. So far, that's just making Iterator.current be undefined instead of
+returning `null` if you haven't advanced to the first element yet.
+
+---
+
+I stopped marking every nullable optional parameter "(nnbd-optional)" since
+there are so many of them. If I want to track them, I can just hack the
+analyzer to print out every nullable optional parameter.
+
+---
+
+"??" is really helpful. There are cases where even smart promotion wouldn't
+help because we can't be sure the expression won't change, but since "??"
+implicitly creates a temporary, it avoids that. We'd have to cast the field
+accesses after the ":" here:
+
+    String get query => (_query == null) ? "" : _query;
+    String get fragment => (_fragment == null) ? "" : _fragment;
+
+But this is fine:
+
+    String get query => _query ?? "";
+    String get fragment => _fragment ?? "";
+
+---
+
+The "nnbd-bug" label is for changes where it looks like the original code may
+have been wrong or at least unintended.
+
+---
+
+Uri.replace() was a real bear to get null clean, unsurprisingly. Its whole
+point is to take a mish mash of some provided and some absent values and weave
+them into the existing URI fields many of which are themselves optional.
+
+---
+
+Ran into a couple of cases where non-const default values would let us easily
+ensure an optional parameter is initialized with a non-null value.

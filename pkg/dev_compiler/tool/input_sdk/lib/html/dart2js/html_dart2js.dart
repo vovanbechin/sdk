@@ -2723,7 +2723,7 @@ class CanvasRenderingContext2D extends Interceptor implements CanvasRenderingCon
       return JS('List<num>', '#.getLineDash()', this);
     } else if (JS('bool', '!!#.webkitLineDash', this)) {
       return JS('List<num>', '#.webkitLineDash', this);
-    } 
+    }
   }
 
   @SupportedBrowser(SupportedBrowser.CHROME)
@@ -4181,7 +4181,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('background')
   String _background;
-    
+
   /** Gets the value of "background-attachment" */
   String get backgroundAttachment => this._backgroundAttachment;
 
@@ -4192,7 +4192,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('backgroundAttachment')
   String _backgroundAttachment;
-    
+
   /** Gets the value of "background-color" */
   String get backgroundColor => this._backgroundColor;
 
@@ -4203,7 +4203,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('backgroundColor')
   String _backgroundColor;
-    
+
   /** Gets the value of "background-image" */
   String get backgroundImage => this._backgroundImage;
 
@@ -4214,7 +4214,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('backgroundImage')
   String _backgroundImage;
-    
+
   /** Gets the value of "background-position" */
   String get backgroundPosition => this._backgroundPosition;
 
@@ -4225,7 +4225,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('backgroundPosition')
   String _backgroundPosition;
-    
+
   /** Gets the value of "background-repeat" */
   String get backgroundRepeat => this._backgroundRepeat;
 
@@ -4236,7 +4236,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('backgroundRepeat')
   String _backgroundRepeat;
-    
+
   /** Gets the value of "border" */
   String get border => this._border;
 
@@ -4247,7 +4247,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('border')
   String _border;
-    
+
   /** Gets the value of "border-bottom" */
   String get borderBottom => this._borderBottom;
 
@@ -4258,7 +4258,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderBottom')
   String _borderBottom;
-    
+
   /** Gets the value of "border-bottom-color" */
   String get borderBottomColor => this._borderBottomColor;
 
@@ -4269,7 +4269,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderBottomColor')
   String _borderBottomColor;
-    
+
   /** Gets the value of "border-bottom-style" */
   String get borderBottomStyle => this._borderBottomStyle;
 
@@ -4280,7 +4280,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderBottomStyle')
   String _borderBottomStyle;
-    
+
   /** Gets the value of "border-bottom-width" */
   String get borderBottomWidth => this._borderBottomWidth;
 
@@ -4291,7 +4291,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderBottomWidth')
   String _borderBottomWidth;
-    
+
   /** Gets the value of "border-collapse" */
   String get borderCollapse => this._borderCollapse;
 
@@ -4302,7 +4302,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderCollapse')
   String _borderCollapse;
-    
+
   /** Gets the value of "border-color" */
   String get borderColor => this._borderColor;
 
@@ -4313,7 +4313,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderColor')
   String _borderColor;
-    
+
   /** Gets the value of "border-left" */
   String get borderLeft => this._borderLeft;
 
@@ -4324,7 +4324,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderLeft')
   String _borderLeft;
-    
+
   /** Gets the value of "border-left-color" */
   String get borderLeftColor => this._borderLeftColor;
 
@@ -4335,7 +4335,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderLeftColor')
   String _borderLeftColor;
-    
+
   /** Gets the value of "border-left-style" */
   String get borderLeftStyle => this._borderLeftStyle;
 
@@ -4346,7 +4346,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderLeftStyle')
   String _borderLeftStyle;
-    
+
   /** Gets the value of "border-left-width" */
   String get borderLeftWidth => this._borderLeftWidth;
 
@@ -4357,7 +4357,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderLeftWidth')
   String _borderLeftWidth;
-    
+
   /** Gets the value of "border-right" */
   String get borderRight => this._borderRight;
 
@@ -4368,7 +4368,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderRight')
   String _borderRight;
-    
+
   /** Gets the value of "border-right-color" */
   String get borderRightColor => this._borderRightColor;
 
@@ -4379,7 +4379,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderRightColor')
   String _borderRightColor;
-    
+
   /** Gets the value of "border-right-style" */
   String get borderRightStyle => this._borderRightStyle;
 
@@ -4390,7 +4390,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderRightStyle')
   String _borderRightStyle;
-    
+
   /** Gets the value of "border-right-width" */
   String get borderRightWidth => this._borderRightWidth;
 
@@ -4401,7 +4401,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderRightWidth')
   String _borderRightWidth;
-    
+
   /** Gets the value of "border-spacing" */
   String get borderSpacing => this._borderSpacing;
 
@@ -4412,7 +4412,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderSpacing')
   String _borderSpacing;
-    
+
   /** Gets the value of "border-style" */
   String get borderStyle => this._borderStyle;
 
@@ -4423,7 +4423,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderStyle')
   String _borderStyle;
-    
+
   /** Gets the value of "border-top" */
   String get borderTop => this._borderTop;
 
@@ -4434,7 +4434,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderTop')
   String _borderTop;
-    
+
   /** Gets the value of "border-top-color" */
   String get borderTopColor => this._borderTopColor;
 
@@ -4445,7 +4445,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderTopColor')
   String _borderTopColor;
-    
+
   /** Gets the value of "border-top-style" */
   String get borderTopStyle => this._borderTopStyle;
 
@@ -4456,7 +4456,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderTopStyle')
   String _borderTopStyle;
-    
+
   /** Gets the value of "border-top-width" */
   String get borderTopWidth => this._borderTopWidth;
 
@@ -4467,7 +4467,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderTopWidth')
   String _borderTopWidth;
-    
+
   /** Gets the value of "border-width" */
   String get borderWidth => this._borderWidth;
 
@@ -4478,7 +4478,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('borderWidth')
   String _borderWidth;
-    
+
   /** Gets the value of "bottom" */
   String get bottom => this._bottom;
 
@@ -4489,7 +4489,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('bottom')
   String _bottom;
-    
+
   /** Gets the value of "caption-side" */
   String get captionSide => this._captionSide;
 
@@ -4500,7 +4500,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('captionSide')
   String _captionSide;
-    
+
   /** Gets the value of "clear" */
   String get clear => this._clear;
 
@@ -4511,7 +4511,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('clear')
   String _clear;
-    
+
   /** Gets the value of "clip" */
   String get clip => this._clip;
 
@@ -4522,7 +4522,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('clip')
   String _clip;
-    
+
   /** Gets the value of "color" */
   String get color => this._color;
 
@@ -4533,7 +4533,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('color')
   String _color;
-    
+
   /** Gets the value of "content" */
   String get content => this._content;
 
@@ -4544,7 +4544,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('content')
   String _content;
-    
+
   /** Gets the value of "cursor" */
   String get cursor => this._cursor;
 
@@ -4555,7 +4555,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('cursor')
   String _cursor;
-    
+
   /** Gets the value of "direction" */
   String get direction => this._direction;
 
@@ -4566,7 +4566,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('direction')
   String _direction;
-    
+
   /** Gets the value of "display" */
   String get display => this._display;
 
@@ -4577,7 +4577,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('display')
   String _display;
-    
+
   /** Gets the value of "empty-cells" */
   String get emptyCells => this._emptyCells;
 
@@ -4588,7 +4588,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('emptyCells')
   String _emptyCells;
-    
+
   /** Gets the value of "font" */
   String get font => this._font;
 
@@ -4599,7 +4599,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('font')
   String _font;
-    
+
   /** Gets the value of "font-family" */
   String get fontFamily => this._fontFamily;
 
@@ -4610,7 +4610,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('fontFamily')
   String _fontFamily;
-    
+
   /** Gets the value of "font-size" */
   String get fontSize => this._fontSize;
 
@@ -4621,7 +4621,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('fontSize')
   String _fontSize;
-    
+
   /** Gets the value of "font-style" */
   String get fontStyle => this._fontStyle;
 
@@ -4632,7 +4632,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('fontStyle')
   String _fontStyle;
-    
+
   /** Gets the value of "font-variant" */
   String get fontVariant => this._fontVariant;
 
@@ -4643,7 +4643,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('fontVariant')
   String _fontVariant;
-    
+
   /** Gets the value of "font-weight" */
   String get fontWeight => this._fontWeight;
 
@@ -4654,7 +4654,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('fontWeight')
   String _fontWeight;
-    
+
   /** Gets the value of "height" */
   String get height => this._height;
 
@@ -4665,7 +4665,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('height')
   String _height;
-    
+
   /** Gets the value of "left" */
   String get left => this._left;
 
@@ -4676,7 +4676,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('left')
   String _left;
-    
+
   /** Gets the value of "letter-spacing" */
   String get letterSpacing => this._letterSpacing;
 
@@ -4687,7 +4687,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('letterSpacing')
   String _letterSpacing;
-    
+
   /** Gets the value of "line-height" */
   String get lineHeight => this._lineHeight;
 
@@ -4698,7 +4698,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('lineHeight')
   String _lineHeight;
-    
+
   /** Gets the value of "list-style" */
   String get listStyle => this._listStyle;
 
@@ -4709,7 +4709,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('listStyle')
   String _listStyle;
-    
+
   /** Gets the value of "list-style-image" */
   String get listStyleImage => this._listStyleImage;
 
@@ -4720,7 +4720,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('listStyleImage')
   String _listStyleImage;
-    
+
   /** Gets the value of "list-style-position" */
   String get listStylePosition => this._listStylePosition;
 
@@ -4731,7 +4731,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('listStylePosition')
   String _listStylePosition;
-    
+
   /** Gets the value of "list-style-type" */
   String get listStyleType => this._listStyleType;
 
@@ -4742,7 +4742,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('listStyleType')
   String _listStyleType;
-    
+
   /** Gets the value of "margin" */
   String get margin => this._margin;
 
@@ -4753,7 +4753,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('margin')
   String _margin;
-    
+
   /** Gets the value of "margin-bottom" */
   String get marginBottom => this._marginBottom;
 
@@ -4764,7 +4764,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('marginBottom')
   String _marginBottom;
-    
+
   /** Gets the value of "margin-left" */
   String get marginLeft => this._marginLeft;
 
@@ -4775,7 +4775,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('marginLeft')
   String _marginLeft;
-    
+
   /** Gets the value of "margin-right" */
   String get marginRight => this._marginRight;
 
@@ -4786,7 +4786,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('marginRight')
   String _marginRight;
-    
+
   /** Gets the value of "margin-top" */
   String get marginTop => this._marginTop;
 
@@ -4797,7 +4797,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('marginTop')
   String _marginTop;
-    
+
   /** Gets the value of "max-height" */
   String get maxHeight => this._maxHeight;
 
@@ -4808,7 +4808,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('maxHeight')
   String _maxHeight;
-    
+
   /** Gets the value of "max-width" */
   String get maxWidth => this._maxWidth;
 
@@ -4819,7 +4819,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('maxWidth')
   String _maxWidth;
-    
+
   /** Gets the value of "min-height" */
   String get minHeight => this._minHeight;
 
@@ -4830,7 +4830,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('minHeight')
   String _minHeight;
-    
+
   /** Gets the value of "min-width" */
   String get minWidth => this._minWidth;
 
@@ -4841,7 +4841,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('minWidth')
   String _minWidth;
-    
+
   /** Gets the value of "outline" */
   String get outline => this._outline;
 
@@ -4852,7 +4852,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('outline')
   String _outline;
-    
+
   /** Gets the value of "outline-color" */
   String get outlineColor => this._outlineColor;
 
@@ -4863,7 +4863,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('outlineColor')
   String _outlineColor;
-    
+
   /** Gets the value of "outline-style" */
   String get outlineStyle => this._outlineStyle;
 
@@ -4874,7 +4874,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('outlineStyle')
   String _outlineStyle;
-    
+
   /** Gets the value of "outline-width" */
   String get outlineWidth => this._outlineWidth;
 
@@ -4885,7 +4885,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('outlineWidth')
   String _outlineWidth;
-    
+
   /** Gets the value of "overflow" */
   String get overflow => this._overflow;
 
@@ -4896,7 +4896,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('overflow')
   String _overflow;
-    
+
   /** Gets the value of "padding" */
   String get padding => this._padding;
 
@@ -4907,7 +4907,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('padding')
   String _padding;
-    
+
   /** Gets the value of "padding-bottom" */
   String get paddingBottom => this._paddingBottom;
 
@@ -4918,7 +4918,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('paddingBottom')
   String _paddingBottom;
-    
+
   /** Gets the value of "padding-left" */
   String get paddingLeft => this._paddingLeft;
 
@@ -4929,7 +4929,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('paddingLeft')
   String _paddingLeft;
-    
+
   /** Gets the value of "padding-right" */
   String get paddingRight => this._paddingRight;
 
@@ -4940,7 +4940,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('paddingRight')
   String _paddingRight;
-    
+
   /** Gets the value of "padding-top" */
   String get paddingTop => this._paddingTop;
 
@@ -4951,7 +4951,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('paddingTop')
   String _paddingTop;
-    
+
   /** Gets the value of "page-break-after" */
   String get pageBreakAfter => this._pageBreakAfter;
 
@@ -4962,7 +4962,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('pageBreakAfter')
   String _pageBreakAfter;
-    
+
   /** Gets the value of "page-break-before" */
   String get pageBreakBefore => this._pageBreakBefore;
 
@@ -4973,7 +4973,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('pageBreakBefore')
   String _pageBreakBefore;
-    
+
   /** Gets the value of "page-break-inside" */
   String get pageBreakInside => this._pageBreakInside;
 
@@ -4984,7 +4984,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('pageBreakInside')
   String _pageBreakInside;
-    
+
   /** Gets the value of "position" */
   String get position => this._position;
 
@@ -4995,7 +4995,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('position')
   String _position;
-    
+
   /** Gets the value of "quotes" */
   String get quotes => this._quotes;
 
@@ -5006,7 +5006,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('quotes')
   String _quotes;
-    
+
   /** Gets the value of "right" */
   String get right => this._right;
 
@@ -5017,7 +5017,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('right')
   String _right;
-    
+
   /** Gets the value of "table-layout" */
   String get tableLayout => this._tableLayout;
 
@@ -5028,7 +5028,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('tableLayout')
   String _tableLayout;
-    
+
   /** Gets the value of "text-align" */
   String get textAlign => this._textAlign;
 
@@ -5039,7 +5039,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('textAlign')
   String _textAlign;
-    
+
   /** Gets the value of "text-decoration" */
   String get textDecoration => this._textDecoration;
 
@@ -5050,7 +5050,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('textDecoration')
   String _textDecoration;
-    
+
   /** Gets the value of "text-indent" */
   String get textIndent => this._textIndent;
 
@@ -5061,7 +5061,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('textIndent')
   String _textIndent;
-    
+
   /** Gets the value of "text-transform" */
   String get textTransform => this._textTransform;
 
@@ -5072,7 +5072,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('textTransform')
   String _textTransform;
-    
+
   /** Gets the value of "top" */
   String get top => this._top;
 
@@ -5083,7 +5083,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('top')
   String _top;
-    
+
   /** Gets the value of "unicode-bidi" */
   String get unicodeBidi => this._unicodeBidi;
 
@@ -5094,7 +5094,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('unicodeBidi')
   String _unicodeBidi;
-    
+
   /** Gets the value of "vertical-align" */
   String get verticalAlign => this._verticalAlign;
 
@@ -5105,7 +5105,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('verticalAlign')
   String _verticalAlign;
-    
+
   /** Gets the value of "visibility" */
   String get visibility => this._visibility;
 
@@ -5116,7 +5116,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('visibility')
   String _visibility;
-    
+
   /** Gets the value of "white-space" */
   String get whiteSpace => this._whiteSpace;
 
@@ -5127,7 +5127,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('whiteSpace')
   String _whiteSpace;
-    
+
   /** Gets the value of "width" */
   String get width => this._width;
 
@@ -5138,7 +5138,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('width')
   String _width;
-    
+
   /** Gets the value of "word-spacing" */
   String get wordSpacing => this._wordSpacing;
 
@@ -5149,7 +5149,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('wordSpacing')
   String _wordSpacing;
-    
+
   /** Gets the value of "z-index" */
   String get zIndex => this._zIndex;
 
@@ -5160,7 +5160,7 @@ class CssStyleDeclaration  extends Interceptor with
   @Returns('String')
   @JSName('zIndex')
   String _zIndex;
-    
+
 }
 
 class _CssStyleDeclarationSet extends Object with CssStyleDeclarationBase {
@@ -5193,452 +5193,452 @@ class _CssStyleDeclarationSet extends Object with CssStyleDeclarationBase {
   set background(String value) {
     _setAll('background', value);
   }
-    
+
   /** Sets the value of "background-attachment" */
   set backgroundAttachment(String value) {
     _setAll('backgroundAttachment', value);
   }
-    
+
   /** Sets the value of "background-color" */
   set backgroundColor(String value) {
     _setAll('backgroundColor', value);
   }
-    
+
   /** Sets the value of "background-image" */
   set backgroundImage(String value) {
     _setAll('backgroundImage', value);
   }
-    
+
   /** Sets the value of "background-position" */
   set backgroundPosition(String value) {
     _setAll('backgroundPosition', value);
   }
-    
+
   /** Sets the value of "background-repeat" */
   set backgroundRepeat(String value) {
     _setAll('backgroundRepeat', value);
   }
-    
+
   /** Sets the value of "border" */
   set border(String value) {
     _setAll('border', value);
   }
-    
+
   /** Sets the value of "border-bottom" */
   set borderBottom(String value) {
     _setAll('borderBottom', value);
   }
-    
+
   /** Sets the value of "border-bottom-color" */
   set borderBottomColor(String value) {
     _setAll('borderBottomColor', value);
   }
-    
+
   /** Sets the value of "border-bottom-style" */
   set borderBottomStyle(String value) {
     _setAll('borderBottomStyle', value);
   }
-    
+
   /** Sets the value of "border-bottom-width" */
   set borderBottomWidth(String value) {
     _setAll('borderBottomWidth', value);
   }
-    
+
   /** Sets the value of "border-collapse" */
   set borderCollapse(String value) {
     _setAll('borderCollapse', value);
   }
-    
+
   /** Sets the value of "border-color" */
   set borderColor(String value) {
     _setAll('borderColor', value);
   }
-    
+
   /** Sets the value of "border-left" */
   set borderLeft(String value) {
     _setAll('borderLeft', value);
   }
-    
+
   /** Sets the value of "border-left-color" */
   set borderLeftColor(String value) {
     _setAll('borderLeftColor', value);
   }
-    
+
   /** Sets the value of "border-left-style" */
   set borderLeftStyle(String value) {
     _setAll('borderLeftStyle', value);
   }
-    
+
   /** Sets the value of "border-left-width" */
   set borderLeftWidth(String value) {
     _setAll('borderLeftWidth', value);
   }
-    
+
   /** Sets the value of "border-right" */
   set borderRight(String value) {
     _setAll('borderRight', value);
   }
-    
+
   /** Sets the value of "border-right-color" */
   set borderRightColor(String value) {
     _setAll('borderRightColor', value);
   }
-    
+
   /** Sets the value of "border-right-style" */
   set borderRightStyle(String value) {
     _setAll('borderRightStyle', value);
   }
-    
+
   /** Sets the value of "border-right-width" */
   set borderRightWidth(String value) {
     _setAll('borderRightWidth', value);
   }
-    
+
   /** Sets the value of "border-spacing" */
   set borderSpacing(String value) {
     _setAll('borderSpacing', value);
   }
-    
+
   /** Sets the value of "border-style" */
   set borderStyle(String value) {
     _setAll('borderStyle', value);
   }
-    
+
   /** Sets the value of "border-top" */
   set borderTop(String value) {
     _setAll('borderTop', value);
   }
-    
+
   /** Sets the value of "border-top-color" */
   set borderTopColor(String value) {
     _setAll('borderTopColor', value);
   }
-    
+
   /** Sets the value of "border-top-style" */
   set borderTopStyle(String value) {
     _setAll('borderTopStyle', value);
   }
-    
+
   /** Sets the value of "border-top-width" */
   set borderTopWidth(String value) {
     _setAll('borderTopWidth', value);
   }
-    
+
   /** Sets the value of "border-width" */
   set borderWidth(String value) {
     _setAll('borderWidth', value);
   }
-    
+
   /** Sets the value of "bottom" */
   set bottom(String value) {
     _setAll('bottom', value);
   }
-    
+
   /** Sets the value of "caption-side" */
   set captionSide(String value) {
     _setAll('captionSide', value);
   }
-    
+
   /** Sets the value of "clear" */
   set clear(String value) {
     _setAll('clear', value);
   }
-    
+
   /** Sets the value of "clip" */
   set clip(String value) {
     _setAll('clip', value);
   }
-    
+
   /** Sets the value of "color" */
   set color(String value) {
     _setAll('color', value);
   }
-    
+
   /** Sets the value of "content" */
   set content(String value) {
     _setAll('content', value);
   }
-    
+
   /** Sets the value of "cursor" */
   set cursor(String value) {
     _setAll('cursor', value);
   }
-    
+
   /** Sets the value of "direction" */
   set direction(String value) {
     _setAll('direction', value);
   }
-    
+
   /** Sets the value of "display" */
   set display(String value) {
     _setAll('display', value);
   }
-    
+
   /** Sets the value of "empty-cells" */
   set emptyCells(String value) {
     _setAll('emptyCells', value);
   }
-    
+
   /** Sets the value of "font" */
   set font(String value) {
     _setAll('font', value);
   }
-    
+
   /** Sets the value of "font-family" */
   set fontFamily(String value) {
     _setAll('fontFamily', value);
   }
-    
+
   /** Sets the value of "font-size" */
   set fontSize(String value) {
     _setAll('fontSize', value);
   }
-    
+
   /** Sets the value of "font-style" */
   set fontStyle(String value) {
     _setAll('fontStyle', value);
   }
-    
+
   /** Sets the value of "font-variant" */
   set fontVariant(String value) {
     _setAll('fontVariant', value);
   }
-    
+
   /** Sets the value of "font-weight" */
   set fontWeight(String value) {
     _setAll('fontWeight', value);
   }
-    
+
   /** Sets the value of "height" */
   set height(String value) {
     _setAll('height', value);
   }
-    
+
   /** Sets the value of "left" */
   set left(String value) {
     _setAll('left', value);
   }
-    
+
   /** Sets the value of "letter-spacing" */
   set letterSpacing(String value) {
     _setAll('letterSpacing', value);
   }
-    
+
   /** Sets the value of "line-height" */
   set lineHeight(String value) {
     _setAll('lineHeight', value);
   }
-    
+
   /** Sets the value of "list-style" */
   set listStyle(String value) {
     _setAll('listStyle', value);
   }
-    
+
   /** Sets the value of "list-style-image" */
   set listStyleImage(String value) {
     _setAll('listStyleImage', value);
   }
-    
+
   /** Sets the value of "list-style-position" */
   set listStylePosition(String value) {
     _setAll('listStylePosition', value);
   }
-    
+
   /** Sets the value of "list-style-type" */
   set listStyleType(String value) {
     _setAll('listStyleType', value);
   }
-    
+
   /** Sets the value of "margin" */
   set margin(String value) {
     _setAll('margin', value);
   }
-    
+
   /** Sets the value of "margin-bottom" */
   set marginBottom(String value) {
     _setAll('marginBottom', value);
   }
-    
+
   /** Sets the value of "margin-left" */
   set marginLeft(String value) {
     _setAll('marginLeft', value);
   }
-    
+
   /** Sets the value of "margin-right" */
   set marginRight(String value) {
     _setAll('marginRight', value);
   }
-    
+
   /** Sets the value of "margin-top" */
   set marginTop(String value) {
     _setAll('marginTop', value);
   }
-    
+
   /** Sets the value of "max-height" */
   set maxHeight(String value) {
     _setAll('maxHeight', value);
   }
-    
+
   /** Sets the value of "max-width" */
   set maxWidth(String value) {
     _setAll('maxWidth', value);
   }
-    
+
   /** Sets the value of "min-height" */
   set minHeight(String value) {
     _setAll('minHeight', value);
   }
-    
+
   /** Sets the value of "min-width" */
   set minWidth(String value) {
     _setAll('minWidth', value);
   }
-    
+
   /** Sets the value of "outline" */
   set outline(String value) {
     _setAll('outline', value);
   }
-    
+
   /** Sets the value of "outline-color" */
   set outlineColor(String value) {
     _setAll('outlineColor', value);
   }
-    
+
   /** Sets the value of "outline-style" */
   set outlineStyle(String value) {
     _setAll('outlineStyle', value);
   }
-    
+
   /** Sets the value of "outline-width" */
   set outlineWidth(String value) {
     _setAll('outlineWidth', value);
   }
-    
+
   /** Sets the value of "overflow" */
   set overflow(String value) {
     _setAll('overflow', value);
   }
-    
+
   /** Sets the value of "padding" */
   set padding(String value) {
     _setAll('padding', value);
   }
-    
+
   /** Sets the value of "padding-bottom" */
   set paddingBottom(String value) {
     _setAll('paddingBottom', value);
   }
-    
+
   /** Sets the value of "padding-left" */
   set paddingLeft(String value) {
     _setAll('paddingLeft', value);
   }
-    
+
   /** Sets the value of "padding-right" */
   set paddingRight(String value) {
     _setAll('paddingRight', value);
   }
-    
+
   /** Sets the value of "padding-top" */
   set paddingTop(String value) {
     _setAll('paddingTop', value);
   }
-    
+
   /** Sets the value of "page-break-after" */
   set pageBreakAfter(String value) {
     _setAll('pageBreakAfter', value);
   }
-    
+
   /** Sets the value of "page-break-before" */
   set pageBreakBefore(String value) {
     _setAll('pageBreakBefore', value);
   }
-    
+
   /** Sets the value of "page-break-inside" */
   set pageBreakInside(String value) {
     _setAll('pageBreakInside', value);
   }
-    
+
   /** Sets the value of "position" */
   set position(String value) {
     _setAll('position', value);
   }
-    
+
   /** Sets the value of "quotes" */
   set quotes(String value) {
     _setAll('quotes', value);
   }
-    
+
   /** Sets the value of "right" */
   set right(String value) {
     _setAll('right', value);
   }
-    
+
   /** Sets the value of "table-layout" */
   set tableLayout(String value) {
     _setAll('tableLayout', value);
   }
-    
+
   /** Sets the value of "text-align" */
   set textAlign(String value) {
     _setAll('textAlign', value);
   }
-    
+
   /** Sets the value of "text-decoration" */
   set textDecoration(String value) {
     _setAll('textDecoration', value);
   }
-    
+
   /** Sets the value of "text-indent" */
   set textIndent(String value) {
     _setAll('textIndent', value);
   }
-    
+
   /** Sets the value of "text-transform" */
   set textTransform(String value) {
     _setAll('textTransform', value);
   }
-    
+
   /** Sets the value of "top" */
   set top(String value) {
     _setAll('top', value);
   }
-    
+
   /** Sets the value of "unicode-bidi" */
   set unicodeBidi(String value) {
     _setAll('unicodeBidi', value);
   }
-    
+
   /** Sets the value of "vertical-align" */
   set verticalAlign(String value) {
     _setAll('verticalAlign', value);
   }
-    
+
   /** Sets the value of "visibility" */
   set visibility(String value) {
     _setAll('visibility', value);
   }
-    
+
   /** Sets the value of "white-space" */
   set whiteSpace(String value) {
     _setAll('whiteSpace', value);
   }
-    
+
   /** Sets the value of "width" */
   set width(String value) {
     _setAll('width', value);
   }
-    
+
   /** Sets the value of "word-spacing" */
   set wordSpacing(String value) {
     _setAll('wordSpacing', value);
   }
-    
+
   /** Sets the value of "z-index" */
   set zIndex(String value) {
     _setAll('zIndex', value);
   }
-    
+
 
   // Important note: CssStyleDeclarationSet does NOT implement every method
   // available in CssStyleDeclaration. Some of the methods don't make so much
@@ -10783,7 +10783,7 @@ class DocumentFragment extends Node implements NonElementParentNode, ParentNode 
         treeSanitizer: treeSanitizer));
   }
 
-  /** 
+  /**
    * Alias for [querySelector]. Note this function is deprecated because its
    * semantics will be changing in the future.
    */
@@ -10794,7 +10794,7 @@ class DocumentFragment extends Node implements NonElementParentNode, ParentNode 
     return querySelector(relativeSelectors);
   }
 
-  /** 
+  /**
    * Alias for [querySelectorAll]. Note this function is deprecated because its
    * semantics will be changing in the future.
    */
@@ -11792,7 +11792,7 @@ class _ChildrenElementList extends ListBase<Element>
     throw new UnimplementedError();
   }
 
-  void fillRange(int start, int end, [Element fillValue]) {
+  void fillRange(int start, int end, Element fillValue) {
     throw new UnimplementedError();
   }
 
@@ -19370,7 +19370,7 @@ class HttpRequest extends HttpRequestEventTarget {
    *
    * By default `request` will perform an HTTP GET request, but a different
    * method (`POST`, `PUT`, `DELETE`, etc) can be used by specifying the
-   * [method] parameter. (See also [HttpRequest.postFormData] for `POST` 
+   * [method] parameter. (See also [HttpRequest.postFormData] for `POST`
    * requests only.
    *
    * The Future is completed when the response is available.
@@ -19379,8 +19379,8 @@ class HttpRequest extends HttpRequestEventTarget {
    * [Blob], [Document], [String], or [FormData] along with the HttpRequest.
    *
    * If specified, [responseType] sets the desired response format for the
-   * request. By default it is [String], but can also be 'arraybuffer', 'blob', 
-   * 'document', 'json', or 'text'. See also [HttpRequest.responseType] 
+   * request. By default it is [String], but can also be 'arraybuffer', 'blob',
+   * 'document', 'json', or 'text'. See also [HttpRequest.responseType]
    * for more information.
    *
    * The [withCredentials] parameter specified that credentials such as a cookie
@@ -19463,7 +19463,7 @@ class HttpRequest extends HttpRequestEventTarget {
       // redirect case will be handled by the browser before it gets to us,
       // so if we see it we should pass it through to the user.
       var unknownRedirect = xhr.status > 307 && xhr.status < 400;
-      
+
       if (accepted || fileUri || notModified || unknownRedirect) {
         completer.complete(xhr);
       } else {
@@ -24911,7 +24911,7 @@ class _ChildNodeListLazy extends ListBase<Node> implements NodeListWrapper {
     throw new UnsupportedError("Cannot setRange on Node list");
   }
 
-  void fillRange(int start, int end, [Node fill]) {
+  void fillRange(int start, int end, Node fill) {
     throw new UnsupportedError("Cannot fillRange on Node list");
   }
   // -- end List<Node> mixins.
@@ -33367,10 +33367,10 @@ class Url extends Interceptor implements UrlUtils {
 
   static String createObjectUrlFromSource(MediaSource source) =>
       JS('String', '(self.URL || self.webkitURL).createObjectURL(#)', source);
-  
+
   static String createObjectUrlFromStream(MediaStream stream) =>
       JS('String', '(self.URL || self.webkitURL).createObjectURL(#)', stream);
-  
+
   static String createObjectUrlFromBlob(Blob blob) =>
       JS('String', '(self.URL || self.webkitURL).createObjectURL(#)', blob);
 
@@ -40787,11 +40787,11 @@ abstract class ImmutableListMixin<E> implements List<E> {
   }
 
   // From List<E>:
-  void sort([int compare(E a, E b)]) {
+  void sort([int compare(E a, E b)?]) {
     throw new UnsupportedError("Cannot sort immutable List.");
   }
 
-  void shuffle([Random random]) {
+  void shuffle([Random? random]) {
     throw new UnsupportedError("Cannot shuffle immutable List.");
   }
 
@@ -40839,7 +40839,7 @@ abstract class ImmutableListMixin<E> implements List<E> {
     throw new UnsupportedError("Cannot modify an immutable List.");
   }
 
-  void fillRange(int start, int end, [E fillValue]) {
+  void fillRange(int start, int end, E fillValue) {
     throw new UnsupportedError("Cannot modify an immutable List.");
   }
 }
@@ -42561,11 +42561,11 @@ class _WrappedList<E extends Node> extends ListBase<E>
 
   set length(int newLength) { _list.length = newLength; }
 
-  void sort([int compare(E a, E b)]) { _list.sort((Node a, Node b) => compare(_downcast/*<Node, E>*/(a), _downcast/*<Node, E>*/(b))); }
+  void sort([int compare(E a, E b)?]) { _list.sort((Node a, Node b) => compare(_downcast/*<Node, E>*/(a), _downcast/*<Node, E>*/(b))); }
 
   int indexOf(Object element, [int start = 0]) => _list.indexOf(element, start);
 
-  int lastIndexOf(Object element, [int start]) => _list.lastIndexOf(element, start);
+  int lastIndexOf(Object element, [int? start]) => _list.lastIndexOf(element, start);
 
   void insert(int index, E element) => _list.insert(index, element);
 
@@ -42581,7 +42581,7 @@ class _WrappedList<E extends Node> extends ListBase<E>
     _list.replaceRange(start, end, iterable);
   }
 
-  void fillRange(int start, int end, [E fillValue]) {
+  void fillRange(int start, int end, E fillValue) {
     _list.fillRange(start, end, fillValue);
   }
 
@@ -42643,7 +42643,7 @@ class FixedSizeListIterator<T> implements Iterator<T> {
   final int _length;  // Cache array length for faster access.
   int _position;
   T _current;
-  
+
   FixedSizeListIterator(List<T> array)
       : _array = array,
         _position = -1,

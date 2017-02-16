@@ -89,7 +89,7 @@ class Error {
 
   external static String _objectToString(Object object);
 
-  external StackTrace get stackTrace;
+  external StackTrace? get stackTrace;
 }
 
 /**
@@ -128,9 +128,9 @@ class ArgumentError extends Error {
   /** The invalid value. */
   final invalidValue;
   /** Name of the invalid argument, if available. */
-  final String name;
+  final String? name;
   /** Message describing the problem. */
-  final message;
+  final Object message;
 
   /**
    * The [message] describes the erroneous argument.
@@ -158,8 +158,8 @@ class ArgumentError extends Error {
    * interface method's argument name (or just rename arguments to match).
    */
   ArgumentError.value(value,
-                      [String this.name,
-                       String this.message])
+                      [this.name,
+                       String? this.message])
       : invalidValue = value,
         _hasValue = true;
 
@@ -195,9 +195,9 @@ class ArgumentError extends Error {
  */
 class RangeError extends ArgumentError {
   /** The minimum value that [value] is allowed to assume. */
-  final num start;
+  final num? start;
   /** The maximum value that [value] is allowed to assume. */
-  final num end;
+  final num? end;
 
   // TODO(lrn): This constructor should be called only with string values.
   // It currently isn't in all cases.
@@ -214,7 +214,7 @@ class RangeError extends ArgumentError {
    * invalid value, and the [message] can override the default error
    * description.
    */
-  RangeError.value(num value, [String name, String message])
+  RangeError.value(num value, [String? name, String? message])
       : start = null, end = null,
         super.value(value, name,
                     (message != null) ? message : "Value not in range");
@@ -233,8 +233,8 @@ class RangeError extends ArgumentError {
    * invalid value, and the [message] can override the default error
    * description.
    */
-  RangeError.range(num invalidValue, int minValue, int maxValue,
-                   [String name, String message])
+  RangeError.range(num invalidValue, int? minValue, int? maxValue,
+                   [String? name, String? message])
       : start = minValue,
         end = maxValue,
         super.value(invalidValue, name,
@@ -251,8 +251,6 @@ class RangeError extends ArgumentError {
    * The [length] is the length of [indexable] at the time of the error.
    * If `length` is omitted, it defaults to `indexable.length`.
    */
-  // TODO(nnbd-optional): Could be more terse if we implicitly make optional
-  // parameters without defaults nullable.
   factory RangeError.index(int index, indexable,
                            [String? name,
                             String? message,
@@ -265,7 +263,7 @@ class RangeError extends ArgumentError {
    * The interval is from [minValue] to [maxValue], both inclusive.
    */
   static void checkValueInInterval(int value, int minValue, int maxValue,
-                                   [String name, String message]) {
+                                   [String? name, String? message]) {
     if (value < minValue || value > maxValue) {
       throw new RangeError.range(value, minValue, maxValue, name, message);
     }
@@ -283,12 +281,15 @@ class RangeError extends ArgumentError {
    * otherwise the length is found as `indexable.length`.
    */
   static void checkValidIndex(int index, var indexable,
-                              [String name, int length, String message]) {
+                              [String? name, int? length, String? message]) {
     if (length == null) length = indexable.length;
+    // TODO(nnbd-assign): Knowing length is non-null past here would be nice.
+    // Using `??=` might be an easier way to do that in this case.
     // Comparing with `0` as receiver produces better dart2js type inference.
-    if (0 > index || index >= length) {
+    if (0 > index || index >= (length as int)) {
       if (name == null) name = "index";
-      throw new RangeError.index(index, indexable, name, message, length);
+      // TODO(nnbd-assign): Ditto.
+      throw new RangeError.index(index, indexable, (name as String), message, length);
     }
   }
 
@@ -308,19 +309,23 @@ class RangeError extends ArgumentError {
    * Returns the actual `end` value, which is `length` if `end` is `null`,
    * and `end` otherwise.
    */
-  static int checkValidRange(int start, int end, int length,
-                              [String startName, String endName,
-                               String message]) {
+  static int checkValidRange(int start, int? end, int length,
+                              [String? startName, String? endName,
+                               String? message]) {
     // Comparing with `0` as receiver produces better dart2js type inference.
     // Ditto `start > end` below.
     if (0 > start || start > length) {
       if (startName == null) startName = "start";
-      throw new RangeError.range(start, 0, length, startName, message);
+      // TODO(nnbd-assign): Knowing startName is non-null past here would be nice.
+      // Using `??=` might be an easier way to do that in this case.
+      throw new RangeError.range(start, 0, length, startName as String, message);
     }
     if (end != null) {
       if (start > end || end > length) {
         if (endName == null) endName = "end";
-        throw new RangeError.range(end, start, length, endName, message);
+        // TODO(nnbd-assign): Knowing endName is non-null past here would be nice.
+        // Using `??=` might be an easier way to do that in this case.
+        throw new RangeError.range(end, start, length, endName as String, message);
       }
       return end;
     }
@@ -332,7 +337,7 @@ class RangeError extends ArgumentError {
    *
    * Throws if the value is negative.
    */
-  static void checkNotNegative(int value, [String name, String message]) {
+  static void checkNotNegative(int value, [String? name, String? message]) {
     if (value < 0) throw new RangeError.range(value, 0, null, name, message);
   }
 
@@ -347,9 +352,11 @@ class RangeError extends ArgumentError {
       // If both are null, we don't add a description of the limits.
     } else if (end == null) {
       explanation = ": Not greater than or equal to $start";
-    } else if (end > start) {
+    } else if ((end as int) > (start as int)) {
+      // TODO(nnbd-else): We should know start and end are non-null here
+      // and below.
       explanation = ": Not in range $start..$end, inclusive";
-    } else if (end < start) {
+    } else if ((end as int) < (start as int)) {
       explanation = ": Valid value range is empty";
     } else {
       // end == start.
@@ -381,8 +388,6 @@ class IndexError extends ArgumentError implements RangeError {
    *
    * The message is used as part of the string representation of the error.
    */
-  // TODO(nnbd-optional): Could be more terse if we implicitly make optional
-  // parameters without defaults nullable.
   IndexError(int invalidValue, indexable,
              [String? name, String? message, int? length])
       : this.indexable = indexable,
@@ -438,7 +443,7 @@ class NoSuchMethodError extends Error {
   final Symbol _memberName;
   final List _arguments;
   final Map<Symbol, dynamic> _namedArguments;
-  final List _existingArgumentNames;
+  final List? _existingArgumentNames;
 
   /**
    * Create a [NoSuchMethodError] corresponding to a failed method call.
@@ -467,7 +472,7 @@ class NoSuchMethodError extends Error {
                     Symbol memberName,
                     List positionalArguments,
                     Map<Symbol ,dynamic> namedArguments,
-                    [List existingArgumentNames = null])
+                    [List? existingArgumentNames])
       : _receiver = receiver,
         _memberName = memberName,
         _arguments = positionalArguments,
@@ -485,7 +490,7 @@ class NoSuchMethodError extends Error {
  * in its signature.
  */
 class UnsupportedError extends Error {
-  final String message;
+  final String? message;
   UnsupportedError(this.message);
   String toString() => "Unsupported operation: $message";
 }
@@ -502,8 +507,12 @@ class UnsupportedError extends Error {
  * use during development.
  */
 class UnimplementedError extends Error implements UnsupportedError {
-  final String message;
-  UnimplementedError([String this.message]);
+  // TODO(nnbd-bug): Is making this nullable a valid override? UnsupportedError
+  // seems to treat it as non-nullable based on its toString() implementation.
+  // Made it nullable there to please the type checker, but it's not clear if
+  // that is desired.
+  final String? message;
+  UnimplementedError([this.message]);
   String toString() => (this.message != null
                         ? "UnimplementedError: $message"
                         : "UnimplementedError");
@@ -550,7 +559,7 @@ class OutOfMemoryError implements Error {
   const OutOfMemoryError();
   String toString() => "Out of Memory";
 
-  StackTrace get stackTrace => null;
+  StackTrace? get stackTrace => null;
 }
 
 
@@ -558,7 +567,7 @@ class StackOverflowError implements Error {
   const StackOverflowError();
   String toString() => "Stack Overflow";
 
-  StackTrace get stackTrace => null;
+  StackTrace? get stackTrace => null;
 }
 
 /**
@@ -569,7 +578,7 @@ class StackOverflowError implements Error {
  * another read of the variable, this error is thrown.
  */
 class CyclicInitializationError extends Error {
-  final String variableName;
+  final String? variableName;
   CyclicInitializationError([this.variableName]);
   String toString() => variableName == null
       ? "Reading static variable during its initialization"

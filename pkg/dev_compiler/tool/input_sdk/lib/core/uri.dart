@@ -44,7 +44,7 @@ class Uri {
    * The host name is the only mandatory part of an authority, so we use
    * it to mark whether an authority part was present or not.
    */
-  final String _host;
+  final String? _host;
 
   /**
    * The port number part of the authority.
@@ -52,7 +52,7 @@ class Uri {
    * The port. Set to null if there is no port. Normalized to null if
    * the port is the default port for the scheme.
    */
-  int _port;
+  int? _port;
 
   /**
    * The path of the URI.
@@ -62,21 +62,21 @@ class Uri {
   String _path;
 
   // The query content, or null if there is no query.
-  final String _query;
+  final String? _query;
 
   // The fragment content, or null if there is no fragment.
-  final String _fragment;
+  final String? _fragment;
 
   /**
    * Cache the computed return value of [pathSegements].
    */
-  List<String> _pathSegments;
+  List<String>? _pathSegments;
 
   /**
    * Cache the computed return value of [queryParameters].
    */
-  Map<String, String> _queryParameters;
-  Map<String, List<String>> _queryParameterLists;
+  Map<String, String>? _queryParameters;
+  Map<String, List<String>>? _queryParameterLists;
 
   /// Internal non-verifying constructor. Only call with validated arguments.
   Uri._internal(this.scheme,
@@ -160,13 +160,13 @@ class Uri {
    */
   factory Uri({String scheme : "",
                String userInfo : "",
-               String host,
-               int port,
-               String path,
-               Iterable<String> pathSegments,
-               String query,
-               Map<String, dynamic/*String|Iterable<String>*/> queryParameters,
-               String fragment}) {
+               String? host,
+               int? port,
+               String? path,
+               Iterable<String>? pathSegments,
+               String? query,
+               Map<String, dynamic/*String|Iterable<String>*/>? queryParameters,
+               String? fragment}) {
     scheme = _makeScheme(scheme, 0, _stringOrNullLength(scheme));
     userInfo = _makeUserInfo(userInfo, 0, _stringOrNullLength(userInfo));
     host = _makeHost(host, 0, _stringOrNullLength(host), false);
@@ -181,15 +181,17 @@ class Uri {
       host = "";
     }
     bool hasAuthority = (host != null);
-    path = _makePath(path, 0, _stringOrNullLength(path), pathSegments,
+    // TODO(nnbd-assign): Was just "path = ...". Changed it to a new variable
+    // because inference doesn't detect that it is non-nullable after this.
+    var path_ = _makePath(path, 0, _stringOrNullLength(path), pathSegments,
                      scheme, hasAuthority);
-    if (scheme.isEmpty && host == null && !path.startsWith('/')) {
-      path = _normalizeRelativePath(path);
+    if (scheme.isEmpty && host == null && !path_.startsWith('/')) {
+      path_ = _normalizeRelativePath(path_);
     } else {
-      path = _removeDotSegments(path);
+      path_ = _removeDotSegments(path_);
     }
     return new Uri._internal(scheme, userInfo, host, port,
-                             path, query, fragment);
+                             path_, query, fragment);
   }
 
   /**
@@ -227,7 +229,7 @@ class Uri {
    */
   factory Uri.http(String authority,
                    String unencodedPath,
-                   [Map<String, String> queryParameters]) {
+                   [Map<String, String>? queryParameters]) {
     return _makeHttpUri("http", authority, unencodedPath, queryParameters);
   }
 
@@ -239,7 +241,7 @@ class Uri {
    */
   factory Uri.https(String authority,
                     String unencodedPath,
-                    [Map<String, String> queryParameters]) {
+                    [Map<String, String>? queryParameters]) {
     return _makeHttpUri("https", authority, unencodedPath, queryParameters);
   }
 
@@ -281,10 +283,13 @@ class Uri {
    */
   String get host {
     if (_host == null) return "";
-    if (_host.startsWith('[')) {
-      return _host.substring(1, _host.length - 1);
+    // TODO(nnbd-final): We could conceivable promote _host to non-null here
+    // since it is final if we also knew it was sealed.
+    var h = _host as String;
+    if (h.startsWith('[')) {
+      return h.substring(1, h.length - 1);
     }
-    return _host;
+    return h;
   }
 
   /**
@@ -294,8 +299,10 @@ class Uri {
    * component. That's 80 for http, 443 for https, and 0 for everything else.
    */
   int get port {
-    if (_port == null) return _defaultPort(scheme);
-    return _port;
+    return _port ?? _defaultPort(scheme);
+    // TODO(nnbd): Was:
+    // if (_port == null) return _defaultPort(scheme);
+    // return _port;
   }
 
   // The default port for the scheme of this Uri..
@@ -321,7 +328,7 @@ class Uri {
    *
    * Returns the empty string if there is no query component.
    */
-  String get query => (_query == null) ? "" : _query;
+  String get query => _query ?? "";
 
   /**
    * Returns the fragment identifier component.
@@ -329,7 +336,7 @@ class Uri {
    * Returns the empty string if there is no fragment identifier
    * component.
    */
-  String get fragment => (_fragment == null) ? "" : _fragment;
+  String get fragment => _fragment ?? "";
 
   /**
    * Creates a new `Uri` object by parsing a URI string.
@@ -340,7 +347,7 @@ class Uri {
    * If the string is not valid as a URI or URI reference,
    * a [FormatException] is thrown.
    */
-  static Uri parse(String uri, [int start = 0, int end]) {
+  static Uri parse(String uri, [int start = 0, int? end]) {
     // This parsing will not validate percent-encoding, IPv6, etc.
     // When done splitting into parts, it will call, e.g., [_makeFragment]
     // to do the final parsing.
@@ -398,12 +405,16 @@ class Uri {
 
     String scheme = "";
     String userinfo = "";
-    String host = null;
-    int port = null;
-    String path = null;
-    String query = null;
-    String fragment = null;
-    if (end == null) end = uri.length;
+    String? host = null;
+    int? port = null;
+    String? path = null;
+    String? query = null;
+    String? fragment = null;
+
+    var end_ = end ?? uri.length;
+    // TODO(nnbd-assign): Could reuse "end" variable with flow inference.
+    // Was:
+    // if (end == null) end_ = uri.length;
 
     int index = start;
     int pathStart = start;
@@ -411,7 +422,7 @@ class Uri {
     int char = EOI;
 
     void parseAuth() {
-      if (index == end) {
+      if (index == end_) {
         char = EOI;
         return;
       }
@@ -419,7 +430,7 @@ class Uri {
       int lastColon = -1;
       int lastAt = -1;
       char = uri.codeUnitAt(index);
-      while (index < end) {
+      while (index < end_) {
         char = uri.codeUnitAt(index);
         if (char == _SLASH || char == _QUESTION || char == _NUMBER_SIGN) {
           break;
@@ -433,7 +444,7 @@ class Uri {
           lastColon = -1;
           int endBracket = uri.indexOf(']', index + 1);
           if (endBracket == -1) {
-            index = end;
+            index = end_;
             char = EOI;
             break;
           } else {
@@ -450,9 +461,11 @@ class Uri {
         hostStart = lastAt + 1;
       }
       if (lastColon >= 0) {
-        int portNumber;
+        // TODO(nnbd): Originally, portNumber was hoisted out of the
+        // if. Moved it in and added an else clause to avoid needing to
+        // make it nullable. Is there a better way to handle this?
         if (lastColon + 1 < index) {
-          portNumber = 0;
+          var portNumber = 0;
           for (int i = lastColon + 1; i < index; i++) {
             int digit = uri.codeUnitAt(i);
             if (_ZERO > digit || _NINE < digit) {
@@ -460,12 +473,14 @@ class Uri {
             }
             portNumber = portNumber * 10 + (digit - _ZERO);
           }
+          port = _makePort(portNumber, scheme);
+        } else {
+          port = _makePort(null, scheme);
         }
-        port = _makePort(portNumber, scheme);
         hostEnd = lastColon;
       }
       host = _makeHost(uri, hostStart, hostEnd, true);
-      if (index < end) {
+      if (index < end_) {
         char = uri.codeUnitAt(index);
       }
     }
@@ -486,7 +501,7 @@ class Uri {
     // All other breaks set their own state.
     int state = NOT_IN_PATH;
     int i = index;  // Temporary alias for index to avoid bug 19550 in dart2js.
-    while (i < end) {
+    while (i < end_) {
       char = uri.codeUnitAt(i);
       if (char == _QUESTION || char == _NUMBER_SIGN) {
         state = NOT_IN_PATH;
@@ -501,7 +516,7 @@ class Uri {
         scheme = _makeScheme(uri, start, i);
         i++;
         pathStart = i;
-        if (i == end) {
+        if (i == end_) {
           char = EOI;
           state = NOT_IN_PATH;
         } else {
@@ -526,7 +541,7 @@ class Uri {
       // Have seen one slash either at start or right after scheme.
       // If two slashes, it's an authority, otherwise it's just the path.
       index++;
-      if (index == end) {
+      if (index == end_) {
         char = EOI;
         state = NOT_IN_PATH;
       } else {
@@ -548,7 +563,7 @@ class Uri {
     if (state == IN_PATH) {
       // Characters from pathStart to index (inclusive) are known
       // to be part of the path.
-      while (++index < end) {
+      while (++index < end_) {
         char = uri.codeUnitAt(index);
         if (char == _QUESTION || char == _NUMBER_SIGN) {
           break;
@@ -560,30 +575,32 @@ class Uri {
 
     assert(state == NOT_IN_PATH);
     bool hasAuthority = (host != null);
-    path = _makePath(uri, pathStart, index, null, scheme, hasAuthority);
+    // TODO(nnbd-assign): Had to declare a new variable here since "path" is
+    // nullable.
+    var path_ = _makePath(uri, pathStart, index, null, scheme, hasAuthority);
 
     if (char == _QUESTION) {
       int numberSignIndex = -1;
-      for (int i = index + 1; i < end; i++) {
+      for (int i = index + 1; i < end_; i++) {
         if (uri.codeUnitAt(i) == _NUMBER_SIGN) {
           numberSignIndex = i;
           break;
         }
       }
       if (numberSignIndex < 0) {
-        query = _makeQuery(uri, index + 1, end, null);
+        query = _makeQuery(uri, index + 1, end_, null);
       } else {
         query = _makeQuery(uri, index + 1, numberSignIndex, null);
-        fragment = _makeFragment(uri, numberSignIndex + 1, end);
+        fragment = _makeFragment(uri, numberSignIndex + 1, end_);
       }
     } else if (char == _NUMBER_SIGN) {
-      fragment = _makeFragment(uri, index + 1, end);
+      fragment = _makeFragment(uri, index + 1, end_);
     }
     return new Uri._internal(scheme,
                              userinfo,
                              host,
                              port,
-                             path,
+                             path_,
                              query,
                              fragment);
   }
@@ -596,10 +613,13 @@ class Uri {
   static Uri _makeHttpUri(String scheme,
                           String authority,
                           String unencodedPath,
-                          Map<String, String> queryParameters) {
+                          Map<String, String>? queryParameters) {
     var userInfo = "";
-    var host = null;
-    var port = null;
+    // TODO(nnbd-bug): These were originally "var", which meant dynamic.
+    // Not sure if the intent was to disable all type checking on them, but
+    // that's what it did.
+    String? host = null;
+    int? port = null;
 
     if (authority != null && authority.isNotEmpty) {
       var hostStart = 0;
@@ -733,10 +753,14 @@ class Uri {
    *
    * If the path passed is not a legal file path [ArgumentError] is thrown.
    */
-  factory Uri.file(String path, {bool windows}) {
-    windows = (windows == null) ? Uri._isWindows : windows;
-    return windows ? _makeWindowsFileUrl(path, false)
-                   : _makeFileUri(path, false);
+  factory Uri.file(String path, {bool? windows}) {
+    // TODO(nnbd): Using "??" because it promotes better. Was:
+    // windows = (windows == null) ? Uri._isWindows : windows;
+    // return windows ? _makeWindowsFileUrl(path, false)
+    //                : _makeFileUri(path, false);
+    return (windows ?? Uri._isWindows)
+        ? _makeWindowsFileUrl(path, false)
+        : _makeFileUri(path, false);
   }
 
   /**
@@ -746,10 +770,14 @@ class Uri {
    * then a slash is added to the returned URI's path.
    * In all other cases, the result is the same as returned by `Uri.file`.
    */
-  factory Uri.directory(String path, {bool windows}) {
-    windows = (windows == null) ? Uri._isWindows : windows;
-    return windows ? _makeWindowsFileUrl(path, true)
-                   : _makeFileUri(path, true);
+  factory Uri.directory(String path, {bool? windows}) {
+    // TODO(nnbd): Using "??" because it promotes better. Was:
+    // windows = (windows == null) ? Uri._isWindows : windows;
+    // return windows ? _makeWindowsFileUrl(path, true)
+    //                : _makeFileUri(path, true);
+    return (windows ?? Uri._isWindows)
+        ? _makeWindowsFileUrl(path, true)
+        : _makeFileUri(path, true);
   }
 
   /**
@@ -781,9 +809,9 @@ class Uri {
    * To read the content back, use [UriData.contentAsString].
    */
   factory Uri.dataFromString(String content,
-                             {String mimeType,
-                              Encoding encoding,
-                              Map<String, String> parameters,
+                             {String? mimeType,
+                              Encoding? encoding,
+                              Map<String, String>? parameters,
                               bool base64: false}) {
     UriData data =  new UriData.fromString(content,
                                            mimeType: mimeType,
@@ -811,7 +839,7 @@ class Uri {
    */
   factory Uri.dataFromBytes(List<int> bytes,
                             {mimeType: "application/octet-stream",
-                             Map<String, String> parameters,
+                             Map<String, String>? parameters,
                              percentEncoded: false}) {
     UriData data = new UriData.fromBytes(bytes,
                                          mimeType: mimeType,
@@ -1003,57 +1031,58 @@ class Uri {
    * call above, but may also be slightly faster because the parts taken
    * from this `Uri` need not be checked for validity again.
    */
-  Uri replace({String scheme,
-               String userInfo,
-               String host,
-               int port,
-               String path,
-               Iterable<String> pathSegments,
-               String query,
-               Map<String, dynamic/*String|Iterable<String>*/> queryParameters,
-               String fragment}) {
+  Uri replace({String? scheme,
+               String? userInfo,
+               String? host,
+               int? port,
+               String? path,
+               Iterable<String>? pathSegments,
+               String? query,
+               Map<String, dynamic/*String|Iterable<String>*/>? queryParameters,
+               String? fragment}) {
     // Set to true if the scheme has (potentially) changed.
     // In that case, the default port may also have changed and we need
     // to check even the existing port.
     bool schemeChanged = false;
+    String scheme_ = this.scheme;
     if (scheme != null) {
-      scheme = _makeScheme(scheme, 0, scheme.length);
+      scheme_ = _makeScheme(scheme, 0, scheme.length);
       schemeChanged = true;
-    } else {
-      scheme = this.scheme;
     }
-    bool isFile = (scheme == "file");
+    bool isFile = (scheme_ == "file");
+    var userInfo_ = this._userInfo;
     if (userInfo != null) {
-      userInfo = _makeUserInfo(userInfo, 0, userInfo.length);
-    } else {
-      userInfo = this._userInfo;
+      userInfo_ = _makeUserInfo(userInfo, 0, userInfo.length);
     }
     if (port != null) {
-      port = _makePort(port, scheme);
+      port = _makePort(port, scheme_);
     } else {
       port = this._port;
       if (schemeChanged) {
         // The default port might have changed.
-        port = _makePort(port, scheme);
+        port = _makePort(port, scheme_);
       }
     }
     if (host != null) {
-      host = _makeHost(host, 0, host.length, false);
+      // TODO(nnbd-mutate): Promotion doesn't work in the if condition
+      // because host is being assigned to on the next line. It would be
+      // good if it handled that case better.
+      host = _makeHost(host as String, 0, (host as String).length, false);
     } else if (this.hasAuthority) {
       host = this._host;
-    } else if (userInfo.isNotEmpty || port != null || isFile) {
+    } else if (userInfo_.isNotEmpty || port != null || isFile) {
       host = "";
     }
 
     bool hasAuthority = host != null;
+    var path_ = this._path;
     if (path != null || pathSegments != null) {
-      path = _makePath(path, 0, _stringOrNullLength(path), pathSegments,
-                       scheme, hasAuthority);
+      path_ = _makePath(path, 0, _stringOrNullLength(path), pathSegments,
+                       scheme_, hasAuthority);
     } else {
-      path = this._path;
-      if ((isFile || (hasAuthority && !path.isEmpty)) &&
-          !path.startsWith('/')) {
-        path = "/" + path;
+      if ((isFile || (hasAuthority && !path_.isEmpty)) &&
+          !path_.startsWith('/')) {
+        path_ = "/" + path_;
       }
     }
 
@@ -1063,14 +1092,15 @@ class Uri {
       query = this._query;
     }
 
+    var fragment_ = this._fragment;
     if (fragment != null) {
-      fragment = _makeFragment(fragment, 0, fragment.length);
-    } else {
-      fragment = this._fragment;
+      // TODO(nnbd-mutate): Promotion fails here because fragment is being
+      // assigned to. Handle that better?
+      fragment_ = _makeFragment(fragment, 0, fragment.length);
     }
 
     return new Uri._internal(
-        scheme, userInfo, host, port, path, query, fragment);
+        scheme_, userInfo_, host, port, path_, query, fragment_);
   }
 
   /**
@@ -1093,14 +1123,14 @@ class Uri {
    * calls that would mutate it.
    */
   List<String> get pathSegments {
-    var result = _pathSegments;
-    if (result != null) return result;
+    // TODO(nnbd-final): Something like "!!" would be nice here.
+    if (_pathSegments != null) return _pathSegments as List<String>;
 
     var pathToSplit = path;
     if (pathToSplit.isNotEmpty && pathToSplit.codeUnitAt(0) == _SLASH) {
       pathToSplit = pathToSplit.substring(1);
     }
-    result = (pathToSplit == "")
+    var result = (pathToSplit == "")
         ? const<String>[]
         : new List<String>.unmodifiable(
               pathToSplit.split("/").map(Uri.decodeComponent));
@@ -1129,7 +1159,9 @@ class Uri {
       _queryParameters =
           new UnmodifiableMapView<String, String>(splitQueryString(query));
     }
-    return _queryParameters;
+    // TODO(nnbd-assert): Something like "!!" might help here. We can't rely on
+    // promotion since _queryParameters is a field.
+    return _queryParameters as Map<String, String>;
   }
 
   /**
@@ -1155,7 +1187,8 @@ class Uri {
       _queryParameterLists =
           new Map<String, List<String>>.unmodifiable(queryParameterLists);
     }
-    return _queryParameterLists;
+    // TODO(nnbd-assert): "!!" would help here.
+    return _queryParameterLists as Map<String, List<String>>;
   }
 
   /**
@@ -1180,7 +1213,7 @@ class Uri {
     return this.replace(path: path);
   }
 
-  static int _makePort(int port, String scheme) {
+  static int? _makePort(int? port, String scheme) {
     // Perform scheme specific normalization.
     if (port != null && port == _defaultPort(scheme)) return null;
     return port;
@@ -1197,29 +1230,32 @@ class Uri {
    * This escapes all characters not valid in a reg-name,
    * and converts all non-escape upper-case letters to lower-case.
    */
-  static String _makeHost(String host, int start, int end, bool strictIPv6) {
+  static String? _makeHost(String? host, int start, int end, bool strictIPv6) {
     // TODO(lrn): Should we normalize IPv6 addresses according to RFC 5952?
     if (host == null) return null;
     if (start == end) return "";
     // Host is an IPv6 address if it starts with '[' or contains a colon.
-    if (host.codeUnitAt(start) == _LEFT_BRACKET) {
-      if (host.codeUnitAt(end - 1) != _RIGHT_BRACKET) {
-        _fail(host, start, 'Missing end `]` to match `[` in host');
+    // TODO(nnbd-exit): Should know that host is non-null here since we exited
+    // above if it was null.
+    var host_ = host as String;
+    if (host_.codeUnitAt(start) == _LEFT_BRACKET) {
+      if (host_.codeUnitAt(end - 1) != _RIGHT_BRACKET) {
+        _fail(host_, start, 'Missing end `]` to match `[` in host');
       }
-      parseIPv6Address(host, start + 1, end - 1);
+      parseIPv6Address(host_, start + 1, end - 1);
       // RFC 5952 requires hex digits to be lower case.
-      return host.substring(start, end).toLowerCase();
+      return host_.substring(start, end).toLowerCase();
     }
     if (!strictIPv6) {
       // TODO(lrn): skip if too short to be a valid IPv6 address?
       for (int i = start; i < end; i++) {
-        if (host.codeUnitAt(i) == _COLON) {
-          parseIPv6Address(host, start, end);
-          return '[$host]';
+        if (host_.codeUnitAt(i) == _COLON) {
+          parseIPv6Address(host_, start, end);
+          return '[$host_]';
         }
       }
     }
-    return _normalizeRegName(host, start, end);
+    return _normalizeRegName(host_, start, end);
   }
 
   static bool _isRegNameChar(int char) {
@@ -1234,7 +1270,16 @@ class Uri {
    * lower case unreserved characters or upper case escapes.
    */
   static String _normalizeRegName(String host, int start, int end) {
-    StringBuffer buffer;
+    // TODO(nnbd-assign): Is this a common enough pattern that it's worth
+    // introducing some kind of lazy-initialized local variable? That would
+    // let this be non-nullable but avoid doing the initialization if it's
+    // never read.
+    //
+    // If not, it would be nice if promotion was smarter here. Every place we
+    // call buffer.write() is definitely preceded by an assignment to it if it's
+    // null.
+    StringBuffer? buffer;
+
     int sectionStart = start;
     int index = start;
     // Whether all characters between sectionStart and index are normalized,
@@ -1244,7 +1289,7 @@ class Uri {
       int char = host.codeUnitAt(index);
       if (char == _PERCENT) {
         // The _regNameTable contains "%", so we check that first.
-        String replacement = _normalizeEscape(host, index, true);
+        String? replacement = _normalizeEscape(host, index, true);
         if (replacement == null && isNormalized) {
           index += 3;
           continue;
@@ -1252,7 +1297,7 @@ class Uri {
         if (buffer == null) buffer = new StringBuffer();
         String slice = host.substring(sectionStart, index);
         if (!isNormalized) slice = slice.toLowerCase();
-        buffer.write(slice);
+        (buffer as StringBuffer).write(slice);
         int sourceLength = 3;
         if (replacement == null) {
           replacement = host.substring(index, index + 3);
@@ -1260,7 +1305,7 @@ class Uri {
           replacement = "%25";
           sourceLength = 1;
         }
-        buffer.write(replacement);
+        (buffer as StringBuffer).write(replacement);
         index += sourceLength;
         sectionStart = index;
         isNormalized = true;
@@ -1269,7 +1314,7 @@ class Uri {
           // Put initial slice in buffer and continue in non-normalized mode
           if (buffer == null) buffer = new StringBuffer();
           if (sectionStart < index) {
-            buffer.write(host.substring(sectionStart, index));
+            (buffer as StringBuffer).write(host.substring(sectionStart, index));
             sectionStart = index;
           }
           isNormalized = false;
@@ -1289,8 +1334,8 @@ class Uri {
         if (buffer == null) buffer = new StringBuffer();
         String slice = host.substring(sectionStart, index);
         if (!isNormalized) slice = slice.toLowerCase();
-        buffer.write(slice);
-        buffer.write(_escapeChar(char));
+        (buffer as StringBuffer).write(slice);
+        (buffer as StringBuffer).write(_escapeChar(char));
         index += sourceLength;
         sectionStart = index;
       }
@@ -1299,9 +1344,9 @@ class Uri {
     if (sectionStart < end) {
       String slice = host.substring(sectionStart, end);
       if (!isNormalized) slice = slice.toLowerCase();
-      buffer.write(slice);
+      (buffer as StringBuffer).write(slice);
     }
-    return buffer.toString();
+    return (buffer as StringBuffer).toString();
   }
 
   /**
@@ -1335,8 +1380,8 @@ class Uri {
     return _normalize(userInfo, start, end, _userinfoTable);
   }
 
-  static String _makePath(String path, int start, int end,
-                          Iterable<String> pathSegments,
+  static String _makePath(String? path, int start, int end,
+                          Iterable<String>? pathSegments,
                           String scheme,
                           bool hasAuthority) {
     bool isFile = (scheme == "file");
@@ -1348,7 +1393,10 @@ class Uri {
     var result;
     if (path != null) {
       result = _normalize(path, start, end, _pathCharOrSlashTable);
-    } else {
+    } else if (pathSegments != null) {
+      // TODO(nnbd): The above check is redundant dynamically since the above
+      // null checks ensure that if path is null then pathSegments is not, but
+      // checking it explicitly promotes it here.
       result = pathSegments.map((s) =>
           _uriEncode(_pathCharTable, s, UTF8, false)).join("/");
     }
@@ -1373,9 +1421,9 @@ class Uri {
     return _removeDotSegments(path);
   }
 
-  static String _makeQuery(
-      String query, int start, int end,
-      Map<String, dynamic/*String|Iterable<String>*/> queryParameters) {
+  static String? _makeQuery(
+      String? query, int start, int end,
+      Map<String, dynamic/*String|Iterable<String>*/>? queryParameters) {
     if (query == null && queryParameters == null) return null;
     if (query != null && queryParameters != null) {
       throw new ArgumentError('Both query and queryParameters specified');
@@ -1395,7 +1443,12 @@ class Uri {
       }
     }
 
-    queryParameters.forEach((key, value) {
+    // TODO(nnbd-assert): The above null checks around query ensure that we
+    // only get here if queryParameters is not null. That's a little too clever
+    // for promotion to handle, so "!!" here would help. Alternatively, this
+    // function's API could be changed to not have a pair of "one or the other
+    // but not both" parameters.
+    (queryParameters as Map<String, dynamic/*String|Iterable<String>*/>).forEach((key, value) {
       if (value == null || value is String) {
         writeParameter(key, value);
       } else {
@@ -1408,12 +1461,18 @@ class Uri {
     return result.toString();
   }
 
-  static String _makeFragment(String fragment, int start, int end) {
-    if (fragment == null) return null;
-    return _normalize(fragment, start, end, _queryCharTable);
+  static String? _makeFragment(String? fragment, int start, int end) {
+    // TODO(nnbd-exit): Flow-based promotion would help here. Was:
+    // if (fragment == null) return null;
+    // return _normalize(fragment, start, end, _queryCharTable);
+    if (fragment != null) _normalize(fragment, start, end, _queryCharTable);
+    return null;
   }
 
-  static int _stringOrNullLength(String s) => (s == null) ? 0 : s.length;
+  // TODO(nnbd-else): Should promote to non-null on else side of conditional.
+  // Was:
+  // static int _stringOrNullLength(String? s) => (s == null) ? 0 : s.length;
+  static int _stringOrNullLength(String? s) => s?.length ?? 0;
 
   /**
    * Performs RFC 3986 Percent-Encoding Normalization.
@@ -1428,7 +1487,7 @@ class Uri {
    *
    * If [lowerCase] is true, a single character returned is always lower case,
    */
-  static String _normalizeEscape(String source, int index, bool lowerCase) {
+  static String? _normalizeEscape(String source, int index, bool lowerCase) {
     assert(source.codeUnitAt(index) == _PERCENT);
     if (index + 2 >= source.length) {
       return "%";  // Marks the escape as invalid.
@@ -1470,13 +1529,15 @@ class Uri {
 
   static String _escapeChar(int char) {
     assert(char <= 0x10ffff);  // It's a valid unicode code point.
-    List<int> codeUnits;
+    // TODO(nnbd-definite): Definite assignment inference would help here. Every
+    // place this variable is used definitely follow an initialization of it.
+    List<int>? codeUnits;
     if (char < 0x80) {
       // ASCII, a single percent encoded sequence.
       codeUnits = new List(3);
-      codeUnits[0] = _PERCENT;
-      codeUnits[1] = _hexDigits.codeUnitAt(char >> 4);
-      codeUnits[2] = _hexDigits.codeUnitAt(char & 0xf);
+      (codeUnits as List<int>)[0] = _PERCENT;
+      (codeUnits as List<int>)[1] = _hexDigits.codeUnitAt(char >> 4);
+      (codeUnits as List<int>)[2] = _hexDigits.codeUnitAt(char & 0xf);
     } else {
       // Do UTF-8 encoding of character, then percent encode bytes.
       int flag = 0xc0;  // The high-bit markers on the first byte of UTF-8.
@@ -1493,14 +1554,14 @@ class Uri {
       int index = 0;
       while (--encodedBytes >= 0) {
         int byte = ((char >> (6 * encodedBytes)) & 0x3f) | flag;
-        codeUnits[index] = _PERCENT;
-        codeUnits[index + 1] = _hexDigits.codeUnitAt(byte >> 4);
-        codeUnits[index + 2] = _hexDigits.codeUnitAt(byte & 0xf);
+        (codeUnits as List<int>)[index] = _PERCENT;
+        (codeUnits as List<int>)[index + 1] = _hexDigits.codeUnitAt(byte >> 4);
+        (codeUnits as List<int>)[index + 2] = _hexDigits.codeUnitAt(byte & 0xf);
         index += 3;
         flag = 0x80;  // Following bytes have only high bit set.
       }
     }
-    return new String.fromCharCodes(codeUnits);
+    return new String.fromCharCodes((codeUnits as List<int>));
   }
 
   /**
@@ -1514,7 +1575,9 @@ class Uri {
    */
   static String _normalize(String component, int start, int end,
                            List<int> charTable) {
-    StringBuffer buffer;
+    // TODO(nnbd-definite): Another case where definite assignment flow analysis
+    // would help.
+    StringBuffer? buffer;
     int sectionStart = start;
     int index = start;
     // Loop while characters are valid and escapes correct and upper-case.
@@ -1523,8 +1586,10 @@ class Uri {
       if (char < 127 && (charTable[char >> 4] & (1 << (char & 0x0f))) != 0) {
         index++;
       } else {
-        String replacement;
-        int sourceLength;
+        String? replacement;
+        // TODO(nnbd-definite): Initializing with nonsense value. Smarter flow
+        // analysis could tell this is always assigned before it is used.
+        int sourceLength = 0;
         if (char == _PERCENT) {
           replacement = _normalizeEscape(component, index, false);
           // Returns null if we should keep the existing escape.
@@ -1540,6 +1605,9 @@ class Uri {
             sourceLength = 3;
           }
         } else if (_isGeneralDelimiter(char)) {
+          // TODO(nnbd): For the above flow analysis to work, we need a
+          // user-visible bottom type for this function so we know that this
+          // call causes an exit.
           _fail(component, index, "Invalid character");
         } else {
           sourceLength = 1;
@@ -1557,8 +1625,8 @@ class Uri {
           replacement = _escapeChar(char);
         }
         if (buffer == null) buffer = new StringBuffer();
-        buffer.write(component.substring(sectionStart, index));
-        buffer.write(replacement);
+        (buffer as StringBuffer).write(component.substring(sectionStart, index));
+        (buffer as StringBuffer).write(replacement);
         index += sourceLength;
         sectionStart = index;
       }
@@ -1568,9 +1636,9 @@ class Uri {
       return component.substring(start, end);
     }
     if (sectionStart < end) {
-      buffer.write(component.substring(sectionStart, end));
+      (buffer as StringBuffer).write(component.substring(sectionStart, end));
     }
-    return buffer.toString();
+    return (buffer as StringBuffer).toString();
   }
 
   static bool _isSchemeCharacter(int ch) {
@@ -1727,12 +1795,12 @@ class Uri {
    */
   Uri resolveUri(Uri reference) {
     // From RFC 3986.
-    String targetScheme;
+    String targetScheme = this.scheme;
     String targetUserInfo = "";
-    String targetHost;
-    int targetPort;
-    String targetPath;
-    String targetQuery;
+    String? targetHost;
+    int? targetPort;
+    String? targetPath;
+    String? targetQuery;
     if (reference.scheme.isNotEmpty) {
       targetScheme = reference.scheme;
       if (reference.hasAuthority) {
@@ -1745,7 +1813,6 @@ class Uri {
         targetQuery = reference.query;
       }
     } else {
-      targetScheme = this.scheme;
       if (reference.hasAuthority) {
         targetUserInfo = reference.userInfo;
         targetHost = reference.host;
@@ -1793,12 +1860,14 @@ class Uri {
         }
       }
     }
-    String fragment = reference.hasFragment ? reference.fragment : null;
+    String? fragment = reference.hasFragment ? reference.fragment : null;
+    // TODO(nnbd-definite): It involves quite a few nested ifs, but flow analysis
+    // could tell that targetPath is non-null here.
     return new Uri._internal(targetScheme,
                              targetUserInfo,
                              targetHost,
                              targetPort,
-                             targetPath,
+                             targetPath as String,
                              targetQuery,
                              fragment);
   }
@@ -1926,7 +1995,7 @@ class Uri {
    * If the URI cannot be converted to a file path calling this throws
    * [UnsupportedError].
    */
-  String toFilePath({bool windows}) {
+  String toFilePath({bool? windows}) {
     if (scheme != "" && scheme != "file") {
       throw new UnsupportedError(
           "Cannot extract a file path from a $scheme URI");
@@ -1939,8 +2008,11 @@ class Uri {
       throw new UnsupportedError(
           "Cannot extract a file path from a URI with a fragment component");
     }
-    if (windows == null) windows = _isWindows;
-    return windows ? _toWindowsFilePath() : _toFilePath();
+    // TODO(nnbd-assign): Promotion doesn't work here because windows is
+    // being assigned. It could be smarter. Instead, rearranged the code. Was:
+    // if (windows == null) windows = _isWindows;
+    // return windows ? _toWindowsFilePath() : _toFilePath();
+    return (windows ?? _isWindows) ? _toWindowsFilePath() : _toFilePath();
   }
 
   String _toFilePath() {
@@ -2005,7 +2077,7 @@ class Uri {
    * The [UriData] object can be used to access the media type and data
    * of a `data:` URI.
    */
-  UriData get data => (scheme == "data") ? new UriData.fromUri(this) : null;
+  UriData? get data => (scheme == "data") ? new UriData.fromUri(this) : null;
 
   String toString() {
     StringBuffer sb = new StringBuffer();
@@ -2215,8 +2287,9 @@ class Uri {
     int equalsIndex = -1;
 
     void parsePair(int start, int equalsIndex, int end) {
-      String key;
-      String value;
+      // TODO(nnbd-definite): Definite assignment analysis would help here.
+      String key = "nnbd-nonsense";
+      String value = "nnbd-nonsense";
       if (start == end) return;
       if (equalsIndex < 0) {
         key =  _uriDecode(query, start, end, encoding, true);
@@ -2289,8 +2362,12 @@ class Uri {
    *  * ::FFFF:129.144.52.38
    *  * 2010:836B:4179::836B:4179
    */
-  static List<int> parseIPv6Address(String host, [int start = 0, int end]) {
-    if (end == null) end = host.length;
+  static List<int> parseIPv6Address(String host, [int start = 0, int? end]) {
+    // TODO(nnbd-assign): Promotion doesn't work here because end is being
+    // assigned. Was:
+    // if (end == null) end = host.length;
+    var end_ = end ?? host.length;
+
     // An IPv6 address consists of exactly 8 parts of 1-4 hex digits, seperated
     // by `:`'s, with the following exceptions:
     //
@@ -2315,7 +2392,7 @@ class Uri {
     bool wildcardSeen = false;
     int partStart = start;
     // Parse all parts, except a potential last one.
-    for (int i = start; i < end; i++) {
+    for (int i = start; i < end_; i++) {
       if (host.codeUnitAt(i) == _COLON) {
         if (i == start) {
           // If we see a `:` in the beginning, expect wildcard.
@@ -2340,18 +2417,18 @@ class Uri {
       }
     }
     if (parts.length == 0) error('too few parts');
-    bool atEnd = (partStart == end);
+    bool atEnd = (partStart == end_);
     bool isLastWildcard = (parts.last == -1);
     if (atEnd && !isLastWildcard) {
-      error('expected a part after last `:`', end);
+      error('expected a part after last `:`', end_);
     }
     if (!atEnd) {
       try {
-        parts.add(parseHex(partStart, end));
+        parts.add(parseHex(partStart, end_));
       } catch (e) {
         // Failed to parse the last chunk as hex. Try IPv4.
         try {
-          List<int> last = parseIPv4Address(host.substring(partStart, end));
+          List<int> last = parseIPv4Address(host.substring(partStart, end_));
           parts.add(last[0] << 8 | last[1]);
           parts.add(last[2] << 8 | last[3]);
         } catch (e) {
@@ -2474,7 +2551,8 @@ class Uri {
         break;
       }
     }
-    List<int> bytes;
+    // TODO(nnbd-definite): Definite assignment would help here.
+    List<int>? bytes;
     if (simple) {
       if (UTF8 == encoding || LATIN1 == encoding || ASCII == encoding) {
         return text.substring(start, end);
@@ -2492,16 +2570,16 @@ class Uri {
           if (i + 3 > text.length) {
             throw new ArgumentError('Truncated URI');
           }
-          bytes.add(_hexCharPairToByte(text, i + 1));
+          (bytes as List<int>).add(_hexCharPairToByte(text, i + 1));
           i += 2;
         } else if (plusToSpace && codeUnit == _PLUS) {
-          bytes.add(_SPACE);
+          (bytes as List<int>).add(_SPACE);
         } else {
-          bytes.add(codeUnit);
+          (bytes as List<int>).add(codeUnit);
         }
       }
     }
-    return encoding.decode(bytes);
+    return encoding.decode(bytes as List<int>);
   }
 
   static bool _isAlphabeticCharacter(int codeUnit) {
@@ -2814,7 +2892,7 @@ class UriData {
   /**
    * Cache of the result returned by [uri].
    */
-  Uri _uriCache;
+  Uri? _uriCache;
 
   UriData._(this._text, this._separatorIndices, this._uriCache);
 
@@ -2825,33 +2903,37 @@ class UriData {
    * be more efficient if the [uri] itself isn't used.
    */
   factory UriData.fromString(String content,
-                             {String mimeType,
-                              Encoding encoding,
-                              Map<String, String> parameters,
+                             {String? mimeType,
+                              Encoding? encoding,
+                              Map<String, String>? parameters,
                               bool base64: false}) {
     StringBuffer buffer = new StringBuffer();
     List<int> indices = [_noScheme];
-    String charsetName;
-    String encodingName;
+    String? charsetName;
+    String? encodingName;
     if (parameters != null) charsetName = parameters["charset"];
     if (encoding == null) {
       if (charsetName != null) {
         encoding = Encoding.getByName(charsetName);
       }
     } else if (charsetName == null) {
+      // TODO(nnbd-else): Should promote encoding to non-null in else
+      // branch.
       // Non-null only if parameters does not contain "charset".
-      encodingName = encoding.name;
+      encodingName = (encoding as Encoding).name;
     }
-    encoding ??= ASCII;
+    // TODO(nnbd-assign): Could tell that encoding is non-null after this. Was:
+    // encoding ??= ASCII;
+    var encoding_ = encoding ?? ASCII;
     _writeUri(mimeType, encodingName, parameters, buffer, indices);
     indices.add(buffer.length);
     if (base64) {
       buffer.write(';base64,');
       indices.add(buffer.length - 1);
-      buffer.write(encoding.fuse(BASE64).encode(content));
+      buffer.write(encoding_.fuse(BASE64).encode(content));
     } else {
       buffer.write(',');
-      _uriEncodeBytes(_uricTable, encoding.encode(content), buffer);
+      _uriEncodeBytes(_uricTable, encoding_.encode(content), buffer);
     }
     return new UriData._(buffer.toString(), indices, null);
   }
@@ -2864,7 +2946,7 @@ class UriData {
    */
   factory UriData.fromBytes(List<int> bytes,
                             {mimeType: "application/octet-stream",
-                             Map<String, String> parameters,
+                             Map<String, String>? parameters,
                              percentEncoded: false}) {
     StringBuffer buffer = new StringBuffer();
     List<int> indices = [_noScheme];
@@ -2920,27 +3002,30 @@ class UriData {
    * Of an [indices] list is passed, separator indices are stored in that
    * list.
    */
-  static void _writeUri(String mimeType,
-                        String charsetName,
-                        Map<String, String> parameters,
+  static void _writeUri(String? mimeType,
+                        String? charsetName,
+                        Map<String, String>? parameters,
                         StringBuffer buffer, List indices) {
     if (mimeType == null || mimeType == "text/plain") {
       mimeType = "";
     }
-    if (mimeType.isEmpty || identical(mimeType, "application/octet-stream")) {
-      buffer.write(mimeType);  // Common cases need no escaping.
+    // TODO(nnbd-assign): Flow-based promotion would know mimeType is non-null
+    // here.
+    var mimeType_ = mimeType as String;
+    if (mimeType_.isEmpty || identical(mimeType_, "application/octet-stream")) {
+      buffer.write(mimeType_);  // Common cases need no escaping.
     } else {
-      int slashIndex = _validateMimeType(mimeType);
+      int slashIndex = _validateMimeType(mimeType_);
       if (slashIndex < 0) {
-        throw new ArgumentError.value(mimeType, "mimeType",
+        throw new ArgumentError.value(mimeType_, "mimeType",
                                       "Invalid MIME type");
       }
       buffer.write(Uri._uriEncode(_tokenCharTable,
-                                  mimeType.substring(0, slashIndex),
+                                  mimeType_.substring(0, slashIndex),
                                   UTF8, false));
       buffer.write("/");
       buffer.write(Uri._uriEncode(_tokenCharTable,
-                                  mimeType.substring(slashIndex + 1),
+                                  mimeType_.substring(slashIndex + 1),
                                   UTF8, false));
     }
     if (charsetName != null) {
@@ -3029,12 +3114,13 @@ class UriData {
    * as path.
    */
   Uri get uri {
-    if (_uriCache != null) return _uriCache;
+    // TODO(nnbd-assert): This might be a good place for "!!".
+    if (_uriCache != null) return _uriCache as Uri;
     String path = _text;
-    String query = null;
+    String? query = null;
     int colonIndex = _separatorIndices[0];
     int queryIndex = _text.indexOf('?', colonIndex + 1);
-    int end = null;
+    int? end = null;
     if (queryIndex >= 0) {
       query = _text.substring(queryIndex + 1);
       end = queryIndex;
@@ -3043,8 +3129,11 @@ class UriData {
     // TODO(lrn): This is probably too simple. We should ensure URI
     // normalization before passing in the raw strings, maybe using
     // Uri._makePath, Uri._makeQuery.
-    _uriCache = new Uri._internal("data", "", null, null, path, query, null);
-    return _uriCache;
+    // TODO(nnbd): Trick to avoid having to assert that _uriCache isn't null.
+    // Was:
+    // _uriCache = new Uri._internal("data", "", null, null, path, query, null);
+    // return _uriCache as Uri;
+    return _uriCache = new Uri._internal("data", "", null, null, path, query, null);
   }
 
   /**
@@ -3178,7 +3267,7 @@ class UriData {
    * converted to bytes and then the character codes and byte values are
    * decoded using [encoding].
    */
-  String contentAsString({Encoding encoding}) {
+  String contentAsString({Encoding? encoding}) {
     if (encoding == null) {
       var charset = this.charset;  // Returns "US-ASCII" if not present.
       encoding = Encoding.getByName(charset);
@@ -3186,13 +3275,15 @@ class UriData {
         throw new UnsupportedError("Unknown charset: $charset");
       }
     }
+    // TODO(nnbd-exit): Flow analysis could tell us encoding is non-null here.
+    var encoding_ = encoding as Encoding;
     String text = _text;
     int start = _separatorIndices.last + 1;
     if (isBase64) {
-      var converter = BASE64.decoder.fuse(encoding.decoder);
+      var converter = BASE64.decoder.fuse(encoding_.decoder);
       return converter.convert(text.substring(start));
     }
-    return Uri._uriDecode(text, start, text.length, encoding, false);
+    return Uri._uriDecode(text, start, text.length, encoding_, false);
   }
 
   /**
@@ -3222,7 +3313,7 @@ class UriData {
     return result;
   }
 
-  static UriData _parse(String text, int start, Uri sourceUri) {
+  static UriData _parse(String text, int start, Uri? sourceUri) {
     assert(start == 0 || start == 5);
     assert((start == 5) == text.startsWith("data:"));
 

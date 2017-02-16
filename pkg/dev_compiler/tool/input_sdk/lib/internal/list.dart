@@ -159,13 +159,13 @@ abstract class UnmodifiableListMixin<E> implements List<E> {
   }
 
   /** This operation is not supported by an unmodifiable list. */
-  void sort([Comparator<E> compare]) {
+  void sort([Comparator<E>? compare]) {
     throw new UnsupportedError(
         "Cannot modify an unmodifiable list");
   }
 
   /** This operation is not supported by an unmodifiable list. */
-  void shuffle([Random random]) {
+  void shuffle([Random? random]) {
     throw new UnsupportedError(
         "Cannot modify an unmodifiable list");
   }
@@ -207,7 +207,7 @@ abstract class UnmodifiableListMixin<E> implements List<E> {
   }
 
   /** This operation is not supported by an unmodifiable list. */
-  void fillRange(int start, int end, [E fillValue]) {
+  void fillRange(int start, int end, E fillValue) {
     throw new UnsupportedError(
         "Cannot modify an unmodifiable list");
   }

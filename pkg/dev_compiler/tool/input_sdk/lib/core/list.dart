@@ -74,7 +74,10 @@ abstract class List<E> implements Iterable<E>, EfficientLength {
    *
    * The [length] must not be negative or null, if it is provided.
    */
-  external factory List([int length]);
+  // TODO(nnbd-api-todo): This is obviously not OK if E is a non-nullable type
+  // and length is non-zero. We could change this API (by requiring a fill
+  // value), or make it a runtime error to use this with a non-nullable type.
+  external factory List([int? length]);
 
   /**
    * Creates a fixed-length list of the given length, and initializes the
@@ -114,12 +117,14 @@ abstract class List<E> implements Iterable<E>, EfficientLength {
    */
   factory List.generate(int length, E generator(int index),
                         { bool growable: true }) {
-    List<E> result;
+    // TODO(nnbd-definite): Definite assignment analysis would help here.
+    List<E>? result_;
     if (growable) {
-      result = <E>[]..length = length;
+      result_ = <E>[]..length = length;
     } else {
-      result = new List<E>(length);
+      result_ = new List<E>(length);
     }
+    List<E> result = result_ as List<E>;
     for (int i = 0; i < length; i++) {
       result[i] = generator(i);
     }
@@ -164,6 +169,9 @@ abstract class List<E> implements Iterable<E>, EfficientLength {
    *
    * Throws an [UnsupportedError] if the list is fixed-length.
    */
+  // TODO(nnbd-api-todo): This is obviously not OK if E is a non-nullable type
+  // and the length grows. We could remove this API (how often is it actually
+  // used?), or make it a runtime error to grow a list with a non-nullable type.
   void set length(int newLength);
 
   /**
@@ -213,12 +221,12 @@ abstract class List<E> implements Iterable<E>, EfficientLength {
    *     numbers.sort((a, b) => a.length.compareTo(b.length));
    *     print(numbers);  // [one, two, four, three] OR [two, one, four, three]
    */
-  void sort([int compare(E a, E b)]);
+  void sort([int compare(E a, E b)?]);
 
   /**
    * Shuffles the elements of this list randomly.
    */
-  void shuffle([Random random]);
+  void shuffle([Random? random]);
 
   /**
    * Returns the first index of [element] in this list.
@@ -257,7 +265,7 @@ abstract class List<E> implements Iterable<E>, EfficientLength {
    *
    *     notes.lastIndexOf('fa');  // -1
    */
-  int lastIndexOf(E element, [int start]);
+  int lastIndexOf(E element, [int? start]);
 
   /**
    * Removes all objects from this list;
@@ -391,7 +399,7 @@ abstract class List<E> implements Iterable<E>, EfficientLength {
    * An error occurs if [start] is outside the range `0` .. `length` or if
    * [end] is outside the range `start` .. `length`.
    */
-  List<E> sublist(int start, [int end]);
+  List<E> sublist(int start, [int? end]);
 
   /**
    * Returns an [Iterable] that iterates over the objects in the range
@@ -455,7 +463,9 @@ abstract class List<E> implements Iterable<E>, EfficientLength {
    *
    * An error occurs if [start]..[end] is not a valid range for `this`.
    */
-  void fillRange(int start, int end, [E fillValue]);
+  // TODO(nnbd-api): Made fillValue mandatory since the API can no longer
+  // assume null is a valid fill value.
+  void fillRange(int start, int end, E fillValue);
 
   /**
    * Removes the objects in the range [start] inclusive to [end] exclusive

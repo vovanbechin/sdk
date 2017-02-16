@@ -112,7 +112,7 @@ abstract class Map<K, V> {
    * last occurrence of a key will simply overwrite any previous value.
    */
   factory Map.fromIterable(Iterable iterable,
-      {K key(element), V value(element)}) = LinkedHashMap<K, V>.fromIterable;
+      {K key(element)?, V value(element)?}) = LinkedHashMap<K, V>.fromIterable;
 
   /**
    * Creates a Map instance associating the given [keys] to [values].
@@ -164,6 +164,10 @@ abstract class Map<K, V> {
    * Methods like [containsKey] or [putIfAbsent] can be use if the distinction
    * is important.
    */
+  // TODO(nnbd-api-todo): This is not right if V is a non-nullable type. We
+  // should either change this to "V?", or have it throw on an absent key. In
+  // either case, we will likely want to add another method to expose the other
+  // behavior.
   V operator [](Object key);
 
   /**

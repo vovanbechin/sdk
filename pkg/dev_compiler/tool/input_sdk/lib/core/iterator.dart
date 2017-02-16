@@ -46,12 +46,19 @@ abstract class Iterator<E> {
    */
   bool moveNext();
 
+  // TODO(nnbd-api): Changed this to be undefined instead of returning null
+  // when called at the wrong time. Otherwise, all users have to deal with it
+  // being nullable even though that's almost never what you want.
+  //
+  // We could require this to throw StateError instead, but that requires
+  // adding some extra checking to the iterators in the core library that I
+  // didn't want to worry about for the prototype.
   /**
    * Returns the current element.
    *
-   * Returns `null` if the iterator has not yet been moved to the first
-   * element, or if the iterator has been moved past the last element of the
-   * [Iterable].
+   * The behavior is undefined if the iterator has not yet been moved to the
+   * first element, or if the iterator has been moved past the last element of
+   * the [Iterable].
    *
    * The `current` getter should keep its value until the next call to
    * [moveNext], even if an underlying collection changes.

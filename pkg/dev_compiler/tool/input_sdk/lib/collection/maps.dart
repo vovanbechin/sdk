@@ -320,12 +320,15 @@ class Maps {
    * This method is used by Map classes in the named constructor fromIterable.
    */
   static void _fillMapWithMappedIterable(Map map, Iterable iterable,
-                                         key(element), value(element)) {
-    if (key == null) key = _id;
-    if (value == null) value = _id;
+                                         key(element)?, value(element)?) {
+    // TODO(nnbd-promote): Was:
+    // if (key == null) key = _id;
+    // if (value == null) value = _id;
+    var key_ = key ?? _id;
+    var value_ = value ?? _id;
 
     for (var element in iterable) {
-      map[key(element)] = value(element);
+      map[key_(element)] = value_(element);
     }
   }
 

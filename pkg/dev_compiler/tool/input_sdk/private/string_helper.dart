@@ -173,16 +173,27 @@ String stringReplaceAllUnchecked(
 String _matchString(Match match) => match[0];
 String _stringIdentity(String string) => string;
 
+typedef String OnMatchFn(Match match);
+typedef String OnNonMatchFn(String nonMatch);
+
 String stringReplaceAllFuncUnchecked(
     String receiver,
     Pattern pattern,
-    String onMatch(Match match),
-    String onNonMatch(String nonMatch)) {
+    String onMatch(Match match)?,
+    String onNonMatch(String nonMatch)?) {
   if (onMatch == null) onMatch = _matchString;
+  // TODO(nnbd-assign): Knowing onMatch is non-null past here would be nice.
+  // Using `??=` might be an easier way to do that in this case.
+  // Comparing with `0` as receiver produces better dart2js type inference.
+  OnMatchFn onMatch_ = onMatch as OnMatchFn;
+
   if (onNonMatch == null) onNonMatch = _stringIdentity;
+  OnNonMatchFn onNonMatch_ = onNonMatch as OnNonMatchFn;
+
+  // TODO(nnbd-assign): Ditto.
   if (pattern is String) {
     return stringReplaceAllStringFuncUnchecked(receiver, pattern,
-                                               onMatch, onNonMatch);
+                                               onMatch_, onNonMatch_);
   }
   // Placing the Pattern test here is indistingishable from placing it at the
   // top of the method but it saves an extra check on the `pattern is String`
@@ -193,8 +204,8 @@ String stringReplaceAllFuncUnchecked(
   StringBuffer buffer = new StringBuffer();
   int startIndex = 0;
   for (Match match in pattern.allMatches(receiver)) {
-    buffer.write(onNonMatch(receiver.substring(startIndex, match.start)));
-    buffer.write(onMatch(match));
+    buffer.write(onNonMatch_(receiver.substring(startIndex, match.start)));
+    buffer.write(onMatch_(match));
     startIndex = match.end;
   }
   buffer.write(onNonMatch(receiver.substring(startIndex)));
