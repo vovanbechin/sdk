@@ -183,6 +183,7 @@ void main() {
   group("subtype", () {
     testEquivalentTypes("int?", "int?");
     testEquivalentTypes("Object?", "Object");
+    testEquivalentTypes("dynamic?", "dynamic");
 
     testMoreSpecific("int", "int?");
     testMoreSpecific("Null", "int?");
@@ -207,6 +208,18 @@ void main() {
   main() {
     int? i = new Nullify<int>().field;
     int? j = new Nullify<int?>().field;
+  }
+  """);
+
+  testUnit("nullable dynamic is dynamic", """
+  class Nullify<T> {
+    T? field;
+  }
+
+  main() {
+    // Should be able to cast from dynamic.
+    int i = /*info:DYNAMIC_CAST*/new Nullify<dynamic>().field;
+    int j = (/*info:DYNAMIC_CAST*/123 as dynamic?);
   }
   """);
 
