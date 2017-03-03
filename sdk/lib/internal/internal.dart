@@ -12,7 +12,6 @@ import 'dart:math' show Random;
 
 part 'iterable.dart';
 part 'list.dart';
-part 'lists.dart';
 part 'print.dart';
 part 'sort.dart';
 part 'symbol.dart';
@@ -59,4 +58,40 @@ class CodeUnits extends UnmodifiableListBase<int> {
   int operator[](int i) => _string.codeUnitAt(i);
 
   static String stringOf(CodeUnits u) => u._string;
+}
+
+/// Marks a function as an external implementation ("native" in the Dart VM).
+///
+/// Provides a backend-specific String that can be used to identify the
+/// function's implementation.
+class ExternalName {
+  final String name;
+  const ExternalName(this.name);
+}
+
+// Shared hex-parsing utilities.
+
+/// Parses a single hex-digit as code unit.
+///
+/// Returns a negative value if the character is not a valid hex-digit.
+int hexDigitValue(int char) {
+  assert(char >= 0 && char <= 0xFFFF);
+  const int digit0 = 0x30;
+  const int a = 0x61;
+  const int f = 0x66;
+  int digit = char ^ digit0;
+  if (digit <= 9) return digit;
+  int letter = (char | 0x20);
+  if (a <= letter && letter <= f) return letter - (a - 10);
+  return -1;
+}
+
+/// Parses two hex digits in a string.
+///
+/// Returns a negative value if either digit isn't valid.
+int parseHexByte(String source, int index) {
+  assert(index + 2 <= source.length);
+  int digit1 = hexDigitValue(source.codeUnitAt(index));
+  int digit2 = hexDigitValue(source.codeUnitAt(index + 1));
+  return digit1 * 16 + digit2 - (digit2 & 256);
 }

@@ -6,64 +6,49 @@ library dart2js.js_emitter.startup_emitter.model_emitter;
 
 import 'dart:convert' show JsonEncoder;
 
-import 'package:js_runtime/shared/embedded_names.dart' show
-    CLASS_FIELDS_EXTRACTOR,
-    CLASS_ID_EXTRACTOR,
-    CREATE_NEW_ISOLATE,
-    DEFERRED_INITIALIZED,
-    DEFERRED_LIBRARY_URIS,
-    DEFERRED_LIBRARY_HASHES,
-    GET_TYPE_FROM_NAME,
-    INITIALIZE_EMPTY_INSTANCE,
-    INITIALIZE_LOADED_HUNK,
-    INSTANCE_FROM_CLASS_ID,
-    INTERCEPTORS_BY_TAG,
-    IS_HUNK_INITIALIZED,
-    IS_HUNK_LOADED,
-    LEAF_TAGS,
-    MANGLED_GLOBAL_NAMES,
-    MANGLED_NAMES,
-    METADATA,
-    NATIVE_SUPERCLASS_TAG_NAME,
-    STATIC_FUNCTION_NAME_TO_CLOSURE,
-    TYPE_TO_INTERCEPTOR_MAP,
-    TYPES;
+import 'package:js_runtime/shared/embedded_names.dart'
+    show
+        CLASS_FIELDS_EXTRACTOR,
+        CLASS_ID_EXTRACTOR,
+        CREATE_NEW_ISOLATE,
+        DEFERRED_INITIALIZED,
+        DEFERRED_LIBRARY_URIS,
+        DEFERRED_LIBRARY_HASHES,
+        GET_TYPE_FROM_NAME,
+        INITIALIZE_EMPTY_INSTANCE,
+        INITIALIZE_LOADED_HUNK,
+        INSTANCE_FROM_CLASS_ID,
+        INTERCEPTORS_BY_TAG,
+        IS_HUNK_INITIALIZED,
+        IS_HUNK_LOADED,
+        LEAF_TAGS,
+        MANGLED_GLOBAL_NAMES,
+        MANGLED_NAMES,
+        METADATA,
+        NATIVE_SUPERCLASS_TAG_NAME,
+        STATIC_FUNCTION_NAME_TO_CLOSURE,
+        TYPE_TO_INTERCEPTOR_MAP,
+        TYPES;
 
+import '../../../compiler_new.dart';
 import '../../common.dart';
-import '../../constants/values.dart' show
-    ConstantValue,
-    FunctionConstantValue;
-import '../../compiler.dart' show
-    Compiler;
-import '../../core_types.dart' show
-    CoreClasses;
-import '../../elements/elements.dart' show
-    ClassElement,
-    FunctionElement;
-import '../../hash/sha1.dart' show
-    Hasher;
+import '../../compiler.dart' show Compiler;
+import '../../constants/values.dart' show ConstantValue, FunctionConstantValue;
+import '../../core_types.dart' show CommonElements;
+import '../../elements/elements.dart' show ClassElement, MethodElement;
+import '../../hash/sha1.dart' show Hasher;
 import '../../io/code_output.dart';
-import '../../io/line_column_provider.dart' show
-    LineColumnCollector,
-    LineColumnProvider;
-import '../../io/source_map_builder.dart' show
-    SourceMapBuilder;
+import '../../io/line_column_provider.dart'
+    show LineColumnCollector, LineColumnProvider;
+import '../../io/source_map_builder.dart' show SourceMapBuilder;
 import '../../js/js.dart' as js;
-import '../../js_backend/js_backend.dart' show
-    JavaScriptBackend,
-    Namer,
-    ConstantEmitter;
-import '../../util/uri_extras.dart' show
-    relativize;
-
+import '../../js_backend/js_backend.dart'
+    show JavaScriptBackend, Namer, ConstantEmitter;
+import '../../util/uri_extras.dart' show relativize;
 import '../constant_ordering.dart' show deepCompareConstants;
 import '../headers.dart';
-import '../js_emitter.dart' show
-    NativeEmitter;
-
-import '../js_emitter.dart' show
-    buildTearOffCode,
-    NativeGenerator;
+import '../js_emitter.dart' show NativeEmitter;
+import '../js_emitter.dart' show buildTearOffCode, NativeGenerator;
 import '../model.dart';
 
 part 'deferred_fragment_hash.dart';
@@ -79,7 +64,6 @@ class ModelEmitter {
   // The full code that is written to each hunk part-file.
   final Map<Fragment, CodeOutput> outputBuffers = <Fragment, CodeOutput>{};
 
-
   JavaScriptBackend get backend => compiler.backend;
 
   /// For deferred loading we communicate the initializers via this global var.
@@ -92,12 +76,11 @@ class ModelEmitter {
   static const String typeNameProperty = r"builtin$cls";
 
   ModelEmitter(Compiler compiler, Namer namer, this.nativeEmitter,
-               this.shouldGenerateSourceMap)
+      this.shouldGenerateSourceMap)
       : this.compiler = compiler,
         this.namer = namer {
     this.constantEmitter = new ConstantEmitter(
-        compiler, namer, this.generateConstantReference,
-        constantListGenerator);
+        compiler, namer, this.generateConstantReference, constantListGenerator);
   }
 
   DiagnosticReporter get reporter => compiler.reporter;
@@ -117,9 +100,9 @@ class ModelEmitter {
   }
 
   bool isConstantInlinedOrAlreadyEmitted(ConstantValue constant) {
-    if (constant.isFunction) return true;    // Already emitted.
-    if (constant.isPrimitive) return true;   // Inlined.
-    if (constant.isDummy) return true;       // Inlined.
+    if (constant.isFunction) return true; // Already emitted.
+    if (constant.isPrimitive) return true; // Inlined.
+    if (constant.isDummy) return true; // Inlined.
     return false;
   }
 
@@ -146,7 +129,7 @@ class ModelEmitter {
     return deepCompareConstants(a, b);
   }
 
-  js.Expression generateStaticClosureAccess(FunctionElement element) {
+  js.Expression generateStaticClosureAccess(MethodElement element) {
     return js.js('#.#()',
         [namer.globalObjectFor(element), namer.staticClosureName(element)]);
   }
@@ -162,8 +145,8 @@ class ModelEmitter {
     if (isConstantInlinedOrAlreadyEmitted(value)) {
       return constantEmitter.generate(value);
     }
-    return js.js('#.#', [namer.globalObjectForConstant(value),
-    namer.constantName(value)]);
+    return js.js('#.#',
+        [namer.globalObjectForConstant(value), namer.constantName(value)]);
   }
 
   int emitProgram(Program program) {
@@ -175,7 +158,7 @@ class ModelEmitter {
         new FragmentEmitter(compiler, namer, backend, constantEmitter, this);
 
     Map<DeferredFragment, _DeferredFragmentHash> deferredHashTokens =
-      new Map<DeferredFragment, _DeferredFragmentHash>();
+        new Map<DeferredFragment, _DeferredFragmentHash>();
     for (DeferredFragment fragment in deferredFragments) {
       deferredHashTokens[fragment] = new _DeferredFragmentHash(fragment);
     }
@@ -190,7 +173,7 @@ class ModelEmitter {
       js.Expression types =
           program.metadataTypesForOutputUnit(fragment.outputUnit);
       deferredFragmentsCode[fragment] = fragmentEmitter.emitDeferredFragment(
-                fragment, types, program.holders);
+          fragment, types, program.holders);
     }
 
     js.TokenCounter counter = new js.TokenCounter();
@@ -204,21 +187,19 @@ class ModelEmitter {
 
     // Now that we have written the deferred hunks, we can update the hash
     // tokens in the main-fragment.
-    deferredHashTokens.forEach((DeferredFragment key,
-                                _DeferredFragmentHash token) {
+    deferredHashTokens
+        .forEach((DeferredFragment key, _DeferredFragmentHash token) {
       token.setHash(hunkHashes[key]);
     });
 
     writeMainFragment(mainFragment, mainCode,
-      isSplit: program.deferredFragments.isNotEmpty);
+        isSplit: program.deferredFragments.isNotEmpty);
 
-    if (backend.requiresPreamble &&
-        !backend.htmlLibraryIsLoaded) {
-      reporter.reportHintMessage(
-          NO_LOCATION_SPANNABLE, MessageKind.PREAMBLE);
+    if (backend.backendUsage.requiresPreamble && !backend.htmlLibraryIsLoaded) {
+      reporter.reportHintMessage(NO_LOCATION_SPANNABLE, MessageKind.PREAMBLE);
     }
 
-    if (compiler.deferredMapUri != null) {
+    if (compiler.options.deferredMapUri != null) {
       writeDeferredMap();
     }
 
@@ -228,7 +209,7 @@ class ModelEmitter {
 
   /// Generates a simple header that provides the compiler's build id.
   js.Comment buildGeneratedBy() {
-    String flavor = compiler.useContentSecurityPolicy
+    String flavor = compiler.options.useContentSecurityPolicy
         ? 'fast startup, CSP'
         : 'fast startup';
     return new js.Comment(generatedBy(compiler, flavor: flavor));
@@ -252,7 +233,8 @@ class ModelEmitter {
   }
 
   js.Statement buildDeferredInitializerGlobal() {
-    return js.js.statement('self.#deferredInitializers = '
+    return js.js.statement(
+        'self.#deferredInitializers = '
         'self.#deferredInitializers || Object.create(null);',
         {'deferredInitializers': deferredInitializersGlobal});
   }
@@ -270,29 +252,34 @@ class ModelEmitter {
     }
 
     CodeOutput mainOutput = new StreamCodeOutput(
-            compiler.outputProvider('', 'js'),
-            codeOutputListeners);
+        compiler.outputProvider('', 'js', OutputType.js), codeOutputListeners);
     outputBuffers[fragment] = mainOutput;
 
     js.Program program = new js.Program([
-        buildGeneratedBy(),
-        new js.Comment(HOOKS_API_USAGE),
-        isSplit ? buildDeferredInitializerGlobal() : new js.Block.empty(),
-        code]);
+      buildGeneratedBy(),
+      new js.Comment(HOOKS_API_USAGE),
+      isSplit ? buildDeferredInitializerGlobal() : new js.Block.empty(),
+      code
+    ]);
 
-    mainOutput.addBuffer(js.createCodeBuffer(program, compiler,
-        monitor: compiler.dumpInfoTask));
+    mainOutput.addBuffer(
+        js.createCodeBuffer(program, compiler, monitor: compiler.dumpInfoTask));
 
     if (shouldGenerateSourceMap) {
-      mainOutput.add(
-          generateSourceMapTag(compiler.sourceMapUri, compiler.outputUri));
+      mainOutput.add(SourceMapBuilder.generateSourceMapTag(
+          compiler.options.sourceMapUri, compiler.options.outputUri));
     }
 
     mainOutput.close();
 
     if (shouldGenerateSourceMap) {
-      outputSourceMap(mainOutput, lineColumnCollector, '',
-          compiler.sourceMapUri, compiler.outputUri);
+      SourceMapBuilder.outputSourceMap(
+          mainOutput,
+          lineColumnCollector,
+          '',
+          compiler.options.sourceMapUri,
+          compiler.options.outputUri,
+          compiler.outputProvider);
     }
   }
 
@@ -315,7 +302,8 @@ class ModelEmitter {
     String hunkPrefix = fragment.outputFileName;
 
     CodeOutput output = new StreamCodeOutput(
-        compiler.outputProvider(hunkPrefix, deferredExtension),
+        compiler.outputProvider(
+            hunkPrefix, deferredExtension, OutputType.jsPart),
         outputListeners);
 
     outputBuffers[fragment] = output;
@@ -330,12 +318,13 @@ class ModelEmitter {
     //   deferredInitializer[<hash>] = deferredInitializer.current;
 
     js.Program program = new js.Program([
-        buildGeneratedBy(),
-        buildDeferredInitializerGlobal(),
-        js.js.statement('$deferredInitializersGlobal.current = #', code)]);
+      buildGeneratedBy(),
+      buildDeferredInitializerGlobal(),
+      js.js.statement('$deferredInitializersGlobal.current = #', code)
+    ]);
 
-    output.addBuffer(js.createCodeBuffer(program, compiler,
-        monitor: compiler.dumpInfoTask));
+    output.addBuffer(
+        js.createCodeBuffer(program, compiler, monitor: compiler.dumpInfoTask));
 
     // Make a unique hash of the code (before the sourcemaps are added)
     // This will be used to retrieve the initializing function from the global
@@ -348,8 +337,8 @@ class ModelEmitter {
 
     if (shouldGenerateSourceMap) {
       Uri mapUri, partUri;
-      Uri sourceMapUri = compiler.sourceMapUri;
-      Uri outputUri = compiler.outputUri;
+      Uri sourceMapUri = compiler.options.sourceMapUri;
+      Uri outputUri = compiler.options.outputUri;
       String partName = "$hunkPrefix.$partExtension";
       String hunkFileName = "$hunkPrefix.$deferredExtension";
 
@@ -357,52 +346,26 @@ class ModelEmitter {
         String mapFileName = hunkFileName + ".map";
         List<String> mapSegments = sourceMapUri.pathSegments.toList();
         mapSegments[mapSegments.length - 1] = mapFileName;
-        mapUri = compiler.sourceMapUri.replace(pathSegments: mapSegments);
+        mapUri =
+            compiler.options.sourceMapUri.replace(pathSegments: mapSegments);
       }
 
       if (outputUri != null) {
         List<String> partSegments = outputUri.pathSegments.toList();
         partSegments[partSegments.length - 1] = hunkFileName;
-        partUri = compiler.outputUri.replace(pathSegments: partSegments);
+        partUri =
+            compiler.options.outputUri.replace(pathSegments: partSegments);
       }
 
-      output.add(generateSourceMapTag(mapUri, partUri));
+      output.add(SourceMapBuilder.generateSourceMapTag(mapUri, partUri));
       output.close();
-      outputSourceMap(output, lineColumnCollector, partName, mapUri, partUri);
+      SourceMapBuilder.outputSourceMap(output, lineColumnCollector, partName,
+          mapUri, partUri, compiler.outputProvider);
     } else {
       output.close();
     }
 
     return hash;
-  }
-
-  String generateSourceMapTag(Uri sourceMapUri, Uri fileUri) {
-    if (sourceMapUri != null && fileUri != null) {
-      String sourceMapFileName = relativize(fileUri, sourceMapUri, false);
-      return '''
-
-//# sourceMappingURL=$sourceMapFileName
-''';
-    }
-    return '';
-  }
-
-
-  void outputSourceMap(CodeOutput output,
-                       LineColumnProvider lineColumnProvider,
-                       String name,
-                       [Uri sourceMapUri,
-                       Uri fileUri]) {
-    if (!shouldGenerateSourceMap) return;
-    // Create a source file for the compilation output. This allows using
-    // [:getLine:] to transform offsets to line numbers in [SourceMapBuilder].
-    SourceMapBuilder sourceMapBuilder =
-    new SourceMapBuilder(sourceMapUri, fileUri, lineColumnProvider);
-    output.forEachSourceLocation(sourceMapBuilder.addMapping);
-    String sourceMap = sourceMapBuilder.build();
-    compiler.outputProvider(name, 'js.map')
-      ..add(sourceMap)
-      ..close();
   }
 
   /// Writes a mapping from library-name to hunk files.
@@ -416,7 +379,8 @@ class ModelEmitter {
     mapping["_comment"] = "This mapping shows which compiled `.js` files are "
         "needed for a given deferred library import.";
     mapping.addAll(compiler.deferredLoadTask.computeDeferredMap());
-    compiler.outputProvider(compiler.deferredMapUri.path, 'deferred_map')
+    compiler.outputProvider(
+        compiler.options.deferredMapUri.path, '', OutputType.info)
       ..add(const JsonEncoder.withIndent("  ").convert(mapping))
       ..close();
   }

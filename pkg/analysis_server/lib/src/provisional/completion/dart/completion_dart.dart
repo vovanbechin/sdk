@@ -9,6 +9,7 @@ import 'dart:async';
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analysis_server/src/provisional/completion/completion_core.dart';
 import 'package:analysis_server/src/provisional/completion/dart/completion_target.dart';
+import 'package:analysis_server/src/services/completion/dart/optype.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
@@ -20,6 +21,7 @@ export 'package:analysis_server/src/provisional/completion/completion_core.dart'
 const int DART_RELEVANCE_COMMON_USAGE = 1200;
 const int DART_RELEVANCE_DEFAULT = 1000;
 const int DART_RELEVANCE_HIGH = 2000;
+const int DART_RELEVANCE_INCREMENT = 100;
 const int DART_RELEVANCE_INHERITED_ACCESSOR = 1057;
 const int DART_RELEVANCE_INHERITED_FIELD = 1058;
 const int DART_RELEVANCE_INHERITED_METHOD = 1057;
@@ -99,6 +101,17 @@ abstract class DartCompletionRequest extends CompletionRequest {
   DartType get objectType;
 
   /**
+   * The [OpType] which describes which types of suggestions would fit the
+   * request.
+   */
+  OpType get opType;
+
+  /**
+   * Return the [SourceFactory] of the request.
+   */
+  SourceFactory get sourceFactory;
+
+  /**
    * Return the completion target.  This determines what part of the parse tree
    * will receive the newly inserted text.
    * At a minimum, all declarations in the completion scope in [target.unit]
@@ -114,7 +127,17 @@ abstract class DartCompletionRequest extends CompletionRequest {
    * Any information obtained from [target] prior to calling this method
    * should be discarded as it may have changed.
    */
-  Future resolveExpression(Expression expression);
+  Future resolveContainingExpression(AstNode node);
+
+  /**
+   * Return a [Future] that completes when the element associated with
+   * the given [statement] in the target compilation unit is available.
+   * It may also complete if the statement cannot be resolved
+   * (e.g. unknown identifier, completion aborted, etc).
+   * Any information obtained from [target] prior to calling this method
+   * should be discarded as it may have changed.
+   */
+  Future resolveContainingStatement(AstNode node);
 
   /**
      * Return a [Future] that completes with a list of [ImportElement]s

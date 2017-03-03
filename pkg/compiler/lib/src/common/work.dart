@@ -5,35 +5,16 @@
 library dart2js.common.work;
 
 import '../common.dart';
-import '../compiler.dart' show
-    Compiler;
-import '../elements/elements.dart' show
-    AstElement;
-import '../enqueue.dart' show
-    Enqueuer;
-import '../universe/world_impact.dart' show
-    WorldImpact;
-
-
-/**
- * Contains backend-specific data that is used throughout the compilation of
- * one work item.
- */
-class ItemCompilationContext {
-}
+import '../elements/elements.dart' show AstElement;
+import '../universe/world_impact.dart' show WorldImpact;
 
 abstract class WorkItem {
-  final ItemCompilationContext compilationContext;
-  /**
-   * Documentation wanted -- johnniwinther
-   *
-   * Invariant: [element] must be a declaration element.
-   */
+  /// Element on which the work will be done.
   final AstElement element;
 
-  WorkItem(this.element, this.compilationContext) {
+  WorkItem(this.element) {
     assert(invariant(element, element.isDeclaration));
   }
 
-  WorldImpact run(Compiler compiler, Enqueuer world);
+  WorldImpact run();
 }

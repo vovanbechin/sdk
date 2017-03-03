@@ -5,14 +5,16 @@
 library dart2js.source_information;
 
 import '../common.dart';
-import '../elements/elements.dart' show
-    AstElement,
-    LocalElement;
-import '../tree/tree.dart' show
-    Node,
-    Send;
-import '../js/js.dart' show
-    JavaScriptNodeSourceInformation;
+import '../elements/elements.dart'
+    show
+        AstElement,
+        CompilationUnitElement,
+        LocalElement,
+        ResolvedAst,
+        ResolvedAstKind;
+import '../js/js.dart' show JavaScriptNodeSourceInformation;
+import '../script.dart';
+import '../tree/tree.dart' show Node;
 import 'source_file.dart';
 
 /// Interface for passing source information, for instance for use in source
@@ -42,8 +44,8 @@ abstract class SourceInformation extends JavaScriptNodeSourceInformation {
 class SourceInformationStrategy {
   const SourceInformationStrategy();
 
-  /// Create a [SourceInformationBuilder] for [element].
-  SourceInformationBuilder createBuilderForContext(AstElement element) {
+  /// Create a [SourceInformationBuilder] for [resolvedAst].
+  SourceInformationBuilder createBuilderForContext(ResolvedAst resolvedAst) {
     return const SourceInformationBuilder();
   }
 
@@ -58,11 +60,12 @@ class SourceInformationStrategy {
 class SourceInformationBuilder {
   const SourceInformationBuilder();
 
-  /// Create a [SourceInformationBuilder] for [element].
-  SourceInformationBuilder forContext(AstElement element) => this;
+  /// Create a [SourceInformationBuilder] for [resolvedAst].
+  SourceInformationBuilder forContext(ResolvedAst resolvedAst) => this;
 
-  /// Generate [SourceInformation] the declaration of [element].
-  SourceInformation buildDeclaration(AstElement element) => null;
+  /// Generate [SourceInformation] the declaration of the element in
+  /// [resolvedAst].
+  SourceInformation buildDeclaration(ResolvedAst resolvedAst) => null;
 
   /// Generate [SourceInformation] for the generic [node].
   @deprecated
@@ -151,11 +154,60 @@ class SourceInformationBuilder {
 
 /// A location in a source file.
 abstract class SourceLocation {
+  const SourceLocation();
+
+  /// The absolute URI of the source file of this source location.
+  Uri get sourceUri;
+
+  /// The character offset of the this source location into the source file.
+  int get offset;
+
+  /// The 0-based line number of the [offset].
+  int get line;
+
+  /// The 0-base column number of the [offset] with its line.
+  int get column;
+
+  /// The name associated with this source location, if any.
+  String get sourceName;
+
+  /// `true` if the offset within the length of the source file.
+  bool get isValid;
+
+  int get hashCode {
+    return sourceUri.hashCode * 17 +
+        offset.hashCode * 17 +
+        sourceName.hashCode * 23;
+  }
+
+  bool operator ==(other) {
+    if (identical(this, other)) return true;
+    if (other is! SourceLocation) return false;
+    return sourceUri == other.sourceUri &&
+        offset == other.offset &&
+        sourceName == other.sourceName;
+  }
+
+  String get shortText {
+    // Use 1-based line/column info to match usual dart tool output.
+    return '${sourceUri.pathSegments.last}:[${line + 1},${column + 1}]';
+  }
+
+  String toString() {
+    // Use 1-based line/column info to match usual dart tool output.
+    return '${sourceUri}:[${line + 1},${column + 1}]';
+  }
+}
+
+/// A location in a source file.
+abstract class AbstractSourceLocation extends SourceLocation {
   final SourceFile _sourceFile;
   int _line;
 
-  SourceLocation(this._sourceFile) {
-    assert(isValid);
+  AbstractSourceLocation(this._sourceFile) {
+    assert(invariant(new SourceSpan(sourceUri, 0, 0), isValid,
+        message: "Invalid source location in ${sourceUri}: "
+            "offset=$offset, length=${_sourceFile.length}."));
   }
 
   /// The absolute URI of the source file of this source location.
@@ -179,20 +231,6 @@ abstract class SourceLocation {
   /// `true` if the offset within the length of the source file.
   bool get isValid => offset < _sourceFile.length;
 
-  int get hashCode {
-    return sourceUri.hashCode * 17 +
-           offset.hashCode * 17 +
-           sourceName.hashCode * 23;
-  }
-
-  bool operator ==(other) {
-    if (identical(this, other)) return true;
-    if (other is! SourceLocation) return false;
-    return sourceUri == other.sourceUri &&
-           offset == other.offset &&
-           sourceName == other.sourceName;
-  }
-
   String get shortText {
     // Use 1-based line/column info to match usual dart tool output.
     return '${sourceUri.pathSegments.last}:[${line + 1},${column + 1}]';
@@ -204,7 +242,7 @@ abstract class SourceLocation {
   }
 }
 
-class OffsetSourceLocation extends SourceLocation {
+class OffsetSourceLocation extends AbstractSourceLocation {
   final int offset;
   final String sourceName;
 
@@ -247,4 +285,59 @@ String computeElementNameForSourceMaps(AstElement element) {
   } else {
     return element.name;
   }
+}
+
+/// Computes the [SourceFile] for the source code of [resolvedAst].
+SourceFile computeSourceFile(ResolvedAst resolvedAst) {
+  SourceFile sourceFile;
+  if (resolvedAst.kind != ResolvedAstKind.PARSED) {
+    // Synthesized node. Use the enclosing element for the location.
+    sourceFile = resolvedAst.element.compilationUnit.script.file;
+  } else {
+    Uri uri = resolvedAst.sourceUri;
+    AstElement implementation = resolvedAst.element.implementation;
+    Script script = implementation.compilationUnit.script;
+    if (uri == script.resourceUri) {
+      sourceFile = script.file;
+    } else {
+      // Slow path, happens only for deserialized elements.
+      // TODO(johnniwinther): Support a way to get a [SourceFile] from a
+      // [Uri].
+      for (CompilationUnitElement compilationUnit
+          in implementation.library.compilationUnits) {
+        Script script = compilationUnit.script;
+        if (uri == script.resourceUri) {
+          sourceFile = script.file;
+          break;
+        }
+      }
+    }
+  }
+  return sourceFile;
+}
+
+class NoSourceLocationMarker extends SourceLocation {
+  const NoSourceLocationMarker();
+
+  @override
+  Uri get sourceUri => null;
+
+  @override
+  bool get isValid => true;
+
+  @override
+  String get sourceName => null;
+
+  @override
+  int get column => null;
+
+  @override
+  int get line => null;
+
+  @override
+  int get offset => null;
+
+  String get shortName => '<no-location>';
+
+  String toString() => '<no-location>';
 }

@@ -14,6 +14,7 @@ class Collector {
   // TODO(floitsch): the code-emitter task should not need a namer.
   final Namer namer;
   final Compiler compiler;
+  final ClosedWorld closedWorld;
   final Set<ClassElement> rtiNeededClasses;
   final Emitter emitter;
 
@@ -44,9 +45,10 @@ class Collector {
 
   BackendHelpers get helpers => backend.helpers;
 
-  CoreClasses get coreClasses => compiler.coreClasses;
+  CommonElements get commonElements => compiler.commonElements;
 
-  Collector(this.compiler, this.namer, this.rtiNeededClasses, this.emitter);
+  Collector(this.compiler, this.namer, this.closedWorld, this.rtiNeededClasses,
+      this.emitter);
 
   Set<ClassElement> computeInterceptorsReferencedFromConstants() {
     Set<ClassElement> classes = new Set<ClassElement>();
@@ -55,7 +57,7 @@ class Collector {
     for (ConstantValue constant in constants) {
       if (constant is InterceptorConstantValue) {
         InterceptorConstantValue interceptorConstant = constant;
-        classes.add(interceptorConstant.dispatchedType.element);
+        classes.add(interceptorConstant.cls);
       }
     }
     return classes;
@@ -66,29 +68,32 @@ class Collector {
    * that needs to be emitted.
    */
   Function computeClassFilter() {
-    if (backend.isTreeShakingDisabled) return (ClassElement cls) => true;
+    if (backend.mirrorsData.isTreeShakingDisabled) {
+      return (ClassElement cls) => true;
+    }
 
     Set<ClassElement> unneededClasses = new Set<ClassElement>();
     // The [Bool] class is not marked as abstract, but has a factory
     // constructor that always throws. We never need to emit it.
-    unneededClasses.add(coreClasses.boolClass);
+    unneededClasses.add(commonElements.boolClass);
 
     // Go over specialized interceptors and then constants to know which
     // interceptors are needed.
     Set<ClassElement> needed = new Set<ClassElement>();
-    backend.specializedGetInterceptors.forEach(
-        (_, Iterable<ClassElement> elements) {
-          needed.addAll(elements);
-        }
-    );
+    for (js.Name name
+        in backend.oneShotInterceptorData.specializedGetInterceptorNames) {
+      needed.addAll(backend.oneShotInterceptorData
+          .getSpecializedGetInterceptorsFor(name));
+    }
 
     // Add interceptors referenced by constants.
     needed.addAll(computeInterceptorsReferencedFromConstants());
 
     // Add unneeded interceptors to the [unneededClasses] set.
-    for (ClassElement interceptor in backend.interceptedClasses) {
-      if (!needed.contains(interceptor)
-          && interceptor != coreClasses.objectClass) {
+    for (ClassElement interceptor
+        in backend.interceptorData.interceptedClasses) {
+      if (!needed.contains(interceptor) &&
+          interceptor != commonElements.objectClass) {
         unneededClasses.add(interceptor);
       }
     }
@@ -110,45 +115,44 @@ class Collector {
   void computeNeededConstants() {
     // Make sure we retain all metadata of all elements. This could add new
     // constants to the handler.
-    if (backend.mustRetainMetadata) {
+    if (backend.mirrorsData.mustRetainMetadata) {
       // TODO(floitsch): verify that we don't run through the same elements
       // multiple times.
       for (Element element in backend.generatedCode.keys) {
-        if (backend.isAccessibleByReflection(element)) {
-          bool shouldRetainMetadata = backend.retainMetadataOf(element);
+        if (backend.mirrorsData.isAccessibleByReflection(element)) {
+          bool shouldRetainMetadata =
+              backend.mirrorsData.retainMetadataOf(element);
           if (shouldRetainMetadata &&
-              (element.isFunction || element.isConstructor ||
-               element.isSetter)) {
+              (element.isFunction ||
+                  element.isConstructor ||
+                  element.isSetter)) {
             FunctionElement function = element;
-            function.functionSignature.forEachParameter(
-                backend.retainMetadataOf);
+            function.functionSignature
+                .forEachParameter(backend.mirrorsData.retainMetadataOf);
           }
         }
       }
       for (ClassElement cls in neededClasses) {
         final onlyForRti = classesOnlyNeededForRti.contains(cls);
         if (!onlyForRti) {
-          backend.retainMetadataOf(cls);
-          new FieldVisitor(compiler, namer).visitFields(cls, false,
-              (Element member,
-               js.Name name,
-               js.Name accessorName,
-               bool needsGetter,
-               bool needsSetter,
-               bool needsCheckedSetter) {
+          backend.mirrorsData.retainMetadataOf(cls);
+          new FieldVisitor(compiler, namer, closedWorld).visitFields(cls, false,
+              (Element member, js.Name name, js.Name accessorName,
+                  bool needsGetter, bool needsSetter, bool needsCheckedSetter) {
             bool needsAccessor = needsGetter || needsSetter;
-            if (needsAccessor && backend.isAccessibleByReflection(member)) {
-              backend.retainMetadataOf(member);
+            if (needsAccessor &&
+                backend.mirrorsData.isAccessibleByReflection(member)) {
+              backend.mirrorsData.retainMetadataOf(member);
             }
           });
         }
       }
-      typedefsNeededForReflection.forEach(backend.retainMetadataOf);
+      typedefsNeededForReflection.forEach(backend.mirrorsData.retainMetadataOf);
     }
 
     JavaScriptConstantCompiler handler = backend.constants;
-    List<ConstantValue> constants = handler.getConstantsForEmission(
-        compiler.hasIncrementalSupport ? null : emitter.compareConstants);
+    List<ConstantValue> constants =
+        handler.getConstantsForEmission(emitter.compareConstants);
     for (ConstantValue constant in constants) {
       if (emitter.isConstantInlinedOrAlreadyEmitted(constant)) continue;
 
@@ -162,23 +166,28 @@ class Collector {
         // TODO(sigurdm): We should track those constants.
         constantUnit = compiler.deferredLoadTask.mainOutputUnit;
       }
-      outputConstantLists.putIfAbsent(
-          constantUnit, () => new List<ConstantValue>()).add(constant);
+      outputConstantLists
+          .putIfAbsent(constantUnit, () => new List<ConstantValue>())
+          .add(constant);
     }
   }
 
   /// Compute all the classes and typedefs that must be emitted.
   void computeNeededDeclarations() {
     // Compute needed typedefs.
-    typedefsNeededForReflection = Elements.sortedByPosition(
-        compiler.world.allTypedefs
-            .where(backend.isAccessibleByReflection)
-            .toList());
+    typedefsNeededForReflection = Elements.sortedByPosition(closedWorld
+        .allTypedefs
+        .where(backend.mirrorsData.isAccessibleByReflection)
+        .toList());
 
     // Compute needed classes.
-    Set<ClassElement> instantiatedClasses =
-        compiler.codegenWorld.directlyInstantiatedClasses
-            .where(computeClassFilter()).toSet();
+    Set<ClassElement> instantiatedClasses = compiler
+        // TODO(johnniwinther): This should be accessed from a codegen closed
+        // world.
+        .codegenWorldBuilder
+        .directlyInstantiatedClasses
+        .where(computeClassFilter())
+        .toSet();
 
     void addClassWithSuperclasses(ClassElement cls) {
       neededClasses.add(cls);
@@ -218,40 +227,43 @@ class Collector {
 
     // TODO(18175, floitsch): remove once issue 18175 is fixed.
     if (neededClasses.contains(helpers.jsIntClass)) {
-      neededClasses.add(coreClasses.intClass);
+      neededClasses.add(commonElements.intClass);
     }
     if (neededClasses.contains(helpers.jsDoubleClass)) {
-      neededClasses.add(coreClasses.doubleClass);
+      neededClasses.add(commonElements.doubleClass);
     }
     if (neededClasses.contains(helpers.jsNumberClass)) {
-      neededClasses.add(coreClasses.numClass);
+      neededClasses.add(commonElements.numClass);
     }
     if (neededClasses.contains(helpers.jsStringClass)) {
-      neededClasses.add(coreClasses.stringClass);
+      neededClasses.add(commonElements.stringClass);
     }
     if (neededClasses.contains(helpers.jsBoolClass)) {
-      neededClasses.add(coreClasses.boolClass);
+      neededClasses.add(commonElements.boolClass);
     }
     if (neededClasses.contains(helpers.jsArrayClass)) {
-      neededClasses.add(coreClasses.listClass);
+      neededClasses.add(commonElements.listClass);
     }
 
     // 4. Finally, sort the classes.
     List<ClassElement> sortedClasses = Elements.sortedByPosition(neededClasses);
 
     for (ClassElement element in sortedClasses) {
-      if (backend.isNativeOrExtendsNative(element) &&
+      if (backend.nativeData.isNativeOrExtendsNative(element) &&
           !classesOnlyNeededForRti.contains(element)) {
         // For now, native classes and related classes cannot be deferred.
         nativeClassesAndSubclasses.add(element);
-        assert(invariant(element,
-                         !compiler.deferredLoadTask.isDeferred(element)));
-        outputClassLists.putIfAbsent(compiler.deferredLoadTask.mainOutputUnit,
-            () => new List<ClassElement>()).add(element);
+        assert(
+            invariant(element, !compiler.deferredLoadTask.isDeferred(element)));
+        outputClassLists
+            .putIfAbsent(compiler.deferredLoadTask.mainOutputUnit,
+                () => new List<ClassElement>())
+            .add(element);
       } else {
-        outputClassLists.putIfAbsent(
-            compiler.deferredLoadTask.outputUnitForElement(element),
-            () => new List<ClassElement>())
+        outputClassLists
+            .putIfAbsent(
+                compiler.deferredLoadTask.outputUnitForElement(element),
+                () => new List<ClassElement>())
             .add(element);
       }
     }
@@ -273,33 +285,40 @@ class Collector {
   }
 
   void computeNeededStaticNonFinalFields() {
-    JavaScriptConstantCompiler handler = backend.constants;
     addToOutputUnit(Element element) {
       List<VariableElement> list = outputStaticNonFinalFieldLists.putIfAbsent(
           compiler.deferredLoadTask.outputUnitForElement(element),
-              () => new List<VariableElement>());
+          () => new List<VariableElement>());
       list.add(element);
     }
 
-    Iterable<VariableElement> staticNonFinalFields = handler
-        .getStaticNonFinalFieldsForEmission()
-        .where(compiler.codegenWorld.allReferencedStaticFields.contains);
+    Iterable<Element> fields = compiler
+        // TODO(johnniwinther): This should be accessed from a codegen closed
+        // world.
+        .codegenWorldBuilder
+        .allReferencedStaticFields
+        .where((FieldElement field) {
+      if (!field.isConst) {
+        return field.isField &&
+            !field.isInstanceMember &&
+            !field.isFinal &&
+            field.constant != null;
+      } else {
+        // We also need to emit static const fields if they are available for
+        // reflection.
+        return backend.mirrorsData.isAccessibleByReflection(field);
+      }
+    });
 
-    Elements.sortedByPosition(staticNonFinalFields).forEach(addToOutputUnit);
-
-    // We also need to emit static const fields if they are available for
-    // reflection.
-    compiler.codegenWorld.allReferencedStaticFields
-        .where((FieldElement field) => field.isConst)
-        .where(backend.isAccessibleByReflection)
-        .forEach(addToOutputUnit);
+    Elements.sortedByPosition(fields).forEach(addToOutputUnit);
   }
 
   void computeNeededLibraries() {
     void addSurroundingLibraryToSet(Element element) {
       OutputUnit unit = compiler.deferredLoadTask.outputUnitForElement(element);
       LibraryElement library = element.library;
-      outputLibraryLists.putIfAbsent(unit, () => new Set<LibraryElement>())
+      outputLibraryLists
+          .putIfAbsent(unit, () => new Set<LibraryElement>())
           .add(library);
     }
 

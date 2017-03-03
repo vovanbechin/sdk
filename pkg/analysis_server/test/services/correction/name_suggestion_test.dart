@@ -8,40 +8,40 @@ import 'package:analysis_server/src/services/correction/name_suggestion.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
 import '../../abstract_single_unit.dart';
-import '../../utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(VariableNameSuggestionTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(VariableNameSuggestionTest);
+  });
 }
 
 @reflectiveTest
 class VariableNameSuggestionTest extends AbstractSingleUnitTest {
-  void test_forExpression_cast() {
-    resolveTestUnit('''
+  test_forExpression_cast() async {
+    await resolveTestUnit('''
 main() {
   var sortedNodes;
   var res = sortedNodes as String;
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     var expr = findNodeAtString('as String', (node) => node is AsExpression);
     expect(getVariableNameSuggestionsForExpression(null, expr, excluded),
         unorderedEquals(['sortedNodes', 'nodes']));
   }
 
-  void test_forExpression_expectedType() {
-    resolveTestUnit('''
+  test_forExpression_expectedType() async {
+    await resolveTestUnit('''
 class TreeNode {}
 main() {
   TreeNode node = null;
 }
 ''');
-    Set excluded = new Set.from([]);
+    Set<String> excluded = new Set<String>.from([]);
     DartType expectedType = (findElement('node') as LocalVariableElement).type;
     Expression assignedExpression =
         findNodeAtString('null;', (node) => node is NullLiteral);
@@ -50,8 +50,8 @@ main() {
     expect(suggestions, unorderedEquals(['treeNode', 'node']));
   }
 
-  void test_forExpression_expectedType_double() {
-    resolveTestUnit('''
+  test_forExpression_expectedType_double() async {
+    await resolveTestUnit('''
 main() {
   double res = 0.0;
 }
@@ -70,8 +70,8 @@ main() {
         unorderedEquals(['f']));
   }
 
-  void test_forExpression_expectedType_int() {
-    resolveTestUnit('''
+  test_forExpression_expectedType_int() async {
+    await resolveTestUnit('''
 main() {
   int res = 0;
 }
@@ -90,8 +90,8 @@ main() {
         unorderedEquals(['k']));
   }
 
-  void test_forExpression_expectedType_String() {
-    resolveTestUnit('''
+  test_forExpression_expectedType_String() async {
+    await resolveTestUnit('''
 main() {
   String res = 'abc';
 }
@@ -105,9 +105,9 @@ main() {
         unorderedEquals(['s']));
   }
 
-  void test_forExpression_instanceCreation() {
+  test_forExpression_instanceCreation() async {
     verifyNoTestUnitErrors = false;
-    resolveTestUnit('''
+    await resolveTestUnit('''
 import 'dart:math' as p;
 main(p) {
   new NoSuchClass();
@@ -115,7 +115,7 @@ main(p) {
   new NoSuchClass.named();
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     expect(
         getVariableNameSuggestionsForExpression(
             null, findNodeAtString('new NoSuchClass()'), excluded),
@@ -134,14 +134,14 @@ main(p) {
 //        unorderedEquals(['noSuchClass', 'suchClass', 'class']));
   }
 
-  void test_forExpression_invocationArgument_named() {
-    resolveTestUnit('''
+  test_forExpression_invocationArgument_named() async {
+    await resolveTestUnit('''
 foo({a, b, c}) {}
 main() {
   foo(a: 111, c: 333, b: 222);
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     {
       var expr = findNodeAtString('111');
       expect(getVariableNameSuggestionsForExpression(null, expr, excluded),
@@ -159,14 +159,14 @@ main() {
     }
   }
 
-  void test_forExpression_invocationArgument_optional() {
-    resolveTestUnit('''
+  test_forExpression_invocationArgument_optional() async {
+    await resolveTestUnit('''
 foo(a, [b = 2, c = 3]) {}
 main() {
   foo(111, 222, 333);
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     {
       var expr = findNodeAtString('111');
       expect(getVariableNameSuggestionsForExpression(null, expr, excluded),
@@ -184,14 +184,14 @@ main() {
     }
   }
 
-  void test_forExpression_invocationArgument_positional() {
-    resolveTestUnit('''
+  test_forExpression_invocationArgument_positional() async {
+    await resolveTestUnit('''
 foo(a, b) {}
 main() {
   foo(111, 222);
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     {
       var expr = findNodeAtString('111');
       expect(getVariableNameSuggestionsForExpression(null, expr, excluded),
@@ -204,49 +204,49 @@ main() {
     }
   }
 
-  void test_forExpression_methodInvocation() {
-    resolveTestUnit('''
+  test_forExpression_methodInvocation() async {
+    await resolveTestUnit('''
 main(p) {
   var res = p.getSortedNodes();
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     var expr = findNodeAtString('p.get', (node) => node is MethodInvocation);
     expect(getVariableNameSuggestionsForExpression(null, expr, excluded),
         unorderedEquals(['sortedNodes', 'nodes']));
   }
 
-  void test_forExpression_methodInvocation_noPrefix() {
-    resolveTestUnit('''
+  test_forExpression_methodInvocation_noPrefix() async {
+    await resolveTestUnit('''
 main(p) {
   var res = p.sortedNodes();
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     var expr = findNodeAtString('p.sorted', (node) => node is MethodInvocation);
     expect(getVariableNameSuggestionsForExpression(null, expr, excluded),
         unorderedEquals(['sortedNodes', 'nodes']));
   }
 
-  void test_forExpression_name_get() {
-    resolveTestUnit('''
+  test_forExpression_name_get() async {
+    await resolveTestUnit('''
 main(p) {
   var res = p.get();
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     var expr = findNodeAtString('p.get', (node) => node is MethodInvocation);
     expect(getVariableNameSuggestionsForExpression(null, expr, excluded),
         unorderedEquals([]));
   }
 
-  void test_forExpression_prefixedIdentifier() {
-    resolveTestUnit('''
+  test_forExpression_prefixedIdentifier() async {
+    await resolveTestUnit('''
 main(p) {
   var res = p.sortedNodes;
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     expect(
         getVariableNameSuggestionsForExpression(
             null,
@@ -255,14 +255,14 @@ main(p) {
         unorderedEquals(['sortedNodes', 'nodes']));
   }
 
-  void test_forExpression_privateName() {
-    resolveTestUnit('''
+  test_forExpression_privateName() async {
+    await resolveTestUnit('''
 main(p) {
   p._name;
   p._computeSuffix();
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     expect(
         getVariableNameSuggestionsForExpression(
             null,
@@ -277,40 +277,40 @@ main(p) {
         unorderedEquals(['computeSuffix', 'suffix']));
   }
 
-  void test_forExpression_propertyAccess() {
-    resolveTestUnit('''
+  test_forExpression_propertyAccess() async {
+    await resolveTestUnit('''
 main(p) {
   var res = p.q.sortedNodes;
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     PropertyAccess expression =
         findNodeAtString('p.q.sorted', (node) => node is PropertyAccess);
     expect(getVariableNameSuggestionsForExpression(null, expression, excluded),
         unorderedEquals(['sortedNodes', 'nodes']));
   }
 
-  void test_forExpression_simpleName() {
-    resolveTestUnit('''
+  test_forExpression_simpleName() async {
+    await resolveTestUnit('''
 main(p) {
   var sortedNodes = null;
   var res = sortedNodes;
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     var expr = findNodeAtString('sortedNodes;');
     expect(getVariableNameSuggestionsForExpression(null, expr, excluded),
         unorderedEquals(['sortedNodes', 'nodes']));
   }
 
-  void test_forExpression_unqualifiedInvocation() {
-    resolveTestUnit('''
+  test_forExpression_unqualifiedInvocation() async {
+    await resolveTestUnit('''
 getSortedNodes() => [];
 main(p) {
   var res = getSortedNodes();
 }
 ''');
-    var excluded = new Set.from([]);
+    var excluded = new Set<String>.from([]);
     expect(
         getVariableNameSuggestionsForExpression(
             null,
@@ -322,14 +322,14 @@ main(p) {
 
   void test_forText() {
     {
-      Set excluded = new Set.from([]);
+      Set<String> excluded = new Set<String>.from([]);
       List<String> suggestions =
           getVariableNameSuggestionsForText('Goodbye, cruel world!', excluded);
       expect(suggestions,
           unorderedEquals(['goodbyeCruelWorld', 'cruelWorld', 'world']));
     }
     {
-      Set excluded = new Set.from(['world']);
+      Set<String> excluded = new Set<String>.from(['world']);
       List<String> suggestions =
           getVariableNameSuggestionsForText('Goodbye, cruel world!', excluded);
       expect(suggestions,

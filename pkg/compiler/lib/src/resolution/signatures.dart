@@ -5,33 +5,24 @@
 library dart2js.resolution.signatures;
 
 import '../common.dart';
-import '../compiler.dart' show
-    Compiler;
-import '../dart_types.dart';
+import '../common/resolution.dart';
+import '../elements/resolution_types.dart';
 import '../elements/elements.dart';
-import '../elements/modelx.dart' show
-    ErroneousFieldElementX,
-    ErroneousInitializingFormalElementX,
-    FormalElementX,
-    FunctionElementX,
-    FunctionSignatureX,
-    InitializingFormalElementX,
-    LocalParameterElementX;
+import '../elements/modelx.dart'
+    show
+        ErroneousFieldElementX,
+        ErroneousInitializingFormalElementX,
+        FormalElementX,
+        FunctionSignatureX,
+        InitializingFormalElementX,
+        LocalParameterElementX,
+        TypeVariableElementX;
 import '../tree/tree.dart';
-import '../universe/use.dart' show
-    TypeUse;
-import '../util/util.dart' show
-    Link,
-    LinkBuilder;
-
-import 'members.dart' show
-    ResolverVisitor;
-import 'registry.dart' show
-    ResolutionRegistry;
-import 'resolution_common.dart' show
-    MappingVisitor;
-import 'scope.dart' show
-    Scope;
+import '../util/util.dart' show Link, LinkBuilder;
+import 'members.dart' show ResolverVisitor;
+import 'registry.dart' show ResolutionRegistry;
+import 'resolution_common.dart' show MappingVisitor;
+import 'scope.dart' show Scope, TypeVariablesScope;
 
 /**
  * [SignatureResolver] resolves function signatures.
@@ -48,16 +39,19 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
   bool optionalParametersAreNamed = false;
   VariableDefinitions currentDefinitions;
 
-  SignatureResolver(Compiler compiler,
-                    FunctionTypedElement enclosingElement,
-                    ResolutionRegistry registry,
-                    {this.defaultValuesError,
-                     this.createRealParameters})
-      : this.enclosingElement = enclosingElement,
-        this.scope = enclosingElement.buildScope(),
-        this.resolver =
-            new ResolverVisitor(compiler, enclosingElement, registry),
-        super(compiler, registry);
+  SignatureResolver(
+      Resolution resolution,
+      FunctionTypedElement enclosingElement,
+      Scope scope,
+      ResolutionRegistry registry,
+      {this.defaultValuesError,
+      this.createRealParameters})
+      : this.scope = scope,
+        this.enclosingElement = enclosingElement,
+        this.resolver = new ResolverVisitor(
+            resolution, enclosingElement, registry,
+            scope: scope),
+        super(resolution, registry);
 
   bool get defaultValuesAllowed => defaultValuesError == null;
 
@@ -99,10 +93,12 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
       reporter.internalError(node, 'function type parameters not supported');
     }
     currentDefinitions = node;
-    FormalElementX element = definition.accept(this);
+    FormalElementX element = definition == null
+        ? createUnnamedParameter()  // This happens in function types.
+        : definition.accept(this);
     if (currentDefinitions.metadata != null) {
       element.metadataInternal =
-          compiler.resolver.resolveMetadata(element, node);
+          resolution.resolver.resolveMetadata(element, node);
     }
     currentDefinitions = null;
     return element;
@@ -117,11 +113,17 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
   }
 
   void computeParameterType(FormalElementX element,
-                            [VariableElement fieldElement]) {
-    void computeFunctionType(FunctionExpression functionExpression) {
+      [VariableElement fieldElement]) {
+    // Function-type as in `foo(int bar(String x))`
+    void computeInlineFunctionType(FunctionExpression functionExpression) {
       FunctionSignature functionSignature = SignatureResolver.analyze(
-          compiler, functionExpression.parameters,
-          functionExpression.returnType, element, registry,
+          resolution,
+          scope,
+          functionExpression.typeVariables,
+          functionExpression.parameters,
+          functionExpression.returnType,
+          element,
+          registry,
           defaultValuesError: MessageKind.FUNCTION_TYPE_FORMAL_WITH_DEFAULT);
       element.functionSignature = functionSignature;
     }
@@ -135,20 +137,21 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
       assert(invariant(currentDefinitions, link.tail.isEmpty));
       if (link.head.asFunctionExpression() != null) {
         // Inline function typed parameter, like `void m(int f(String s))`.
-        computeFunctionType(link.head);
+        computeInlineFunctionType(link.head);
       } else if (link.head.asSend() != null &&
-                 link.head.asSend().selector.asFunctionExpression() != null) {
+          link.head.asSend().selector.asFunctionExpression() != null) {
         // Inline function typed initializing formal or
         // parameter with default value, like `C(int this.f(String s))` or
         // `void m([int f(String s) = null])`.
-        computeFunctionType(link.head.asSend().selector.asFunctionExpression());
+        computeInlineFunctionType(
+            link.head.asSend().selector.asFunctionExpression());
       } else {
         assert(invariant(currentDefinitions,
             link.head.asIdentifier() != null || link.head.asSend() != null));
         if (fieldElement != null) {
           element.typeCache = fieldElement.computeType(resolution);
         } else {
-          element.typeCache = const DynamicType();
+          element.typeCache = const ResolutionDynamicType();
         }
       }
     }
@@ -170,8 +173,8 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
           functionExpression.name.asIdentifier() != null) {
         return functionExpression.name.asIdentifier();
       } else {
-        reporter.internalError(node,
-            'internal error: unimplemented receiver on parameter send');
+        reporter.internalError(
+            node, 'internal error: unimplemented receiver on parameter send');
         return null;
       }
     }
@@ -188,18 +191,27 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
     FormalElementX parameter;
     if (createRealParameters) {
       parameter = new LocalParameterElementX(
-        enclosingElement, currentDefinitions, name, initializer,
-        isOptional: isOptionalParameter, isNamed: optionalParametersAreNamed);
+          enclosingElement, currentDefinitions, name, initializer,
+          isOptional: isOptionalParameter, isNamed: optionalParametersAreNamed);
     } else {
       parameter = new FormalElementX(
-        ElementKind.PARAMETER, enclosingElement, currentDefinitions, name);
+          ElementKind.PARAMETER, enclosingElement, currentDefinitions, name);
     }
     computeParameterType(parameter);
     return parameter;
   }
 
-  InitializingFormalElementX createFieldParameter(Send node,
-                                                  Expression initializer) {
+  FormalElementX createUnnamedParameter() {
+    FormalElementX parameter;
+    assert(!createRealParameters);
+    parameter = new FormalElementX.unnamed(
+          ElementKind.PARAMETER, enclosingElement, currentDefinitions);
+    computeParameterType(parameter);
+    return parameter;
+  }
+
+  InitializingFormalElementX createFieldParameter(
+      Send node, Expression initializer) {
     InitializingFormalElementX element;
     Identifier receiver = node.receiver.asIdentifier();
     if (receiver == null || !receiver.isThis()) {
@@ -221,16 +233,16 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
           !identical(fieldElement.kind, ElementKind.FIELD)) {
         reporter.reportErrorMessage(
             node, MessageKind.NOT_A_FIELD, {'fieldName': name});
-        fieldElement = new ErroneousFieldElementX(
-            name, enclosingElement.enclosingClass);
+        fieldElement =
+            new ErroneousFieldElementX(name, enclosingElement.enclosingClass);
       } else if (!fieldElement.isInstanceMember) {
         reporter.reportErrorMessage(
             node, MessageKind.NOT_INSTANCE_FIELD, {'fieldName': name});
-        fieldElement = new ErroneousFieldElementX(
-            name, enclosingElement.enclosingClass);
+        fieldElement =
+            new ErroneousFieldElementX(name, enclosingElement.enclosingClass);
       }
-      element = new InitializingFormalElementX(enclosingElement,
-          currentDefinitions, name, initializer, fieldElement,
+      element = new InitializingFormalElementX(
+          enclosingElement, currentDefinitions, name, initializer, fieldElement,
           isOptional: isOptionalParameter, isNamed: optionalParametersAreNamed);
       computeParameterType(element, fieldElement);
     }
@@ -243,7 +255,7 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
     if (node.receiver != null) {
       element = createFieldParameter(node, node.arguments.first);
     } else if (node.selector.asIdentifier() != null ||
-               node.selector.asFunctionExpression() != null) {
+        node.selector.asFunctionExpression() != null) {
       element = createParameter(getParameterName(node), node.arguments.first);
     }
     Node defaultValue = node.arguments.head;
@@ -258,8 +270,7 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
     Modifiers modifiers = currentDefinitions.modifiers;
     if (modifiers.isFinal) {
       reporter.reportErrorMessage(
-          modifiers,
-          MessageKind.FINAL_FUNCTION_TYPE_PARAMETER);
+          modifiers, MessageKind.FINAL_FUNCTION_TYPE_PARAMETER);
     }
     if (modifiers.isVar) {
       reporter.reportErrorMessage(
@@ -278,7 +289,7 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
       } else {
         // If parameter is null, the current node should be the last,
         // and a list of optional named parameters.
-        if (!link.tail.isEmpty || (link.head is !NodeList)) {
+        if (!link.tail.isEmpty || (link.head is! NodeList)) {
           reporter.internalError(link.head, "expected optional parameters");
         }
       }
@@ -295,18 +306,53 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
    * the parameters will only implement [FormalElement].
    */
   static FunctionSignature analyze(
-      Compiler compiler,
+      Resolution resolution,
+      Scope scope,
+      NodeList typeVariables,
       NodeList formalParameters,
       Node returnNode,
       FunctionTypedElement element,
       ResolutionRegistry registry,
       {MessageKind defaultValuesError,
-       bool createRealParameters: false,
-       bool isFunctionExpression: false}) {
-    DiagnosticReporter reporter = compiler.reporter;
+      bool createRealParameters: false,
+      bool isFunctionExpression: false}) {
+    DiagnosticReporter reporter = resolution.reporter;
 
-    SignatureResolver visitor = new SignatureResolver(compiler, element,
-        registry, defaultValuesError: defaultValuesError,
+    List<ResolutionDartType> createTypeVariables(NodeList typeVariableNodes) {
+      if (element.isPatch) {
+        FunctionTypedElement origin = element.origin;
+        origin.computeType(resolution);
+        return origin.typeVariables;
+      }
+      if (typeVariableNodes == null) return const <ResolutionDartType>[];
+
+      // Create the types and elements corresponding to [typeVariableNodes].
+      Link<Node> nodes = typeVariableNodes.nodes;
+      List<ResolutionDartType> arguments =
+          new List.generate(nodes.slowLength(), (int index) {
+        TypeVariable node = nodes.head;
+        String variableName = node.name.source;
+        nodes = nodes.tail;
+        TypeVariableElementX variableElement =
+            new TypeVariableElementX(variableName, element, index, node);
+        // GENERIC_METHODS: When method type variables are implemented fully we
+        // must resolve the actual bounds; currently we just claim that
+        // every method type variable has upper bound [dynamic].
+        variableElement.boundCache = const ResolutionDynamicType();
+        ResolutionTypeVariableType variableType =
+            new MethodTypeVariableType(variableElement);
+        variableElement.typeCache = variableType;
+        return variableType;
+      }, growable: false);
+      return arguments;
+    }
+
+    List<ResolutionDartType> typeVariableTypes =
+        createTypeVariables(typeVariables);
+    scope = new FunctionSignatureBuildingScope(scope, typeVariableTypes);
+    SignatureResolver visitor = new SignatureResolver(
+        resolution, element, scope, registry,
+        defaultValuesError: defaultValuesError,
         createRealParameters: createRealParameters);
     List<Element> parameters = const <Element>[];
     int requiredParameterCount = 0;
@@ -317,34 +363,32 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
           // reported. In the case of parse errors, it is possible that there
           // are formal parameters, but something else in the method failed to
           // parse. So we suppress the message about missing formals.
-          assert(invariant(element, compiler.compilationFailed));
+          assert(invariant(element, reporter.hasReportedError));
         } else {
           reporter.reportErrorMessage(element, MessageKind.MISSING_FORMALS);
         }
       }
     } else {
       if (element.isGetter) {
-        if (!identical(formalParameters.endToken.next.stringValue,
-                       // TODO(ahe): Remove the check for native keyword.
-                       'native')) {
+        if (!identical(
+            formalParameters.endToken.next.stringValue,
+            // TODO(ahe): Remove the check for native keyword.
+            'native')) {
           reporter.reportErrorMessage(
-              formalParameters,
-              MessageKind.EXTRA_FORMALS);
+              formalParameters, MessageKind.EXTRA_FORMALS);
         }
       }
       LinkBuilder<Element> parametersBuilder =
-        visitor.analyzeNodes(formalParameters.nodes);
-      requiredParameterCount  = parametersBuilder.length;
+          visitor.analyzeNodes(formalParameters.nodes);
+      requiredParameterCount = parametersBuilder.length;
       parameters = parametersBuilder.toList();
     }
-    DartType returnType;
+    ResolutionDartType returnType;
     if (element.isFactoryConstructor) {
       returnType = element.enclosingClass.thisType;
       // Because there is no type annotation for the return type of
       // this element, we explicitly add one.
-      if (compiler.enableTypeAssertions) {
-        registry.registerTypeUse(new TypeUse.checkedModeCheck(returnType));
-      }
+      registry.registerCheckedModeCheck(returnType);
     } else {
       AsyncMarker asyncMarker = AsyncMarker.SYNC;
       if (isFunctionExpression) {
@@ -354,65 +398,72 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
         asyncMarker = function.asyncMarker;
       }
       switch (asyncMarker) {
-      case AsyncMarker.SYNC:
-        returnType = visitor.resolveReturnType(returnNode);
-        break;
-      case AsyncMarker.SYNC_STAR:
-        returnType = compiler.coreTypes.iterableType();
-        break;
-      case AsyncMarker.ASYNC:
-        returnType = compiler.coreTypes.futureType();
-        break;
-      case AsyncMarker.ASYNC_STAR:
-        returnType = compiler.coreTypes.streamType();
-        break;
+        case AsyncMarker.SYNC:
+          returnType = visitor.resolveReturnType(returnNode);
+          break;
+        case AsyncMarker.SYNC_STAR:
+          ResolutionInterfaceType iterableType =
+              resolution.commonElements.iterableType();
+          returnType = iterableType;
+          break;
+        case AsyncMarker.ASYNC:
+          ResolutionInterfaceType futureType =
+              resolution.commonElements.futureType();
+          returnType = futureType;
+          break;
+        case AsyncMarker.ASYNC_STAR:
+          ResolutionInterfaceType streamType =
+              resolution.commonElements.streamType();
+          returnType = streamType;
+          break;
       }
     }
 
-    if (element.isSetter && (requiredParameterCount != 1 ||
-                               visitor.optionalParameterCount != 0)) {
+    if (element.isSetter &&
+        (requiredParameterCount != 1 || visitor.optionalParameterCount != 0)) {
       // If there are no formal parameters, we already reported an error above.
       if (formalParameters != null) {
         reporter.reportErrorMessage(
-            formalParameters,
-            MessageKind.ILLEGAL_SETTER_FORMALS);
+            formalParameters, MessageKind.ILLEGAL_SETTER_FORMALS);
       }
     }
-    LinkBuilder<DartType> parameterTypes = new LinkBuilder<DartType>();
+    LinkBuilder<ResolutionDartType> parameterTypes =
+        new LinkBuilder<ResolutionDartType>();
     for (FormalElement parameter in parameters) {
-       parameterTypes.addLast(parameter.type);
+      parameterTypes.addLast(parameter.type);
     }
-    List<DartType> optionalParameterTypes = const <DartType>[];
+    List<ResolutionDartType> optionalParameterTypes =
+        const <ResolutionDartType>[];
     List<String> namedParameters = const <String>[];
-    List<DartType> namedParameterTypes = const <DartType>[];
+    List<ResolutionDartType> namedParameterTypes = const <ResolutionDartType>[];
     List<Element> orderedOptionalParameters =
         visitor.optionalParameters.toList();
     if (visitor.optionalParametersAreNamed) {
-      // TODO(karlklose); replace when [visitor.optinalParameters] is a [List].
+      // TODO(karlklose); replace when [visitor.optionalParameters] is a [List].
       orderedOptionalParameters.sort((Element a, Element b) {
-          return a.name.compareTo(b.name);
+        return a.name.compareTo(b.name);
       });
       LinkBuilder<String> namedParametersBuilder = new LinkBuilder<String>();
-      LinkBuilder<DartType> namedParameterTypesBuilder =
-          new LinkBuilder<DartType>();
+      LinkBuilder<ResolutionDartType> namedParameterTypesBuilder =
+          new LinkBuilder<ResolutionDartType>();
       for (FormalElement parameter in orderedOptionalParameters) {
         namedParametersBuilder.addLast(parameter.name);
         namedParameterTypesBuilder.addLast(parameter.type);
       }
       namedParameters = namedParametersBuilder.toLink().toList(growable: false);
-      namedParameterTypes = namedParameterTypesBuilder.toLink()
-          .toList(growable: false);
+      namedParameterTypes =
+          namedParameterTypesBuilder.toLink().toList(growable: false);
     } else {
-      // TODO(karlklose); replace when [visitor.optinalParameters] is a [List].
-      LinkBuilder<DartType> optionalParameterTypesBuilder =
-          new LinkBuilder<DartType>();
+      // TODO(karlklose); replace when [visitor.optionalParameters] is a [List].
+      LinkBuilder<ResolutionDartType> optionalParameterTypesBuilder =
+          new LinkBuilder<ResolutionDartType>();
       for (FormalElement parameter in visitor.optionalParameters) {
         optionalParameterTypesBuilder.addLast(parameter.type);
       }
-      optionalParameterTypes = optionalParameterTypesBuilder.toLink()
-          .toList(growable: false);
+      optionalParameterTypes =
+          optionalParameterTypesBuilder.toLink().toList(growable: false);
     }
-    FunctionType type = new FunctionType(
+    ResolutionFunctionType type = new ResolutionFunctionType(
         element.declaration,
         returnType,
         parameterTypes.toLink().toList(growable: false),
@@ -420,6 +471,7 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
         namedParameters,
         namedParameterTypes);
     return new FunctionSignatureX(
+        typeVariables: typeVariableTypes,
         requiredParameters: parameters,
         optionalParameters: visitor.optionalParameters,
         requiredParameterCount: requiredParameterCount,
@@ -429,20 +481,32 @@ class SignatureResolver extends MappingVisitor<FormalElementX> {
         type: type);
   }
 
-  DartType resolveTypeAnnotation(TypeAnnotation annotation) {
-    DartType type = resolveReturnType(annotation);
+  ResolutionDartType resolveTypeAnnotation(TypeAnnotation annotation) {
+    ResolutionDartType type = resolveReturnType(annotation);
     if (type.isVoid) {
       reporter.reportErrorMessage(annotation, MessageKind.VOID_NOT_ALLOWED);
     }
     return type;
   }
 
-  DartType resolveReturnType(TypeAnnotation annotation) {
-    if (annotation == null) return const DynamicType();
-    DartType result = resolver.resolveTypeAnnotation(annotation);
+  ResolutionDartType resolveReturnType(TypeAnnotation annotation) {
+    if (annotation == null) return const ResolutionDynamicType();
+    ResolutionDartType result = resolver.resolveTypeAnnotation(annotation);
     if (result == null) {
-      return const DynamicType();
+      return const ResolutionDynamicType();
     }
     return result;
   }
+}
+
+/// Used during `SignatureResolver.analyze` to provide access to the type
+/// variables of the function signature itself when its signature is analyzed.
+class FunctionSignatureBuildingScope extends TypeVariablesScope {
+  @override
+  final List<ResolutionDartType> typeVariables;
+
+  FunctionSignatureBuildingScope(Scope parent, this.typeVariables)
+      : super(parent);
+
+  String toString() => 'FunctionSignatureBuildingScope($typeVariables)';
 }

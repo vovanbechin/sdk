@@ -4,17 +4,19 @@
 
 import 'dart:async';
 import 'package:expect/expect.dart';
+import 'package:compiler/compiler_new.dart';
 import 'package:async_helper/async_helper.dart';
 import 'memory_compiler.dart';
 
 const MEMORY_SOURCE_FILES = const {
-    'main.dart': '''
+  'main.dart': '''
         main() {
           print(12300000);
           print(1234567890123456789012345);
           print(double.MAX_FINITE);
           print(-22230000);
-        }'''};
+        }'''
+};
 
 Future test({bool minify}) async {
   OutputCollector collector = new OutputCollector();
@@ -24,7 +26,7 @@ Future test({bool minify}) async {
       options: minify ? ['--minify'] : []);
 
   // Check that we use the shorter exponential representations.
-  String jsOutput = collector.getOutput('', 'js');
+  String jsOutput = collector.getOutput('', OutputType.js);
   print(jsOutput);
 
   if (minify) {

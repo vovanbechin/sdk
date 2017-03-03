@@ -1,8 +1,8 @@
-# Dart VM Service Protocol 3.3
+# Dart VM Service Protocol 3.5
 
 > Please post feedback to the [observatory-discuss group][discuss-list]
 
-This document describes of _version 3.3_ of the Dart VM Service Protocol. This
+This document describes of _version 3.5_ of the Dart VM Service Protocol. This
 protocol is used to communicate with a running Dart Virtual Machine.
 
 To use the Service Protocol, start the VM with the *--observe* flag.
@@ -37,6 +37,7 @@ The Service Protocol uses [JSON-RPC 2.0][].
 	- [getVersion](#getversion)
 	- [getVM](#getvm)
 	- [pause](#pause)
+	- [reloadSources](#reloadsources)
 	- [removeBreakpoint](#removebreakpoint)
 	- [resume](#resume)
 	- [setExceptionPauseMode](#setexceptionpausemode)
@@ -73,6 +74,7 @@ The Service Protocol uses [JSON-RPC 2.0][].
 	- [Message](#message)
 	- [Null](#null)
 	- [Object](#object)
+	- [ReloadReport](#reloadreport)
 	- [Response](#response)
 	- [Sentinel](#sentinel)
 	- [SentinelKind](#sentinelkind)
@@ -120,7 +122,7 @@ Here is an example response for our [getVersion](#getversion) request above:
   "result": {
     "type": "Version",
     "major": 3,
-    "minor": 0
+    "minor": 5
   }
   "id": "1"
 }
@@ -131,7 +133,7 @@ The JSON-RPC spec provides for _positional_ parameters as well, but they
 are not supported by the Dart VM.
 
 By convention, every response returned by the Service Protocol is a subtype
-of [Response](#response) and provides a _type_ paramters which can be used
+of [Response](#response) and provides a _type_ parameter which can be used
 to distinguish the exact return type. In the example above, the
 [Version](#version) type is returned.
 
@@ -172,8 +174,7 @@ subscribe to the _GC_ stream multiple times from the same client.
 }
 ```
 
-In addition the the [error codes](http://www.jsonrpc.org/specification#error_object)
-specified in the JSON-RPC spec, we use the following application specific error codes:
+In addition to the [error codes](http://www.jsonrpc.org/specification#error_object) specified in the JSON-RPC spec, we use the following application specific error codes:
 
 code | message | meaning
 ---- | ------- | -------
@@ -183,7 +184,10 @@ code | message | meaning
 103 | Stream already subscribed | The client is already subscribed to the specified _streamId_
 104 | Stream not subscribed | The client is not subscribed to the specified _streamId_
 105 | Isolate must be runnable | This operation cannot happen until the isolate is runnable
-
+106 | Isolate must be paused | This operation is only valid when the isolate is paused
+107 | Cannot resume execution | The isolate could not be resumed
+108 | Isolate is reloading | The isolate is currently processing another reload request
+109 | Isolate cannot be reloaded | The isolate has an unhandled exception and can no longer be reloaded
 
 
 
@@ -311,7 +315,7 @@ version number:
   "result": {
     "type": "Version",
     "major": 3,
-    "minor": 0
+    "minor": 5
   }
 ```
 
@@ -512,7 +516,7 @@ reference will be returned.
 FlagList getFlagList()
 ```
 
-The _getFlagList RPC returns a list of all command line flags in the
+The _getFlagList_ RPC returns a list of all command line flags in the
 VM along with their current values.
 
 See [FlagList](#flaglist).
@@ -651,6 +655,31 @@ When the isolate is paused an event will be sent on the _Debug_ stream.
 
 See [Success](#success).
 
+### reloadSources
+
+
+```
+ReloadReport reloadSources(string isolateId,
+                           bool force [optional],
+                           bool pause [optional],
+                           string rootLibUri [optional],
+                           string packagesUri [optional])
+```
+
+The _reloadSources_ RPC is used to perform a hot reload of an Isolate's sources.
+
+if the _force_ parameter is provided, it indicates that all of the Isolate's
+sources should be reloaded regardless of modification time.
+
+if the _pause_ parameter is provided, the isolate will pause immediately
+after the reload.
+
+if the _rootLibUri_ parameter is provided, it indicates the new uri to the
+Isolate's root library.
+
+if the _packagesUri_ parameter is provided, it indicates the new uri to the
+Isolate's package map (.packages) file.
+
 ### removeBreakpoint
 
 ```
@@ -668,7 +697,8 @@ See [Success](#success).
 
 ```
 Success resume(string isolateId,
-               StepOption step [optional])
+               StepOption step [optional],
+               int frameIndex [optional])
 ```
 
 The _resume_ RPC is used to resume execution of a paused isolate.
@@ -684,6 +714,13 @@ step | meaning
 Into | Single step, entering function calls
 Over | Single step, skipping over function calls
 Out | Single step until the current function exits
+Rewind | Immediately exit the top frame(s) without executing any code. Isolate will be paused at the call of the last exited function.
+
+The _frameIndex_ parameter is only used when the _step_ parameter is Rewind. It
+specifies the stack frame to rewind to. Stack frame 0 is the currently executing
+function, so _frameIndex_ must be at least 1.
+
+If the _frameIndex_ parameter is not provided, it defaults to 1.
 
 See [Success](#success), [StepOption](#StepOption).
 
@@ -768,8 +805,8 @@ The _streamId_ parameter may have the following published values:
 streamId | event types provided
 -------- | -----------
 VM | VMUpdate
-Isolate | IsolateStart, IsolateRunnable, IsolateExit, IsolateUpdate, ServiceExtensionAdded
-Debug | PauseStart, PauseExit, PauseBreakpoint, PauseInterrupted, PauseException, Resume, BreakpointAdded, BreakpointResolved, BreakpointRemoved, Inspect, None
+Isolate | IsolateStart, IsolateRunnable, IsolateExit, IsolateUpdate, IsolateReload, ServiceExtensionAdded
+Debug | PauseStart, PauseExit, PauseBreakpoint, PauseInterrupted, PauseException, PausePostRequest, Resume, BreakpointAdded, BreakpointResolved, BreakpointRemoved, Inspect, None
 GC | GC
 Extension | Extension
 Timeline | TimelineEvents
@@ -895,6 +932,15 @@ _BeingInitialized_ [Sentinel](#sentinel).
 class BoundVariable {
   string name;
   @Instance|Sentinel value;
+
+  // The token position where this variable was declared.
+  int declarationTokenPos;
+
+  // The first token position where this variable is visible to the scope.
+  int scopeStartTokenPos;
+
+  // The last token position where this variable is visible to the scope.
+  int scopeEndTokenPos;
 }
 ```
 
@@ -971,10 +1017,20 @@ class Class extends Object {
   // The superclass of this class, if any.
   @Class super [optional];
 
-  // A list of interface types for this class.
+  // The supertype for this class, if any.
   //
   // The value will be of the kind: Type.
+  @Instance superType [optional];
+
+  // A list of interface types for this class.
+  //
+  // The values will be of the kind: Type.
   @Instance[] interfaces;
+
+  // The mixin type for this class, if any.
+  //
+  // The value will be of the kind: Type.
+  @Instance mixin [optional];
 
   // A list of fields in this class. Does not include fields from
   // superclasses.
@@ -1225,6 +1281,12 @@ class Event extends Response {
   //   PauseBreakpoint
   //   PauseInterrupted
   bool atAsyncSuspension [optional];
+
+  // The status (success or failure) related to the event.
+  // This is provided for the event kinds:
+  //   IsolateReloaded
+  //   IsolateSpawn
+  string status [optional];
 }
 ```
 
@@ -1256,6 +1318,9 @@ enum EventKind {
   // via setName.
   IsolateUpdate,
 
+  // Notification that an isolate has been reloaded.
+  IsolateReload,
+
   // Notification that an extension RPC was registered on an isolate.
   ServiceExtensionAdded,
 
@@ -1273,6 +1338,9 @@ enum EventKind {
 
   // An isolate has paused due to an exception.
   PauseException,
+
+  // An isolate has paused after a service request.
+  PausePostRequest,
 
   // An isolate has started or resumed execution.
   Resume,
@@ -1525,7 +1593,7 @@ class @Instance extends @Object {
   //   Type
   string name [optional];
 
-  // The corresponding Class if this Type is canonical.
+  // The corresponding Class if this Type has a resolved typeClass.
   //
   // Provided for instance kinds:
   //   Type
@@ -2110,6 +2178,15 @@ class Object extends Response {
 
 An _Object_ is a  persistent object that is owned by some isolate.
 
+### ReloadReport
+
+```
+class ReloadReport extends Response {
+  // Did the reload succeed or fail?
+  bool success;
+}
+```
+
 ### Response
 
 ```
@@ -2205,6 +2282,10 @@ The _tokenPosTable_ is an array of int arrays. Each subarray
 consists of a line number followed by _(tokenPos, columnNumber)_ pairs:
 
 > [lineNumber, (tokenPos, columnNumber)*]
+
+The _tokenPos_ is an arbitrary integer value that is used to represent
+a location in the source code.  A _tokenPos_ value is not meaningful
+in itself and code should not rely on the exact values returned.
 
 For example, a _tokenPosTable_ with the value...
 
@@ -2307,6 +2388,10 @@ class SourceReportRange {
   // Has this range been compiled by the Dart VM?
   bool compiled;
 
+  // The error while attempting to compile this range, if this
+  // report was generated with forceCompile=true.
+  @Error error [optional];
+
   // Code coverage information for this range.  Provided only when the
   // Coverage report has been requested and the range has been
   // compiled.
@@ -2356,7 +2441,8 @@ enum StepOption {
   Into,
   Over,
   OverAsyncSuspension,
-  Out
+  Out,
+  Rewind
 }
 ```
 
@@ -2508,5 +2594,8 @@ version | comments
 3.1 | Add the getSourceReport RPC.  The getObject RPC now accepts offset and count for string objects.  String objects now contain length, offset, and count properties.
 3.2 | Isolate objects now include the runnable bit and many debugger related RPCs will return an error if executed on an isolate before it is runnable.
 3.3 | Pause event now indicates if the isolate is paused at an await, yield, or yield* suspension point via the 'atAsyncSuspension' field. Resume command now supports the step parameter 'OverAsyncSuspension'. A Breakpoint added synthetically by an 'OverAsyncSuspension' resume command identifies itself as such via the 'isSyntheticAsyncContinuation' field.
+3.4 | Add the superType and mixin fields to Class. Added new pause event 'None'.
+3.5 | Add the error field to SourceReportRange.  Clarify definition of token position.  Add "Isolate must be paused" error code.
+3.6 (unreleased) | Add 'scopeStartTokenPos', 'scopeEndTokenPos', and 'declarationTokenPos' to BoundVariable. Add 'PausePostRequest' event kind. Add 'Rewind' StepOption. Add error code 107 (isolate cannot resume). Add 'reloadSources' RPC and related error codes.
 
 [discuss-list]: https://groups.google.com/a/dartlang.org/forum/#!forum/observatory-discuss

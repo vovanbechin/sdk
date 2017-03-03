@@ -2,23 +2,33 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of dart2js.js_emitter.full_emitter;
+library dart2js.js_emitter.full_emitter.interceptor_emitter;
+
+import 'package:js_runtime/shared/embedded_names.dart' as embeddedNames;
+import '../../elements/entities.dart';
+import '../../js/js.dart' as jsAst;
+import '../../js/js.dart' show js;
+import '../../world.dart' show ClosedWorld;
+import '../js_emitter.dart' hide Emitter, EmitterFactory;
+import '../model.dart';
+import 'emitter.dart';
 
 class InterceptorEmitter extends CodeEmitterHelper {
-  final Set<jsAst.Name> interceptorInvocationNames =
-      new Set<jsAst.Name>();
+  final ClosedWorld closedWorld;
+  final Set<jsAst.Name> interceptorInvocationNames = new Set<jsAst.Name>();
 
-  void recordMangledNameOfMemberMethod(FunctionElement member,
-                                       jsAst.Name name) {
-    if (backend.isInterceptedMethod(member)) {
+  InterceptorEmitter(this.closedWorld);
+
+  void recordMangledNameOfMemberMethod(MemberEntity member, jsAst.Name name) {
+    if (backend.interceptorData.isInterceptedMethod(member)) {
       interceptorInvocationNames.add(name);
     }
   }
 
-  jsAst.Expression buildGetInterceptorMethod(jsAst.Name key,
-                                             Set<ClassElement> classes) {
+  jsAst.Expression buildGetInterceptorMethod(
+      jsAst.Name key, Set<ClassEntity> classes) {
     InterceptorStubGenerator stubGenerator =
-        new InterceptorStubGenerator(compiler, namer, backend);
+        new InterceptorStubGenerator(compiler, namer, backend, closedWorld);
     jsAst.Expression function =
         stubGenerator.generateGetInterceptorMethod(classes);
 
@@ -33,17 +43,16 @@ class InterceptorEmitter extends CodeEmitterHelper {
 
     parts.add(js.comment('getInterceptor methods'));
 
-    Map<jsAst.Name, Set<ClassElement>> specializedGetInterceptors =
-        backend.specializedGetInterceptors;
-    List<jsAst.Name> names = specializedGetInterceptors.keys.toList()
-        ..sort();
+    Iterable<jsAst.Name> names =
+        backend.oneShotInterceptorData.specializedGetInterceptorNames;
     for (jsAst.Name name in names) {
-      Set<ClassElement> classes = specializedGetInterceptors[name];
-      parts.add(
-          js.statement('#.# = #',
-              [namer.globalObjectFor(backend.helpers.interceptorsLibrary),
-               name,
-               buildGetInterceptorMethod(name, classes)]));
+      Set<ClassEntity> classes =
+          backend.oneShotInterceptorData.getSpecializedGetInterceptorsFor(name);
+      parts.add(js.statement('#.# = #', [
+        namer.globalObjectForLibrary(backend.helpers.interceptorsLibrary),
+        name,
+        buildGetInterceptorMethod(name, classes)
+      ]));
     }
 
     return new jsAst.Block(parts);
@@ -51,13 +60,13 @@ class InterceptorEmitter extends CodeEmitterHelper {
 
   jsAst.Statement buildOneShotInterceptors() {
     List<jsAst.Statement> parts = <jsAst.Statement>[];
-    Iterable<jsAst.Name> names = backend.oneShotInterceptors.keys.toList()
-        ..sort();
+    Iterable<jsAst.Name> names =
+        backend.oneShotInterceptorData.oneShotInterceptorNames;
 
     InterceptorStubGenerator stubGenerator =
-        new InterceptorStubGenerator(compiler, namer, backend);
+        new InterceptorStubGenerator(compiler, namer, backend, closedWorld);
     String globalObject =
-        namer.globalObjectFor(backend.helpers.interceptorsLibrary);
+        namer.globalObjectForLibrary(backend.helpers.interceptorsLibrary);
     for (jsAst.Name name in names) {
       jsAst.Expression function =
           stubGenerator.generateOneShotInterceptor(name);
@@ -78,10 +87,11 @@ class InterceptorEmitter extends CodeEmitterHelper {
     // We could also generate the list of intercepted names at
     // runtime, by running through the subclasses of Interceptor
     // (which can easily be identified).
-    if (!compiler.enabledInvokeOn) return null;
+    if (!backend.backendUsage.isInvokeOnUsed) return null;
 
     Iterable<jsAst.Name> invocationNames = interceptorInvocationNames.toList()
-        ..sort();;
+      ..sort();
+    ;
     List<jsAst.Property> properties = invocationNames.map((jsAst.Name name) {
       return new jsAst.Property(js.quoteName(name), js.number(1));
     }).toList();

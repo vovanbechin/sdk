@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// OtherResources=stdin_sync_script.dart
+
 import "dart:convert";
 import "dart:io";
 
@@ -12,10 +14,10 @@ void testReadByte() {
   void test(String line, List<String> expected) {
     var script = Platform.script.resolve("stdin_sync_script.dart").toFilePath();
     Process.start(Platform.executable,
-                  ["--checked", script]..addAll(
+                  [script]..addAll(
                       expected.map(JSON.encode))).then((process) {
       process.stdin.write(line);
-      process.stdin.close();
+      process.stdin.flush().then((_) => process.stdin.close());
       process.stderr
           .transform(UTF8.decoder)
           .transform(new LineSplitter())

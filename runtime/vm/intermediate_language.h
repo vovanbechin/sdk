@@ -2,13 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_INTERMEDIATE_LANGUAGE_H_
-#define VM_INTERMEDIATE_LANGUAGE_H_
+#ifndef RUNTIME_VM_INTERMEDIATE_LANGUAGE_H_
+#define RUNTIME_VM_INTERMEDIATE_LANGUAGE_H_
 
 #include "vm/allocation.h"
 #include "vm/ast.h"
 #include "vm/growable_array.h"
-#include "vm/handles_impl.h"
 #include "vm/locations.h"
 #include "vm/method_recognizer.h"
 #include "vm/object.h"
@@ -54,18 +53,18 @@ class CompileType : public ValueObject {
   static const bool kNonNullable = false;
 
   CompileType(bool is_nullable, intptr_t cid, const AbstractType* type)
-      : is_nullable_(is_nullable), cid_(cid), type_(type) { }
+      : is_nullable_(is_nullable), cid_(cid), type_(type) {}
 
   CompileType(const CompileType& other)
       : ValueObject(),
         is_nullable_(other.is_nullable_),
         cid_(other.cid_),
-        type_(other.type_) { }
+        type_(other.type_) {}
 
   CompileType& operator=(const CompileType& other) {
     is_nullable_ = other.is_nullable_;
     cid_ = other.cid_;
-    type_ =  other.type_;
+    type_ = other.type_;
     return *this;
   }
 
@@ -97,8 +96,7 @@ class CompileType : public ValueObject {
   // given type.
   bool IsAssignableTo(const AbstractType& type) {
     bool is_instance;
-    return CanComputeIsInstanceOf(type, kNullable, &is_instance) &&
-           is_instance;
+    return CanComputeIsInstanceOf(type, kNullable, &is_instance) && is_instance;
   }
 
   // Create a new CompileType representing given combination of class id and
@@ -140,6 +138,9 @@ class CompileType : public ValueObject {
   // Create non-nullable Int type.
   static CompileType Int();
 
+  // Create non-nullable Smi type.
+  static CompileType Smi();
+
   // Create non-nullable String type.
   static CompileType String();
 
@@ -149,19 +150,16 @@ class CompileType : public ValueObject {
   // Returns true if this and other types are the same.
   bool IsEqualTo(CompileType* other) {
     return (is_nullable_ == other->is_nullable_) &&
-        (ToNullableCid() == other->ToNullableCid()) &&
-        (ToAbstractType()->Equals(*other->ToAbstractType()));
+           (ToNullableCid() == other->ToNullableCid()) &&
+           (ToAbstractType()->Equals(*other->ToAbstractType()));
   }
 
-  bool IsNone() const {
-    return (cid_ == kIllegalCid) && (type_ == NULL);
-  }
+  bool IsNone() const { return (cid_ == kIllegalCid) && (type_ == NULL); }
 
   bool IsInt() {
-    return !is_nullable() &&
-      ((ToCid() == kSmiCid) ||
-       (ToCid() == kMintCid) ||
-       ((type_ != NULL) && (type_->Equals(Type::Handle(Type::IntType())))));
+    return !is_nullable() && ((ToCid() == kSmiCid) || (ToCid() == kMintCid) ||
+                              ((type_ != NULL) &&
+                               (type_->Equals(Type::Handle(Type::IntType())))));
   }
 
   void PrintTo(BufferFormatter* f) const;
@@ -186,47 +184,12 @@ class ZoneCompileType : public ZoneAllocated {
     return zone_type->ToCompileType();
   }
 
-  CompileType* ToCompileType() {
-    return &type_;
-  }
+  CompileType* ToCompileType() { return &type_; }
 
  protected:
-  explicit ZoneCompileType(const CompileType& type) : type_(type) { }
+  explicit ZoneCompileType(const CompileType& type) : type_(type) {}
 
   CompileType type_;
-};
-
-
-// ConstrainedCompileType represents a compile type that is computed from
-// another compile type.
-class ConstrainedCompileType : public ZoneCompileType {
- public:
-  virtual ~ConstrainedCompileType() { }
-
-  // Recompute compile type.
-  virtual void Update() = 0;
-
- protected:
-  explicit ConstrainedCompileType(const CompileType& type)
-      : ZoneCompileType(type) { }
-};
-
-
-// NotNullConstrainedCompileType represents not-null constraint applied to
-// the source compile type. Result is non-nullable version of the incoming
-// compile type. It is used to represent compile type propagated downwards
-// from strict comparison with the null constant.
-class NotNullConstrainedCompileType : public ConstrainedCompileType {
- public:
-  explicit NotNullConstrainedCompileType(CompileType* source)
-      : ConstrainedCompileType(source->CopyNonNullable()), source_(source) { }
-
-  virtual void Update() {
-    type_ = source_->CopyNonNullable();
-  }
-
- private:
-  CompileType* source_;
 };
 
 
@@ -238,9 +201,7 @@ class EffectSet : public ValueObject {
     kLastEffect = kExternalization
   };
 
-  EffectSet(const EffectSet& other)
-      : ValueObject(), effects_(other.effects_) {
-  }
+  EffectSet(const EffectSet& other) : ValueObject(), effects_(other.effects_) {}
 
   bool IsNone() const { return effects_ == kNoEffects; }
 
@@ -250,14 +211,12 @@ class EffectSet : public ValueObject {
     return EffectSet(kExternalization);
   }
 
-  static EffectSet Externalization() {
-    return EffectSet(kExternalization);
-  }
+  static EffectSet Externalization() { return EffectSet(kExternalization); }
 
   bool ToInt() { return effects_; }
 
  private:
-  explicit EffectSet(intptr_t effects) : effects_(effects) { }
+  explicit EffectSet(intptr_t effects) : effects_(effects) {}
 
   intptr_t effects_;
 };
@@ -277,6 +236,7 @@ class Value : public ZoneAllocated {
       current_ = next_;
       if (next_ != NULL) next_ = next_->next_use();
     }
+
    private:
     Value* current_;
     Value* next_;
@@ -288,7 +248,7 @@ class Value : public ZoneAllocated {
         next_use_(NULL),
         instruction_(NULL),
         use_index_(-1),
-        reaching_type_(NULL) { }
+        reaching_type_(NULL) {}
 
   Definition* definition() const { return definition_; }
   void set_definition(Definition* definition) { definition_ = definition; }
@@ -316,7 +276,7 @@ class Value : public ZoneAllocated {
   inline void BindTo(Definition* definition);
   inline void BindToEnvironment(Definition* definition);
 
-  Value* Copy(Zone* zone) { return new(zone) Value(definition_); }
+  Value* Copy(Zone* zone) { return new (zone) Value(definition_); }
 
   // This function must only be used when the new Value is dominated by
   // the original Value.
@@ -328,18 +288,13 @@ class Value : public ZoneAllocated {
 
   CompileType* Type();
 
-  void SetReachingType(CompileType* type) {
-    reaching_type_ = type;
-  }
+  void SetReachingType(CompileType* type) { reaching_type_ = type; }
 
   void PrintTo(BufferFormatter* f) const;
 
   const char* ToCString() const;
 
   bool IsSmiValue() { return Type()->ToCid() == kSmiCid; }
-
-  // Returns true if this value binds to the constant: 0xFFFFFFFF.
-  bool BindsTo32BitMaskConstant() const;
 
   // Return true if the value represents a constant.
   bool BindsToConstant() const;
@@ -373,10 +328,10 @@ class Value : public ZoneAllocated {
 
 // An embedded container with N elements of type T.  Used (with partial
 // specialization for N=0) because embedded arrays cannot have size 0.
-template<typename T, intptr_t N>
+template <typename T, intptr_t N>
 class EmbeddedArray {
  public:
-  EmbeddedArray() : elements_() { }
+  EmbeddedArray() : elements_() {}
 
   intptr_t length() const { return N; }
 
@@ -390,20 +345,16 @@ class EmbeddedArray {
     return elements_[i];
   }
 
-  const T& At(intptr_t i) const {
-    return (*this)[i];
-  }
+  const T& At(intptr_t i) const { return (*this)[i]; }
 
-  void SetAt(intptr_t i, const T& val) {
-    (*this)[i] = val;
-  }
+  void SetAt(intptr_t i, const T& val) { (*this)[i] = val; }
 
  private:
   T elements_[N];
 };
 
 
-template<typename T>
+template <typename T>
 class EmbeddedArray<T, 0> {
  public:
   intptr_t length() const { return 0; }
@@ -451,7 +402,6 @@ class EmbeddedArray<T, 0> {
   M(PolymorphicInstanceCall)                                                   \
   M(StaticCall)                                                                \
   M(LoadLocal)                                                                 \
-  M(PushTemp)                                                                  \
   M(DropTemps)                                                                 \
   M(StoreLocal)                                                                \
   M(StrictCompare)                                                             \
@@ -479,6 +429,7 @@ class EmbeddedArray<T, 0> {
   M(AllocateUninitializedContext)                                              \
   M(CloneContext)                                                              \
   M(BinarySmiOp)                                                               \
+  M(CheckedSmiComparison)                                                      \
   M(CheckedSmiOp)                                                              \
   M(BinaryInt32Op)                                                             \
   M(UnarySmiOp)                                                                \
@@ -499,6 +450,7 @@ class EmbeddedArray<T, 0> {
   M(UnboxedConstant)                                                           \
   M(CheckEitherNonSmi)                                                         \
   M(BinaryDoubleOp)                                                            \
+  M(DoubleTestOp)                                                              \
   M(MathUnary)                                                                 \
   M(MathMinMax)                                                                \
   M(Box)                                                                       \
@@ -510,9 +462,10 @@ class EmbeddedArray<T, 0> {
   M(ShiftMintOp)                                                               \
   M(UnaryMintOp)                                                               \
   M(CheckArrayBound)                                                           \
+  M(GenericCheckBound)                                                         \
   M(Constraint)                                                                \
   M(StringToCharCode)                                                          \
-  M(StringFromCharCode)                                                        \
+  M(OneByteStringFromCharCode)                                                 \
   M(StringInterpolate)                                                         \
   M(InvokeMathCFunction)                                                       \
   M(MergedMath)                                                                \
@@ -571,7 +524,7 @@ class EmbeddedArray<T, 0> {
   M(UnboxInteger)                                                              \
   M(Comparison)                                                                \
   M(UnaryIntegerOp)                                                            \
-  M(BinaryIntegerOp)                                                           \
+  M(BinaryIntegerOp)
 
 #define FORWARD_DECLARATION(type) class type##Instr;
 FOR_EACH_INSTRUCTION(FORWARD_DECLARATION)
@@ -580,7 +533,7 @@ FOR_EACH_ABSTRACT_INSTRUCTION(FORWARD_DECLARATION)
 
 #define DEFINE_INSTRUCTION_TYPE_CHECK(type)                                    \
   virtual type##Instr* As##type() { return this; }                             \
-  virtual const char* DebugName() const { return #type; }                      \
+  virtual const char* DebugName() const { return #type; }
 
 // Functions required in all concrete instruction classes.
 #define DECLARE_INSTRUCTION_NO_BACKEND(type)                                   \
@@ -589,25 +542,24 @@ FOR_EACH_ABSTRACT_INSTRUCTION(FORWARD_DECLARATION)
   DEFINE_INSTRUCTION_TYPE_CHECK(type)
 
 #define DECLARE_INSTRUCTION_BACKEND()                                          \
-  virtual LocationSummary* MakeLocationSummary(Zone* zone,                     \
-                                               bool optimizing) const;         \
-  virtual void EmitNativeCode(FlowGraphCompiler* compiler);                    \
+  virtual LocationSummary* MakeLocationSummary(Zone* zone, bool optimizing)    \
+      const;                                                                   \
+  virtual void EmitNativeCode(FlowGraphCompiler* compiler);
 
 // Functions required in all concrete instruction classes.
 #define DECLARE_INSTRUCTION(type)                                              \
   DECLARE_INSTRUCTION_NO_BACKEND(type)                                         \
-  DECLARE_INSTRUCTION_BACKEND()                                                \
+  DECLARE_INSTRUCTION_BACKEND()
 
 #ifndef PRODUCT
-#define PRINT_TO_SUPPORT                                                       \
-    virtual void PrintTo(BufferFormatter* f) const;
+#define PRINT_TO_SUPPORT virtual void PrintTo(BufferFormatter* f) const;
 #else
 #define PRINT_TO_SUPPORT
 #endif  // !PRODUCT
 
 #ifndef PRODUCT
 #define PRINT_OPERANDS_TO_SUPPORT                                              \
-    virtual void PrintOperandsTo(BufferFormatter* f) const;
+  virtual void PrintOperandsTo(BufferFormatter* f) const;
 #else
 #define PRINT_OPERANDS_TO_SUPPORT
 #endif  // !PRODUCT
@@ -615,9 +567,7 @@ FOR_EACH_ABSTRACT_INSTRUCTION(FORWARD_DECLARATION)
 class Instruction : public ZoneAllocated {
  public:
 #define DECLARE_TAG(type) k##type,
-  enum Tag {
-    FOR_EACH_INSTRUCTION(DECLARE_TAG)
-  };
+  enum Tag { FOR_EACH_INSTRUCTION(DECLARE_TAG) };
 #undef DECLARE_TAG
 
   explicit Instruction(intptr_t deopt_id = Thread::kNoDeoptId)
@@ -627,9 +577,9 @@ class Instruction : public ZoneAllocated {
         next_(NULL),
         env_(NULL),
         locs_(NULL),
-        inlining_id_(-1) { }
+        inlining_id_(-1) {}
 
-  virtual ~Instruction() { }
+  virtual ~Instruction() {}
 
   virtual Tag tag() const = 0;
 
@@ -641,9 +591,7 @@ class Instruction : public ZoneAllocated {
   const ICData* GetICData(
       const ZoneGrowableArray<const ICData*>& ic_data_array) const;
 
-  virtual TokenPosition token_pos() const {
-    return TokenPosition::kNoSource;
-  }
+  virtual TokenPosition token_pos() const { return TokenPosition::kNoSource; }
 
   virtual intptr_t InputCount() const = 0;
   virtual Value* InputAt(intptr_t i) const = 0;
@@ -738,9 +686,9 @@ class Instruction : public ZoneAllocated {
 #define INSTRUCTION_TYPE_CHECK(Name)                                           \
   DECLARE_INSTRUCTION_TYPE_CHECK(Name, Name##Instr)
 
-DECLARE_INSTRUCTION_TYPE_CHECK(Definition, Definition)
-FOR_EACH_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
-FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
+  DECLARE_INSTRUCTION_TYPE_CHECK(Definition, Definition)
+  FOR_EACH_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
+  FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
 
 #undef INSTRUCTION_TYPE_CHECK
 #undef DECLARE_INSTRUCTION_TYPE_CHECK
@@ -764,18 +712,14 @@ FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
 
   static LocationSummary* MakeCallSummary(Zone* zone);
 
-  virtual void EmitNativeCode(FlowGraphCompiler* compiler) {
-    UNIMPLEMENTED();
-  }
+  virtual void EmitNativeCode(FlowGraphCompiler* compiler) { UNIMPLEMENTED(); }
 
   Environment* env() const { return env_; }
   void SetEnvironment(Environment* deopt_env);
   void RemoveEnvironment();
 
   intptr_t lifetime_position() const { return lifetime_position_; }
-  void set_lifetime_position(intptr_t pos) {
-    lifetime_position_ = pos;
-  }
+  void set_lifetime_position(intptr_t pos) { lifetime_position_ = pos; }
 
   bool HasUnmatchedInputRepresentations() const;
 
@@ -785,13 +729,9 @@ FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
   }
 
   // Representation of the value produced by this computation.
-  virtual Representation representation() const {
-    return kTagged;
-  }
+  virtual Representation representation() const { return kTagged; }
 
-  bool WasEliminated() const {
-    return next() == NULL;
-  }
+  bool WasEliminated() const { return next() == NULL; }
 
   // Returns deoptimization id that corresponds to the deoptimization target
   // that input operands conversions inserted for this instruction can jump
@@ -819,14 +759,10 @@ FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
   // instruction.
   Instruction* AppendInstruction(Instruction* tail);
 
-  virtual bool AllowsDCE() const {
-    return false;
-  }
+  virtual bool AllowsDCE() const { return false; }
 
   // Returns true if CSE and LICM are allowed for this instruction.
-  virtual bool AllowsCSE() const {
-    return false;
-  }
+  virtual bool AllowsCSE() const { return false; }
 
   // Returns set of effects created by this instruction.
   virtual EffectSet Effects() const = 0;
@@ -875,9 +811,7 @@ FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
     return CanDeoptimize() || CanBecomeDeoptimizationTarget();
   }
 
-  virtual bool CanBecomeDeoptimizationTarget() const {
-    return false;
-  }
+  virtual bool CanBecomeDeoptimizationTarget() const { return false; }
 
   void InheritDeoptTargetAfter(FlowGraph* flow_graph,
                                Definition* call,
@@ -889,6 +823,8 @@ FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
 
   void ClearEnv() { env_ = NULL; }
 
+  void Unsupported(FlowGraphCompiler* compiler);
+
  protected:
   // GetDeoptId and/or CopyDeoptIdFrom.
   friend class CallSiteInliner;
@@ -896,22 +832,22 @@ FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
   friend class ComparisonInstr;
   friend class Scheduler;
   friend class BlockEntryInstr;
+  friend class CatchBlockEntryInstr;  // deopt_id_
 
   // Fetch deopt id without checking if this computation can deoptimize.
-  intptr_t GetDeoptId() const {
-    return deopt_id_;
-  }
+  intptr_t GetDeoptId() const { return deopt_id_; }
 
   void CopyDeoptIdFrom(const Instruction& instr) {
     deopt_id_ = instr.deopt_id_;
   }
 
  private:
+  friend class BranchInstr;      // For RawSetInputAt.
+  friend class IfThenElseInstr;  // For RawSetInputAt.
+
   virtual void RawSetInputAt(intptr_t i, Value* value) = 0;
 
-  enum {
-    kNoPlaceId = -1
-  };
+  enum { kNoPlaceId = -1 };
 
   intptr_t deopt_id_;
   union {
@@ -930,8 +866,7 @@ FOR_EACH_ABSTRACT_INSTRUCTION(INSTRUCTION_TYPE_CHECK)
 
 class PureInstruction : public Instruction {
  public:
-  explicit PureInstruction(intptr_t deopt_id)
-      : Instruction(deopt_id) { }
+  explicit PureInstruction(intptr_t deopt_id) : Instruction(deopt_id) {}
 
   virtual bool AllowsCSE() const { return true; }
   virtual EffectSet Dependencies() const { return EffectSet::None(); }
@@ -954,25 +889,26 @@ struct NoThrow {
 // Types to be used as CSETrait for TemplateInstruction/TemplateDefinition.
 // Pure instructions are those that allow CSE and have no effects and
 // no dependencies.
-template<typename DefaultBase, typename PureBase>
+template <typename DefaultBase, typename PureBase>
 struct Pure {
   typedef PureBase Base;
 };
 
 
-template<typename DefaultBase, typename PureBase>
+template <typename DefaultBase, typename PureBase>
 struct NoCSE {
   typedef DefaultBase Base;
 };
 
 
-template<intptr_t N,
-         typename ThrowsTrait,
-         template<typename Default, typename Pure> class CSETrait = NoCSE>
-class TemplateInstruction: public CSETrait<Instruction, PureInstruction>::Base {
+template <intptr_t N,
+          typename ThrowsTrait,
+          template <typename Default, typename Pure> class CSETrait = NoCSE>
+class TemplateInstruction
+    : public CSETrait<Instruction, PureInstruction>::Base {
  public:
   explicit TemplateInstruction(intptr_t deopt_id = Thread::kNoDeoptId)
-      : CSETrait<Instruction, PureInstruction>::Base(deopt_id), inputs_() { }
+      : CSETrait<Instruction, PureInstruction>::Base(deopt_id), inputs_() {}
 
   virtual intptr_t InputCount() const { return N; }
   virtual Value* InputAt(intptr_t i) const { return inputs_[i]; }
@@ -983,15 +919,13 @@ class TemplateInstruction: public CSETrait<Instruction, PureInstruction>::Base {
   EmbeddedArray<Value*, N> inputs_;
 
  private:
-  virtual void RawSetInputAt(intptr_t i, Value* value) {
-    inputs_[i] = value;
-  }
+  virtual void RawSetInputAt(intptr_t i, Value* value) { inputs_[i] = value; }
 };
 
 
 class MoveOperands : public ZoneAllocated {
  public:
-  MoveOperands(Location dest, Location src) : dest_(dest), src_(src) { }
+  MoveOperands(Location dest, Location src) : dest_(dest), src_(src) {}
 
   Location src() const { return src_; }
   Location dest() const { return dest_; }
@@ -1049,7 +983,7 @@ class MoveOperands : public ZoneAllocated {
 
 class ParallelMoveInstr : public TemplateInstruction<0, NoThrow> {
  public:
-  ParallelMoveInstr() : moves_(4) { }
+  ParallelMoveInstr() : moves_(4) {}
 
   DECLARE_INSTRUCTION(ParallelMove)
 
@@ -1086,7 +1020,7 @@ class ParallelMoveInstr : public TemplateInstruction<0, NoThrow> {
   PRINT_TO_SUPPORT
 
  private:
-  GrowableArray<MoveOperands*> moves_;   // Elements cannot be null.
+  GrowableArray<MoveOperands*> moves_;  // Elements cannot be null.
 
   DISALLOW_COPY_AND_ASSIGN(ParallelMoveInstr);
 };
@@ -1114,7 +1048,7 @@ class BlockEntryInstr : public Instruction {
   // the register allocator.
   void set_start_pos(intptr_t pos) { start_pos_ = pos; }
   intptr_t start_pos() const { return start_pos_; }
-  void  set_end_pos(intptr_t pos) { end_pos_ = pos; }
+  void set_end_pos(intptr_t pos) { end_pos_ = pos; }
   intptr_t end_pos() const { return end_pos_; }
 
   BlockEntryInstr* dominator() const { return dominator_; }
@@ -1135,13 +1069,9 @@ class BlockEntryInstr : public Instruction {
   Instruction* last_instruction() const { return last_instruction_; }
   void set_last_instruction(Instruction* instr) { last_instruction_ = instr; }
 
-  ParallelMoveInstr* parallel_move() const {
-    return parallel_move_;
-  }
+  ParallelMoveInstr* parallel_move() const { return parallel_move_; }
 
-  bool HasParallelMove() const {
-    return parallel_move_ != NULL;
-  }
+  bool HasParallelMove() const { return parallel_move_ != NULL; }
 
   bool HasNonRedundantParallelMove() const {
     return HasParallelMove() && !parallel_move()->IsRedundant();
@@ -1166,15 +1096,13 @@ class BlockEntryInstr : public Instruction {
   // block is recorded in each entry instruction.  Returns true when called the
   // first time on this particular block within one graph traversal, and false
   // on all successive calls.
-  bool DiscoverBlock(
-      BlockEntryInstr* predecessor,
-      GrowableArray<BlockEntryInstr*>* preorder,
-      GrowableArray<intptr_t>* parent);
+  bool DiscoverBlock(BlockEntryInstr* predecessor,
+                     GrowableArray<BlockEntryInstr*>* preorder,
+                     GrowableArray<intptr_t>* parent);
 
   // Perform a depth first search to prune code not reachable from an OSR
   // entry point.
-  bool PruneUnreachable(FlowGraphBuilder* builder,
-                        GraphEntryInstr* graph_entry,
+  bool PruneUnreachable(GraphEntryInstr* graph_entry,
                         Instruction* parent,
                         intptr_t osr_id,
                         BitVector* block_marks);
@@ -1201,9 +1129,7 @@ class BlockEntryInstr : public Instruction {
   virtual bool MayThrow() const { return false; }
 
   intptr_t try_index() const { return try_index_; }
-  void set_try_index(intptr_t index) {
-    try_index_ = index;
-  }
+  void set_try_index(intptr_t index) { try_index_ = index; }
 
   // True for blocks inside a try { } region.
   bool InsideTryBlock() const {
@@ -1211,13 +1137,9 @@ class BlockEntryInstr : public Instruction {
   }
 
   BitVector* loop_info() const { return loop_info_; }
-  void set_loop_info(BitVector* loop_info) {
-    loop_info_ = loop_info;
-  }
+  void set_loop_info(BitVector* loop_info) { loop_info_ = loop_info; }
 
-  virtual BlockEntryInstr* GetBlock() {
-    return this;
-  }
+  virtual BlockEntryInstr* GetBlock() { return this; }
 
   virtual TokenPosition token_pos() const {
     return TokenPosition::kControlFlow;
@@ -1251,8 +1173,7 @@ class BlockEntryInstr : public Instruction {
         last_instruction_(NULL),
         offset_(-1),
         parallel_move_(NULL),
-        loop_info_(NULL) {
-  }
+        loop_info_(NULL) {}
 
  private:
   virtual void RawSetInputAt(intptr_t i, Value* value) { UNREACHABLE(); }
@@ -1388,9 +1309,7 @@ class GraphEntryInstr : public BlockEntryInstr {
   }
   TargetEntryInstr* normal_entry() const { return normal_entry_; }
 
-  const ParsedFunction& parsed_function() const {
-    return parsed_function_;
-  }
+  const ParsedFunction& parsed_function() const { return parsed_function_; }
 
   const GrowableArray<CatchBlockEntryInstr*>& catch_entries() const {
     return catch_entries_;
@@ -1426,7 +1345,7 @@ class JoinEntryInstr : public BlockEntryInstr {
   JoinEntryInstr(intptr_t block_id, intptr_t try_index)
       : BlockEntryInstr(block_id, try_index),
         predecessors_(2),  // Two is the assumed to be the common case.
-        phis_(NULL) { }
+        phis_(NULL) {}
 
   DECLARE_INSTRUCTION(JoinEntry)
 
@@ -1474,21 +1393,16 @@ class JoinEntryInstr : public BlockEntryInstr {
 
 class PhiIterator : public ValueObject {
  public:
-  explicit PhiIterator(JoinEntryInstr* join)
-      : phis_(join->phis()), index_(0) { }
+  explicit PhiIterator(JoinEntryInstr* join) : phis_(join->phis()), index_(0) {}
 
   void Advance() {
     ASSERT(!Done());
     index_++;
   }
 
-  bool Done() const {
-    return (phis_ == NULL) || (index_ >= phis_->length());
-  }
+  bool Done() const { return (phis_ == NULL) || (index_ >= phis_->length()); }
 
-  PhiInstr* Current() const {
-    return (*phis_)[index_];
-  }
+  PhiInstr* Current() const { return (*phis_)[index_]; }
 
  private:
   ZoneGrowableArray<PhiInstr*>* phis_;
@@ -1501,7 +1415,7 @@ class TargetEntryInstr : public BlockEntryInstr {
   TargetEntryInstr(intptr_t block_id, intptr_t try_index)
       : BlockEntryInstr(block_id, try_index),
         predecessor_(NULL),
-        edge_weight_(0.0) { }
+        edge_weight_(0.0) {}
 
   DECLARE_INSTRUCTION(TargetEntry)
 
@@ -1540,8 +1454,7 @@ class IndirectEntryInstr : public JoinEntryInstr {
   IndirectEntryInstr(intptr_t block_id,
                      intptr_t indirect_id,
                      intptr_t try_index)
-      : JoinEntryInstr(block_id, try_index),
-        indirect_id_(indirect_id) { }
+      : JoinEntryInstr(block_id, try_index), indirect_id_(indirect_id) {}
 
   DECLARE_INSTRUCTION(IndirectEntry)
 
@@ -1556,20 +1469,31 @@ class IndirectEntryInstr : public JoinEntryInstr {
 
 class CatchBlockEntryInstr : public BlockEntryInstr {
  public:
-  CatchBlockEntryInstr(intptr_t block_id,
+  CatchBlockEntryInstr(TokenPosition handler_token_pos,
+                       bool is_generated,
+                       intptr_t block_id,
                        intptr_t try_index,
+                       GraphEntryInstr* graph_entry,
                        const Array& handler_types,
                        intptr_t catch_try_index,
                        const LocalVariable& exception_var,
                        const LocalVariable& stacktrace_var,
-                       bool needs_stacktrace)
+                       bool needs_stacktrace,
+                       intptr_t deopt_id,
+                       bool should_restore_closure_context = false)
       : BlockEntryInstr(block_id, try_index),
+        graph_entry_(graph_entry),
         predecessor_(NULL),
         catch_handler_types_(Array::ZoneHandle(handler_types.raw())),
         catch_try_index_(catch_try_index),
         exception_var_(exception_var),
         stacktrace_var_(stacktrace_var),
-        needs_stacktrace_(needs_stacktrace) { }
+        needs_stacktrace_(needs_stacktrace),
+        should_restore_closure_context_(should_restore_closure_context),
+        handler_token_pos_(handler_token_pos),
+        is_generated_(is_generated) {
+    deopt_id_ = deopt_id;
+  }
 
   DECLARE_INSTRUCTION(CatchBlockEntry)
 
@@ -1581,16 +1505,19 @@ class CatchBlockEntryInstr : public BlockEntryInstr {
     return predecessor_;
   }
 
+  GraphEntryInstr* graph_entry() const { return graph_entry_; }
+
   const LocalVariable& exception_var() const { return exception_var_; }
   const LocalVariable& stacktrace_var() const { return stacktrace_var_; }
 
   bool needs_stacktrace() const { return needs_stacktrace_; }
 
+  bool is_generated() const { return is_generated_; }
+  TokenPosition handler_token_pos() const { return handler_token_pos_; }
+
   // Returns try index for the try block to which this catch handler
   // corresponds.
-  intptr_t catch_try_index() const {
-    return catch_try_index_;
-  }
+  intptr_t catch_try_index() const { return catch_try_index_; }
   GrowableArray<Definition*>* initial_definitions() {
     return &initial_definitions_;
   }
@@ -1606,6 +1533,13 @@ class CatchBlockEntryInstr : public BlockEntryInstr {
     predecessor_ = predecessor;
   }
 
+  bool should_restore_closure_context() const {
+    ASSERT(exception_var_.is_captured() == stacktrace_var_.is_captured());
+    ASSERT(!exception_var_.is_captured() || should_restore_closure_context_);
+    return should_restore_closure_context_;
+  }
+
+  GraphEntryInstr* graph_entry_;
   BlockEntryInstr* predecessor_;
   const Array& catch_handler_types_;
   const intptr_t catch_try_index_;
@@ -1613,6 +1547,9 @@ class CatchBlockEntryInstr : public BlockEntryInstr {
   const LocalVariable& exception_var_;
   const LocalVariable& stacktrace_var_;
   const bool needs_stacktrace_;
+  const bool should_restore_closure_context_;
+  TokenPosition handler_token_pos_;
+  bool is_generated_;
 
   DISALLOW_COPY_AND_ASSIGN(CatchBlockEntryInstr);
 };
@@ -1646,8 +1583,7 @@ class AliasIdentity : public ValueObject {
   }
 
   AliasIdentity(const AliasIdentity& other)
-      : ValueObject(), value_(other.value_) {
-  }
+      : ValueObject(), value_(other.value_) {}
 
   AliasIdentity& operator=(const AliasIdentity& other) {
     value_ = other.value_;
@@ -1655,7 +1591,7 @@ class AliasIdentity : public ValueObject {
   }
 
  private:
-  explicit AliasIdentity(intptr_t value) : value_(value) { }
+  explicit AliasIdentity(intptr_t value) : value_(value) {}
 
   enum {
     kUnknown = 0,
@@ -1697,11 +1633,9 @@ class Definition : public Instruction {
   void ClearSSATempIndex() { ssa_temp_index_ = -1; }
   bool HasPairRepresentation() const {
 #if defined(TARGET_ARCH_X64)
-    return (representation() == kPairOfTagged) ||
-           (representation() == kPairOfUnboxedDouble);
+    return representation() == kPairOfTagged;
 #else
     return (representation() == kPairOfTagged) ||
-           (representation() == kPairOfUnboxedDouble) ||
            (representation() == kUnboxedMint);
 #endif
   }
@@ -1719,23 +1653,17 @@ class Definition : public Instruction {
   inline bool IsMintDefinition();
 
   bool IsInt32Definition() {
-    return IsBinaryInt32Op() ||
-           IsBoxInt32() ||
-           IsUnboxInt32() ||
+    return IsBinaryInt32Op() || IsBoxInt32() || IsUnboxInt32() ||
            IsUnboxedIntConverter();
   }
 
   // Compute compile type for this definition. It is safe to use this
   // approximation even before type propagator was run (e.g. during graph
   // building).
-  virtual CompileType ComputeType() const {
-    return CompileType::Dynamic();
-  }
+  virtual CompileType ComputeType() const { return CompileType::Dynamic(); }
 
   // Update CompileType of the definition. Returns true if the type has changed.
-  virtual bool RecomputeType() {
-    return false;
-  }
+  virtual bool RecomputeType() { return false; }
 
   PRINT_OPERANDS_TO_SUPPORT
   PRINT_TO_SUPPORT
@@ -1813,13 +1741,9 @@ class Definition : public Instruction {
     temp_index_ = reinterpret_cast<intptr_t>(other);
   }
 
-  virtual AliasIdentity Identity() const {
-    return AliasIdentity::Unknown();
-  }
+  virtual AliasIdentity Identity() const { return AliasIdentity::Unknown(); }
 
-  virtual void SetIdentity(AliasIdentity identity) {
-    UNREACHABLE();
-  }
+  virtual void SetIdentity(AliasIdentity identity) { UNREACHABLE(); }
 
   Definition* OriginalDefinition();
 
@@ -1861,8 +1785,7 @@ inline void Value::BindToEnvironment(Definition* def) {
 
 class PureDefinition : public Definition {
  public:
-  explicit PureDefinition(intptr_t deopt_id)
-      : Definition(deopt_id) { }
+  explicit PureDefinition(intptr_t deopt_id) : Definition(deopt_id) {}
 
   virtual bool AllowsCSE() const { return true; }
   virtual EffectSet Dependencies() const { return EffectSet::None(); }
@@ -1871,13 +1794,13 @@ class PureDefinition : public Definition {
 };
 
 
-template<intptr_t N,
-         typename ThrowsTrait,
-         template<typename Impure, typename Pure> class CSETrait = NoCSE>
+template <intptr_t N,
+          typename ThrowsTrait,
+          template <typename Impure, typename Pure> class CSETrait = NoCSE>
 class TemplateDefinition : public CSETrait<Definition, PureDefinition>::Base {
  public:
   explicit TemplateDefinition(intptr_t deopt_id = Thread::kNoDeoptId)
-      : CSETrait<Definition, PureDefinition>::Base(deopt_id), inputs_() { }
+      : CSETrait<Definition, PureDefinition>::Base(deopt_id), inputs_() {}
 
   virtual intptr_t InputCount() const { return N; }
   virtual Value* InputAt(intptr_t i) const { return inputs_[i]; }
@@ -1891,9 +1814,7 @@ class TemplateDefinition : public CSETrait<Definition, PureDefinition>::Base {
   friend class BranchInstr;
   friend class IfThenElseInstr;
 
-  virtual void RawSetInputAt(intptr_t i, Value* value) {
-    inputs_[i] = value;
-  }
+  virtual void RawSetInputAt(intptr_t i, Value* value) { inputs_[i] = value; }
 };
 
 
@@ -1910,12 +1831,13 @@ class InductionVariableInfo;
 class PhiInstr : public Definition {
  public:
   PhiInstr(JoinEntryInstr* block, intptr_t num_inputs)
-    : block_(block),
-      inputs_(num_inputs),
-      is_alive_(false),
-      representation_(kTagged),
-      reaching_defs_(NULL),
-      loop_variable_info_(NULL) {
+      : block_(block),
+        inputs_(num_inputs),
+        representation_(kTagged),
+        reaching_defs_(NULL),
+        loop_variable_info_(NULL),
+        is_alive_(false),
+        is_receiver_(kUnknownReceiver) {
     for (intptr_t i = 0; i < num_inputs; ++i) {
       inputs_.Add(NULL);
     }
@@ -1945,13 +1867,9 @@ class PhiInstr : public Definition {
     return representation_;
   }
 
-  virtual Representation representation() const {
-    return representation_;
-  }
+  virtual Representation representation() const { return representation_; }
 
-  virtual void set_representation(Representation r) {
-    representation_ = r;
-  }
+  virtual void set_representation(Representation r) { representation_ = r; }
 
   virtual intptr_t Hashcode() const {
     UNREACHABLE();
@@ -1962,9 +1880,7 @@ class PhiInstr : public Definition {
 
   virtual void InferRange(RangeAnalysis* analysis, Range* range);
 
-  BitVector* reaching_defs() const {
-    return reaching_defs_;
-  }
+  BitVector* reaching_defs() const { return reaching_defs_; }
 
   void set_reaching_defs(BitVector* reaching_defs) {
     reaching_defs_ = reaching_defs;
@@ -1985,6 +1901,14 @@ class PhiInstr : public Definition {
 
   PRINT_TO_SUPPORT
 
+  enum ReceiverType { kUnknownReceiver = -1, kNotReceiver = 0, kReceiver = 1 };
+
+  ReceiverType is_receiver() const {
+    return static_cast<ReceiverType>(is_receiver_);
+  }
+
+  void set_is_receiver(ReceiverType is_receiver) { is_receiver_ = is_receiver; }
+
  private:
   // Direct access to inputs_ in order to resize it due to unreachable
   // predecessors.
@@ -1994,11 +1918,11 @@ class PhiInstr : public Definition {
 
   JoinEntryInstr* block_;
   GrowableArray<Value*> inputs_;
-  bool is_alive_;
   Representation representation_;
-
   BitVector* reaching_defs_;
   InductionVariableInfo* loop_variable_info_;
+  bool is_alive_;
+  int8_t is_receiver_;
 
   DISALLOW_COPY_AND_ASSIGN(PhiInstr);
 };
@@ -2009,7 +1933,7 @@ class ParameterInstr : public Definition {
   ParameterInstr(intptr_t index,
                  BlockEntryInstr* block,
                  Register base_reg = FPREG)
-      : index_(index), base_reg_(base_reg), block_(block) { }
+      : index_(index), base_reg_(base_reg), block_(block) {}
 
   DECLARE_INSTRUCTION(Parameter)
 
@@ -2054,9 +1978,7 @@ class ParameterInstr : public Definition {
 
 class PushArgumentInstr : public TemplateDefinition<1, NoThrow> {
  public:
-  explicit PushArgumentInstr(Value* value) {
-    SetInputAt(0, value);
-  }
+  explicit PushArgumentInstr(Value* value) { SetInputAt(0, value); }
 
   DECLARE_INSTRUCTION(PushArgument)
 
@@ -2118,8 +2040,7 @@ class ThrowInstr : public TemplateInstruction<0, Throws> {
  public:
   explicit ThrowInstr(TokenPosition token_pos)
       : TemplateInstruction(Thread::Current()->GetNextDeoptId()),
-        token_pos_(token_pos) {
-  }
+        token_pos_(token_pos) {}
 
   DECLARE_INSTRUCTION(Throw)
 
@@ -2145,8 +2066,7 @@ class ReThrowInstr : public TemplateInstruction<0, Throws> {
   ReThrowInstr(TokenPosition token_pos, intptr_t catch_try_index)
       : TemplateInstruction(Thread::Current()->GetNextDeoptId()),
         token_pos_(token_pos),
-        catch_try_index_(catch_try_index) {
-  }
+        catch_try_index_(catch_try_index) {}
 
   DECLARE_INSTRUCTION(ReThrow)
 
@@ -2169,8 +2089,7 @@ class ReThrowInstr : public TemplateInstruction<0, Throws> {
 
 class StopInstr : public TemplateInstruction<0, NoThrow> {
  public:
-  explicit StopInstr(const char* message)
-      : message_(message) {
+  explicit StopInstr(const char* message) : message_(message) {
     ASSERT(message != NULL);
   }
 
@@ -2196,12 +2115,11 @@ class StopInstr : public TemplateInstruction<0, NoThrow> {
 class GotoInstr : public TemplateInstruction<0, NoThrow> {
  public:
   explicit GotoInstr(JoinEntryInstr* entry)
-    : TemplateInstruction(Thread::Current()->GetNextDeoptId()),
-      block_(NULL),
-      successor_(entry),
-      edge_weight_(0.0),
-      parallel_move_(NULL) {
-  }
+      : TemplateInstruction(Thread::Current()->GetNextDeoptId()),
+        block_(NULL),
+        successor_(entry),
+        edge_weight_(0.0),
+        parallel_move_(NULL) {}
 
   DECLARE_INSTRUCTION(Goto)
 
@@ -2227,13 +2145,9 @@ class GotoInstr : public TemplateInstruction<0, NoThrow> {
 
   virtual EffectSet Effects() const { return EffectSet::None(); }
 
-  ParallelMoveInstr* parallel_move() const {
-    return parallel_move_;
-  }
+  ParallelMoveInstr* parallel_move() const { return parallel_move_; }
 
-  bool HasParallelMove() const {
-    return parallel_move_ != NULL;
-  }
+  bool HasParallelMove() const { return parallel_move_ != NULL; }
 
   bool HasNonRedundantParallelMove() const {
     return HasParallelMove() && !parallel_move()->IsRedundant();
@@ -2277,9 +2191,8 @@ class GotoInstr : public TemplateInstruction<0, NoThrow> {
 // to IndirectGoto as an input.
 class IndirectGotoInstr : public TemplateInstruction<1, NoThrow> {
  public:
-  IndirectGotoInstr(TypedData* offsets,
-                    Value* offset_from_start)
-    : offsets_(*offsets) {
+  IndirectGotoInstr(TypedData* offsets, Value* offset_from_start)
+      : offsets_(*offsets) {
     SetInputAt(0, offset_from_start);
   }
 
@@ -2320,10 +2233,10 @@ class IndirectGotoInstr : public TemplateInstruction<1, NoThrow> {
 };
 
 
-class ComparisonInstr : public TemplateDefinition<2, NoThrow, Pure> {
+class ComparisonInstr : public Definition {
  public:
-  Value* left() const { return inputs_[0]; }
-  Value* right() const { return inputs_[1]; }
+  Value* left() const { return InputAt(0); }
+  Value* right() const { return InputAt(1); }
 
   virtual TokenPosition token_pos() const { return token_pos_; }
   Token::Kind kind() const { return kind_; }
@@ -2336,17 +2249,13 @@ class ComparisonInstr : public TemplateDefinition<2, NoThrow, Pure> {
   virtual Condition EmitComparisonCode(FlowGraphCompiler* compiler,
                                        BranchLabels labels) = 0;
 
-  void SetDeoptId(const Instruction& instr) {
-    CopyDeoptIdFrom(instr);
-  }
+  void SetDeoptId(const Instruction& instr) { CopyDeoptIdFrom(instr); }
 
   // Operation class id is computed from collected ICData.
   void set_operation_cid(intptr_t value) { operation_cid_ = value; }
   intptr_t operation_cid() const { return operation_cid_; }
 
-  void NegateComparison() {
-    kind_ = Token::NegateComparison(kind_);
-  }
+  virtual void NegateComparison() { kind_ = Token::NegateComparison(kind_); }
 
   virtual bool CanBecomeDeoptimizationTarget() const { return true; }
   virtual intptr_t DeoptimizationTarget() const { return GetDeoptId(); }
@@ -2354,7 +2263,7 @@ class ComparisonInstr : public TemplateDefinition<2, NoThrow, Pure> {
   virtual bool AttributesEqual(Instruction* other) const {
     ComparisonInstr* other_comparison = other->AsComparison();
     return kind() == other_comparison->kind() &&
-        (operation_cid() == other_comparison->operation_cid());
+           (operation_cid() == other_comparison->operation_cid());
   }
 
   DEFINE_INSTRUCTION_TYPE_CHECK(Comparison)
@@ -2362,18 +2271,11 @@ class ComparisonInstr : public TemplateDefinition<2, NoThrow, Pure> {
  protected:
   ComparisonInstr(TokenPosition token_pos,
                   Token::Kind kind,
-                  Value* left,
-                  Value* right,
                   intptr_t deopt_id = Thread::kNoDeoptId)
-      : TemplateDefinition(deopt_id),
+      : Definition(deopt_id),
         token_pos_(token_pos),
         kind_(kind),
-        operation_cid_(kIllegalCid) {
-    SetInputAt(0, left);
-    if (right != NULL) {
-      SetInputAt(1, right);
-    }
-  }
+        operation_cid_(kIllegalCid) {}
 
  private:
   const TokenPosition token_pos_;
@@ -2384,13 +2286,51 @@ class ComparisonInstr : public TemplateDefinition<2, NoThrow, Pure> {
 };
 
 
+class PureComparison : public ComparisonInstr {
+ public:
+  virtual bool AllowsCSE() const { return true; }
+  virtual EffectSet Dependencies() const { return EffectSet::None(); }
+
+  virtual EffectSet Effects() const { return EffectSet::None(); }
+
+ protected:
+  PureComparison(TokenPosition token_pos, Token::Kind kind, intptr_t deopt_id)
+      : ComparisonInstr(token_pos, kind, deopt_id) {}
+};
+
+
+template <intptr_t N,
+          typename ThrowsTrait,
+          template <typename Impure, typename Pure> class CSETrait = NoCSE>
+class TemplateComparison
+    : public CSETrait<ComparisonInstr, PureComparison>::Base {
+ public:
+  TemplateComparison(TokenPosition token_pos,
+                     Token::Kind kind,
+                     intptr_t deopt_id = Thread::kNoDeoptId)
+      : CSETrait<ComparisonInstr, PureComparison>::Base(token_pos,
+                                                        kind,
+                                                        deopt_id),
+        inputs_() {}
+
+  virtual intptr_t InputCount() const { return N; }
+  virtual Value* InputAt(intptr_t i) const { return inputs_[i]; }
+
+  virtual bool MayThrow() const { return ThrowsTrait::kCanThrow; }
+
+ protected:
+  EmbeddedArray<Value*, N> inputs_;
+
+ private:
+  virtual void RawSetInputAt(intptr_t i, Value* value) { inputs_[i] = value; }
+};
+
+
 class BranchInstr : public Instruction {
  public:
   explicit BranchInstr(ComparisonInstr* comparison)
       : Instruction(Thread::Current()->GetNextDeoptId()),
         comparison_(comparison),
-        is_checked_(false),
-        constrained_type_(NULL),
         constant_target_(NULL) {
     ASSERT(comparison->env() == NULL);
     for (intptr_t i = comparison->InputCount() - 1; i >= 0; --i) {
@@ -2410,25 +2350,16 @@ class BranchInstr : public Instruction {
 
   virtual TokenPosition token_pos() const { return comparison_->token_pos(); }
 
-  virtual bool CanDeoptimize() const {
-    // Branches need a deoptimization info in checked mode if they
-    // can throw a type check error.
-    return comparison()->CanDeoptimize() || is_checked();
-  }
+  virtual bool CanDeoptimize() const { return comparison()->CanDeoptimize(); }
 
   virtual bool CanBecomeDeoptimizationTarget() const {
     return comparison()->CanBecomeDeoptimizationTarget();
   }
 
-  virtual EffectSet Effects() const {
-    return comparison()->Effects();
-  }
+  virtual EffectSet Effects() const { return comparison()->Effects(); }
 
   ComparisonInstr* comparison() const { return comparison_; }
   void SetComparison(ComparisonInstr* comp);
-
-  void set_is_checked(bool value) { is_checked_ = value; }
-  bool is_checked() const { return is_checked_; }
 
   virtual intptr_t DeoptimizationTarget() const {
     return comparison()->DeoptimizationTarget();
@@ -2440,31 +2371,15 @@ class BranchInstr : public Instruction {
 
   virtual Instruction* Canonicalize(FlowGraph* flow_graph);
 
-  // Set compile type constrained by the comparison of this branch.
-  // FlowGraphPropagator propagates it downwards into either true or false
-  // successor.
-  void set_constrained_type(ConstrainedCompileType* type) {
-    constrained_type_ = type;
-  }
-
-  // Return compile type constrained by the comparison of this branch.
-  ConstrainedCompileType* constrained_type() const {
-    return constrained_type_;
-  }
-
   void set_constant_target(TargetEntryInstr* target) {
     ASSERT(target == true_successor() || target == false_successor());
     constant_target_ = target;
   }
-  TargetEntryInstr* constant_target() const {
-    return constant_target_;
-  }
+  TargetEntryInstr* constant_target() const { return constant_target_; }
 
   virtual void InheritDeoptTarget(Zone* zone, Instruction* other);
 
-  virtual bool MayThrow() const {
-    return comparison()->MayThrow();
-  }
+  virtual bool MayThrow() const { return comparison()->MayThrow(); }
 
   TargetEntryInstr* true_successor() const { return true_successor_; }
   TargetEntryInstr* false_successor() const { return false_successor_; }
@@ -2485,8 +2400,6 @@ class BranchInstr : public Instruction {
   TargetEntryInstr* true_successor_;
   TargetEntryInstr* false_successor_;
   ComparisonInstr* comparison_;
-  bool is_checked_;
-  ConstrainedCompileType* constrained_type_;
   TargetEntryInstr* constant_target_;
 
   DISALLOW_COPY_AND_ASSIGN(BranchInstr);
@@ -2496,15 +2409,11 @@ class BranchInstr : public Instruction {
 class DeoptimizeInstr : public TemplateInstruction<0, NoThrow, Pure> {
  public:
   DeoptimizeInstr(ICData::DeoptReasonId deopt_reason, intptr_t deopt_id)
-      : TemplateInstruction(deopt_id),
-        deopt_reason_(deopt_reason) {
-  }
+      : TemplateInstruction(deopt_id), deopt_reason_(deopt_reason) {}
 
   virtual bool CanDeoptimize() const { return true; }
 
-  virtual bool AttributesEqual(Instruction* other) const {
-    return true;
-  }
+  virtual bool AttributesEqual(Instruction* other) const { return true; }
 
   DECLARE_INSTRUCTION(Deoptimize)
 
@@ -2517,9 +2426,7 @@ class DeoptimizeInstr : public TemplateInstruction<0, NoThrow, Pure> {
 
 class RedefinitionInstr : public TemplateDefinition<1, NoThrow> {
  public:
-  explicit RedefinitionInstr(Value* value) {
-    SetInputAt(0, value);
-  }
+  explicit RedefinitionInstr(Value* value) { SetInputAt(0, value); }
 
   DECLARE_INSTRUCTION(Redefinition)
 
@@ -2540,8 +2447,7 @@ class RedefinitionInstr : public TemplateDefinition<1, NoThrow> {
 class ConstraintInstr : public TemplateDefinition<1, NoThrow> {
  public:
   ConstraintInstr(Value* value, Range* constraint)
-      : constraint_(constraint),
-        target_(NULL) {
+      : constraint_(constraint), target_(NULL) {
     SetInputAt(0, value);
   }
 
@@ -2564,14 +2470,10 @@ class ConstraintInstr : public TemplateDefinition<1, NoThrow> {
   virtual void InferRange(RangeAnalysis* analysis, Range* range);
 
   // Constraints for branches have their target block stored in order
-  // to find the the comparsion that generated the constraint:
+  // to find the comparison that generated the constraint:
   // target->predecessor->last_instruction->comparison.
-  void set_target(TargetEntryInstr* target) {
-    target_ = target;
-  }
-  TargetEntryInstr* target() const {
-    return target_;
-  }
+  void set_target(TargetEntryInstr* target) { target_ = target; }
+  TargetEntryInstr* target() const { return target_; }
 
   PRINT_OPERANDS_TO_SUPPORT
 
@@ -2621,9 +2523,7 @@ class UnboxedConstantInstr : public ConstantInstr {
   explicit UnboxedConstantInstr(const Object& value,
                                 Representation representation);
 
-  virtual Representation representation() const {
-    return representation_;
-  }
+  virtual Representation representation() const { return representation_; }
 
   // Either NULL or the address of the unboxed constant.
   uword constant_address() const { return constant_address_; }
@@ -2729,8 +2629,7 @@ class AssertBooleanInstr : public TemplateDefinition<1, Throws, Pure> {
 class CurrentContextInstr : public TemplateDefinition<0, NoThrow> {
  public:
   CurrentContextInstr()
-      : TemplateDefinition(Thread::Current()->GetNextDeoptId()) {
-  }
+      : TemplateDefinition(Thread::Current()->GetNextDeoptId()) {}
 
   DECLARE_INSTRUCTION(CurrentContext)
   virtual CompileType ComputeType() const;
@@ -2752,17 +2651,27 @@ class ClosureCallInstr : public TemplateDefinition<1, Throws> {
                    ClosureCallNode* node,
                    ZoneGrowableArray<PushArgumentInstr*>* arguments)
       : TemplateDefinition(Thread::Current()->GetNextDeoptId()),
-        ast_node_(*node),
+        argument_names_(node->arguments()->names()),
+        token_pos_(node->token_pos()),
+        arguments_(arguments) {
+    SetInputAt(0, function);
+  }
+
+  ClosureCallInstr(Value* function,
+                   ZoneGrowableArray<PushArgumentInstr*>* arguments,
+                   const Array& argument_names,
+                   TokenPosition token_pos)
+      : TemplateDefinition(Thread::Current()->GetNextDeoptId()),
+        argument_names_(argument_names),
+        token_pos_(token_pos),
         arguments_(arguments) {
     SetInputAt(0, function);
   }
 
   DECLARE_INSTRUCTION(ClosureCall)
 
-  const Array& argument_names() const { return ast_node_.arguments()->names(); }
-  virtual TokenPosition token_pos() const {
-    return ast_node_.token_pos();
-  }
+  const Array& argument_names() const { return argument_names_; }
+  virtual TokenPosition token_pos() const { return token_pos_; }
 
   virtual intptr_t ArgumentCount() const { return arguments_->length(); }
   virtual PushArgumentInstr* PushArgumentAt(intptr_t index) const {
@@ -2779,7 +2688,8 @@ class ClosureCallInstr : public TemplateDefinition<1, Throws> {
   PRINT_OPERANDS_TO_SUPPORT
 
  private:
-  const ClosureCallNode& ast_node_;
+  const Array& argument_names_;
+  TokenPosition token_pos_;
   ZoneGrowableArray<PushArgumentInstr*>* arguments_;
 
   DISALLOW_COPY_AND_ASSIGN(ClosureCallInstr);
@@ -2802,7 +2712,8 @@ class InstanceCallInstr : public TemplateDefinition<0, Throws> {
         token_kind_(token_kind),
         arguments_(arguments),
         argument_names_(argument_names),
-        checked_argument_count_(checked_argument_count) {
+        checked_argument_count_(checked_argument_count),
+        has_unique_selector_(false) {
     ic_data_ = GetICData(ic_data_array);
     ASSERT(function_name.IsNotTemporaryScopedHandle());
     ASSERT(!arguments->is_empty());
@@ -2813,18 +2724,14 @@ class InstanceCallInstr : public TemplateDefinition<0, Throws> {
            Token::IsUnaryOperator(token_kind) ||
            Token::IsIndexOperator(token_kind) ||
            Token::IsTypeTestOperator(token_kind) ||
-           Token::IsTypeCastOperator(token_kind) ||
-           token_kind == Token::kGET ||
-           token_kind == Token::kSET ||
-           token_kind == Token::kILLEGAL);
+           Token::IsTypeCastOperator(token_kind) || token_kind == Token::kGET ||
+           token_kind == Token::kSET || token_kind == Token::kILLEGAL);
   }
 
   DECLARE_INSTRUCTION(InstanceCall)
 
   const ICData* ic_data() const { return ic_data_; }
-  bool HasICData() const {
-    return (ic_data() != NULL) && !ic_data()->IsNull();
-  }
+  bool HasICData() const { return (ic_data() != NULL) && !ic_data()->IsNull(); }
 
   // ICData can be replaced by optimizer.
   void set_ic_data(const ICData* value) { ic_data_ = value; }
@@ -2839,7 +2746,12 @@ class InstanceCallInstr : public TemplateDefinition<0, Throws> {
   const Array& argument_names() const { return argument_names_; }
   intptr_t checked_argument_count() const { return checked_argument_count_; }
 
+  bool has_unique_selector() const { return has_unique_selector_; }
+  void set_has_unique_selector(bool b) { has_unique_selector_ = b; }
+
   virtual bool CanDeoptimize() const { return true; }
+
+  virtual Definition* Canonicalize(FlowGraph* flow_graph);
 
   virtual bool CanBecomeDeoptimizationTarget() const {
     // Instance calls that are specialized by the optimizer need a
@@ -2863,6 +2775,7 @@ class InstanceCallInstr : public TemplateDefinition<0, Throws> {
   ZoneGrowableArray<PushArgumentInstr*>* const arguments_;
   const Array& argument_names_;
   const intptr_t checked_argument_count_;
+  bool has_unique_selector_;
 
   DISALLOW_COPY_AND_ASSIGN(InstanceCallInstr);
 };
@@ -2872,20 +2785,26 @@ class PolymorphicInstanceCallInstr : public TemplateDefinition<0, Throws> {
  public:
   PolymorphicInstanceCallInstr(InstanceCallInstr* instance_call,
                                const ICData& ic_data,
-                               bool with_checks)
+                               bool with_checks,
+                               bool complete)
       : TemplateDefinition(instance_call->deopt_id()),
         instance_call_(instance_call),
         ic_data_(ic_data),
-        with_checks_(with_checks) {
+        with_checks_(with_checks),
+        complete_(complete) {
     ASSERT(instance_call_ != NULL);
     ASSERT(ic_data.NumberOfChecks() > 0);
   }
 
   InstanceCallInstr* instance_call() const { return instance_call_; }
   bool with_checks() const { return with_checks_; }
+  void set_with_checks(bool b) { with_checks_ = b; }
+  bool complete() const { return complete_; }
   virtual TokenPosition token_pos() const {
     return instance_call_->token_pos();
   }
+
+  virtual CompileType ComputeType() const;
 
   virtual intptr_t ArgumentCount() const {
     return instance_call()->ArgumentCount();
@@ -2895,8 +2814,6 @@ class PolymorphicInstanceCallInstr : public TemplateDefinition<0, Throws> {
   }
 
   bool HasSingleRecognizedTarget() const;
-
-  bool HasOnlyDispatcherTargets() const;
 
   virtual intptr_t CallCount() const { return ic_data().AggregateCount(); }
 
@@ -2908,18 +2825,23 @@ class PolymorphicInstanceCallInstr : public TemplateDefinition<0, Throws> {
 
   virtual EffectSet Effects() const { return EffectSet::All(); }
 
+  virtual Definition* Canonicalize(FlowGraph* graph);
+
+  static RawType* ComputeRuntimeType(const ICData& ic_data);
+
   PRINT_OPERANDS_TO_SUPPORT
 
  private:
   InstanceCallInstr* instance_call_;
   const ICData& ic_data_;
-  const bool with_checks_;
+  bool with_checks_;
+  const bool complete_;
 
   DISALLOW_COPY_AND_ASSIGN(PolymorphicInstanceCallInstr);
 };
 
 
-class StrictCompareInstr : public ComparisonInstr {
+class StrictCompareInstr : public TemplateComparison<2, NoThrow, Pure> {
  public:
   StrictCompareInstr(TokenPosition token_pos,
                      Token::Kind kind,
@@ -2937,8 +2859,7 @@ class StrictCompareInstr : public ComparisonInstr {
 
   virtual Definition* Canonicalize(FlowGraph* flow_graph);
 
-  virtual void EmitBranchCode(FlowGraphCompiler* compiler,
-                              BranchInstr* branch);
+  virtual void EmitBranchCode(FlowGraphCompiler* compiler, BranchInstr* branch);
 
   virtual Condition EmitComparisonCode(FlowGraphCompiler* compiler,
                                        BranchLabels labels);
@@ -2961,14 +2882,16 @@ class StrictCompareInstr : public ComparisonInstr {
 
 // Comparison instruction that is equivalent to the (left & right) == 0
 // comparison pattern.
-class TestSmiInstr : public ComparisonInstr {
+class TestSmiInstr : public TemplateComparison<2, NoThrow, Pure> {
  public:
   TestSmiInstr(TokenPosition token_pos,
                Token::Kind kind,
                Value* left,
                Value* right)
-      : ComparisonInstr(token_pos, kind, left, right) {
+      : TemplateComparison(token_pos, kind) {
     ASSERT(kind == Token::kEQ || kind == Token::kNE);
+    SetInputAt(0, left);
+    SetInputAt(1, right);
   }
 
   DECLARE_INSTRUCTION(TestSmi);
@@ -2983,8 +2906,7 @@ class TestSmiInstr : public ComparisonInstr {
     return kTagged;
   }
 
-  virtual void EmitBranchCode(FlowGraphCompiler* compiler,
-                              BranchInstr* branch);
+  virtual void EmitBranchCode(FlowGraphCompiler* compiler, BranchInstr* branch);
 
   virtual Condition EmitComparisonCode(FlowGraphCompiler* compiler,
                                        BranchLabels labels);
@@ -2996,22 +2918,20 @@ class TestSmiInstr : public ComparisonInstr {
 
 // Checks the input value cid against cids stored in a table and returns either
 // a result or deoptimizes.
-// TODO(srdjan): Modify ComparisonInstr to allow 1 or 2 arguments, since
-// TestCidInstr needs only one argument
-class TestCidsInstr : public ComparisonInstr {
+class TestCidsInstr : public TemplateComparison<1, NoThrow, Pure> {
  public:
   TestCidsInstr(TokenPosition token_pos,
                 Token::Kind kind,
                 Value* value,
                 const ZoneGrowableArray<intptr_t>& cid_results,
                 intptr_t deopt_id)
-      : ComparisonInstr(token_pos, kind, value, NULL, deopt_id),
-        cid_results_(cid_results) {
+      : TemplateComparison(token_pos, kind, deopt_id),
+        cid_results_(cid_results),
+        licm_hoisted_(false) {
     ASSERT((kind == Token::kIS) || (kind == Token::kISNOT));
+    SetInputAt(0, value);
     set_operation_cid(kObjectCid);
   }
-
-  virtual intptr_t InputCount() const { return 1; }
 
   const ZoneGrowableArray<intptr_t>& cid_results() const {
     return cid_results_;
@@ -3023,6 +2943,8 @@ class TestCidsInstr : public ComparisonInstr {
 
   virtual CompileType ComputeType() const;
 
+  virtual Definition* Canonicalize(FlowGraph* flow_graph);
+
   virtual bool CanDeoptimize() const {
     return GetDeoptId() != Thread::kNoDeoptId;
   }
@@ -3033,21 +2955,23 @@ class TestCidsInstr : public ComparisonInstr {
 
   virtual bool AttributesEqual(Instruction* other) const;
 
-  virtual void EmitBranchCode(FlowGraphCompiler* compiler,
-                              BranchInstr* branch);
+  virtual void EmitBranchCode(FlowGraphCompiler* compiler, BranchInstr* branch);
 
   virtual Condition EmitComparisonCode(FlowGraphCompiler* compiler,
                                        BranchLabels labels);
+
+  void set_licm_hoisted(bool value) { licm_hoisted_ = value; }
 
   PRINT_OPERANDS_TO_SUPPORT
 
  private:
   const ZoneGrowableArray<intptr_t>& cid_results_;
+  bool licm_hoisted_;
   DISALLOW_COPY_AND_ASSIGN(TestCidsInstr);
 };
 
 
-class EqualityCompareInstr : public ComparisonInstr {
+class EqualityCompareInstr : public TemplateComparison<2, NoThrow, Pure> {
  public:
   EqualityCompareInstr(TokenPosition token_pos,
                        Token::Kind kind,
@@ -3055,8 +2979,10 @@ class EqualityCompareInstr : public ComparisonInstr {
                        Value* right,
                        intptr_t cid,
                        intptr_t deopt_id)
-      : ComparisonInstr(token_pos, kind, left, right, deopt_id) {
+      : TemplateComparison(token_pos, kind, deopt_id) {
     ASSERT(Token::IsEqualityOperator(kind));
+    SetInputAt(0, left);
+    SetInputAt(1, right);
     set_operation_cid(cid);
   }
 
@@ -3068,8 +2994,7 @@ class EqualityCompareInstr : public ComparisonInstr {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual void EmitBranchCode(FlowGraphCompiler* compiler,
-                              BranchInstr* branch);
+  virtual void EmitBranchCode(FlowGraphCompiler* compiler, BranchInstr* branch);
 
   virtual Condition EmitComparisonCode(FlowGraphCompiler* compiler,
                                        BranchLabels labels);
@@ -3088,7 +3013,7 @@ class EqualityCompareInstr : public ComparisonInstr {
 };
 
 
-class RelationalOpInstr : public ComparisonInstr {
+class RelationalOpInstr : public TemplateComparison<2, NoThrow, Pure> {
  public:
   RelationalOpInstr(TokenPosition token_pos,
                     Token::Kind kind,
@@ -3096,8 +3021,10 @@ class RelationalOpInstr : public ComparisonInstr {
                     Value* right,
                     intptr_t cid,
                     intptr_t deopt_id)
-      : ComparisonInstr(token_pos, kind, left, right, deopt_id) {
+      : TemplateComparison(token_pos, kind, deopt_id) {
     ASSERT(Token::IsRelationalOperator(kind));
+    SetInputAt(0, left);
+    SetInputAt(1, right);
     set_operation_cid(cid);
   }
 
@@ -3109,8 +3036,7 @@ class RelationalOpInstr : public ComparisonInstr {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual void EmitBranchCode(FlowGraphCompiler* compiler,
-                              BranchInstr* branch);
+  virtual void EmitBranchCode(FlowGraphCompiler* compiler, BranchInstr* branch);
 
   virtual Condition EmitComparisonCode(FlowGraphCompiler* compiler,
                                        BranchLabels labels);
@@ -3133,9 +3059,7 @@ class RelationalOpInstr : public ComparisonInstr {
 // materialization of true and false constants.
 class IfThenElseInstr : public Definition {
  public:
-  IfThenElseInstr(ComparisonInstr* comparison,
-                  Value* if_true,
-                  Value* if_false)
+  IfThenElseInstr(ComparisonInstr* comparison, Value* if_true, Value* if_false)
       : Definition(Thread::Current()->GetNextDeoptId()),
         comparison_(comparison),
         if_true_(Smi::Cast(if_true->BoundConstant()).Value()),
@@ -3157,9 +3081,7 @@ class IfThenElseInstr : public Definition {
 
   Value* InputAt(intptr_t i) const { return comparison()->InputAt(i); }
 
-  virtual bool CanDeoptimize() const {
-    return comparison()->CanDeoptimize();
-  }
+  virtual bool CanDeoptimize() const { return comparison()->CanDeoptimize(); }
 
   virtual bool CanBecomeDeoptimizationTarget() const {
     return comparison()->CanBecomeDeoptimizationTarget();
@@ -3226,21 +3148,41 @@ class StaticCallInstr : public TemplateDefinition<0, Throws> {
         arguments_(arguments),
         result_cid_(kDynamicCid),
         is_known_list_constructor_(false),
-        is_native_list_factory_(false),
         identity_(AliasIdentity::Unknown()) {
     ic_data_ = GetICData(ic_data_array);
     ASSERT(function.IsZoneHandle());
-    ASSERT(argument_names.IsZoneHandle() ||  argument_names.InVMHeap());
+    ASSERT(!function.IsNull());
+    ASSERT(argument_names.IsZoneHandle() || argument_names.InVMHeap());
+  }
+
+  StaticCallInstr(TokenPosition token_pos,
+                  const Function& function,
+                  const Array& argument_names,
+                  ZoneGrowableArray<PushArgumentInstr*>* arguments,
+                  intptr_t deopt_id)
+      : TemplateDefinition(deopt_id),
+        ic_data_(NULL),
+        token_pos_(token_pos),
+        function_(function),
+        argument_names_(argument_names),
+        arguments_(arguments),
+        result_cid_(kDynamicCid),
+        is_known_list_constructor_(false),
+        identity_(AliasIdentity::Unknown()) {
+    ASSERT(function.IsZoneHandle());
+    ASSERT(!function.IsNull());
+    ASSERT(argument_names.IsZoneHandle() || argument_names.InVMHeap());
   }
 
   // ICData for static calls carries call count.
   const ICData* ic_data() const { return ic_data_; }
-  bool HasICData() const {
-    return (ic_data() != NULL) && !ic_data()->IsNull();
-  }
+  bool HasICData() const { return (ic_data() != NULL) && !ic_data()->IsNull(); }
+
+  void set_ic_data(const ICData* value) { ic_data_ = value; }
 
   DECLARE_INSTRUCTION(StaticCall)
   virtual CompileType ComputeType() const;
+  virtual Definition* Canonicalize(FlowGraph* flow_graph);
 
   // Accessors forwarded to the AST node.
   const Function& function() const { return function_; }
@@ -3273,14 +3215,7 @@ class StaticCallInstr : public TemplateDefinition<0, Throws> {
     is_known_list_constructor_ = value;
   }
 
-  bool is_native_list_factory() const { return is_native_list_factory_; }
-  void set_is_native_list_factory(bool value) {
-    is_native_list_factory_ = value;
-  }
-
-  bool IsRecognizedFactory() const {
-    return is_known_list_constructor() || is_native_list_factory();
-  }
+  bool IsRecognizedFactory() const { return is_known_list_constructor(); }
 
   virtual AliasIdentity Identity() const { return identity_; }
   virtual void SetIdentity(AliasIdentity identity) { identity_ = identity; }
@@ -3297,7 +3232,6 @@ class StaticCallInstr : public TemplateDefinition<0, Throws> {
 
   // 'True' for recognized list constructors.
   bool is_known_list_constructor_;
-  bool is_native_list_factory_;
 
   AliasIdentity identity_;
 
@@ -3307,9 +3241,8 @@ class StaticCallInstr : public TemplateDefinition<0, Throws> {
 
 class LoadLocalInstr : public TemplateDefinition<0, NoThrow> {
  public:
-  LoadLocalInstr(const LocalVariable& local,
-                 TokenPosition token_pos)
-      : local_(local), is_last_(false), token_pos_(token_pos) { }
+  LoadLocalInstr(const LocalVariable& local, TokenPosition token_pos)
+      : local_(local), is_last_(false), token_pos_(token_pos) {}
 
   DECLARE_INSTRUCTION(LoadLocal)
   virtual CompileType ComputeType() const;
@@ -3336,34 +3269,6 @@ class LoadLocalInstr : public TemplateDefinition<0, NoThrow> {
   const TokenPosition token_pos_;
 
   DISALLOW_COPY_AND_ASSIGN(LoadLocalInstr);
-};
-
-
-class PushTempInstr : public TemplateDefinition<1, NoThrow> {
- public:
-  explicit PushTempInstr(Value* value) {
-    SetInputAt(0, value);
-  }
-
-  DECLARE_INSTRUCTION(PushTemp)
-
-  Value* value() const { return inputs_[0]; }
-
-  virtual CompileType ComputeType() const;
-
-  virtual bool CanDeoptimize() const { return false; }
-
-  virtual EffectSet Effects() const {
-    UNREACHABLE();  // Eliminated by SSA construction.
-    return EffectSet::None();
-  }
-
-  virtual TokenPosition token_pos() const {
-    return TokenPosition::kTempMove;
-  }
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(PushTempInstr);
 };
 
 
@@ -3402,16 +3307,12 @@ class DropTempsInstr : public Definition {
     return false;
   }
 
-  virtual TokenPosition token_pos() const {
-    return TokenPosition::kTempMove;
-  }
+  virtual TokenPosition token_pos() const { return TokenPosition::kTempMove; }
 
   PRINT_OPERANDS_TO_SUPPORT
 
  private:
-  virtual void RawSetInputAt(intptr_t i, Value* value) {
-    value_ = value;
-  }
+  virtual void RawSetInputAt(intptr_t i, Value* value) { value_ = value; }
 
   const intptr_t num_temps_;
   Value* value_;
@@ -3465,33 +3366,32 @@ class StoreLocalInstr : public TemplateDefinition<1, NoThrow> {
 class NativeCallInstr : public TemplateDefinition<0, Throws> {
  public:
   explicit NativeCallInstr(NativeBodyNode* node)
-      : ast_node_(*node),
+      : native_name_(&node->native_c_function_name()),
+        function_(&node->function()),
         native_c_function_(NULL),
-        is_bootstrap_native_(false) { }
+        is_bootstrap_native_(false),
+        link_lazily_(node->link_lazily()),
+        token_pos_(node->token_pos()) {}
+
+  NativeCallInstr(const String* name,
+                  const Function* function,
+                  bool link_lazily,
+                  TokenPosition position)
+      : native_name_(name),
+        function_(function),
+        native_c_function_(NULL),
+        is_bootstrap_native_(false),
+        link_lazily_(link_lazily),
+        token_pos_(position) {}
 
   DECLARE_INSTRUCTION(NativeCall)
 
-  virtual TokenPosition token_pos() const {
-    return ast_node_.token_pos();
-  }
-
-  const Function& function() const { return ast_node_.function(); }
-
-  const String& native_name() const {
-    return ast_node_.native_c_function_name();
-  }
-
-  NativeFunction native_c_function() const {
-    return native_c_function_;
-  }
-
-  bool is_bootstrap_native() const {
-    return is_bootstrap_native_;
-  }
-
-  bool link_lazily() const {
-    return ast_node_.link_lazily();
-  }
+  const String& native_name() const { return *native_name_; }
+  const Function& function() const { return *function_; }
+  NativeFunction native_c_function() const { return native_c_function_; }
+  bool is_bootstrap_native() const { return is_bootstrap_native_; }
+  bool link_lazily() const { return link_lazily_; }
+  virtual TokenPosition token_pos() const { return token_pos_; }
 
   virtual bool CanDeoptimize() const { return false; }
 
@@ -3508,9 +3408,12 @@ class NativeCallInstr : public TemplateDefinition<0, Throws> {
 
   void set_is_bootstrap_native(bool value) { is_bootstrap_native_ = value; }
 
-  const NativeBodyNode& ast_node_;
+  const String* native_name_;
+  const Function* function_;
   NativeFunction native_c_function_;
   bool is_bootstrap_native_;
+  bool link_lazily_;
+  const TokenPosition token_pos_;
 
   DISALLOW_COPY_AND_ASSIGN(NativeCallInstr);
 };
@@ -3518,11 +3421,8 @@ class NativeCallInstr : public TemplateDefinition<0, Throws> {
 
 class DebugStepCheckInstr : public TemplateInstruction<0, NoThrow> {
  public:
-  DebugStepCheckInstr(TokenPosition token_pos,
-                      RawPcDescriptors::Kind stub_kind)
-      : token_pos_(token_pos),
-        stub_kind_(stub_kind) {
-  }
+  DebugStepCheckInstr(TokenPosition token_pos, RawPcDescriptors::Kind stub_kind)
+      : token_pos_(token_pos), stub_kind_(stub_kind) {}
 
   DECLARE_INSTRUCTION(DebugStepCheck)
 
@@ -3539,10 +3439,7 @@ class DebugStepCheckInstr : public TemplateInstruction<0, NoThrow> {
 };
 
 
-enum StoreBarrierType {
-  kNoStoreBarrier,
-  kEmitStoreBarrier
-};
+enum StoreBarrierType { kNoStoreBarrier, kEmitStoreBarrier };
 
 
 class StoreInstanceFieldInstr : public TemplateDefinition<2, NoThrow> {
@@ -3556,8 +3453,7 @@ class StoreInstanceFieldInstr : public TemplateDefinition<2, NoThrow> {
         offset_in_bytes_(field.Offset()),
         emit_store_barrier_(emit_store_barrier),
         token_pos_(token_pos),
-        is_potential_unboxed_initialization_(false),
-        is_object_reference_initialization_(false) {
+        is_initialization_(false) {
     SetInputAt(kInstancePos, instance);
     SetInputAt(kValuePos, value);
     CheckField(field);
@@ -3572,50 +3468,35 @@ class StoreInstanceFieldInstr : public TemplateDefinition<2, NoThrow> {
         offset_in_bytes_(offset_in_bytes),
         emit_store_barrier_(emit_store_barrier),
         token_pos_(token_pos),
-        is_potential_unboxed_initialization_(false),
-        is_object_reference_initialization_(false) {
+        is_initialization_(false) {
     SetInputAt(kInstancePos, instance);
     SetInputAt(kValuePos, value);
   }
 
   DECLARE_INSTRUCTION(StoreInstanceField)
 
-  void set_is_potential_unboxed_initialization(bool value) {
-    is_potential_unboxed_initialization_ = value;
-  }
-  void set_is_object_reference_initialization(bool value) {
-    is_object_reference_initialization_ = value;
-  }
+  void set_is_initialization(bool value) { is_initialization_ = value; }
 
-  enum {
-    kInstancePos = 0,
-    kValuePos = 1
-  };
+  enum { kInstancePos = 0, kValuePos = 1 };
 
   Value* instance() const { return inputs_[kInstancePos]; }
   Value* value() const { return inputs_[kValuePos]; }
-  bool is_potential_unboxed_initialization() const {
-    return is_potential_unboxed_initialization_;
-  }
-  bool is_object_reference_initialization() const {
-    return is_object_reference_initialization_;
-  }
+  bool is_initialization() const { return is_initialization_; }
+
   virtual TokenPosition token_pos() const { return token_pos_; }
 
   const Field& field() const { return field_; }
   intptr_t offset_in_bytes() const { return offset_in_bytes_; }
 
   bool ShouldEmitStoreBarrier() const {
-    return value()->NeedsStoreBuffer()
-        && (emit_store_barrier_ == kEmitStoreBarrier);
+    return value()->NeedsStoreBuffer() &&
+           (emit_store_barrier_ == kEmitStoreBarrier);
   }
 
   virtual bool CanDeoptimize() const { return false; }
 
   // May require a deoptimization target for input conversions.
-  virtual intptr_t DeoptimizationTarget() const {
-    return GetDeoptId();
-  }
+  virtual intptr_t DeoptimizationTarget() const { return GetDeoptId(); }
 
   // Currently CSE/LICM don't operate on any instructions that can be affected
   // by stores/loads. LoadOptimizer handles loads separately. Hence stores
@@ -3644,11 +3525,8 @@ class StoreInstanceFieldInstr : public TemplateDefinition<2, NoThrow> {
   intptr_t offset_in_bytes_;
   const StoreBarrierType emit_store_barrier_;
   const TokenPosition token_pos_;
-  // This may be the first store to an unboxed field.
-  bool is_potential_unboxed_initialization_;
-  // True if this store initializes an object reference field of an object that
-  // was allocated uninitialized; see AllocateUninitializedContext.
-  bool is_object_reference_initialization_;
+  // Marks initialiing stores. E.g. in the constructor.
+  bool is_initialization_;
 
   DISALLOW_COPY_AND_ASSIGN(StoreInstanceFieldInstr);
 };
@@ -3656,11 +3534,8 @@ class StoreInstanceFieldInstr : public TemplateDefinition<2, NoThrow> {
 
 class GuardFieldInstr : public TemplateInstruction<1, NoThrow, Pure> {
  public:
-  GuardFieldInstr(Value* value,
-                  const Field& field,
-                  intptr_t deopt_id)
-    : TemplateInstruction(deopt_id),
-      field_(field) {
+  GuardFieldInstr(Value* value, const Field& field, intptr_t deopt_id)
+      : TemplateInstruction(deopt_id), field_(field) {
     SetInputAt(0, value);
     CheckField(field);
   }
@@ -3686,9 +3561,7 @@ class GuardFieldInstr : public TemplateInstruction<1, NoThrow, Pure> {
 
 class GuardFieldClassInstr : public GuardFieldInstr {
  public:
-  GuardFieldClassInstr(Value* value,
-                       const Field& field,
-                       intptr_t deopt_id)
+  GuardFieldClassInstr(Value* value, const Field& field, intptr_t deopt_id)
       : GuardFieldInstr(value, field, deopt_id) {
     CheckField(field);
   }
@@ -3706,9 +3579,7 @@ class GuardFieldClassInstr : public GuardFieldInstr {
 
 class GuardFieldLengthInstr : public GuardFieldInstr {
  public:
-  GuardFieldLengthInstr(Value* value,
-                       const Field& field,
-                       intptr_t deopt_id)
+  GuardFieldLengthInstr(Value* value, const Field& field, intptr_t deopt_id)
       : GuardFieldInstr(value, field, deopt_id) {
     CheckField(field);
   }
@@ -3762,16 +3633,13 @@ class StoreStaticFieldInstr : public TemplateDefinition<1, NoThrow> {
   StoreStaticFieldInstr(const Field& field,
                         Value* value,
                         TokenPosition token_pos)
-      : field_(field),
-        token_pos_(token_pos) {
+      : field_(field), token_pos_(token_pos) {
     ASSERT(field.IsZoneHandle());
     SetInputAt(kValuePos, value);
     CheckField(field);
   }
 
-  enum {
-    kValuePos = 0
-  };
+  enum { kValuePos = 0 };
 
   DECLARE_INSTRUCTION(StoreStaticField)
 
@@ -3803,6 +3671,10 @@ class StoreStaticFieldInstr : public TemplateDefinition<1, NoThrow> {
   DISALLOW_COPY_AND_ASSIGN(StoreStaticFieldInstr);
 };
 
+enum AlignmentType {
+  kUnalignedAccess,
+  kAlignedAccess,
+};
 
 class LoadIndexedInstr : public TemplateDefinition<2, NoThrow> {
  public:
@@ -3810,15 +3682,9 @@ class LoadIndexedInstr : public TemplateDefinition<2, NoThrow> {
                    Value* index,
                    intptr_t index_scale,
                    intptr_t class_id,
+                   AlignmentType alignment,
                    intptr_t deopt_id,
-                   TokenPosition token_pos)
-      : TemplateDefinition(deopt_id),
-        index_scale_(index_scale),
-        class_id_(class_id),
-        token_pos_(token_pos) {
-    SetInputAt(0, array);
-    SetInputAt(1, index);
-  }
+                   TokenPosition token_pos);
 
   TokenPosition token_pos() const { return token_pos_; }
 
@@ -3840,6 +3706,7 @@ class LoadIndexedInstr : public TemplateDefinition<2, NoThrow> {
   Value* index() const { return inputs_[1]; }
   intptr_t index_scale() const { return index_scale_; }
   intptr_t class_id() const { return class_id_; }
+  bool aligned() const { return alignment_ == kAlignedAccess; }
 
   virtual bool CanDeoptimize() const {
     return GetDeoptId() != Thread::kNoDeoptId;
@@ -3853,6 +3720,7 @@ class LoadIndexedInstr : public TemplateDefinition<2, NoThrow> {
  private:
   const intptr_t index_scale_;
   const intptr_t class_id_;
+  const AlignmentType alignment_;
   const TokenPosition token_pos_;
 
   DISALLOW_COPY_AND_ASSIGN(LoadIndexedInstr);
@@ -3929,31 +3797,24 @@ class LoadCodeUnitsInstr : public TemplateDefinition<2, NoThrow> {
 };
 
 
-class StringFromCharCodeInstr : public TemplateDefinition<1, NoThrow, Pure> {
+class OneByteStringFromCharCodeInstr
+    : public TemplateDefinition<1, NoThrow, Pure> {
  public:
-  StringFromCharCodeInstr(Value* char_code, intptr_t cid) : cid_(cid) {
-    ASSERT(char_code != NULL);
-    ASSERT(char_code->definition()->IsLoadIndexed());
-    ASSERT(char_code->definition()->AsLoadIndexed()->class_id() ==
-           kOneByteStringCid);
+  explicit OneByteStringFromCharCodeInstr(Value* char_code) {
     SetInputAt(0, char_code);
   }
 
-  DECLARE_INSTRUCTION(StringFromCharCode)
+  DECLARE_INSTRUCTION(OneByteStringFromCharCode)
   virtual CompileType ComputeType() const;
 
   Value* char_code() const { return inputs_[0]; }
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual bool AttributesEqual(Instruction* other) const {
-    return other->AsStringFromCharCode()->cid_ == cid_;
-  }
+  virtual bool AttributesEqual(Instruction* other) const { return true; }
 
  private:
-  const intptr_t cid_;
-
-  DISALLOW_COPY_AND_ASSIGN(StringFromCharCodeInstr);
+  DISALLOW_COPY_AND_ASSIGN(OneByteStringFromCharCodeInstr);
 };
 
 
@@ -4021,25 +3882,12 @@ class StoreIndexedInstr : public TemplateDefinition<3, NoThrow> {
                     StoreBarrierType emit_store_barrier,
                     intptr_t index_scale,
                     intptr_t class_id,
+                    AlignmentType alignment,
                     intptr_t deopt_id,
-                    TokenPosition token_pos)
-      : TemplateDefinition(deopt_id),
-        emit_store_barrier_(emit_store_barrier),
-        index_scale_(index_scale),
-        class_id_(class_id),
-        token_pos_(token_pos) {
-    SetInputAt(kArrayPos, array);
-    SetInputAt(kIndexPos, index);
-    SetInputAt(kValuePos, value);
-  }
-
+                    TokenPosition token_pos);
   DECLARE_INSTRUCTION(StoreIndexed)
 
-  enum {
-    kArrayPos = 0,
-    kIndexPos = 1,
-    kValuePos = 2
-  };
+  enum { kArrayPos = 0, kIndexPos = 1, kValuePos = 2 };
 
   Value* array() const { return inputs_[kArrayPos]; }
   Value* index() const { return inputs_[kIndexPos]; }
@@ -4047,10 +3895,11 @@ class StoreIndexedInstr : public TemplateDefinition<3, NoThrow> {
 
   intptr_t index_scale() const { return index_scale_; }
   intptr_t class_id() const { return class_id_; }
+  bool aligned() const { return alignment_ == kAlignedAccess; }
 
   bool ShouldEmitStoreBarrier() const {
-    return value()->NeedsStoreBuffer()
-        && (emit_store_barrier_ == kEmitStoreBarrier);
+    return value()->NeedsStoreBuffer() &&
+           (emit_store_barrier_ == kEmitStoreBarrier);
   }
 
   virtual bool CanDeoptimize() const { return false; }
@@ -4073,6 +3922,7 @@ class StoreIndexedInstr : public TemplateDefinition<3, NoThrow> {
   const StoreBarrierType emit_store_barrier_;
   const intptr_t index_scale_;
   const intptr_t class_id_;
+  const AlignmentType alignment_;
   const TokenPosition token_pos_;
 
   DISALLOW_COPY_AND_ASSIGN(StoreIndexedInstr);
@@ -4082,9 +3932,7 @@ class StoreIndexedInstr : public TemplateDefinition<3, NoThrow> {
 // Note overrideable, built-in: value ? false : true.
 class BooleanNegateInstr : public TemplateDefinition<1, NoThrow> {
  public:
-  explicit BooleanNegateInstr(Value* value) {
-    SetInputAt(0, value);
-  }
+  explicit BooleanNegateInstr(Value* value) { SetInputAt(0, value); }
 
   DECLARE_INSTRUCTION(BooleanNegate)
   virtual CompileType ComputeType() const;
@@ -4273,29 +4121,20 @@ class MaterializeObjectInstr : public Definition {
   Definition* allocation() const { return allocation_; }
   const Class& cls() const { return cls_; }
 
-  intptr_t num_variables() const {
-    return num_variables_;
-  }
+  intptr_t num_variables() const { return num_variables_; }
 
   intptr_t FieldOffsetAt(intptr_t i) const {
-    return slots_[i]->IsField()
-        ? Field::Cast(*slots_[i]).Offset()
-        : Smi::Cast(*slots_[i]).Value();
+    return slots_[i]->IsField() ? Field::Cast(*slots_[i]).Offset()
+                                : Smi::Cast(*slots_[i]).Value();
   }
 
-  const Location& LocationAt(intptr_t i) {
-    return locations_[i];
-  }
+  const Location& LocationAt(intptr_t i) { return locations_[i]; }
 
   DECLARE_INSTRUCTION(MaterializeObject)
 
-  virtual intptr_t InputCount() const {
-    return values_->length();
-  }
+  virtual intptr_t InputCount() const { return values_->length(); }
 
-  virtual Value* InputAt(intptr_t i) const {
-    return (*values_)[i];
-  }
+  virtual Value* InputAt(intptr_t i) const { return (*values_)[i]; }
 
   // SelectRepresentations pass is run once more while MaterializeObject
   // instructions are still in the graph. To avoid any redundant boxing
@@ -4315,13 +4154,10 @@ class MaterializeObjectInstr : public Definition {
 
   virtual bool MayThrow() const { return false; }
 
-  void RemapRegisters(intptr_t* cpu_reg_slots,
-                      intptr_t* fpu_reg_slots);
+  void RemapRegisters(intptr_t* cpu_reg_slots, intptr_t* fpu_reg_slots);
 
   bool was_visited_for_liveness() const { return visited_for_liveness_; }
-  void mark_visited_for_liveness() {
-    visited_for_liveness_ = true;
-  }
+  void mark_visited_for_liveness() { visited_for_liveness_ = true; }
 
   PRINT_OPERANDS_TO_SUPPORT
 
@@ -4351,15 +4187,12 @@ class CreateArrayInstr : public TemplateDefinition<2, Throws> {
                    Value* num_elements)
       : TemplateDefinition(Thread::Current()->GetNextDeoptId()),
         token_pos_(token_pos),
-        identity_(AliasIdentity::Unknown())  {
+        identity_(AliasIdentity::Unknown()) {
     SetInputAt(kElementTypePos, element_type);
     SetInputAt(kLengthPos, num_elements);
   }
 
-  enum {
-    kElementTypePos = 0,
-    kLengthPos = 1
-  };
+  enum { kElementTypePos = 0, kLengthPos = 1 };
 
   DECLARE_INSTRUCTION(CreateArray)
   virtual CompileType ComputeType() const;
@@ -4396,9 +4229,7 @@ class LoadUntaggedInstr : public TemplateDefinition<1, NoThrow> {
     SetInputAt(0, object);
   }
 
-  virtual Representation representation() const {
-    return kUntagged;
-  }
+  virtual Representation representation() const { return kUntagged; }
   DECLARE_INSTRUCTION(LoadUntagged)
   virtual CompileType ComputeType() const;
 
@@ -4425,13 +4256,9 @@ class LoadUntaggedInstr : public TemplateDefinition<1, NoThrow> {
 
 class LoadClassIdInstr : public TemplateDefinition<1, NoThrow> {
  public:
-  explicit LoadClassIdInstr(Value* object) {
-    SetInputAt(0, object);
-  }
+  explicit LoadClassIdInstr(Value* object) { SetInputAt(0, object); }
 
-  virtual Representation representation() const {
-    return kTagged;
-  }
+  virtual Representation representation() const { return kTagged; }
   DECLARE_INSTRUCTION(LoadClassId)
   virtual CompileType ComputeType() const;
 
@@ -4473,7 +4300,8 @@ class LoadFieldInstr : public TemplateDefinition<1, NoThrow> {
   LoadFieldInstr(Value* instance,
                  const Field* field,
                  const AbstractType& type,
-                 TokenPosition token_pos)
+                 TokenPosition token_pos,
+                 const ParsedFunction* parsed_function)
       : offset_in_bytes_(field->Offset()),
         type_(type),
         result_cid_(kDynamicCid),
@@ -4485,6 +4313,13 @@ class LoadFieldInstr : public TemplateDefinition<1, NoThrow> {
     // May be null if field is not an instance.
     ASSERT(type.IsZoneHandle() || type.IsReadOnlyHandle());
     SetInputAt(0, instance);
+
+    if (parsed_function != NULL && field->guarded_cid() != kIllegalCid) {
+      if (!field->is_nullable() || (field->guarded_cid() == kNullCid)) {
+        set_result_cid(field->guarded_cid());
+      }
+      parsed_function->AddToGuardedFields(field);
+    }
   }
 
   void set_is_immutable(bool value) { immutable_ = value; }
@@ -4508,9 +4343,7 @@ class LoadFieldInstr : public TemplateDefinition<1, NoThrow> {
     recognized_kind_ = kind;
   }
 
-  MethodRecognizer::Kind recognized_kind() const {
-    return recognized_kind_;
-  }
+  MethodRecognizer::Kind recognized_kind() const { return recognized_kind_; }
 
   DECLARE_INSTRUCTION(LoadField)
   virtual CompileType ComputeType() const;
@@ -4565,8 +4398,7 @@ class InstantiateTypeInstr : public TemplateDefinition<1, Throws> {
   DECLARE_INSTRUCTION(InstantiateType)
 
   Value* instantiator() const { return inputs_[0]; }
-  const AbstractType& type() const { return type_;
-  }
+  const AbstractType& type() const { return type_; }
   const Class& instantiator_class() const { return instantiator_class_; }
   virtual TokenPosition token_pos() const { return token_pos_; }
 
@@ -4602,9 +4434,7 @@ class InstantiateTypeArgumentsInstr : public TemplateDefinition<1, Throws> {
   DECLARE_INSTRUCTION(InstantiateTypeArguments)
 
   Value* instantiator() const { return inputs_[0]; }
-  const TypeArguments& type_arguments() const {
-    return type_arguments_;
-  }
+  const TypeArguments& type_arguments() const { return type_arguments_; }
   const Class& instantiator_class() const { return instantiator_class_; }
   virtual TokenPosition token_pos() const { return token_pos_; }
 
@@ -4627,10 +4457,8 @@ class InstantiateTypeArgumentsInstr : public TemplateDefinition<1, Throws> {
 
 class AllocateContextInstr : public TemplateDefinition<0, NoThrow> {
  public:
-  AllocateContextInstr(TokenPosition token_pos,
-                       intptr_t num_context_variables)
-      : token_pos_(token_pos),
-        num_context_variables_(num_context_variables) { }
+  AllocateContextInstr(TokenPosition token_pos, intptr_t num_context_variables)
+      : token_pos_(token_pos), num_context_variables_(num_context_variables) {}
 
   DECLARE_INSTRUCTION(AllocateContext)
   virtual CompileType ComputeType() const;
@@ -4661,9 +4489,7 @@ class InitStaticFieldInstr : public TemplateInstruction<1, Throws> {
     CheckField(field);
   }
 
-  virtual TokenPosition token_pos() const {
-    return field_.token_pos();
-  }
+  virtual TokenPosition token_pos() const { return field_.token_pos(); }
   const Field& field() const { return field_; }
 
   DECLARE_INSTRUCTION(InitStaticField)
@@ -4803,9 +4629,7 @@ class BoxInstr : public TemplateDefinition<1, NoThrow, Pure> {
   virtual CompileType ComputeType() const;
 
   virtual bool CanDeoptimize() const { return false; }
-  virtual intptr_t DeoptimizationTarget() const {
-    return Thread::kNoDeoptId;
-  }
+  virtual intptr_t DeoptimizationTarget() const { return Thread::kNoDeoptId; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -4818,9 +4642,7 @@ class BoxInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   Definition* Canonicalize(FlowGraph* flow_graph);
 
-  virtual TokenPosition token_pos() const {
-    return TokenPosition::kBox;
-  }
+  virtual TokenPosition token_pos() const { return TokenPosition::kBox; }
 
  protected:
   BoxInstr(Representation from_representation, Value* value)
@@ -4842,7 +4664,7 @@ class BoxInstr : public TemplateDefinition<1, NoThrow, Pure> {
 class BoxIntegerInstr : public BoxInstr {
  public:
   BoxIntegerInstr(Representation representation, Value* value)
-      : BoxInstr(representation, value) { }
+      : BoxInstr(representation, value) {}
 
   virtual bool ValueFitsSmi() const;
 
@@ -4863,7 +4685,7 @@ class BoxIntegerInstr : public BoxInstr {
 class BoxInteger32Instr : public BoxIntegerInstr {
  public:
   BoxInteger32Instr(Representation representation, Value* value)
-      : BoxIntegerInstr(representation, value) { }
+      : BoxIntegerInstr(representation, value) {}
 
   DECLARE_INSTRUCTION_BACKEND()
 
@@ -4875,7 +4697,7 @@ class BoxInteger32Instr : public BoxIntegerInstr {
 class BoxInt32Instr : public BoxInteger32Instr {
  public:
   explicit BoxInt32Instr(Value* value)
-      : BoxInteger32Instr(kUnboxedInt32, value) { }
+      : BoxInteger32Instr(kUnboxedInt32, value) {}
 
   DECLARE_INSTRUCTION_NO_BACKEND(BoxInt32)
 
@@ -4887,7 +4709,7 @@ class BoxInt32Instr : public BoxInteger32Instr {
 class BoxUint32Instr : public BoxInteger32Instr {
  public:
   explicit BoxUint32Instr(Value* value)
-      : BoxInteger32Instr(kUnboxedUint32, value) { }
+      : BoxInteger32Instr(kUnboxedUint32, value) {}
 
   DECLARE_INSTRUCTION_NO_BACKEND(BoxUint32)
 
@@ -4898,8 +4720,7 @@ class BoxUint32Instr : public BoxInteger32Instr {
 
 class BoxInt64Instr : public BoxIntegerInstr {
  public:
-  explicit BoxInt64Instr(Value* value)
-      : BoxIntegerInstr(kUnboxedMint, value) { }
+  explicit BoxInt64Instr(Value* value) : BoxIntegerInstr(kUnboxedMint, value) {}
 
   virtual Definition* Canonicalize(FlowGraph* flow_graph);
 
@@ -4919,17 +4740,14 @@ class UnboxInstr : public TemplateDefinition<1, NoThrow, Pure> {
   virtual bool CanDeoptimize() const {
     const intptr_t value_cid = value()->Type()->ToCid();
 
-    if (CanConvertSmi() &&
-        (value()->Type()->ToCid() == kSmiCid)) {
+    if (CanConvertSmi() && (value()->Type()->ToCid() == kSmiCid)) {
       return false;
     }
 
     return (value_cid != BoxCid());
   }
 
-  virtual Representation representation() const {
-    return representation_;
-  }
+  virtual Representation representation() const { return representation_; }
 
   DECLARE_INSTRUCTION(Unbox)
   virtual CompileType ComputeType() const;
@@ -4940,20 +4758,13 @@ class UnboxInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   Definition* Canonicalize(FlowGraph* flow_graph);
 
-  virtual intptr_t DeoptimizationTarget() const {
-    return GetDeoptId();
-  }
+  virtual intptr_t DeoptimizationTarget() const { return GetDeoptId(); }
 
-  virtual TokenPosition token_pos() const {
-    return TokenPosition::kBox;
-  }
+  virtual TokenPosition token_pos() const { return TokenPosition::kBox; }
 
  protected:
-  UnboxInstr(Representation representation,
-             Value* value,
-             intptr_t deopt_id)
-      : TemplateDefinition(deopt_id),
-        representation_(representation) {
+  UnboxInstr(Representation representation, Value* value, intptr_t deopt_id)
+      : TemplateDefinition(deopt_id), representation_(representation) {
     SetInputAt(0, value);
   }
 
@@ -4962,13 +4773,9 @@ class UnboxInstr : public TemplateDefinition<1, NoThrow, Pure> {
   void EmitLoadFromBox(FlowGraphCompiler* compiler);
   void EmitSmiConversion(FlowGraphCompiler* compiler);
 
-  intptr_t BoxCid() const {
-    return Boxing::BoxCid(representation_);
-  }
+  intptr_t BoxCid() const { return Boxing::BoxCid(representation_); }
 
-  intptr_t ValueOffset() const {
-    return Boxing::ValueOffset(representation_);
-  }
+  intptr_t ValueOffset() const { return Boxing::ValueOffset(representation_); }
 
   const Representation representation_;
 
@@ -4985,8 +4792,7 @@ class UnboxIntegerInstr : public UnboxInstr {
                     Value* value,
                     intptr_t deopt_id)
       : UnboxInstr(representation, value, deopt_id),
-        is_truncating_(truncation_mode == kTruncate) {
-  }
+        is_truncating_(truncation_mode == kTruncate) {}
 
   bool is_truncating() const { return is_truncating_; }
 
@@ -4995,7 +4801,7 @@ class UnboxIntegerInstr : public UnboxInstr {
   virtual bool AttributesEqual(Instruction* other) const {
     UnboxIntegerInstr* other_unbox = other->AsUnboxInteger();
     return UnboxInstr::AttributesEqual(other) &&
-        (other_unbox->is_truncating_ == is_truncating_);
+           (other_unbox->is_truncating_ == is_truncating_);
   }
 
   virtual Definition* Canonicalize(FlowGraph* flow_graph);
@@ -5017,7 +4823,7 @@ class UnboxInteger32Instr : public UnboxIntegerInstr {
                       TruncationMode truncation_mode,
                       Value* value,
                       intptr_t deopt_id)
-      : UnboxIntegerInstr(representation, truncation_mode, value, deopt_id) { }
+      : UnboxIntegerInstr(representation, truncation_mode, value, deopt_id) {}
 
   DECLARE_INSTRUCTION_BACKEND()
 
@@ -5049,8 +4855,7 @@ class UnboxInt32Instr : public UnboxInteger32Instr {
   UnboxInt32Instr(TruncationMode truncation_mode,
                   Value* value,
                   intptr_t deopt_id)
-      : UnboxInteger32Instr(kUnboxedInt32, truncation_mode, value, deopt_id) {
-  }
+      : UnboxInteger32Instr(kUnboxedInt32, truncation_mode, value, deopt_id) {}
 
   virtual bool CanDeoptimize() const;
 
@@ -5068,8 +4873,7 @@ class UnboxInt32Instr : public UnboxInteger32Instr {
 class UnboxInt64Instr : public UnboxIntegerInstr {
  public:
   UnboxInt64Instr(Value* value, intptr_t deopt_id)
-      : UnboxIntegerInstr(kUnboxedMint, kNoTruncation, value, deopt_id) {
-  }
+      : UnboxIntegerInstr(kUnboxedMint, kNoTruncation, value, deopt_id) {}
 
   virtual void InferRange(RangeAnalysis* analysis, Range* range);
 
@@ -5081,12 +4885,8 @@ class UnboxInt64Instr : public UnboxIntegerInstr {
 
 
 bool Definition::IsMintDefinition() {
-  return (Type()->ToCid() == kMintCid) ||
-          IsBinaryMintOp() ||
-          IsUnaryMintOp() ||
-          IsShiftMintOp() ||
-          IsBoxInt64() ||
-          IsUnboxInt64();
+  return (Type()->ToCid() == kMintCid) || IsBinaryMintOp() || IsUnaryMintOp() ||
+         IsShiftMintOp() || IsBoxInt64() || IsUnboxInt64();
 }
 
 
@@ -5094,8 +4894,6 @@ class MathUnaryInstr : public TemplateDefinition<1, NoThrow, Pure> {
  public:
   enum MathUnaryKind {
     kIllegal,
-    kSin,
-    kCos,
     kSqrt,
     kDoubleSquare,
   };
@@ -5106,13 +4904,10 @@ class MathUnaryInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   Value* value() const { return inputs_[0]; }
   MathUnaryKind kind() const { return kind_; }
-  const RuntimeEntry& TargetFunction() const;
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedDouble;
-  }
+  virtual Representation representation() const { return kUnboxedDouble; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -5154,13 +4949,12 @@ class MathUnaryInstr : public TemplateDefinition<1, NoThrow, Pure> {
 class CaseInsensitiveCompareUC16Instr
     : public TemplateDefinition<4, NoThrow, Pure> {
  public:
-  CaseInsensitiveCompareUC16Instr(
-      Value* str,
-      Value* lhs_index,
-      Value* rhs_index,
-      Value* length,
-      intptr_t cid)
-    : cid_(cid) {
+  CaseInsensitiveCompareUC16Instr(Value* str,
+                                  Value* lhs_index,
+                                  Value* rhs_index,
+                                  Value* length,
+                                  intptr_t cid)
+      : cid_(cid) {
     ASSERT(cid == kTwoByteStringCid || cid == kExternalTwoByteStringCid);
     ASSERT(index_scale() == 2);
     SetInputAt(0, str);
@@ -5181,9 +4975,7 @@ class CaseInsensitiveCompareUC16Instr
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kTagged;
-  }
+  virtual Representation representation() const { return kTagged; }
 
   DECLARE_INSTRUCTION(CaseInsensitiveCompareUC16)
   virtual CompileType ComputeType() const;
@@ -5265,9 +5057,7 @@ class BinaryDoubleOpInstr : public TemplateDefinition<2, NoThrow, Pure> {
                       Value* right,
                       intptr_t deopt_id,
                       TokenPosition token_pos)
-      : TemplateDefinition(deopt_id),
-        op_kind_(op_kind),
-        token_pos_(token_pos) {
+      : TemplateDefinition(deopt_id), op_kind_(op_kind), token_pos_(token_pos) {
     SetInputAt(0, left);
     SetInputAt(1, right);
   }
@@ -5281,9 +5071,7 @@ class BinaryDoubleOpInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedDouble;
-  }
+  virtual Representation representation() const { return kUnboxedDouble; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -5315,6 +5103,53 @@ class BinaryDoubleOpInstr : public TemplateDefinition<2, NoThrow, Pure> {
 };
 
 
+class DoubleTestOpInstr : public TemplateComparison<1, NoThrow, Pure> {
+ public:
+  DoubleTestOpInstr(MethodRecognizer::Kind op_kind,
+                    Value* value,
+                    intptr_t deopt_id,
+                    TokenPosition token_pos)
+      : TemplateComparison(token_pos, Token::kEQ, deopt_id), op_kind_(op_kind) {
+    SetInputAt(0, value);
+  }
+
+  Value* value() const { return InputAt(0); }
+
+  MethodRecognizer::Kind op_kind() const { return op_kind_; }
+
+  virtual bool CanDeoptimize() const { return false; }
+
+  virtual Representation RequiredInputRepresentation(intptr_t idx) const {
+    ASSERT(idx == 0);
+    return kUnboxedDouble;
+  }
+
+  PRINT_OPERANDS_TO_SUPPORT
+
+  DECLARE_INSTRUCTION(DoubleTestOp)
+  virtual CompileType ComputeType() const;
+
+  virtual Definition* Canonicalize(FlowGraph* flow_graph);
+
+  virtual bool AttributesEqual(Instruction* other) const {
+    return op_kind_ == other->AsDoubleTestOp()->op_kind() &&
+           ComparisonInstr::AttributesEqual(other);
+  }
+
+  virtual ComparisonInstr* CopyWithNewOperands(Value* left, Value* right);
+
+  virtual void EmitBranchCode(FlowGraphCompiler* compiler, BranchInstr* branch);
+
+  virtual Condition EmitComparisonCode(FlowGraphCompiler* compiler,
+                                       BranchLabels labels);
+
+ private:
+  const MethodRecognizer::Kind op_kind_;
+
+  DISALLOW_COPY_AND_ASSIGN(DoubleTestOpInstr);
+};
+
+
 class BinaryFloat32x4OpInstr : public TemplateDefinition<2, NoThrow, Pure> {
  public:
   BinaryFloat32x4OpInstr(Token::Kind op_kind,
@@ -5333,9 +5168,7 @@ class BinaryFloat32x4OpInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -5366,7 +5199,8 @@ class BinaryFloat32x4OpInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
 class Simd32x4ShuffleInstr : public TemplateDefinition<1, NoThrow, Pure> {
  public:
-  Simd32x4ShuffleInstr(MethodRecognizer::Kind op_kind, Value* value,
+  Simd32x4ShuffleInstr(MethodRecognizer::Kind op_kind,
+                       Value* value,
                        intptr_t mask,
                        intptr_t deopt_id)
       : TemplateDefinition(deopt_id), op_kind_(op_kind), mask_(mask) {
@@ -5434,8 +5268,11 @@ class Simd32x4ShuffleInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
 class Simd32x4ShuffleMixInstr : public TemplateDefinition<2, NoThrow, Pure> {
  public:
-  Simd32x4ShuffleMixInstr(MethodRecognizer::Kind op_kind, Value* xy,
-                           Value* zw, intptr_t mask, intptr_t deopt_id)
+  Simd32x4ShuffleMixInstr(MethodRecognizer::Kind op_kind,
+                          Value* xy,
+                          Value* zw,
+                          intptr_t mask,
+                          intptr_t deopt_id)
       : TemplateDefinition(deopt_id), op_kind_(op_kind), mask_(mask) {
     SetInputAt(0, xy);
     SetInputAt(1, zw);
@@ -5512,9 +5349,7 @@ class Float32x4ConstructorInstr : public TemplateDefinition<4, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx >= 0 && idx < 4);
@@ -5550,9 +5385,7 @@ class Float32x4SplatInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -5580,13 +5413,11 @@ class Float32x4SplatInstr : public TemplateDefinition<1, NoThrow, Pure> {
 // TODO(vegorov) replace with UnboxedConstantInstr.
 class Float32x4ZeroInstr : public TemplateDefinition<0, NoThrow, Pure> {
  public:
-  Float32x4ZeroInstr() { }
+  Float32x4ZeroInstr() {}
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   DECLARE_INSTRUCTION(Float32x4Zero)
   virtual CompileType ComputeType() const;
@@ -5616,9 +5447,7 @@ class Float32x4ComparisonInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedInt32x4;
-  }
+  virtual Representation representation() const { return kUnboxedInt32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -5665,9 +5494,7 @@ class Float32x4MinMaxInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -5714,9 +5541,7 @@ class Float32x4ScaleInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -5763,9 +5588,7 @@ class Float32x4SqrtInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -5800,8 +5623,7 @@ class Float32x4ZeroArgInstr : public TemplateDefinition<1, NoThrow, Pure> {
   Float32x4ZeroArgInstr(MethodRecognizer::Kind op_kind,
                         Value* left,
                         intptr_t deopt_id)
-      : TemplateDefinition(deopt_id),
-        op_kind_(op_kind) {
+      : TemplateDefinition(deopt_id), op_kind_(op_kind) {
     SetInputAt(0, left);
   }
 
@@ -5811,9 +5633,7 @@ class Float32x4ZeroArgInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -5860,9 +5680,7 @@ class Float32x4ClampInstr : public TemplateDefinition<3, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1) || (idx == 2));
@@ -5893,8 +5711,7 @@ class Float32x4WithInstr : public TemplateDefinition<2, NoThrow, Pure> {
                      Value* left,
                      Value* replacement,
                      intptr_t deopt_id)
-      : TemplateDefinition(deopt_id),
-        op_kind_(op_kind) {
+      : TemplateDefinition(deopt_id), op_kind_(op_kind) {
     SetInputAt(0, replacement);
     SetInputAt(1, left);
   }
@@ -5906,9 +5723,7 @@ class Float32x4WithInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -6012,9 +5827,7 @@ class Float32x4ToInt32x4Instr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedInt32x4;
-  }
+  virtual Representation representation() const { return kUnboxedInt32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -6050,9 +5863,7 @@ class Float32x4ToFloat64x2Instr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat64x2;
-  }
+  virtual Representation representation() const { return kUnboxedFloat64x2; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -6088,9 +5899,7 @@ class Float64x2ToFloat32x4Instr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -6128,9 +5937,7 @@ class Float64x2ConstructorInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat64x2;
-  }
+  virtual Representation representation() const { return kUnboxedFloat64x2; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx >= 0 && idx < 2);
@@ -6166,9 +5973,7 @@ class Float64x2SplatInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat64x2;
-  }
+  virtual Representation representation() const { return kUnboxedFloat64x2; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -6195,13 +6000,11 @@ class Float64x2SplatInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
 class Float64x2ZeroInstr : public TemplateDefinition<0, NoThrow, Pure> {
  public:
-  Float64x2ZeroInstr() { }
+  Float64x2ZeroInstr() {}
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat64x2;
-  }
+  virtual Representation representation() const { return kUnboxedFloat64x2; }
 
   DECLARE_INSTRUCTION(Float64x2Zero)
   virtual CompileType ComputeType() const;
@@ -6282,9 +6085,7 @@ class Float64x2OneArgInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat64x2;
-  }
+  virtual Representation representation() const { return kUnboxedFloat64x2; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     if (idx == 0) {
@@ -6342,9 +6143,7 @@ class Int32x4ConstructorInstr : public TemplateDefinition<4, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedInt32x4;
-  }
+  virtual Representation representation() const { return kUnboxedInt32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx >= 0) && (idx < 4));
@@ -6391,9 +6190,7 @@ class Int32x4BoolConstructorInstr
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedInt32x4;
-  }
+  virtual Representation representation() const { return kUnboxedInt32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx >= 0) && (idx < 4));
@@ -6433,9 +6230,7 @@ class Int32x4GetFlagInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-      return kTagged;
-  }
+  virtual Representation representation() const { return kTagged; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -6479,9 +6274,7 @@ class Simd32x4GetSignMaskInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kTagged;
-  }
+  virtual Representation representation() const { return kTagged; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -6532,9 +6325,7 @@ class Int32x4SelectInstr : public TemplateDefinition<3, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-      return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1) || (idx == 2));
@@ -6580,9 +6371,7 @@ class Int32x4SetFlagInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-      return kUnboxedInt32x4;
-  }
+  virtual Representation representation() const { return kUnboxedInt32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -6625,9 +6414,7 @@ class Int32x4ToFloat32x4Instr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat32x4;
-  }
+  virtual Representation representation() const { return kUnboxedFloat32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -6655,9 +6442,9 @@ class Int32x4ToFloat32x4Instr : public TemplateDefinition<1, NoThrow, Pure> {
 class BinaryInt32x4OpInstr : public TemplateDefinition<2, NoThrow, Pure> {
  public:
   BinaryInt32x4OpInstr(Token::Kind op_kind,
-                        Value* left,
-                        Value* right,
-                        intptr_t deopt_id)
+                       Value* left,
+                       Value* right,
+                       intptr_t deopt_id)
       : TemplateDefinition(deopt_id), op_kind_(op_kind) {
     SetInputAt(0, left);
     SetInputAt(1, right);
@@ -6670,9 +6457,7 @@ class BinaryInt32x4OpInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedInt32x4;
-  }
+  virtual Representation representation() const { return kUnboxedInt32x4; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -6719,9 +6504,7 @@ class BinaryFloat64x2OpInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedFloat64x2;
-  }
+  virtual Representation representation() const { return kUnboxedFloat64x2; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -6752,12 +6535,9 @@ class BinaryFloat64x2OpInstr : public TemplateDefinition<2, NoThrow, Pure> {
 
 class UnaryIntegerOpInstr : public TemplateDefinition<1, NoThrow, Pure> {
  public:
-  UnaryIntegerOpInstr(Token::Kind op_kind,
-                      Value* value,
-                      intptr_t deopt_id)
+  UnaryIntegerOpInstr(Token::Kind op_kind, Value* value, intptr_t deopt_id)
       : TemplateDefinition(deopt_id), op_kind_(op_kind) {
-    ASSERT((op_kind == Token::kNEGATE) ||
-           (op_kind == Token::kBIT_NOT));
+    ASSERT((op_kind == Token::kNEGATE) || (op_kind == Token::kBIT_NOT));
     SetInputAt(0, value);
   }
 
@@ -6794,9 +6574,7 @@ class UnaryIntegerOpInstr : public TemplateDefinition<1, NoThrow, Pure> {
 // Handles both Smi operations: BIT_OR and NEGATE.
 class UnarySmiOpInstr : public UnaryIntegerOpInstr {
  public:
-  UnarySmiOpInstr(Token::Kind op_kind,
-                  Value* value,
-                  intptr_t deopt_id)
+  UnarySmiOpInstr(Token::Kind op_kind, Value* value, intptr_t deopt_id)
       : UnaryIntegerOpInstr(op_kind, value, deopt_id) {}
 
   virtual bool CanDeoptimize() const { return op_kind() == Token::kNEGATE; }
@@ -6812,9 +6590,7 @@ class UnarySmiOpInstr : public UnaryIntegerOpInstr {
 
 class UnaryUint32OpInstr : public UnaryIntegerOpInstr {
  public:
-  UnaryUint32OpInstr(Token::Kind op_kind,
-                     Value* value,
-                     intptr_t deopt_id)
+  UnaryUint32OpInstr(Token::Kind op_kind, Value* value, intptr_t deopt_id)
       : UnaryIntegerOpInstr(op_kind, value, deopt_id) {
     ASSERT(op_kind == Token::kBIT_NOT);
   }
@@ -6823,9 +6599,7 @@ class UnaryUint32OpInstr : public UnaryIntegerOpInstr {
 
   virtual CompileType ComputeType() const;
 
-  virtual Representation representation() const {
-    return kUnboxedUint32;
-  }
+  virtual Representation representation() const { return kUnboxedUint32; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -6846,15 +6620,11 @@ class UnaryMintOpInstr : public UnaryIntegerOpInstr {
     ASSERT(op_kind == Token::kBIT_NOT);
   }
 
-  virtual bool CanDeoptimize() const {
-    return false;
-  }
+  virtual bool CanDeoptimize() const { return false; }
 
   virtual CompileType ComputeType() const;
 
-  virtual Representation representation() const {
-    return kUnboxedMint;
-  }
+  virtual Representation representation() const { return kUnboxedMint; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -6874,9 +6644,7 @@ class CheckedSmiOpInstr : public TemplateDefinition<2, Throws> {
                     Value* left,
                     Value* right,
                     InstanceCallInstr* call)
-      : TemplateDefinition(call->deopt_id()),
-        call_(call),
-        op_kind_(op_kind) {
+      : TemplateDefinition(call->deopt_id()), call_(call), op_kind_(op_kind) {
     SetInputAt(0, left);
     SetInputAt(1, right);
   }
@@ -6886,9 +6654,11 @@ class CheckedSmiOpInstr : public TemplateDefinition<2, Throws> {
   Value* left() const { return inputs_[0]; }
   Value* right() const { return inputs_[1]; }
 
-  virtual bool CanDeoptimize() const { return true; }
+  virtual bool CanDeoptimize() const { return false; }
 
   virtual EffectSet Effects() const { return EffectSet::All(); }
+
+  virtual Definition* Canonicalize(FlowGraph* flow_graph);
 
   PRINT_OPERANDS_TO_SUPPORT
 
@@ -6898,6 +6668,52 @@ class CheckedSmiOpInstr : public TemplateDefinition<2, Throws> {
   InstanceCallInstr* call_;
   const Token::Kind op_kind_;
   DISALLOW_COPY_AND_ASSIGN(CheckedSmiOpInstr);
+};
+
+
+class CheckedSmiComparisonInstr : public TemplateComparison<2, Throws> {
+ public:
+  CheckedSmiComparisonInstr(Token::Kind op_kind,
+                            Value* left,
+                            Value* right,
+                            InstanceCallInstr* call)
+      : TemplateComparison(call->token_pos(), op_kind, call->deopt_id()),
+        call_(call),
+        is_negated_(false) {
+    SetInputAt(0, left);
+    SetInputAt(1, right);
+  }
+
+  InstanceCallInstr* call() const { return call_; }
+
+  virtual bool CanDeoptimize() const { return false; }
+
+  virtual Definition* Canonicalize(FlowGraph* flow_graph);
+
+  virtual void NegateComparison() {
+    ComparisonInstr::NegateComparison();
+    is_negated_ = !is_negated_;
+  }
+
+  bool is_negated() const { return is_negated_; }
+
+  virtual EffectSet Effects() const { return EffectSet::All(); }
+
+  PRINT_OPERANDS_TO_SUPPORT
+
+  DECLARE_INSTRUCTION(CheckedSmiComparison)
+
+  virtual void EmitBranchCode(FlowGraphCompiler* compiler, BranchInstr* branch);
+
+  virtual Condition EmitComparisonCode(FlowGraphCompiler* compiler,
+                                       BranchLabels labels);
+
+  virtual ComparisonInstr* CopyWithNewOperands(Value* left, Value* right);
+
+ private:
+  InstanceCallInstr* call_;
+  bool is_negated_;
+  DISALLOW_COPY_AND_ASSIGN(CheckedSmiComparisonInstr);
 };
 
 
@@ -6998,8 +6814,7 @@ class BinarySmiOpInstr : public BinaryIntegerOpInstr {
                    Value* left,
                    Value* right,
                    intptr_t deopt_id)
-      : BinaryIntegerOpInstr(op_kind, left, right, deopt_id) {
-  }
+      : BinaryIntegerOpInstr(op_kind, left, right, deopt_id) {}
 
   virtual bool CanDeoptimize() const;
 
@@ -7049,9 +6864,7 @@ class BinaryInt32OpInstr : public BinaryIntegerOpInstr {
 
   virtual bool CanDeoptimize() const;
 
-  virtual Representation representation() const {
-    return kUnboxedInt32;
-  }
+  virtual Representation representation() const { return kUnboxedInt32; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -7078,13 +6891,9 @@ class BinaryUint32OpInstr : public BinaryIntegerOpInstr {
     mark_truncating();
   }
 
-  virtual bool CanDeoptimize() const {
-    return false;
-  }
+  virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedUint32;
-  }
+  virtual Representation representation() const { return kUnboxedUint32; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -7112,9 +6921,7 @@ class ShiftUint32OpInstr : public BinaryIntegerOpInstr {
 
   virtual bool CanDeoptimize() const { return true; }
 
-  virtual Representation representation() const {
-    return kUnboxedUint32;
-  }
+  virtual Representation representation() const { return kUnboxedUint32; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -7136,18 +6943,15 @@ class BinaryMintOpInstr : public BinaryIntegerOpInstr {
                     Value* left,
                     Value* right,
                     intptr_t deopt_id)
-      : BinaryIntegerOpInstr(op_kind, left, right, deopt_id) {
-  }
+      : BinaryIntegerOpInstr(op_kind, left, right, deopt_id) {}
 
   virtual bool CanDeoptimize() const {
-    return (can_overflow() && ((op_kind() == Token::kADD) ||
-                               (op_kind() == Token::kSUB)))
-        || (op_kind() == Token::kMUL);  // Deopt if inputs are not int32.
+    return (can_overflow() &&
+            ((op_kind() == Token::kADD) || (op_kind() == Token::kSUB))) ||
+           (op_kind() == Token::kMUL);  // Deopt if inputs are not int32.
   }
 
-  virtual Representation representation() const {
-    return kUnboxedMint;
-  }
+  virtual Representation representation() const { return kUnboxedMint; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -7175,13 +6979,11 @@ class ShiftMintOpInstr : public BinaryIntegerOpInstr {
   }
 
   virtual bool CanDeoptimize() const {
-    return  has_shift_count_check()
-        || (can_overflow() && (op_kind() == Token::kSHL));
+    return has_shift_count_check() ||
+           (can_overflow() && (op_kind() == Token::kSHL));
   }
 
-  virtual Representation representation() const {
-    return kUnboxedMint;
-  }
+  virtual Representation representation() const { return kUnboxedMint; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((idx == 0) || (idx == 1));
@@ -7203,9 +7005,7 @@ class ShiftMintOpInstr : public BinaryIntegerOpInstr {
 // Handles only NEGATE.
 class UnaryDoubleOpInstr : public TemplateDefinition<1, NoThrow, Pure> {
  public:
-  UnaryDoubleOpInstr(Token::Kind op_kind,
-                     Value* value,
-                     intptr_t deopt_id)
+  UnaryDoubleOpInstr(Token::Kind op_kind, Value* value, intptr_t deopt_id)
       : TemplateDefinition(deopt_id), op_kind_(op_kind) {
     ASSERT(op_kind == Token::kNEGATE);
     SetInputAt(0, value);
@@ -7225,9 +7025,7 @@ class UnaryDoubleOpInstr : public TemplateDefinition<1, NoThrow, Pure> {
     return GetDeoptId();
   }
 
-  virtual Representation representation() const {
-    return kUnboxedDouble;
-  }
+  virtual Representation representation() const { return kUnboxedDouble; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -7250,8 +7048,7 @@ class CheckStackOverflowInstr : public TemplateInstruction<0, NoThrow> {
   CheckStackOverflowInstr(TokenPosition token_pos, intptr_t loop_depth)
       : TemplateInstruction(Thread::Current()->GetNextDeoptId()),
         token_pos_(token_pos),
-        loop_depth_(loop_depth) {
-  }
+        loop_depth_(loop_depth) {}
 
   virtual TokenPosition token_pos() const { return token_pos_; }
   bool in_loop() const { return loop_depth_ > 0; }
@@ -7287,9 +7084,7 @@ class SmiToDoubleInstr : public TemplateDefinition<1, NoThrow, Pure> {
   DECLARE_INSTRUCTION(SmiToDouble)
   virtual CompileType ComputeType() const;
 
-  virtual Representation representation() const {
-    return kUnboxedDouble;
-  }
+  virtual Representation representation() const { return kUnboxedDouble; }
 
   virtual bool CanDeoptimize() const { return false; }
 
@@ -7304,9 +7099,7 @@ class SmiToDoubleInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
 class Int32ToDoubleInstr : public TemplateDefinition<1, NoThrow, Pure> {
  public:
-  explicit Int32ToDoubleInstr(Value* value) {
-    SetInputAt(0, value);
-  }
+  explicit Int32ToDoubleInstr(Value* value) { SetInputAt(0, value); }
 
   Value* value() const { return inputs_[0]; }
 
@@ -7318,9 +7111,7 @@ class Int32ToDoubleInstr : public TemplateDefinition<1, NoThrow, Pure> {
     return kUnboxedInt32;
   }
 
-  virtual Representation representation() const {
-    return kUnboxedDouble;
-  }
+  virtual Representation representation() const { return kUnboxedDouble; }
 
   virtual bool CanDeoptimize() const { return false; }
 
@@ -7348,9 +7139,7 @@ class MintToDoubleInstr : public TemplateDefinition<1, NoThrow, Pure> {
     return kUnboxedMint;
   }
 
-  virtual Representation representation() const {
-    return kUnboxedDouble;
-  }
+  virtual Representation representation() const { return kUnboxedDouble; }
 
   virtual intptr_t DeoptimizationTarget() const {
     // Direct access since this instruction cannot deoptimize, and the deopt-id
@@ -7428,8 +7217,7 @@ class DoubleToDoubleInstr : public TemplateDefinition<1, NoThrow, Pure> {
   DoubleToDoubleInstr(Value* value,
                       MethodRecognizer::Kind recognized_kind,
                       intptr_t deopt_id)
-    : TemplateDefinition(deopt_id),
-      recognized_kind_(recognized_kind) {
+      : TemplateDefinition(deopt_id), recognized_kind_(recognized_kind) {
     SetInputAt(0, value);
   }
 
@@ -7442,9 +7230,7 @@ class DoubleToDoubleInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedDouble;
-  }
+  virtual Representation representation() const { return kUnboxedDouble; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -7464,7 +7250,7 @@ class DoubleToDoubleInstr : public TemplateDefinition<1, NoThrow, Pure> {
 };
 
 
-class DoubleToFloatInstr: public TemplateDefinition<1, NoThrow, Pure> {
+class DoubleToFloatInstr : public TemplateDefinition<1, NoThrow, Pure> {
  public:
   DoubleToFloatInstr(Value* value, intptr_t deopt_id)
       : TemplateDefinition(deopt_id) {
@@ -7503,7 +7289,7 @@ class DoubleToFloatInstr: public TemplateDefinition<1, NoThrow, Pure> {
 };
 
 
-class FloatToDoubleInstr: public TemplateDefinition<1, NoThrow, Pure> {
+class FloatToDoubleInstr : public TemplateDefinition<1, NoThrow, Pure> {
  public:
   FloatToDoubleInstr(Value* value, intptr_t deopt_id)
       : TemplateDefinition(deopt_id) {
@@ -7518,9 +7304,7 @@ class FloatToDoubleInstr: public TemplateDefinition<1, NoThrow, Pure> {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedDouble;
-  }
+  virtual Representation representation() const { return kUnboxedDouble; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -7558,9 +7342,7 @@ class InvokeMathCFunctionInstr : public PureDefinition {
 
   virtual bool CanDeoptimize() const { return false; }
 
-  virtual Representation representation() const {
-    return kUnboxedDouble;
-  }
+  virtual Representation representation() const { return kUnboxedDouble; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((0 <= idx) && (idx < InputCount()));
@@ -7569,13 +7351,9 @@ class InvokeMathCFunctionInstr : public PureDefinition {
 
   virtual intptr_t DeoptimizationTarget() const { return GetDeoptId(); }
 
-  virtual intptr_t InputCount() const {
-    return inputs_->length();
-  }
+  virtual intptr_t InputCount() const { return inputs_->length(); }
 
-  virtual Value* InputAt(intptr_t i) const {
-    return (*inputs_)[i];
-  }
+  virtual Value* InputAt(intptr_t i) const { return (*inputs_)[i]; }
 
   virtual bool AttributesEqual(Instruction* other) const {
     InvokeMathCFunctionInstr* other_invoke = other->AsInvokeMathCFunction();
@@ -7625,16 +7403,12 @@ class ExtractNthOutputInstr : public TemplateDefinition<1, NoThrow, Pure> {
 
   intptr_t index() const { return index_; }
 
-  virtual Representation representation() const {
-    return definition_rep_;
-  }
+  virtual Representation representation() const { return definition_rep_; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
     if (representation() == kTagged) {
       return kPairOfTagged;
-    } else if (representation() == kUnboxedDouble) {
-      return kPairOfUnboxedDouble;
     }
     UNREACHABLE();
     return definition_rep_;
@@ -7660,7 +7434,6 @@ class MergedMathInstr : public PureDefinition {
  public:
   enum Kind {
     kTruncDivMod,
-    kSinCos,
   };
 
   MergedMathInstr(ZoneGrowableArray<Value*>* inputs,
@@ -7670,8 +7443,6 @@ class MergedMathInstr : public PureDefinition {
   static intptr_t InputCountFor(MergedMathInstr::Kind kind) {
     if (kind == kTruncDivMod) {
       return 2;
-    } else if (kind == kSinCos) {
-      return 1;
     } else {
       UNIMPLEMENTED();
       return -1;
@@ -7682,11 +7453,9 @@ class MergedMathInstr : public PureDefinition {
 
   virtual intptr_t InputCount() const { return inputs_->length(); }
 
-  virtual Value* InputAt(intptr_t i) const {
-    return (*inputs_)[i];
-  }
+  virtual Value* InputAt(intptr_t i) const { return (*inputs_)[i]; }
 
-  static intptr_t OutputIndexOf(intptr_t kind);
+  static intptr_t OutputIndexOf(MethodRecognizer::Kind kind);
   static intptr_t OutputIndexOf(Token::Kind token);
 
   virtual CompileType ComputeType() const;
@@ -7694,8 +7463,6 @@ class MergedMathInstr : public PureDefinition {
   virtual bool CanDeoptimize() const {
     if (kind_ == kTruncDivMod) {
       return true;
-    } else if (kind_ == kSinCos) {
-      return false;
     } else {
       UNIMPLEMENTED();
       return false;
@@ -7705,8 +7472,6 @@ class MergedMathInstr : public PureDefinition {
   virtual Representation representation() const {
     if (kind_ == kTruncDivMod) {
       return kPairOfTagged;
-    } else if (kind_ == kSinCos) {
-      return kPairOfUnboxedDouble;
     } else {
       UNIMPLEMENTED();
       return kTagged;
@@ -7717,8 +7482,6 @@ class MergedMathInstr : public PureDefinition {
     ASSERT((0 <= idx) && (idx < InputCount()));
     if (kind_ == kTruncDivMod) {
       return kTagged;
-    } else if (kind_ == kSinCos) {
-      return kUnboxedDouble;
     } else {
       UNIMPLEMENTED();
       return kTagged;
@@ -7738,7 +7501,6 @@ class MergedMathInstr : public PureDefinition {
 
   static const char* KindToCString(MergedMathInstr::Kind kind) {
     if (kind == kTruncDivMod) return "TruncDivMod";
-    if (kind == kSinCos) return "SinCos";
     UNIMPLEMENTED();
     return "";
   }
@@ -7776,14 +7538,13 @@ class CheckClassInstr : public TemplateInstruction<1, NoThrow> {
 
   virtual Instruction* Canonicalize(FlowGraph* flow_graph);
 
-  bool IsNullCheck() const {
-    return  DeoptIfNull() || DeoptIfNotNull();
-  }
+  bool IsNullCheck() const { return DeoptIfNull() || DeoptIfNotNull(); }
 
   bool DeoptIfNull() const;
   bool DeoptIfNotNull() const;
 
   bool IsDenseSwitch() const;
+  static bool IsDenseCidRange(const ICData& unary_checks);
   intptr_t ComputeCidMask() const;
   static bool IsDenseMask(intptr_t mask);
 
@@ -7792,9 +7553,8 @@ class CheckClassInstr : public TemplateInstruction<1, NoThrow> {
   virtual EffectSet Effects() const { return EffectSet::None(); }
   virtual bool AttributesEqual(Instruction* other) const;
 
+  bool licm_hoisted() const { return licm_hoisted_; }
   void set_licm_hoisted(bool value) { licm_hoisted_ = value; }
-
-  static bool IsImmutableClassId(intptr_t cid);
 
   PRINT_OPERANDS_TO_SUPPORT
 
@@ -7802,6 +7562,7 @@ class CheckClassInstr : public TemplateInstruction<1, NoThrow> {
   const ICData& unary_checks_;
   GrowableArray<intptr_t> cids_;  // Sorted, lowest first.
   bool licm_hoisted_;
+  bool is_dense_switch_;
   const TokenPosition token_pos_;
 
   DISALLOW_COPY_AND_ASSIGN(CheckClassInstr);
@@ -7828,6 +7589,7 @@ class CheckSmiInstr : public TemplateInstruction<1, NoThrow, Pure> {
 
   virtual bool AttributesEqual(Instruction* other) const { return true; }
 
+  bool licm_hoisted() const { return licm_hoisted_; }
   void set_licm_hoisted(bool value) { licm_hoisted_ = value; }
 
  private:
@@ -7887,9 +7649,7 @@ class CheckArrayBoundInstr : public TemplateInstruction<2, NoThrow, Pure> {
 
   bool IsRedundant(const RangeBoundary& length);
 
-  void mark_generalized() {
-    generalized_ = true;
-  }
+  void mark_generalized() { generalized_ = true; }
 
   virtual Instruction* Canonicalize(FlowGraph* flow_graph);
 
@@ -7903,16 +7663,39 @@ class CheckArrayBoundInstr : public TemplateInstruction<2, NoThrow, Pure> {
   void set_licm_hoisted(bool value) { licm_hoisted_ = value; }
 
   // Give a name to the location/input indices.
-  enum {
-    kLengthPos = 0,
-    kIndexPos = 1
-  };
+  enum { kLengthPos = 0, kIndexPos = 1 };
 
  private:
   bool generalized_;
   bool licm_hoisted_;
 
   DISALLOW_COPY_AND_ASSIGN(CheckArrayBoundInstr);
+};
+
+
+class GenericCheckBoundInstr : public TemplateInstruction<2, Throws, NoCSE> {
+ public:
+  GenericCheckBoundInstr(Value* length, Value* index, intptr_t deopt_id)
+      : TemplateInstruction(deopt_id) {
+    SetInputAt(kLengthPos, length);
+    SetInputAt(kIndexPos, index);
+  }
+
+  Value* length() const { return inputs_[kLengthPos]; }
+  Value* index() const { return inputs_[kIndexPos]; }
+
+  virtual EffectSet Effects() const { return EffectSet::None(); }
+  virtual EffectSet Dependencies() const { return EffectSet::None(); }
+
+  DECLARE_INSTRUCTION(GenericCheckBound)
+
+  virtual bool CanDeoptimize() const { return true; }
+
+  // Give a name to the location/input indices.
+  enum { kLengthPos = 0, kIndexPos = 1 };
+
+ private:
+  DISALLOW_COPY_AND_ASSIGN(GenericCheckBoundInstr);
 };
 
 
@@ -7927,11 +7710,9 @@ class UnboxedIntConverterInstr : public TemplateDefinition<1, NoThrow> {
         to_representation_(to),
         is_truncating_(to == kUnboxedUint32) {
     ASSERT(from != to);
-    ASSERT((from == kUnboxedMint) ||
-           (from == kUnboxedUint32) ||
+    ASSERT((from == kUnboxedMint) || (from == kUnboxedUint32) ||
            (from == kUnboxedInt32));
-    ASSERT((to == kUnboxedMint) ||
-           (to == kUnboxedUint32) ||
+    ASSERT((to == kUnboxedMint) || (to == kUnboxedUint32) ||
            (to == kUnboxedInt32));
     SetInputAt(0, value);
   }
@@ -7948,9 +7729,7 @@ class UnboxedIntConverterInstr : public TemplateDefinition<1, NoThrow> {
 
   virtual bool CanDeoptimize() const;
 
-  virtual Representation representation() const {
-    return to();
-  }
+  virtual Representation representation() const { return to(); }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT(idx == 0);
@@ -7962,9 +7741,8 @@ class UnboxedIntConverterInstr : public TemplateDefinition<1, NoThrow> {
   virtual bool AttributesEqual(Instruction* other) const {
     ASSERT(other->IsUnboxedIntConverter());
     UnboxedIntConverterInstr* converter = other->AsUnboxedIntConverter();
-    return (converter->from() == from()) &&
-        (converter->to() == to()) &&
-        (converter->is_truncating() == is_truncating());
+    return (converter->from() == from()) && (converter->to() == to()) &&
+           (converter->is_truncating() == is_truncating());
   }
 
   virtual void InferRange(RangeAnalysis* analysis, Range* range);
@@ -8013,12 +7791,12 @@ class Environment : public ZoneAllocated {
   class ShallowIterator : public ValueObject {
    public:
     explicit ShallowIterator(Environment* environment)
-        : environment_(environment), index_(0) { }
+        : environment_(environment), index_(0) {}
 
     ShallowIterator(const ShallowIterator& other)
         : ValueObject(),
           environment_(other.environment_),
-          index_(other.index_) { }
+          index_(other.index_) {}
 
     ShallowIterator& operator=(const ShallowIterator& other) {
       environment_ = other.environment_;
@@ -8128,17 +7906,16 @@ class Environment : public ZoneAllocated {
 
   Environment* Outermost() {
     Environment* result = this;
-    while (result->outer() != NULL) result = result->outer();
+    while (result->outer() != NULL)
+      result = result->outer();
     return result;
   }
 
-  Value* ValueAt(intptr_t ix) const {
-    return values_[ix];
-  }
+  Value* ValueAt(intptr_t ix) const { return values_[ix]; }
 
-  intptr_t Length() const {
-    return values_.length();
-  }
+  void PushValue(Value* value);
+
+  intptr_t Length() const { return values_.length(); }
 
   Location LocationAt(intptr_t index) const {
     ASSERT((index >= 0) && (index < values_.length()));
@@ -8156,9 +7933,7 @@ class Environment : public ZoneAllocated {
     return env->ValueAt(index);
   }
 
-  intptr_t fixed_parameter_count() const {
-    return fixed_parameter_count_;
-  }
+  intptr_t fixed_parameter_count() const { return fixed_parameter_count_; }
 
   intptr_t CountArgsPushed() {
     intptr_t count = 0;
@@ -8172,9 +7947,7 @@ class Environment : public ZoneAllocated {
 
   const Function& function() const { return parsed_function_.function(); }
 
-  Environment* DeepCopy(Zone* zone) const {
-    return DeepCopy(zone, Length());
-  }
+  Environment* DeepCopy(Zone* zone) const { return DeepCopy(zone, Length()); }
 
   void DeepCopyTo(Zone* zone, Instruction* instr) const;
   void DeepCopyToOuter(Zone* zone, Instruction* instr) const;
@@ -8193,6 +7966,17 @@ class Environment : public ZoneAllocated {
   // from the copy.
   Environment* DeepCopy(Zone* zone, intptr_t length) const;
 
+#if defined(TARGET_ARCH_DBC)
+  // Return/ReturnTOS instruction drops incoming arguments so
+  // we have to drop outgoing arguments from the innermost environment.
+  // On all other architectures caller drops outgoing arguments itself
+  // hence the difference.
+  // Note: this method can only be used at the code generation stage because
+  // it mutates environment in unsafe way (e.g. does not update def-use
+  // chains).
+  void DropArguments(intptr_t argc);
+#endif
+
  private:
   friend class ShallowIterator;
 
@@ -8206,8 +7990,7 @@ class Environment : public ZoneAllocated {
         fixed_parameter_count_(fixed_parameter_count),
         deopt_id_(deopt_id),
         parsed_function_(parsed_function),
-        outer_(outer) {
-  }
+        outer_(outer) {}
 
 
   GrowableArray<Value*> values_;
@@ -8226,8 +8009,8 @@ class Environment : public ZoneAllocated {
 class FlowGraphVisitor : public ValueObject {
  public:
   explicit FlowGraphVisitor(const GrowableArray<BlockEntryInstr*>& block_order)
-      : current_iterator_(NULL), block_order_(block_order) { }
-  virtual ~FlowGraphVisitor() { }
+      : current_iterator_(NULL), block_order_(block_order) {}
+  virtual ~FlowGraphVisitor() {}
 
   ForwardInstructionIterator* current_iterator() const {
     return current_iterator_;
@@ -8237,10 +8020,10 @@ class FlowGraphVisitor : public ValueObject {
   // instructions in order from the block entry to exit.
   virtual void VisitBlocks();
 
-  // Visit functions for instruction classes, with an empty default
-  // implementation.
+// Visit functions for instruction classes, with an empty default
+// implementation.
 #define DECLARE_VISIT_INSTRUCTION(ShortName)                                   \
-  virtual void Visit##ShortName(ShortName##Instr* instr) { }
+  virtual void Visit##ShortName(ShortName##Instr* instr) {}
 
   FOR_EACH_INSTRUCTION(DECLARE_VISIT_INSTRUCTION)
 
@@ -8256,14 +8039,14 @@ class FlowGraphVisitor : public ValueObject {
 
 
 // Helper macros for platform ports.
-#define DEFINE_UNIMPLEMENTED_INSTRUCTION(Name)                                \
-  LocationSummary* Name::MakeLocationSummary(Zone* zone, bool opt) const {    \
-    UNIMPLEMENTED();                                                          \
-    return NULL;                                                              \
-  }                                                                           \
+#define DEFINE_UNIMPLEMENTED_INSTRUCTION(Name)                                 \
+  LocationSummary* Name::MakeLocationSummary(Zone* zone, bool opt) const {     \
+    UNIMPLEMENTED();                                                           \
+    return NULL;                                                               \
+  }                                                                            \
   void Name::EmitNativeCode(FlowGraphCompiler* compiler) { UNIMPLEMENTED(); }
 
 
 }  // namespace dart
 
-#endif  // VM_INTERMEDIATE_LANGUAGE_H_
+#endif  // RUNTIME_VM_INTERMEDIATE_LANGUAGE_H_

@@ -2,8 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef BIN_STDIO_H_
-#define BIN_STDIO_H_
+#ifndef RUNTIME_BIN_STDIO_H_
+#define RUNTIME_BIN_STDIO_H_
+
+#if defined(DART_IO_DISABLED)
+#error "stdio.h can only be included on builds with IO enabled"
+#endif
 
 #include "bin/builtin.h"
 #include "bin/utils.h"
@@ -15,13 +19,13 @@ namespace bin {
 
 class Stdin {
  public:
-  static int ReadByte();
+  static bool ReadByte(int* byte);
 
-  static bool GetEchoMode();
-  static void SetEchoMode(bool enabled);
+  static bool GetEchoMode(bool* enabled);
+  static bool SetEchoMode(bool enabled);
 
-  static bool GetLineMode();
-  static void SetLineMode(bool enabled);
+  static bool GetLineMode(bool* enabled);
+  static bool SetLineMode(bool enabled);
 
  private:
   DISALLOW_ALLOCATION();
@@ -41,4 +45,4 @@ class Stdout {
 }  // namespace bin
 }  // namespace dart
 
-#endif  // BIN_STDIO_H_
+#endif  // RUNTIME_BIN_STDIO_H_

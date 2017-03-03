@@ -8,7 +8,8 @@ part of dart._internal;
  * Marker interface for [Iterable] subclasses that have an efficient
  * [length] implementation.
  */
-abstract class EfficientLength {
+abstract class EfficientLengthIterable<T> extends Iterable<T> {
+  const EfficientLengthIterable();
   /**
    * Returns the number of elements in the iterable.
    *
@@ -24,8 +25,7 @@ abstract class EfficientLength {
  * All other methods are implemented in terms of [length] and [elementAt],
  * including [iterator].
  */
-abstract class ListIterable<E> extends Iterable<E>
-                               implements EfficientLength {
+abstract class ListIterable<E> extends EfficientLengthIterable<E> {
   int get length;
   E elementAt(int i);
 
@@ -172,7 +172,7 @@ abstract class ListIterable<E> extends Iterable<E>
 
   Iterable<E> where(bool test(E element)) => super.where(test);
 
-  Iterable map(f(E element)) => new MappedListIterable(this, f);
+  Iterable<T> map<T>(T f(E element)) => new MappedListIterable<E, T>(this, f);
 
   E reduce(E combine(var value, E element)) {
     int length = this.length;
@@ -188,7 +188,7 @@ abstract class ListIterable<E> extends Iterable<E>
     return value;
   }
 
-  fold(var initialValue, combine(var previousValue, E element)) {
+  T fold<T>(T initialValue, T combine(T previousValue, E element)) {
     var value = initialValue;
     int length = this.length;
     for (int i = 0; i < length; i++) {
@@ -301,8 +301,8 @@ class SubListIterable<E> extends ListIterable<E> {
     if (_endOrLength != null && _endOrLength < end) end = _endOrLength;
     int length = end - start;
     if (length < 0) length = 0;
-    List result = growable ? (new List<E>()..length = length)
-                           : new List<E>(length);
+    List<E> result = growable ? (new List<E>()..length = length)
+                              : new List<E>(length);
     for (int i = 0; i < length; i++) {
       result[i] = _iterable.elementAt(start + i);
       if (_iterable.length < end) throw new ConcurrentModificationError(this);
@@ -350,14 +350,14 @@ class MappedIterable<S, T> extends Iterable<T> {
   final Iterable<S> _iterable;
   final _Transformation<S, T> _f;
 
-  factory MappedIterable(Iterable iterable, T function(S value)) {
-    if (iterable is EfficientLength) {
+  factory MappedIterable(Iterable<S> iterable, T function(S value)) {
+    if (iterable is EfficientLengthIterable) {
       return new EfficientLengthMappedIterable<S, T>(iterable, function);
     }
     return new MappedIterable<S, T>._(iterable, function);
   }
 
-  MappedIterable._(this._iterable, T this._f(S element));
+  MappedIterable._(this._iterable, this._f);
 
   Iterator<T> get iterator => new MappedIterator<S, T>(_iterable.iterator, _f);
 
@@ -373,8 +373,8 @@ class MappedIterable<S, T> extends Iterable<T> {
 }
 
 class EfficientLengthMappedIterable<S, T> extends MappedIterable<S, T>
-                                          implements EfficientLength {
-  EfficientLengthMappedIterable(Iterable iterable, T function(S value))
+    implements EfficientLengthIterable<T> {
+  EfficientLengthMappedIterable(Iterable<S> iterable, T function(S value))
       : super._(iterable, function);
 }
 
@@ -383,7 +383,7 @@ class MappedIterator<S, T> extends Iterator<T> {
   final Iterator<S> _iterator;
   final _Transformation<S, T> _f;
 
-  MappedIterator(this._iterator, T this._f(S element));
+  MappedIterator(this._iterator, this._f);
 
   bool moveNext() {
     if (_iterator.moveNext()) {
@@ -402,12 +402,11 @@ class MappedIterator<S, T> extends Iterator<T> {
  *
  * Expects efficient `length` and `elementAt` on the source iterable.
  */
-class MappedListIterable<S, T> extends ListIterable<T>
-                               implements EfficientLength {
+class MappedListIterable<S, T> extends ListIterable<T> {
   final Iterable<S> _source;
   final _Transformation<S, T> _f;
 
-  MappedListIterable(this._source, T this._f(S value));
+  MappedListIterable(this._source, this._f);
 
   int get length => _source.length;
   T elementAt(int index) => _f(_source.elementAt(index));
@@ -418,18 +417,21 @@ typedef bool _ElementPredicate<E>(E element);
 
 class WhereIterable<E> extends Iterable<E> {
   final Iterable<E> _iterable;
-  final _ElementPredicate _f;
+  final _ElementPredicate<E> _f;
 
-  WhereIterable(this._iterable, bool this._f(E element));
+  WhereIterable(this._iterable, this._f);
 
   Iterator<E> get iterator => new WhereIterator<E>(_iterable.iterator, _f);
+
+  // Specialization of [Iterable.map] to non-EfficientLengthIterable.
+  Iterable<T> map<T>(T f(E element)) => new MappedIterable<E, T>._(this, f);
 }
 
 class WhereIterator<E> extends Iterator<E> {
   final Iterator<E> _iterator;
   final _ElementPredicate _f;
 
-  WhereIterator(this._iterator, bool this._f(E element));
+  WhereIterator(this._iterator, this._f);
 
   bool moveNext() {
     while (_iterator.moveNext()) {
@@ -447,23 +449,23 @@ typedef Iterable<T> _ExpandFunction<S, T>(S sourceElement);
 
 class ExpandIterable<S, T> extends Iterable<T> {
   final Iterable<S> _iterable;
-  final _ExpandFunction _f;
+  final _ExpandFunction<S, T> _f;
 
-  ExpandIterable(this._iterable, Iterable<T> this._f(S element));
+  ExpandIterable(this._iterable, this._f);
 
   Iterator<T> get iterator => new ExpandIterator<S, T>(_iterable.iterator, _f);
 }
 
 class ExpandIterator<S, T> implements Iterator<T> {
   final Iterator<S> _iterator;
-  final _ExpandFunction _f;
+  final _ExpandFunction<S, T> _f;
   // Initialize _currentExpansion to an empty iterable. A null value
   // marks the end of iteration, and we don't want to call _f before
   // the first moveNext call.
   Iterator<T> _currentExpansion = const EmptyIterator();
   T _current;
 
-  ExpandIterator(this._iterator, Iterable<T> this._f(S element));
+  ExpandIterator(this._iterator, this._f);
 
   T get current => _current;
 
@@ -493,7 +495,7 @@ class TakeIterable<E> extends Iterable<E> {
     if (takeCount is! int || takeCount < 0) {
       throw new ArgumentError(takeCount);
     }
-    if (iterable is EfficientLength) {
+    if (iterable is EfficientLengthIterable) {
       return new EfficientLengthTakeIterable<E>(iterable, takeCount);
     }
     return new TakeIterable<E>._(iterable, takeCount);
@@ -507,7 +509,7 @@ class TakeIterable<E> extends Iterable<E> {
 }
 
 class EfficientLengthTakeIterable<E> extends TakeIterable<E>
-                                     implements EfficientLength {
+                                     implements EfficientLengthIterable<E> {
   EfficientLengthTakeIterable(Iterable<E> iterable, int takeCount)
       : super._(iterable, takeCount);
 
@@ -544,9 +546,9 @@ class TakeIterator<E> extends Iterator<E> {
 
 class TakeWhileIterable<E> extends Iterable<E> {
   final Iterable<E> _iterable;
-  final _ElementPredicate _f;
+  final _ElementPredicate<E> _f;
 
-  TakeWhileIterable(this._iterable, bool this._f(E element));
+  TakeWhileIterable(this._iterable, this._f);
 
   Iterator<E> get iterator {
     return new TakeWhileIterator<E>(_iterable.iterator, _f);
@@ -555,10 +557,10 @@ class TakeWhileIterable<E> extends Iterable<E> {
 
 class TakeWhileIterator<E> extends Iterator<E> {
   final Iterator<E> _iterator;
-  final _ElementPredicate _f;
+  final _ElementPredicate<E> _f;
   bool _isFinished = false;
 
-  TakeWhileIterator(this._iterator, bool this._f(E element));
+  TakeWhileIterator(this._iterator, this._f);
 
   bool moveNext() {
     if (_isFinished) return false;
@@ -580,7 +582,7 @@ class SkipIterable<E> extends Iterable<E> {
   final int _skipCount;
 
   factory SkipIterable(Iterable<E> iterable, int count) {
-    if (iterable is EfficientLength) {
+    if (iterable is EfficientLengthIterable) {
       return new EfficientLengthSkipIterable<E>(iterable, count);
     }
     return new SkipIterable<E>._(iterable, count);
@@ -607,7 +609,7 @@ class SkipIterable<E> extends Iterable<E> {
 }
 
 class EfficientLengthSkipIterable<E> extends SkipIterable<E>
-                                     implements EfficientLength {
+                                     implements EfficientLengthIterable<E> {
   EfficientLengthSkipIterable(Iterable<E> iterable, int skipCount)
       : super._(iterable, skipCount);
 
@@ -637,9 +639,9 @@ class SkipIterator<E> extends Iterator<E> {
 
 class SkipWhileIterable<E> extends Iterable<E> {
   final Iterable<E> _iterable;
-  final _ElementPredicate _f;
+  final _ElementPredicate<E> _f;
 
-  SkipWhileIterable(this._iterable, bool this._f(E element));
+  SkipWhileIterable(this._iterable, this._f);
 
   Iterator<E> get iterator {
     return new SkipWhileIterator<E>(_iterable.iterator, _f);
@@ -648,10 +650,10 @@ class SkipWhileIterable<E> extends Iterable<E> {
 
 class SkipWhileIterator<E> extends Iterator<E> {
   final Iterator<E> _iterator;
-  final _ElementPredicate _f;
+  final _ElementPredicate<E> _f;
   bool _hasSkipped = false;
 
-  SkipWhileIterator(this._iterator, bool this._f(E element));
+  SkipWhileIterator(this._iterator, this._f);
 
   bool moveNext() {
     if (!_hasSkipped) {
@@ -669,7 +671,7 @@ class SkipWhileIterator<E> extends Iterator<E> {
 /**
  * The always empty [Iterable].
  */
-class EmptyIterable<E> extends Iterable<E> implements EfficientLength {
+class EmptyIterable<E> extends EfficientLengthIterable<E> {
   const EmptyIterable();
 
   Iterator<E> get iterator => const EmptyIterator();
@@ -713,13 +715,13 @@ class EmptyIterable<E> extends Iterable<E> implements EfficientLength {
 
   Iterable<E> where(bool test(E element)) => this;
 
-  Iterable map(f(E element)) => const EmptyIterable();
+  Iterable<T> map<T>(T f(E element)) => const EmptyIterable();
 
   E reduce(E combine(E value, E element)) {
     throw IterableElementError.noElement();
   }
 
-  fold(var initialValue, combine(var previousValue, E element)) {
+  T fold<T>(T initialValue, T combine(T previousValue, E element)) {
     return initialValue;
   }
 
@@ -737,9 +739,9 @@ class EmptyIterable<E> extends Iterable<E> implements EfficientLength {
 
   Iterable<E> takeWhile(bool test(E element)) => this;
 
-  List toList({ bool growable: true }) => growable ? <E>[] : new List<E>(0);
+  List<E> toList({bool growable: true}) => growable ? <E>[] : new List<E>(0);
 
-  Set toSet() => new Set<E>();
+  Set<E> toSet() => new Set<E>();
 }
 
 /** The always empty iterator. */

@@ -4,38 +4,142 @@
 
 library analyzer.test.generated.non_error_resolver_test;
 
+import 'dart:async';
+
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/standard_resolution_map.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/error/error.dart';
+import 'package:analyzer/src/error/codes.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
 import 'package:analyzer/src/generated/parser.dart' show ParserErrorCode;
 import 'package:analyzer/src/generated/source_io.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
+import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import '../reflective_tests.dart';
-import '../utils.dart';
 import 'resolver_test_case.dart';
 import 'test_support.dart';
 
 main() {
-  initializeTestEnvironment();
-  runReflectiveTests(NonErrorResolverTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(NonErrorResolverTest);
+  });
 }
 
 @reflectiveTest
 class NonErrorResolverTest extends ResolverTestCase {
-  void fail_undefinedEnumConstant() {
+  fail_undefinedEnumConstant() async {
     Source source = addSource(r'''
 enum E { ONE }
 E e() {
   return E.TWO;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_ambiguousExport() {
+  test_abstractSuperMemberReference_superHasConcrete_mixinHasAbstract_method() async {
+    Source source = addSource('''
+class A {
+  void method() {}
+}
+
+abstract class B {
+  void method();
+}
+
+class C extends A with B {
+  void method() {
+    super.method();
+  }
+}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_abstractSuperMemberReference_superHasNoSuchMethod() async {
+    Source source = addSource('''
+abstract class A {
+  int m();
+  noSuchMethod(_) => 42;
+}
+
+class B extends A {
+  int m() => super.m();
+}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_abstractSuperMemberReference_superSuperHasConcrete_getter() async {
+    Source source = addSource('''
+abstract class A {
+  int get m => 0;
+}
+
+abstract class B extends A {
+  int get m;
+}
+
+class C extends B {
+  int get m => super.m;
+}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_abstractSuperMemberReference_superSuperHasConcrete_method() async {
+    Source source = addSource('''
+void main() {
+  print(new C().m());
+}
+
+abstract class A {
+  int m() => 0;
+}
+
+abstract class B extends A {
+  int m();
+}
+
+class C extends B {
+  int m() => super.m();
+}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_abstractSuperMemberReference_superSuperHasConcrete_setter() async {
+    Source source = addSource('''
+abstract class A {
+  void set m(int v) {}
+}
+
+abstract class B extends A {
+  void set m(int v);
+}
+
+class C extends B {
+  void set m(int v) {
+    super.m = 0;
+  }
+}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_ambiguousExport() async {
     Source source = addSource(r'''
 library L;
 export 'lib1.dart';
@@ -50,12 +154,12 @@ class M {}''');
         r'''
 library lib2;
 class N {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_ambiguousExport_combinators_hide() {
+  test_ambiguousExport_combinators_hide() async {
     Source source = addSource(r'''
 library L;
 export 'lib1.dart';
@@ -72,12 +176,12 @@ class B {}''');
 library L2;
 class B {}
 class C {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_ambiguousExport_combinators_show() {
+  test_ambiguousExport_combinators_show() async {
     Source source = addSource(r'''
 library L;
 export 'lib1.dart';
@@ -94,12 +198,12 @@ class B {}''');
 library L2;
 class B {}
 class C {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_ambiguousExport_sameDeclaration() {
+  test_ambiguousExport_sameDeclaration() async {
     Source source = addSource(r'''
 library L;
 export 'lib.dart';
@@ -109,12 +213,12 @@ export 'lib.dart';''');
         r'''
 library lib;
 class N {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_ambiguousImport_hideCombinator() {
+  test_ambiguousImport_hideCombinator() async {
     Source source = addSource(r'''
 import 'lib1.dart';
 import 'lib2.dart';
@@ -142,11 +246,11 @@ class N2 {}''');
 library lib3;
 class N {}
 class N3 {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_ambiguousImport_showCombinator() {
+  test_ambiguousImport_showCombinator() async {
     Source source = addSource(r'''
 import 'lib1.dart';
 import 'lib2.dart' show N, N2;
@@ -166,19 +270,19 @@ class N1 {}''');
 library lib2;
 class N {}
 class N2 {}''');
-    computeLibrarySourceErrors(source);
-    assertNoErrors(source);
+    await computeAnalysisResult(source);
+    assertErrors(source, [HintCode.UNUSED_SHOWN_NAME]);
   }
 
-  void test_annotated_partOfDeclaration() {
+  test_annotated_partOfDeclaration() async {
     Source source = addSource('library L; part "part.dart";');
     addNamedSource('/part.dart', '@deprecated part of L;');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_argumentTypeNotAssignable_classWithCall_Function() {
+  test_argumentTypeNotAssignable_classWithCall_Function() async {
     Source source = addSource(r'''
   caller(Function callee) {
     callee();
@@ -191,12 +295,12 @@ class N2 {}''');
   main() {
     caller(new CallMeBack());
   }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_argumentTypeNotAssignable_fieldFormalParameterElement_member() {
+  test_argumentTypeNotAssignable_fieldFormalParameterElement_member() async {
     Source source = addSource(r'''
 class ObjectSink<T> {
   void sink(T object) {
@@ -207,46 +311,46 @@ class TimestampedObject<E> {
   E object2;
   TimestampedObject(this.object2);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_argumentTypeNotAssignable_invocation_functionParameter_generic() {
+  test_argumentTypeNotAssignable_invocation_functionParameter_generic() async {
     Source source = addSource(r'''
 class A<K> {
   m(f(K k), K v) {
     f(v);
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_argumentTypeNotAssignable_invocation_typedef_generic() {
+  test_argumentTypeNotAssignable_invocation_typedef_generic() async {
     Source source = addSource(r'''
 typedef A<T>(T p);
 f(A<int> a) {
   a(1);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_argumentTypeNotAssignable_Object_Function() {
+  test_argumentTypeNotAssignable_Object_Function() async {
     Source source = addSource(r'''
 main() {
   process(() {});
 }
 process(Object x) {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_argumentTypeNotAssignable_typedef_local() {
+  test_argumentTypeNotAssignable_typedef_local() async {
     Source source = addSource(r'''
 typedef A(int p1, String p2);
 A getA() => null;
@@ -254,24 +358,23 @@ f() {
   A a = getA();
   a(1, '2');
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_argumentTypeNotAssignable_typedef_parameter() {
+  test_argumentTypeNotAssignable_typedef_parameter() async {
     Source source = addSource(r'''
 typedef A(int p1, String p2);
 f(A a) {
   a(1, '2');
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assert_with_message_await() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableAssertMessage = true);
+  test_assert_with_message_await() async {
     Source source = addSource('''
 import 'dart:async';
 f() async {
@@ -279,74 +382,69 @@ f() async {
 }
 Future<String> g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assert_with_message_dynamic() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableAssertMessage = true);
+  test_assert_with_message_dynamic() async {
     Source source = addSource('''
 f() {
   assert(false, g());
 }
 g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assert_with_message_non_string() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableAssertMessage = true);
+  test_assert_with_message_non_string() async {
     Source source = addSource('''
 f() {
   assert(false, 3);
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assert_with_message_null() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableAssertMessage = true);
+  test_assert_with_message_null() async {
     Source source = addSource('''
 f() {
   assert(false, null);
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assert_with_message_string() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableAssertMessage = true);
+  test_assert_with_message_string() async {
     Source source = addSource('''
 f() {
   assert(false, 'message');
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assert_with_message_suppresses_unused_var_hint() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableAssertMessage = true);
+  test_assert_with_message_suppresses_unused_var_hint() async {
     Source source = addSource('''
 f() {
   String message = 'msg';
   assert(true, message);
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assignability_function_expr_rettype_from_typedef_cls() {
+  test_assignability_function_expr_rettype_from_typedef_cls() async {
     // In the code below, the type of (() => f()) has a return type which is
     // a class, and that class is inferred from the return type of the typedef
     // F.
@@ -358,12 +456,12 @@ main() {
   F f2 = (() => f());
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assignability_function_expr_rettype_from_typedef_typedef() {
+  test_assignability_function_expr_rettype_from_typedef_typedef() async {
     // In the code below, the type of (() => f()) has a return type which is
     // a typedef, and that typedef is inferred from the return type of the
     // typedef F.
@@ -375,23 +473,23 @@ main() {
   F f2 = (() => f());
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assignmentToFinal_prefixNegate() {
+  test_assignmentToFinal_prefixNegate() async {
     Source source = addSource(r'''
 f() {
   final x = 0;
   -x;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assignmentToFinalNoSetter_prefixedIdentifier() {
+  test_assignmentToFinalNoSetter_prefixedIdentifier() async {
     Source source = addSource(r'''
 class A {
   int get x => 0;
@@ -401,12 +499,12 @@ main() {
   A a = new A();
   a.x = 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assignmentToFinalNoSetter_propertyAccess() {
+  test_assignmentToFinalNoSetter_propertyAccess() async {
     Source source = addSource(r'''
 class A {
   int get x => 0;
@@ -418,12 +516,12 @@ class B {
 main() {
   B.a.x = 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_assignmentToFinals_importWithPrefix() {
+  test_assignmentToFinals_importWithPrefix() async {
     Source source = addSource(r'''
 library lib;
 import 'lib1.dart' as foo;
@@ -435,43 +533,43 @@ main() {
         r'''
 library lib1;
 bool x = false;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_dynamic_with_return() {
+  test_async_dynamic_with_return() async {
     Source source = addSource('''
 dynamic f() async {
   return;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_dynamic_with_return_value() {
+  test_async_dynamic_with_return_value() async {
     Source source = addSource('''
 dynamic f() async {
   return 5;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_dynamic_without_return() {
+  test_async_dynamic_without_return() async {
     Source source = addSource('''
 dynamic f() async {}
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_expression_function_type() {
+  test_async_expression_function_type() async {
     Source source = addSource('''
 import 'dart:async';
 typedef Future<int> F(int i);
@@ -479,12 +577,12 @@ main() {
   F f = (int i) async => i;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_flattened() {
+  test_async_flattened() async {
     Source source = addSource('''
 import 'dart:async';
 typedef Future<int> CreatesFutureInt();
@@ -495,160 +593,150 @@ main() {
 }
 Future<int> f() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_dynamic_with_return() {
+  test_async_future_dynamic_with_return() async {
     Source source = addSource('''
 import 'dart:async';
 Future<dynamic> f() async {
   return;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_dynamic_with_return_value() {
+  test_async_future_dynamic_with_return_value() async {
     Source source = addSource('''
 import 'dart:async';
 Future<dynamic> f() async {
   return 5;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_dynamic_without_return() {
+  test_async_future_dynamic_without_return() async {
     Source source = addSource('''
 import 'dart:async';
 Future<dynamic> f() async {}
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_int_with_return_future_int() {
+  test_async_future_int_with_return_future_int() async {
     Source source = addSource('''
 import 'dart:async';
 Future<int> f() async {
   return new Future<int>.value(5);
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_int_with_return_value() {
+  test_async_future_int_with_return_value() async {
     Source source = addSource('''
 import 'dart:async';
 Future<int> f() async {
   return 5;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_null_with_return() {
+  test_async_future_null_with_return() async {
     Source source = addSource('''
 import 'dart:async';
 Future<Null> f() async {
   return;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_null_without_return() {
+  test_async_future_null_without_return() async {
     Source source = addSource('''
 import 'dart:async';
 Future<Null> f() async {}
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_object_with_return() {
+  test_async_future_object_with_return() async {
     Source source = addSource('''
 import 'dart:async';
 Future<Object> f() async {
   return;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_object_with_return_value() {
+  test_async_future_object_with_return_value() async {
     Source source = addSource('''
 import 'dart:async';
 Future<Object> f() async {
   return 5;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_object_without_return() {
-    Source source = addSource('''
-import 'dart:async';
-Future<Object> f() async {}
-''');
-    computeLibrarySourceErrors(source);
-    assertNoErrors(source);
-    verify([source]);
-  }
-
-  void test_async_future_with_return() {
+  test_async_future_with_return() async {
     Source source = addSource('''
 import 'dart:async';
 Future f() async {
   return;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_with_return_value() {
+  test_async_future_with_return_value() async {
     Source source = addSource('''
 import 'dart:async';
 Future f() async {
   return 5;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_future_without_return() {
+  test_async_future_without_return() async {
     Source source = addSource('''
 import 'dart:async';
 Future f() async {}
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_return_flattens_futures() {
+  test_async_return_flattens_futures() async {
     Source source = addSource('''
 import 'dart:async';
 Future<int> f() async {
@@ -656,65 +744,65 @@ Future<int> f() async {
 }
 Future<Future<int>> g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_with_return() {
+  test_async_with_return() async {
     Source source = addSource('''
 f() async {
   return;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_with_return_value() {
+  test_async_with_return_value() async {
     Source source = addSource('''
 f() async {
   return 5;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_async_without_return() {
+  test_async_without_return() async {
     Source source = addSource('''
 f() async {}
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_asyncForInWrongContext_async() {
+  test_asyncForInWrongContext_async() async {
     Source source = addSource(r'''
 f(list) async {
   await for (var e in list) {
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_asyncForInWrongContext_asyncStar() {
+  test_asyncForInWrongContext_asyncStar() async {
     Source source = addSource(r'''
 f(list) async* {
   await for (var e in list) {
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_await_flattened() {
+  test_await_flattened() async {
     Source source = addSource('''
 import 'dart:async';
 Future<Future<int>> ffi() => null;
@@ -722,12 +810,12 @@ f() async {
   int b = await ffi();
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_await_simple() {
+  test_await_simple() async {
     Source source = addSource('''
 import 'dart:async';
 Future<int> fi() => null;
@@ -735,32 +823,32 @@ f() async {
   int a = await fi();
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_awaitInWrongContext_async() {
+  test_awaitInWrongContext_async() async {
     Source source = addSource(r'''
 f(x, y) async {
   return await x + await y;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_awaitInWrongContext_asyncStar() {
+  test_awaitInWrongContext_asyncStar() async {
     Source source = addSource(r'''
 f(x, y) async* {
   yield await x + await y;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_breakWithoutLabelInSwitch() {
+  test_breakWithoutLabelInSwitch() async {
     Source source = addSource(r'''
 class A {
   void m(int i) {
@@ -770,12 +858,12 @@ class A {
     }
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_bug_24539_getter() {
+  test_bug_24539_getter() async {
     Source source = addSource('''
 class C<T> {
   List<Foo> get x => null;
@@ -783,12 +871,12 @@ class C<T> {
 
 typedef Foo(param);
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_bug_24539_setter() {
+  test_bug_24539_setter() async {
     Source source = addSource('''
 class C<T> {
   void set x(List<Foo> value) {}
@@ -796,22 +884,22 @@ class C<T> {
 
 typedef Foo(param);
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_builtInIdentifierAsType_dynamic() {
+  test_builtInIdentifierAsType_dynamic() async {
     Source source = addSource(r'''
 f() {
   dynamic x;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_caseBlockNotTerminated() {
+  test_caseBlockNotTerminated() async {
     Source source = addSource(r'''
 f(int p) {
   for (int i = 0; i < 10; i++) {
@@ -833,12 +921,12 @@ f(int p) {
     }
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_caseBlockNotTerminated_lastCase() {
+  test_caseBlockNotTerminated_lastCase() async {
     Source source = addSource(r'''
 f(int p) {
   switch (p) {
@@ -846,12 +934,12 @@ f(int p) {
       p = p + 1;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_caseExpressionTypeImplementsEquals() {
+  test_caseExpressionTypeImplementsEquals() async {
     Source source = addSource(r'''
 print(p) {}
 
@@ -873,12 +961,12 @@ void doSwitch(c) {
   case const C(1): print('Switch: 1'); break;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_caseExpressionTypeImplementsEquals_int() {
+  test_caseExpressionTypeImplementsEquals_int() async {
     Source source = addSource(r'''
 f(int i) {
   switch(i) {
@@ -886,12 +974,12 @@ f(int i) {
     default: return 0;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_caseExpressionTypeImplementsEquals_Object() {
+  test_caseExpressionTypeImplementsEquals_Object() async {
     Source source = addSource(r'''
 class IntWrapper {
   final int value;
@@ -904,12 +992,12 @@ f(IntWrapper intWrapper) {
     default: return 0;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_caseExpressionTypeImplementsEquals_String() {
+  test_caseExpressionTypeImplementsEquals_String() async {
     Source source = addSource(r'''
 f(String s) {
   switch(s) {
@@ -917,12 +1005,12 @@ f(String s) {
     default: return 0;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_class_type_alias_documentationComment() {
+  test_class_type_alias_documentationComment() async {
     Source source = addSource('''
 /**
  * Documentation
@@ -931,26 +1019,26 @@ class C = D with E;
 
 class D {}
 class E {}''');
-    computeLibrarySourceErrors(source);
-    computeLibrarySourceErrors(source);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
-    CompilationUnit unit = _getResolvedLibraryUnit(source);
-    ClassElement classC = unit.element.getType('C');
+    CompilationUnit unit = analysisResult.unit;
+    ClassElement classC =
+        resolutionMap.elementDeclaredByCompilationUnit(unit).getType('C');
     expect(classC.documentationComment, isNotNull);
   }
 
-  void test_commentReference_beforeConstructor() {
+  test_commentReference_beforeConstructor() async {
     String code = r'''
 abstract class A {
   /// [p]
   A(int p) {}
 }''';
     Source source = addSource(code);
-    computeLibrarySourceErrors(source);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
-    CompilationUnit unit = _getResolvedLibraryUnit(source);
+    CompilationUnit unit = analysisResult.unit;
     {
       SimpleIdentifier ref =
           EngineTestCase.findSimpleIdentifier(unit, code, "p]");
@@ -958,7 +1046,7 @@ abstract class A {
     }
   }
 
-  void test_commentReference_beforeEnum() {
+  test_commentReference_beforeEnum() async {
     String code = r'''
 /// This is the [Samurai] kind.
 enum Samurai {
@@ -968,10 +1056,10 @@ enum Samurai {
   WITHOUT_SWORD
 }''';
     Source source = addSource(code);
-    computeLibrarySourceErrors(source);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
-    CompilationUnit unit = _getResolvedLibraryUnit(source);
+    CompilationUnit unit = analysisResult.unit;
     {
       SimpleIdentifier ref =
           EngineTestCase.findSimpleIdentifier(unit, code, 'Samurai]');
@@ -995,61 +1083,61 @@ enum Samurai {
     }
   }
 
-  void test_commentReference_beforeFunction_blockBody() {
+  test_commentReference_beforeFunction_blockBody() async {
     String code = r'''
 /// [p]
 foo(int p) {
 }''';
     Source source = addSource(code);
-    computeLibrarySourceErrors(source);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
-    CompilationUnit unit = _getResolvedLibraryUnit(source);
+    CompilationUnit unit = analysisResult.unit;
     SimpleIdentifier ref =
         EngineTestCase.findSimpleIdentifier(unit, code, 'p]');
     expect(ref.staticElement, new isInstanceOf<ParameterElement>());
   }
 
-  void test_commentReference_beforeFunction_expressionBody() {
+  test_commentReference_beforeFunction_expressionBody() async {
     String code = r'''
 /// [p]
 foo(int p) => null;''';
     Source source = addSource(code);
-    computeLibrarySourceErrors(source);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
-    CompilationUnit unit = _getResolvedLibraryUnit(source);
+    CompilationUnit unit = analysisResult.unit;
     SimpleIdentifier ref =
         EngineTestCase.findSimpleIdentifier(unit, code, 'p]');
     expect(ref.staticElement, new isInstanceOf<ParameterElement>());
   }
 
-  void test_commentReference_beforeFunctionTypeAlias() {
+  test_commentReference_beforeFunctionTypeAlias() async {
     String code = r'''
 /// [p]
 typedef Foo(int p);
 ''';
     Source source = addSource(code);
-    computeLibrarySourceErrors(source);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
-    CompilationUnit unit = _getResolvedLibraryUnit(source);
+    CompilationUnit unit = analysisResult.unit;
     SimpleIdentifier ref =
         EngineTestCase.findSimpleIdentifier(unit, code, 'p]');
     expect(ref.staticElement, new isInstanceOf<ParameterElement>());
   }
 
-  void test_commentReference_beforeGetter() {
+  test_commentReference_beforeGetter() async {
     String code = r'''
 abstract class A {
   /// [int]
   get g => null;
 }''';
     Source source = addSource(code);
-    computeLibrarySourceErrors(source);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
-    CompilationUnit unit = _getResolvedLibraryUnit(source);
+    CompilationUnit unit = analysisResult.unit;
     {
       SimpleIdentifier ref =
           EngineTestCase.findSimpleIdentifier(unit, code, 'int]');
@@ -1057,7 +1145,7 @@ abstract class A {
     }
   }
 
-  void test_commentReference_beforeMethod() {
+  test_commentReference_beforeMethod() async {
     String code = r'''
 abstract class A {
   /// [p1]
@@ -1070,15 +1158,16 @@ abstract class A {
   md(int p5, {int p6});
 }''';
     Source source = addSource(code);
-    computeLibrarySourceErrors(source);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
-    CompilationUnit unit = _getResolvedLibraryUnit(source);
+    CompilationUnit unit = analysisResult.unit;
     assertIsParameter(String search) {
       SimpleIdentifier ref =
           EngineTestCase.findSimpleIdentifier(unit, code, search);
       expect(ref.staticElement, new isInstanceOf<ParameterElement>());
     }
+
     assertIsParameter('p1');
     assertIsParameter('p2');
     assertIsParameter('p3');
@@ -1087,23 +1176,23 @@ abstract class A {
     assertIsParameter('p6');
   }
 
-  void test_commentReference_class() {
+  test_commentReference_class() async {
     String code = r'''
 /// [foo]
 class A {
   foo() {}
 }''';
     Source source = addSource(code);
-    computeLibrarySourceErrors(source);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
-    CompilationUnit unit = _getResolvedLibraryUnit(source);
+    CompilationUnit unit = analysisResult.unit;
     SimpleIdentifier ref =
         EngineTestCase.findSimpleIdentifier(unit, code, 'foo]');
     expect(ref.staticElement, new isInstanceOf<MethodElement>());
   }
 
-  void test_commentReference_setter() {
+  test_commentReference_setter() async {
     String code = r'''
 class A {
   /// [x] in A
@@ -1116,10 +1205,10 @@ class B extends A {
 }
 ''';
     Source source = addSource(code);
-    computeLibrarySourceErrors(source);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
-    CompilationUnit unit = _getResolvedLibraryUnit(source);
+    CompilationUnit unit = analysisResult.unit;
     {
       SimpleIdentifier ref =
           EngineTestCase.findSimpleIdentifier(unit, code, "x] in A");
@@ -1132,17 +1221,17 @@ class B extends A {
     }
   }
 
-  void test_concreteClassWithAbstractMember() {
+  test_concreteClassWithAbstractMember() async {
     Source source = addSource(r'''
 abstract class A {
   m();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_concreteClassWithAbstractMember_inherited() {
+  test_concreteClassWithAbstractMember_inherited() async {
     Source source = addSource(r'''
 class A {
   m() {}
@@ -1150,12 +1239,23 @@ class A {
 class B extends A {
   m();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_conflictingInstanceGetterAndSuperclassMember_instance() {
+  test_conflictingConstructorNameAndMember_setter() async {
+    Source source = addSource(r'''
+class A {
+A.x() {}
+set x(_) {}
+}''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_conflictingInstanceGetterAndSuperclassMember_instance() async {
     Source source = addSource(r'''
 class A {
   get v => 0;
@@ -1163,55 +1263,55 @@ class A {
 class B extends A {
   get v => 1;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_conflictingStaticGetterAndInstanceSetter_thisClass() {
+  test_conflictingStaticGetterAndInstanceSetter_thisClass() async {
     Source source = addSource(r'''
 class A {
   static get x => 0;
   static set x(int p) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_conflictingStaticSetterAndInstanceMember_thisClass_method() {
+  test_conflictingStaticSetterAndInstanceMember_thisClass_method() async {
     Source source = addSource(r'''
 class A {
   static x() {}
   static set x(int p) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_const_constructor_with_named_generic_parameter() {
+  test_const_constructor_with_named_generic_parameter() async {
     Source source = addSource('''
 class C<T> {
   const C({T t});
 }
 const c = const C(t: 1);
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_const_dynamic() {
+  test_const_dynamic() async {
     Source source = addSource('''
 const Type d = dynamic;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constConstructorWithNonConstSuper_explicit() {
+  test_constConstructorWithNonConstSuper_explicit() async {
     Source source = addSource(r'''
 class A {
   const A();
@@ -1219,12 +1319,12 @@ class A {
 class B extends A {
   const B(): super();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constConstructorWithNonConstSuper_redirectingFactory() {
+  test_constConstructorWithNonConstSuper_redirectingFactory() async {
     Source source = addSource(r'''
 class A {
   A();
@@ -1235,12 +1335,12 @@ class B implements C {
 class C extends A {
   const factory C() = B;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constConstructorWithNonConstSuper_unresolved() {
+  test_constConstructorWithNonConstSuper_unresolved() async {
     Source source = addSource(r'''
 class A {
   A.a();
@@ -1248,24 +1348,24 @@ class A {
 class B extends A {
   const B(): super();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source,
         [CompileTimeErrorCode.UNDEFINED_CONSTRUCTOR_IN_INITIALIZER_DEFAULT]);
     verify([source]);
   }
 
-  void test_constConstructorWithNonFinalField_finalInstanceVar() {
+  test_constConstructorWithNonFinalField_finalInstanceVar() async {
     Source source = addSource(r'''
 class A {
   final int x = 0;
   const A();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constConstructorWithNonFinalField_mixin() {
+  test_constConstructorWithNonFinalField_mixin() async {
     Source source = addSource(r'''
 class A {
   a() {}
@@ -1273,36 +1373,36 @@ class A {
 class B extends Object with A {
   const B();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [CompileTimeErrorCode.CONST_CONSTRUCTOR_WITH_MIXIN]);
     verify([source]);
   }
 
-  void test_constConstructorWithNonFinalField_static() {
+  test_constConstructorWithNonFinalField_static() async {
     Source source = addSource(r'''
 class A {
   static int x;
   const A();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constConstructorWithNonFinalField_syntheticField() {
+  test_constConstructorWithNonFinalField_syntheticField() async {
     Source source = addSource(r'''
 class A {
   const A();
   set x(value) {}
   get x {return 0;}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constDeferredClass_new() {
-    resolveWithErrors(<String>[
+  test_constDeferredClass_new() async {
+    await resolveWithErrors(<String>[
       r'''
 library lib1;
 class A {
@@ -1317,16 +1417,16 @@ main() {
     ], <ErrorCode>[]);
   }
 
-  void test_constEval_functionTypeLiteral() {
+  test_constEval_functionTypeLiteral() async {
     Source source = addSource(r'''
 typedef F();
 const C = F;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constEval_propertyExtraction_fieldStatic_targetType() {
+  test_constEval_propertyExtraction_fieldStatic_targetType() async {
     addNamedSource(
         "/math.dart",
         r'''
@@ -1335,24 +1435,24 @@ const PI = 3.14;''');
     Source source = addSource(r'''
 import 'math.dart' as math;
 const C = math.PI;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constEval_propertyExtraction_methodStatic_targetType() {
+  test_constEval_propertyExtraction_methodStatic_targetType() async {
     Source source = addSource(r'''
 class A {
   const A();
   static m() {}
 }
 const C = A.m;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constEval_symbol() {
+  test_constEval_symbol() async {
     addNamedSource(
         "/math.dart",
         r'''
@@ -1361,12 +1461,12 @@ const PI = 3.14;''');
     Source source = addSource(r'''
 const C = #foo;
 foo() {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constEvalTypeBoolNumString_equal() {
+  test_constEvalTypeBoolNumString_equal() async {
     Source source = addSource(r'''
 class A {
   const A();
@@ -1391,11 +1491,11 @@ class B {
   const B.n1(num p) : v = p == null;
   const B.n2(num p) : v = null == p;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_constEvalTypeBoolNumString_notEqual() {
+  test_constEvalTypeBoolNumString_notEqual() async {
     Source source = addSource(r'''
 class A {
   const A();
@@ -1420,22 +1520,22 @@ class B {
   const B.n1(num p) : v = p != null;
   const B.n2(num p) : v = null != p;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constEvelTypeNum_String() {
+  test_constEvelTypeNum_String() async {
     Source source = addSource(r'''
 const String A = 'a';
 const String B = A + 'b';
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constMapKeyExpressionTypeImplementsEquals_abstract() {
+  test_constMapKeyExpressionTypeImplementsEquals_abstract() async {
     Source source = addSource(r'''
 abstract class B {
   final id;
@@ -1452,43 +1552,63 @@ class C extends B {
 Map getMap() {
   return const { const C(0): 'Map: 0' };
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constNotInitialized_field() {
+  test_constNotInitialized_field() async {
     Source source = addSource(r'''
 class A {
   static const int x = 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constNotInitialized_local() {
+  test_constNotInitialized_local() async {
     Source source = addSource(r'''
 main() {
   const int x = 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constructorDeclaration_scope_signature() {
+  test_constRedirectSkipsSupertype() async {
+    // Since C redirects to C.named, it doesn't implicitly refer to B's
+    // unnamed constructor.  Therefore there is no cycle.
+    Source source = addSource('''
+class B {
+  final x;
+  const B() : x = y;
+  const B.named() : x = null;
+}
+class C extends B {
+  const C() : this.named();
+  const C.named() : super.named();
+}
+const y = const C();
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_constructorDeclaration_scope_signature() async {
     Source source = addSource(r'''
 const app = 0;
 class A {
   A(@app int app) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constWithNonConstantArgument_constField() {
+  test_constWithNonConstantArgument_constField() async {
     Source source = addSource(r'''
 class A {
   const A(x);
@@ -1496,34 +1616,34 @@ class A {
 main() {
   const A(double.INFINITY);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constWithNonConstantArgument_literals() {
+  test_constWithNonConstantArgument_literals() async {
     Source source = addSource(r'''
 class A {
   const A(a, b, c, d);
 }
 f() { return const A(true, 0, 1.0, '2'); }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constWithTypeParameters_direct() {
+  test_constWithTypeParameters_direct() async {
     Source source = addSource(r'''
 class A<T> {
   static const V = const A<int>();
   const A();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constWithUndefinedConstructor() {
+  test_constWithUndefinedConstructor() async {
     Source source = addSource(r'''
 class A {
   const A.name();
@@ -1531,12 +1651,12 @@ class A {
 f() {
   return const A.name();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_constWithUndefinedConstructorDefault() {
+  test_constWithUndefinedConstructorDefault() async {
     Source source = addSource(r'''
 class A {
   const A();
@@ -1544,33 +1664,33 @@ class A {
 f() {
   return const A();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_defaultValueInFunctionTypeAlias() {
+  test_defaultValueInFunctionTypeAlias() async {
     Source source = addSource("typedef F([x]);");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_defaultValueInFunctionTypedParameter_named() {
+  test_defaultValueInFunctionTypedParameter_named() async {
     Source source = addSource("f(g({p})) {}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_defaultValueInFunctionTypedParameter_optional() {
+  test_defaultValueInFunctionTypedParameter_optional() async {
     Source source = addSource("f(g([p])) {}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deprecatedMemberUse_hide() {
+  test_deprecatedMemberUse_hide() async {
     Source source = addSource(r'''
 library lib;
 import 'lib1.dart' hide B;
@@ -1582,12 +1702,12 @@ library lib1;
 class A {}
 @deprecated
 class B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_duplicateDefinition_emptyName() {
+  test_duplicateDefinition_emptyName() async {
     // Note: This code has two FunctionElements '() {}' with an empty name,
     // this tests that the empty string is not put into the scope
     // (more than once).
@@ -1596,123 +1716,136 @@ Map _globalMap = {
   'a' : () {},
   'b' : () {}
 };''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_duplicateDefinition_getter() {
+  test_duplicateDefinition_getter() async {
     Source source = addSource("bool get a => true;");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_dynamicIdentifier() {
+  test_duplicatePart() async {
+    addNamedSource('/part1.dart', 'part of lib;');
+    addNamedSource('/part2.dart', 'part of lib;');
+    Source source = addSource(r'''
+library lib;
+part 'part1.dart';
+part 'part2.dart';
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_dynamicIdentifier() async {
     Source source = addSource(r'''
 main() {
   var v = dynamic;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_empty_generator_async() {
+  test_empty_generator_async() async {
     Source source = addSource('''
 import 'dart:async';
 Stream<int> f() async* {
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_empty_generator_sync() {
+  test_empty_generator_sync() async {
     Source source = addSource('''
 Iterable<int> f() sync* {
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_expectedOneListTypeArgument() {
+  test_expectedOneListTypeArgument() async {
     Source source = addSource(r'''
 main() {
   <int> [];
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_expectedTwoMapTypeArguments() {
+  test_expectedTwoMapTypeArguments() async {
     Source source = addSource(r'''
 main() {
   <int, int> {};
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_exportDuplicatedLibraryUnnamed() {
+  test_exportDuplicatedLibraryUnnamed() async {
     Source source = addSource(r'''
 library test;
 export 'lib1.dart';
 export 'lib2.dart';''');
     addNamedSource("/lib1.dart", "");
     addNamedSource("/lib2.dart", "");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_exportOfNonLibrary_libraryDeclared() {
+  test_exportOfNonLibrary_libraryDeclared() async {
     Source source = addSource(r'''
 library L;
 export 'lib1.dart';''');
     addNamedSource("/lib1.dart", "library lib1;");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_exportOfNonLibrary_libraryNotDeclared() {
+  test_exportOfNonLibrary_libraryNotDeclared() async {
     Source source = addSource(r'''
 library L;
 export 'lib1.dart';''');
     addNamedSource("/lib1.dart", "");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_extraPositionalArguments_function() {
+  test_extraPositionalArguments_function() async {
     Source source = addSource(r'''
 f(p1, p2) {}
 main() {
   f(1, 2);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_extraPositionalArguments_Function() {
+  test_extraPositionalArguments_Function() async {
     Source source = addSource(r'''
 f(Function a) {
   a(1, 2);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_extraPositionalArguments_implicitConstructor() {
+  test_extraPositionalArguments_implicitConstructor() async {
     Source source = addSource(r'''
 class A<E extends num> {
   A(E x, E y);
@@ -1722,12 +1855,12 @@ class B<E extends num> = A<E> with M;
 void main() {
    B<int> x = new B<int>(0,0);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_extraPositionalArguments_typedef_local() {
+  test_extraPositionalArguments_typedef_local() async {
     Source source = addSource(r'''
 typedef A(p1, p2);
 A getA() => null;
@@ -1735,79 +1868,79 @@ f() {
   A a = getA();
   a(1, 2);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_extraPositionalArguments_typedef_parameter() {
+  test_extraPositionalArguments_typedef_parameter() async {
     Source source = addSource(r'''
 typedef A(p1, p2);
 f(A a) {
   a(1, 2);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_fieldInitializedByMultipleInitializers() {
+  test_fieldInitializedByMultipleInitializers() async {
     Source source = addSource(r'''
 class A {
   int x;
   int y;
   A() : x = 0, y = 0 {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_fieldInitializedInInitializerAndDeclaration_fieldNotFinal() {
+  test_fieldInitializedInInitializerAndDeclaration_fieldNotFinal() async {
     Source source = addSource(r'''
 class A {
   int x = 0;
   A() : x = 1 {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_fieldInitializedInInitializerAndDeclaration_finalFieldNotSet() {
+  test_fieldInitializedInInitializerAndDeclaration_finalFieldNotSet() async {
     Source source = addSource(r'''
 class A {
   final int x;
   A() : x = 1 {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_fieldInitializerOutsideConstructor() {
+  test_fieldInitializerOutsideConstructor() async {
     Source source = addSource(r'''
 class A {
   int x;
   A(this.x) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_fieldInitializerOutsideConstructor_defaultParameters() {
+  test_fieldInitializerOutsideConstructor_defaultParameters() async {
     Source source = addSource(r'''
 class A {
   int x;
   A([this.x]) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_fieldInitializerRedirectingConstructor_super() {
+  test_fieldInitializerRedirectingConstructor_super() async {
     Source source = addSource(r'''
 class A {
   A() {}
@@ -1816,143 +1949,143 @@ class B extends A {
   int x;
   B(this.x) : super();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_finalInitializedInDeclarationAndConstructor_initializer() {
+  test_finalInitializedInDeclarationAndConstructor_initializer() async {
     Source source = addSource(r'''
 class A {
   final x;
   A() : x = 1 {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_finalInitializedInDeclarationAndConstructor_initializingFormal() {
+  test_finalInitializedInDeclarationAndConstructor_initializingFormal() async {
     Source source = addSource(r'''
 class A {
   final x;
   A(this.x) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_finalNotInitialized_atDeclaration() {
+  test_finalNotInitialized_atDeclaration() async {
     Source source = addSource(r'''
 class A {
   final int x = 0;
   A() {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_finalNotInitialized_fieldFormal() {
+  test_finalNotInitialized_fieldFormal() async {
     Source source = addSource(r'''
 class A {
   final int x = 0;
   A() {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_finalNotInitialized_functionTypedFieldFormal() {
+  test_finalNotInitialized_functionTypedFieldFormal() async {
     Source source = addSource(r'''
 class A {
   final Function x;
   A(int this.x(int p)) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_finalNotInitialized_hasNativeClause_hasConstructor() {
+  test_finalNotInitialized_hasNativeClause_hasConstructor() async {
     Source source = addSource(r'''
 class A native 'something' {
   final int x;
   A() {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [ParserErrorCode.NATIVE_CLAUSE_IN_NON_SDK_CODE]);
     verify([source]);
   }
 
-  void test_finalNotInitialized_hasNativeClause_noConstructor() {
+  test_finalNotInitialized_hasNativeClause_noConstructor() async {
     Source source = addSource(r'''
 class A native 'something' {
   final int x;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [ParserErrorCode.NATIVE_CLAUSE_IN_NON_SDK_CODE]);
     verify([source]);
   }
 
-  void test_finalNotInitialized_initializer() {
+  test_finalNotInitialized_initializer() async {
     Source source = addSource(r'''
 class A {
   final int x;
   A() : x = 0 {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_finalNotInitialized_redirectingConstructor() {
+  test_finalNotInitialized_redirectingConstructor() async {
     Source source = addSource(r'''
 class A {
   final int x;
   A(this.x);
   A.named() : this (42);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionDeclaration_scope_returnType() {
+  test_functionDeclaration_scope_returnType() async {
     Source source = addSource("int f(int) { return 0; }");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionDeclaration_scope_signature() {
+  test_functionDeclaration_scope_signature() async {
     Source source = addSource(r'''
 const app = 0;
 f(@app int app) {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionTypeAlias_scope_returnType() {
+  test_functionTypeAlias_scope_returnType() async {
     Source source = addSource("typedef int f(int);");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionTypeAlias_scope_signature() {
+  test_functionTypeAlias_scope_signature() async {
     Source source = addSource(r'''
 const app = 0;
 typedef int f(@app int app);''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionWithoutCall() {
+  test_functionWithoutCall() async {
     Source source = addSource(r'''
 abstract class A implements Function {
 }
@@ -1964,31 +2097,31 @@ class C extends A {
 }
 class D extends C {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionWithoutCall_doesNotImplementFunction() {
+  test_functionWithoutCall_doesNotImplementFunction() async {
     Source source = addSource("class A {}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionWithoutCall_staticCallMethod() {
+  test_functionWithoutCall_staticCallMethod() async {
     Source source = addSource(r'''
 class A { }
 class B extends A {
   static call() { }
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionWithoutCall_withNoSuchMethod() {
+  test_functionWithoutCall_withNoSuchMethod() async {
     // 16078
     Source source = addSource(r'''
 class A implements Function {
@@ -1996,36 +2129,36 @@ class A implements Function {
     return 42;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionWithoutCall_withNoSuchMethod_mixin() {
+  test_functionWithoutCall_withNoSuchMethod_mixin() async {
     Source source = addSource(r'''
 class A {
   noSuchMethod(inv) {}
 }
 class B extends Object with A implements Function {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionWithoutCall_withNoSuchMethod_superclass() {
+  test_functionWithoutCall_withNoSuchMethod_superclass() async {
     Source source = addSource(r'''
 class A {
   noSuchMethod(inv) {}
 }
 class B extends A implements Function {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitConstructorDependencies() {
+  test_implicitConstructorDependencies() async {
     // No warning should be generated for the code below; this requires that
     // implicit constructors are generated for C1 before C2, even though C1
     // follows C2 in the file.  See dartbug.com/21600.
@@ -2043,12 +2176,12 @@ main() {
   new C2(5);
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_constructorName() {
+  test_implicitThisReferenceInInitializer_constructorName() async {
     Source source = addSource(r'''
 class A {
   A.named() {}
@@ -2057,23 +2190,23 @@ class B {
   var v;
   B() : v = new A.named();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_importPrefix() {
+  test_implicitThisReferenceInInitializer_importPrefix() async {
     Source source = addSource(r'''
 import 'dart:async' as abstract;
 class A {
   var v = new abstract.Completer();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_prefixedIdentifier() {
+  test_implicitThisReferenceInInitializer_prefixedIdentifier() async {
     Source source = addSource(r'''
 class A {
   var f;
@@ -2082,12 +2215,12 @@ class B {
   var v;
   B(A a) : v = a.f;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_qualifiedMethodInvocation() {
+  test_implicitThisReferenceInInitializer_qualifiedMethodInvocation() async {
     Source source = addSource(r'''
 class A {
   f() {}
@@ -2096,12 +2229,12 @@ class B {
   var v;
   B() : v = new A().f();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_qualifiedPropertyAccess() {
+  test_implicitThisReferenceInInitializer_qualifiedPropertyAccess() async {
     Source source = addSource(r'''
 class A {
   var f;
@@ -2110,101 +2243,101 @@ class B {
   var v;
   B() : v = new A().f;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_staticField_thisClass() {
+  test_implicitThisReferenceInInitializer_staticField_thisClass() async {
     Source source = addSource(r'''
 class A {
   var v;
   A() : v = f;
   static var f;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_staticGetter() {
+  test_implicitThisReferenceInInitializer_staticGetter() async {
     Source source = addSource(r'''
 class A {
   var v;
   A() : v = f;
   static get f => 42;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_staticMethod() {
+  test_implicitThisReferenceInInitializer_staticMethod() async {
     Source source = addSource(r'''
 class A {
   var v;
   A() : v = f();
   static f() => 42;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_topLevelField() {
+  test_implicitThisReferenceInInitializer_topLevelField() async {
     Source source = addSource(r'''
 class A {
   var v;
   A() : v = f;
 }
 var f = 42;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_topLevelFunction() {
+  test_implicitThisReferenceInInitializer_topLevelFunction() async {
     Source source = addSource(r'''
 class A {
   var v;
   A() : v = f();
 }
 f() => 42;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_topLevelGetter() {
+  test_implicitThisReferenceInInitializer_topLevelGetter() async {
     Source source = addSource(r'''
 class A {
   var v;
   A() : v = f;
 }
 get f => 42;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_implicitThisReferenceInInitializer_typeParameter() {
+  test_implicitThisReferenceInInitializer_typeParameter() async {
     Source source = addSource(r'''
 class A<T> {
   var v;
   A(p) : v = (p is T);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_importDuplicatedLibraryName() {
+  test_importDuplicatedLibraryName() async {
     Source source = addSource(r'''
 library test;
 import 'lib.dart';
 import 'lib.dart';''');
     addNamedSource("/lib.dart", "library lib;");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [
       HintCode.UNUSED_IMPORT,
       HintCode.UNUSED_IMPORT,
@@ -2213,14 +2346,14 @@ import 'lib.dart';''');
     verify([source]);
   }
 
-  void test_importDuplicatedLibraryUnnamed() {
+  test_importDuplicatedLibraryUnnamed() async {
     Source source = addSource(r'''
 library test;
 import 'lib1.dart';
 import 'lib2.dart';''');
     addNamedSource("/lib1.dart", "");
     addNamedSource("/lib2.dart", "");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [
       // No warning on duplicate import (https://github.com/dart-lang/sdk/issues/24156)
       HintCode.UNUSED_IMPORT,
@@ -2229,7 +2362,7 @@ import 'lib2.dart';''');
     verify([source]);
   }
 
-  void test_importOfNonLibrary_libraryDeclared() {
+  test_importOfNonLibrary_libraryDeclared() async {
     Source source = addSource(r'''
 library lib;
 import 'part.dart';
@@ -2239,23 +2372,23 @@ A a;''');
         r'''
 library lib1;
 class A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_importOfNonLibrary_libraryNotDeclared() {
+  test_importOfNonLibrary_libraryNotDeclared() async {
     Source source = addSource(r'''
 library lib;
 import 'part.dart';
 A a;''');
     addNamedSource("/part.dart", "class A {}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_importPrefixes_withFirstLetterDifference() {
+  test_importPrefixes_withFirstLetterDifference() async {
     Source source = addSource(r'''
 library L;
 import 'lib1.dart' as math;
@@ -2274,12 +2407,12 @@ test1() {}''');
         r'''
 library lib2;
 test2() {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_inconsistentCaseExpressionTypes() {
+  test_inconsistentCaseExpressionTypes() async {
     Source source = addSource(r'''
 f(var p) {
   switch (p) {
@@ -2289,12 +2422,12 @@ f(var p) {
       break;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_inconsistentMethodInheritance_accessors_typeParameter2() {
+  test_inconsistentMethodInheritance_accessors_typeParameter2() async {
     Source source = addSource(r'''
 abstract class A<E> {
   E get x {return null;}
@@ -2303,12 +2436,12 @@ class B<E> {
   E get x {return null;}
 }
 class C<E> extends A<E> implements B<E> {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_inconsistentMethodInheritance_accessors_typeParameters1() {
+  test_inconsistentMethodInheritance_accessors_typeParameters1() async {
     Source source = addSource(r'''
 abstract class A<E> {
   E get x;
@@ -2319,12 +2452,12 @@ abstract class B<E> {
 class C<E> implements A<E>, B<E> {
   E get x => null;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_inconsistentMethodInheritance_accessors_typeParameters_diamond() {
+  test_inconsistentMethodInheritance_accessors_typeParameters_diamond() async {
     Source source = addSource(r'''
 abstract class F<E> extends B<E> {}
 class D<E> extends F<E> {
@@ -2338,12 +2471,12 @@ abstract class B<E> implements C<E> {
 }
 class A<E> extends B<E> implements D<E> {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_inconsistentMethodInheritance_methods_typeParameter2() {
+  test_inconsistentMethodInheritance_methods_typeParameter2() async {
     Source source = addSource(r'''
 class A<E> {
   x(E e) {}
@@ -2354,12 +2487,12 @@ class B<E> {
 class C<E> extends A<E> implements B<E> {
   x(E e) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_inconsistentMethodInheritance_methods_typeParameters1() {
+  test_inconsistentMethodInheritance_methods_typeParameters1() async {
     Source source = addSource(r'''
 class A<E> {
   x(E e) {}
@@ -2370,12 +2503,12 @@ class B<E> {
 class C<E> implements A<E>, B<E> {
   x(E e) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_inconsistentMethodInheritance_overrideTrumpsInherits_getter() {
+  test_inconsistentMethodInheritance_overrideTrumpsInherits_getter() async {
     // 16134
     Source source = addSource(r'''
 class B<S> {
@@ -2387,12 +2520,12 @@ abstract class I<U> {
 class C extends B<double> implements I<int> {
   num get g => null;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_inconsistentMethodInheritance_overrideTrumpsInherits_method() {
+  test_inconsistentMethodInheritance_overrideTrumpsInherits_method() async {
     // 16134
     Source source = addSource(r'''
 class B<S> {
@@ -2404,12 +2537,12 @@ abstract class I<U> {
 class C extends B<double> implements I<int> {
   m(num n) => null;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_inconsistentMethodInheritance_overrideTrumpsInherits_setter() {
+  test_inconsistentMethodInheritance_overrideTrumpsInherits_setter() async {
     // 16134
     Source source = addSource(r'''
 class B<S> {
@@ -2421,12 +2554,12 @@ abstract class I<U> {
 class C extends B<double> implements I<int> {
   set t(num n) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_inconsistentMethodInheritance_simple() {
+  test_inconsistentMethodInheritance_simple() async {
     Source source = addSource(r'''
 abstract class A {
   x();
@@ -2437,23 +2570,23 @@ abstract class B {
 class C implements A, B {
   x() {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_initializingFormalForNonExistentField() {
+  test_initializingFormalForNonExistentField() async {
     Source source = addSource(r'''
 class A {
   int x;
   A(this.x) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_instance_creation_inside_annotation() {
+  test_instance_creation_inside_annotation() async {
     Source source = addSource('''
 class C {
   const C();
@@ -2465,12 +2598,12 @@ class D {
 @D(const C())
 f() {}
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_instanceAccessToStaticMember_fromComment() {
+  test_instanceAccessToStaticMember_fromComment() async {
     Source source = addSource(r'''
 class A {
   static m() {}
@@ -2478,23 +2611,23 @@ class A {
 /// [A.m]
 main() {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_instanceAccessToStaticMember_topLevel() {
+  test_instanceAccessToStaticMember_topLevel() async {
     Source source = addSource(r'''
 m() {}
 main() {
   m();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_instanceMemberAccessFromStatic_fromComment() {
+  test_instanceMemberAccessFromStatic_fromComment() async {
     Source source = addSource(r'''
 class A {
   m() {}
@@ -2502,12 +2635,12 @@ class A {
   static foo() {
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_instanceMethodNameCollidesWithSuperclassStatic_field() {
+  test_instanceMethodNameCollidesWithSuperclassStatic_field() async {
     Source source = addSource(r'''
 import 'lib.dart';
 class B extends A {
@@ -2520,12 +2653,12 @@ library L;
 class A {
   static var _m;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_instanceMethodNameCollidesWithSuperclassStatic_method() {
+  test_instanceMethodNameCollidesWithSuperclassStatic_method() async {
     Source source = addSource(r'''
 import 'lib.dart';
 class B extends A {
@@ -2538,23 +2671,23 @@ library L;
 class A {
   static _m() {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAnnotation_constantVariable_field() {
+  test_invalidAnnotation_constantVariable_field() async {
     Source source = addSource(r'''
 @A.C
 class A {
   static const C = 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAnnotation_constantVariable_field_importWithPrefix() {
+  test_invalidAnnotation_constantVariable_field_importWithPrefix() async {
     addNamedSource(
         "/lib.dart",
         r'''
@@ -2567,23 +2700,23 @@ import 'lib.dart' as p;
 @p.A.C
 main() {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAnnotation_constantVariable_topLevel() {
+  test_invalidAnnotation_constantVariable_topLevel() async {
     Source source = addSource(r'''
 const C = 0;
 @C
 main() {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAnnotation_constantVariable_topLevel_importWithPrefix() {
+  test_invalidAnnotation_constantVariable_topLevel_importWithPrefix() async {
     addNamedSource(
         "/lib.dart",
         r'''
@@ -2594,12 +2727,12 @@ import 'lib.dart' as p;
 @p.C
 main() {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAnnotation_constConstructor_importWithPrefix() {
+  test_invalidAnnotation_constConstructor_importWithPrefix() async {
     addNamedSource(
         "/lib.dart",
         r'''
@@ -2612,12 +2745,12 @@ import 'lib.dart' as p;
 @p.A(42)
 main() {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAnnotation_constConstructor_named_importWithPrefix() {
+  test_invalidAnnotation_constConstructor_named_importWithPrefix() async {
     addNamedSource(
         "/lib.dart",
         r'''
@@ -2630,24 +2763,24 @@ import 'lib.dart' as p;
 @p.A.named(42)
 main() {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment() {
+  test_invalidAssignment() async {
     Source source = addSource(r'''
 f() {
   var x;
   var y;
   x = y;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment_compoundAssignment() {
+  test_invalidAssignment_compoundAssignment() async {
     Source source = addSource(r'''
 class byte {
   int _value;
@@ -2659,54 +2792,54 @@ void main() {
   byte b = new byte(52);
   b += 3;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment_defaultValue_named() {
+  test_invalidAssignment_defaultValue_named() async {
     Source source = addSource(r'''
 f({String x: '0'}) {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment_defaultValue_optional() {
+  test_invalidAssignment_defaultValue_optional() async {
     Source source = addSource(r'''
 f([String x = '0']) {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment_ifNullAssignment_compatibleType() {
+  test_invalidAssignment_ifNullAssignment_compatibleType() async {
     Source source = addSource('''
 void f(int i) {
   num n;
   n ??= i;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment_ifNullAssignment_sameType() {
+  test_invalidAssignment_ifNullAssignment_sameType() async {
     Source source = addSource('''
 void f(int i) {
   int j;
   j ??= i;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment_implicitlyImplementFunctionViaCall_1() {
+  test_invalidAssignment_implicitlyImplementFunctionViaCall_1() async {
     // 18341
     //
     // This test and
@@ -2722,12 +2855,12 @@ class C implements I {
 }
 typedef int IntToInt(int x);
 IntToInt f = new I();''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment_implicitlyImplementFunctionViaCall_2() {
+  test_invalidAssignment_implicitlyImplementFunctionViaCall_2() async {
     // 18341
     //
     // Here 'C' checks as a subtype of 'I', but 'C' does not
@@ -2743,12 +2876,12 @@ class C implements I {
 }
 typedef int IntToInt(int x);
 IntToInt f = new C();''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment_implicitlyImplementFunctionViaCall_3() {
+  test_invalidAssignment_implicitlyImplementFunctionViaCall_3() async {
     // 18341
     //
     // Like 'test_invalidAssignment_implicitlyImplementFunctionViaCall_2()',
@@ -2762,12 +2895,12 @@ class C implements I {
 }
 typedef int IntToInt(int x);
 Function f = new C();''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment_implicitlyImplementFunctionViaCall_4() {
+  test_invalidAssignment_implicitlyImplementFunctionViaCall_4() async {
     // 18341
     //
     // Like 'test_invalidAssignment_implicitlyImplementFunctionViaCall_2()',
@@ -2788,33 +2921,33 @@ class C implements I {
 }
 typedef int VoidToInt();
 VoidToInt f = new C();''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidAssignment_toDynamic() {
+  test_invalidAssignment_toDynamic() async {
     Source source = addSource(r'''
 f() {
   var g;
   g = () => 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidFactoryNameNotAClass() {
+  test_invalidFactoryNameNotAClass() async {
     Source source = addSource(r'''
 class A {
-  factory A() {}
+  factory A() => null;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidIdentifierInAsync() {
+  test_invalidIdentifierInAsync() async {
     Source source = addSource(r'''
 class A {
   m() {
@@ -2823,12 +2956,12 @@ class A {
     int yield;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidMethodOverrideNamedParamType() {
+  test_invalidMethodOverrideNamedParamType() async {
     Source source = addSource(r'''
 class A {
   m({int a}) {}
@@ -2836,12 +2969,12 @@ class A {
 class B implements A {
   m({int a, int b}) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideDifferentDefaultValues_named() {
+  test_invalidOverrideDifferentDefaultValues_named() async {
     Source source = addSource(r'''
 class A {
   m({int p : 0}) {}
@@ -2849,12 +2982,12 @@ class A {
 class B extends A {
   m({int p : 0}) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideDifferentDefaultValues_named_function() {
+  test_invalidOverrideDifferentDefaultValues_named_function() async {
     Source source = addSource(r'''
 nothing() => 'nothing';
 class A {
@@ -2863,12 +2996,12 @@ class A {
 class B extends A {
   thing(String a, {orElse : nothing}) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideDifferentDefaultValues_positional() {
+  test_invalidOverrideDifferentDefaultValues_positional() async {
     Source source = addSource(r'''
 class A {
   m([int p = 0]) {}
@@ -2876,12 +3009,12 @@ class A {
 class B extends A {
   m([int p = 0]) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideDifferentDefaultValues_positional_changedOrder() {
+  test_invalidOverrideDifferentDefaultValues_positional_changedOrder() async {
     Source source = addSource(r'''
 class A {
   m([int a = 0, String b = '0']) {}
@@ -2889,12 +3022,12 @@ class A {
 class B extends A {
   m([int b = 0, String a = '0']) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideDifferentDefaultValues_positional_function() {
+  test_invalidOverrideDifferentDefaultValues_positional_function() async {
     Source source = addSource(r'''
 nothing() => 'nothing';
 class A {
@@ -2903,12 +3036,12 @@ class A {
 class B extends A {
   thing(String a, [orElse = nothing]) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideNamed_unorderedNamedParameter() {
+  test_invalidOverrideNamed_unorderedNamedParameter() async {
     Source source = addSource(r'''
 class A {
   m({a, b}) {}
@@ -2916,12 +3049,12 @@ class A {
 class B extends A {
   m({b, a}) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideRequired_less() {
+  test_invalidOverrideRequired_less() async {
     Source source = addSource(r'''
 class A {
   m(a, b) {}
@@ -2929,12 +3062,12 @@ class A {
 class B extends A {
   m(a, [b]) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideRequired_same() {
+  test_invalidOverrideRequired_same() async {
     Source source = addSource(r'''
 class A {
   m(a) {}
@@ -2942,12 +3075,12 @@ class A {
 class B extends A {
   m(a) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideReturnType_returnType_interface() {
+  test_invalidOverrideReturnType_returnType_interface() async {
     Source source = addNamedSource(
         "/test.dart",
         r'''
@@ -2957,12 +3090,12 @@ abstract class A {
 class B implements A {
   int m() { return 1; }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideReturnType_returnType_interface2() {
+  test_invalidOverrideReturnType_returnType_interface2() async {
     Source source = addNamedSource(
         "/test.dart",
         r'''
@@ -2974,12 +3107,12 @@ abstract class B implements A {
 class C implements B {
   int m() { return 1; }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideReturnType_returnType_mixin() {
+  test_invalidOverrideReturnType_returnType_mixin() async {
     Source source = addNamedSource(
         "/test.dart",
         r'''
@@ -2989,12 +3122,12 @@ class A {
 class B extends Object with A {
   int m() { return 1; }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideReturnType_returnType_parameterizedTypes() {
+  test_invalidOverrideReturnType_returnType_parameterizedTypes() async {
     Source source = addSource(r'''
 abstract class A<E> {
   List<E> m();
@@ -3002,12 +3135,12 @@ abstract class A<E> {
 class B extends A<dynamic> {
   List<dynamic> m() { return new List<dynamic>(); }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideReturnType_returnType_sameType() {
+  test_invalidOverrideReturnType_returnType_sameType() async {
     Source source = addNamedSource(
         "/test.dart",
         r'''
@@ -3017,12 +3150,12 @@ class A {
 class B extends A {
   int m() { return 1; }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideReturnType_returnType_superclass() {
+  test_invalidOverrideReturnType_returnType_superclass() async {
     Source source = addNamedSource(
         "/test.dart",
         r'''
@@ -3032,12 +3165,12 @@ class A {
 class B extends A {
   int m() { return 1; }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideReturnType_returnType_superclass2() {
+  test_invalidOverrideReturnType_returnType_superclass2() async {
     Source source = addNamedSource(
         "/test.dart",
         r'''
@@ -3049,12 +3182,12 @@ class B extends A {
 class C extends B {
   int m() { return 1; }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidOverrideReturnType_returnType_void() {
+  test_invalidOverrideReturnType_returnType_void() async {
     Source source = addSource(r'''
 class A {
   void m() {}
@@ -3062,72 +3195,72 @@ class A {
 class B extends A {
   int m() { return 0; }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidReferenceToThis_constructor() {
+  test_invalidReferenceToThis_constructor() async {
     Source source = addSource(r'''
 class A {
   A() {
     var v = this;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidReferenceToThis_instanceMethod() {
+  test_invalidReferenceToThis_instanceMethod() async {
     Source source = addSource(r'''
 class A {
   m() {
     var v = this;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidTypeArgumentForKey() {
+  test_invalidTypeArgumentForKey() async {
     Source source = addSource(r'''
 class A {
   m() {
     return const <int, int>{};
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidTypeArgumentInConstList() {
+  test_invalidTypeArgumentInConstList() async {
     Source source = addSource(r'''
 class A<E> {
   m() {
     return <E>[];
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invalidTypeArgumentInConstMap() {
+  test_invalidTypeArgumentInConstMap() async {
     Source source = addSource(r'''
 class A<E> {
   m() {
     return <String, E>{};
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invocationOfNonFunction_dynamic() {
+  test_invocationOfNonFunction_dynamic() async {
     Source source = addSource(r'''
 class A {
   var f;
@@ -3137,12 +3270,29 @@ class B extends A {
     f();
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invocationOfNonFunction_getter() {
+  test_invocationOfNonFunction_functionTypeTypeParameter() async {
+    Source source = addSource(r'''
+typedef void Action<T>(T x);
+class C<T, U extends Action<T>> {
+  T value;
+  U action;
+  C(this.value, [this.action]);
+  void act() {
+    action(value);
+  }
+}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_invocationOfNonFunction_getter() async {
     Source source = addSource(r'''
 class A {
   var g;
@@ -3151,35 +3301,35 @@ f() {
   A a;
   a.g();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invocationOfNonFunction_localVariable() {
+  test_invocationOfNonFunction_localVariable() async {
     Source source = addSource(r'''
 f() {
   var g;
   g();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invocationOfNonFunction_localVariable_dynamic() {
+  test_invocationOfNonFunction_localVariable_dynamic() async {
     Source source = addSource(r'''
 f() {}
 main() {
   var v = f;
   v();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invocationOfNonFunction_localVariable_dynamic2() {
+  test_invocationOfNonFunction_localVariable_dynamic2() async {
     Source source = addSource(r'''
 f() {}
 main() {
@@ -3187,23 +3337,23 @@ main() {
   v = 1;
   v();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invocationOfNonFunction_Object() {
+  test_invocationOfNonFunction_Object() async {
     Source source = addSource(r'''
 main() {
   Object v = null;
   v();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invocationOfNonFunction_proxyOnFunctionClass() {
+  test_invocationOfNonFunction_proxyOnFunctionClass() async {
     // 16078
     Source source = addSource(r'''
 @proxy
@@ -3216,38 +3366,38 @@ main() {
   Functor f = new Functor();
   f();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_issue_24191() {
+  test_issue_24191() async {
     Source source = addSource('''
 import 'dart:async';
 
-class S extends Stream {}
+abstract class S extends Stream {}
 f(S s) async {
   await for (var v in s) {
     print(v);
   }
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_listElementTypeNotAssignable() {
+  test_listElementTypeNotAssignable() async {
     Source source = addSource(r'''
 var v1 = <int> [42];
 var v2 = const <int> [42];''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_loadLibraryDefined() {
-    resolveWithErrors(<String>[
+  test_loadLibraryDefined() async {
+    await resolveWithErrors(<String>[
       r'''
 library lib1;
 foo() => 22;''',
@@ -3259,117 +3409,117 @@ main() {
     ], <ErrorCode>[]);
   }
 
-  void test_local_generator_async() {
+  test_local_generator_async() async {
     Source source = addSource('''
 f() {
   return () async* { yield 0; };
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_local_generator_sync() {
+  test_local_generator_sync() async {
     Source source = addSource('''
 f() {
   return () sync* { yield 0; };
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mapKeyTypeNotAssignable() {
+  test_mapKeyTypeNotAssignable() async {
     Source source = addSource("var v = <String, int > {'a' : 1};");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_memberWithClassName_setter() {
+  test_memberWithClassName_setter() async {
     Source source = addSource(r'''
 class A {
   set A(v) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_methodDeclaration_scope_signature() {
+  test_methodDeclaration_scope_signature() async {
     Source source = addSource(r'''
 const app = 0;
 class A {
   foo(@app int app) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_misMatchedGetterAndSetterTypes_instance_sameTypes() {
+  test_misMatchedGetterAndSetterTypes_instance_sameTypes() async {
     Source source = addSource(r'''
 class C {
   int get x => 0;
   set x(int v) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_misMatchedGetterAndSetterTypes_instance_unspecifiedGetter() {
+  test_misMatchedGetterAndSetterTypes_instance_unspecifiedGetter() async {
     Source source = addSource(r'''
 class C {
   get x => 0;
   set x(String v) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_misMatchedGetterAndSetterTypes_instance_unspecifiedSetter() {
+  test_misMatchedGetterAndSetterTypes_instance_unspecifiedSetter() async {
     Source source = addSource(r'''
 class C {
   int get x => 0;
   set x(v) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_misMatchedGetterAndSetterTypes_topLevel_sameTypes() {
+  test_misMatchedGetterAndSetterTypes_topLevel_sameTypes() async {
     Source source = addSource(r'''
 int get x => 0;
 set x(int v) {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_misMatchedGetterAndSetterTypes_topLevel_unspecifiedGetter() {
+  test_misMatchedGetterAndSetterTypes_topLevel_unspecifiedGetter() async {
     Source source = addSource(r'''
 get x => 0;
 set x(String v) {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_misMatchedGetterAndSetterTypes_topLevel_unspecifiedSetter() {
+  test_misMatchedGetterAndSetterTypes_topLevel_unspecifiedSetter() async {
     Source source = addSource(r'''
 int get x => 0;
 set x(v) {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_missingEnumConstantInSwitch_all() {
+  test_missingEnumConstantInSwitch_all() async {
     Source source = addSource(r'''
 enum E { A, B, C }
 
@@ -3380,12 +3530,12 @@ f(E e) {
     case E.C: break;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_missingEnumConstantInSwitch_default() {
+  test_missingEnumConstantInSwitch_default() async {
     Source source = addSource(r'''
 enum E { A, B, C }
 
@@ -3395,12 +3545,12 @@ f(E e) {
     default: break;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixedReturnTypes_differentScopes() {
+  test_mixedReturnTypes_differentScopes() async {
     Source source = addSource(r'''
 class C {
   m(int x) {
@@ -3411,23 +3561,23 @@ class C {
     return 0;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixedReturnTypes_ignoreImplicit() {
+  test_mixedReturnTypes_ignoreImplicit() async {
     Source source = addSource(r'''
 f(bool p) {
   if (p) return 42;
   // implicit 'return;' is ignored
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixedReturnTypes_ignoreImplicit2() {
+  test_mixedReturnTypes_ignoreImplicit2() async {
     Source source = addSource(r'''
 f(bool p) {
   if (p) {
@@ -3437,12 +3587,12 @@ f(bool p) {
   }
   // implicit 'return;' is ignored
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixedReturnTypes_sameKind() {
+  test_mixedReturnTypes_sameKind() async {
     Source source = addSource(r'''
 class C {
   m(int x) {
@@ -3452,151 +3602,163 @@ class C {
     return 0;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixinDeclaresConstructor() {
+  test_mixinDeclaresConstructor() async {
     Source source = addSource(r'''
 class A {
   m() {}
 }
 class B extends Object with A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixinDeclaresConstructor_factory() {
+  test_mixinDeclaresConstructor_factory() async {
     Source source = addSource(r'''
 class A {
-  factory A() {}
+  factory A() => null;
 }
 class B extends Object with A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixinInheritsFromNotObject_classDeclaration_extends() {
+  test_mixinInheritsFromNotObject_classDeclaration_extends() async {
     AnalysisOptionsImpl options = new AnalysisOptionsImpl();
     options.enableSuperMixins = true;
-    resetWithOptions(options);
+    resetWith(options: options);
     Source source = addSource(r'''
 class A {}
 class B extends A {}
 class C extends Object with B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixinInheritsFromNotObject_classDeclaration_mixTypeAlias() {
+  test_mixinInheritsFromNotObject_classDeclaration_mixTypeAlias() async {
     Source source = addSource(r'''
 class A {}
 class B = Object with A;
 class C extends Object with B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixinInheritsFromNotObject_classDeclaration_with() {
+  test_mixinInheritsFromNotObject_classDeclaration_with() async {
     AnalysisOptionsImpl options = new AnalysisOptionsImpl();
     options.enableSuperMixins = true;
-    resetWithOptions(options);
+    resetWith(options: options);
     Source source = addSource(r'''
 class A {}
 class B extends Object with A {}
 class C extends Object with B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixinInheritsFromNotObject_typeAlias_extends() {
+  test_mixinInheritsFromNotObject_typeAlias_extends() async {
     AnalysisOptionsImpl options = new AnalysisOptionsImpl();
     options.enableSuperMixins = true;
-    resetWithOptions(options);
+    resetWith(options: options);
     Source source = addSource(r'''
 class A {}
 class B extends A {}
 class C = Object with B;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixinInheritsFromNotObject_typeAlias_with() {
+  test_mixinInheritsFromNotObject_typeAlias_with() async {
     AnalysisOptionsImpl options = new AnalysisOptionsImpl();
     options.enableSuperMixins = true;
-    resetWithOptions(options);
+    resetWith(options: options);
     Source source = addSource(r'''
 class A {}
 class B extends Object with A {}
 class C = Object with B;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixinInheritsFromNotObject_typedef_mixTypeAlias() {
+  test_mixinInheritsFromNotObject_typedef_mixTypeAlias() async {
     Source source = addSource(r'''
 class A {}
 class B = Object with A;
 class C = Object with B;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_mixinReferencesSuper() {
+  test_mixinReferencesSuper() async {
     AnalysisOptionsImpl options = new AnalysisOptionsImpl();
     options.enableSuperMixins = true;
-    resetWithOptions(options);
+    resetWith(options: options);
     Source source = addSource(r'''
 class A {
   toString() => super.toString();
 }
 class B extends Object with A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_multipleSuperInitializers_no() {
+  test_multipleSuperInitializers_no() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
   B() {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_multipleSuperInitializers_single() {
+  test_multipleSuperInitializers_single() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
   B() : super() {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nativeFunctionBodyInNonSDKCode_function() {
+  test_nativeConstConstructor() async {
     Source source = addSource(r'''
 import 'dart-ext:x';
-int m(a) native 'string';''');
-    computeLibrarySourceErrors(source);
+class Foo {
+  const Foo() native 'Foo_Foo';
+  const factory Foo.foo() native 'Foo_Foo_foo';
+}''');
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     // Cannot verify the AST because the import's URI cannot be resolved.
   }
 
-  void test_newWithAbstractClass_factory() {
+  test_nativeFunctionBodyInNonSDKCode_function() async {
+    Source source = addSource(r'''
+import 'dart-ext:x';
+int m(a) native 'string';''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    // Cannot verify the AST because the import's URI cannot be resolved.
+  }
+
+  test_newWithAbstractClass_factory() async {
     Source source = addSource(r'''
 abstract class A {
   factory A() { return new B(); }
@@ -3607,12 +3769,12 @@ class B implements A {
 A f() {
   return new A();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_newWithUndefinedConstructor() {
+  test_newWithUndefinedConstructor() async {
     Source source = addSource(r'''
 class A {
   A.name() {}
@@ -3620,12 +3782,12 @@ class A {
 f() {
   new A.name();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_newWithUndefinedConstructorDefault() {
+  test_newWithUndefinedConstructorDefault() async {
     Source source = addSource(r'''
 class A {
   A() {}
@@ -3633,13 +3795,12 @@ class A {
 f() {
   new A();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void
-      test_nonAbstractClassInheritsAbstractMemberOne_abstractsDontOverrideConcretes_getter() {
+  test_nonAbstractClassInheritsAbstractMemberOne_abstractsDontOverrideConcretes_getter() async {
     Source source = addSource(r'''
 class A {
   int get g => 0;
@@ -3648,13 +3809,12 @@ abstract class B extends A {
   int get g;
 }
 class C extends B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void
-      test_nonAbstractClassInheritsAbstractMemberOne_abstractsDontOverrideConcretes_method() {
+  test_nonAbstractClassInheritsAbstractMemberOne_abstractsDontOverrideConcretes_method() async {
     Source source = addSource(r'''
 class A {
   m(p) {}
@@ -3663,13 +3823,12 @@ abstract class B extends A {
   m(p);
 }
 class C extends B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void
-      test_nonAbstractClassInheritsAbstractMemberOne_abstractsDontOverrideConcretes_setter() {
+  test_nonAbstractClassInheritsAbstractMemberOne_abstractsDontOverrideConcretes_setter() async {
     Source source = addSource(r'''
 class A {
   set s(v) {}
@@ -3678,13 +3837,12 @@ abstract class B extends A {
   set s(v);
 }
 class C extends B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void
-      test_nonAbstractClassInheritsAbstractMemberOne_classTypeAlias_interface() {
+  test_nonAbstractClassInheritsAbstractMemberOne_classTypeAlias_interface() async {
     // 15979
     Source source = addSource(r'''
 abstract class M {}
@@ -3693,12 +3851,12 @@ abstract class I {
   m();
 }
 abstract class B = A with M implements I;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonAbstractClassInheritsAbstractMemberOne_classTypeAlias_mixin() {
+  test_nonAbstractClassInheritsAbstractMemberOne_classTypeAlias_mixin() async {
     // 15979
     Source source = addSource(r'''
 abstract class M {
@@ -3706,13 +3864,12 @@ abstract class M {
 }
 abstract class A {}
 abstract class B = A with M;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void
-      test_nonAbstractClassInheritsAbstractMemberOne_classTypeAlias_superclass() {
+  test_nonAbstractClassInheritsAbstractMemberOne_classTypeAlias_superclass() async {
     // 15979
     Source source = addSource(r'''
 class M {}
@@ -3720,12 +3877,12 @@ abstract class A {
   m();
 }
 abstract class B = A with M;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonAbstractClassInheritsAbstractMemberOne_mixin_getter() {
+  test_nonAbstractClassInheritsAbstractMemberOne_mixin_getter() async {
     // 17034
     Source source = addSource(r'''
 class A {
@@ -3736,12 +3893,12 @@ abstract class M {
 }
 class B extends A with M {}
 class C extends B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonAbstractClassInheritsAbstractMemberOne_mixin_method() {
+  test_nonAbstractClassInheritsAbstractMemberOne_mixin_method() async {
     Source source = addSource(r'''
 class A {
   m() {}
@@ -3751,12 +3908,12 @@ abstract class M {
 }
 class B extends A with M {}
 class C extends B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonAbstractClassInheritsAbstractMemberOne_mixin_setter() {
+  test_nonAbstractClassInheritsAbstractMemberOne_mixin_setter() async {
     Source source = addSource(r'''
 class A {
   var a;
@@ -3766,12 +3923,12 @@ abstract class M {
 }
 class B extends A with M {}
 class C extends B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonAbstractClassInheritsAbstractMemberOne_noSuchMethod_accessor() {
+  test_nonAbstractClassInheritsAbstractMemberOne_noSuchMethod_accessor() async {
     Source source = addSource(r'''
 abstract class A {
   int get g;
@@ -3779,12 +3936,12 @@ abstract class A {
 class B extends A {
   noSuchMethod(v) => '';
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonAbstractClassInheritsAbstractMemberOne_noSuchMethod_method() {
+  test_nonAbstractClassInheritsAbstractMemberOne_noSuchMethod_method() async {
     Source source = addSource(r'''
 abstract class A {
   m(p);
@@ -3792,12 +3949,12 @@ abstract class A {
 class B extends A {
   noSuchMethod(v) => '';
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonAbstractClassInheritsAbstractMemberOne_noSuchMethod_mixin() {
+  test_nonAbstractClassInheritsAbstractMemberOne_noSuchMethod_mixin() async {
     Source source = addSource(r'''
 class A {
   noSuchMethod(v) => '';
@@ -3805,13 +3962,12 @@ class A {
 class B extends Object with A {
   m(p);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void
-      test_nonAbstractClassInheritsAbstractMemberOne_noSuchMethod_superclass() {
+  test_nonAbstractClassInheritsAbstractMemberOne_noSuchMethod_superclass() async {
     Source source = addSource(r'''
 class A {
   noSuchMethod(v) => '';
@@ -3819,46 +3975,45 @@ class A {
 class B extends A {
   m(p);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void
-      test_nonAbstractClassInheritsAbstractMemberOne_overridesMethodInObject() {
+  test_nonAbstractClassInheritsAbstractMemberOne_overridesMethodInObject() async {
     Source source = addSource(r'''
 class A {
   String toString([String prefix = '']) => '${prefix}Hello';
 }
 class C {}
 class B extends A with C {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonBoolExpression_functionType() {
+  test_nonBoolExpression_functionType() async {
     Source source = addSource(r'''
 bool makeAssertion() => true;
 f() {
   assert(makeAssertion);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonBoolExpression_interfaceType() {
+  test_nonBoolExpression_interfaceType() async {
     Source source = addSource(r'''
 f() {
   assert(true);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonBoolNegationExpression() {
+  test_nonBoolNegationExpression() async {
     Source source = addSource(r'''
 f(bool pb, pd) {
   !true;
@@ -3866,12 +4021,12 @@ f(bool pb, pd) {
   !pb;
   !pd;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonBoolNegationExpression_dynamic() {
+  test_nonBoolNegationExpression_dynamic() async {
     Source source = addSource(r'''
 f1(bool dynamic) {
   !dynamic;
@@ -3881,115 +4036,115 @@ f2() {
   !dynamic;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonBoolOperand_and_bool() {
+  test_nonBoolOperand_and_bool() async {
     Source source = addSource(r'''
 bool f(bool left, bool right) {
   return left && right;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonBoolOperand_and_dynamic() {
+  test_nonBoolOperand_and_dynamic() async {
     Source source = addSource(r'''
 bool f(left, dynamic right) {
   return left && right;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonBoolOperand_or_bool() {
+  test_nonBoolOperand_or_bool() async {
     Source source = addSource(r'''
 bool f(bool left, bool right) {
   return left || right;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonBoolOperand_or_dynamic() {
+  test_nonBoolOperand_or_dynamic() async {
     Source source = addSource(r'''
 bool f(dynamic left, right) {
   return left || right;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstantDefaultValue_constField() {
+  test_nonConstantDefaultValue_constField() async {
     Source source = addSource(r'''
 f([a = double.INFINITY]) {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstantDefaultValue_function_named() {
+  test_nonConstantDefaultValue_function_named() async {
     Source source = addSource("f({x : 2 + 3}) {}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstantDefaultValue_function_positional() {
+  test_nonConstantDefaultValue_function_positional() async {
     Source source = addSource("f([x = 2 + 3]) {}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstantDefaultValue_inConstructor_named() {
+  test_nonConstantDefaultValue_inConstructor_named() async {
     Source source = addSource(r'''
 class A {
   A({x : 2 + 3}) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstantDefaultValue_inConstructor_positional() {
+  test_nonConstantDefaultValue_inConstructor_positional() async {
     Source source = addSource(r'''
 class A {
   A([x = 2 + 3]) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstantDefaultValue_method_named() {
+  test_nonConstantDefaultValue_method_named() async {
     Source source = addSource(r'''
 class A {
   m({x : 2 + 3}) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstantDefaultValue_method_positional() {
+  test_nonConstantDefaultValue_method_positional() async {
     Source source = addSource(r'''
 class A {
   m([x = 2 + 3]) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstantDefaultValue_typedConstList() {
+  test_nonConstantDefaultValue_typedConstList() async {
     Source source = addSource(r'''
 class A {
   m([p111 = const <String>[]]) {}
@@ -3997,12 +4152,12 @@ class A {
 class B extends A {
   m([p222 = const <String>[]]) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstantValueInInitializer_namedArgument() {
+  test_nonConstantValueInInitializer_namedArgument() async {
     Source source = addSource(r'''
 class A {
   final a;
@@ -4011,12 +4166,12 @@ class A {
 class B extends A {
   const B({b}) : super(a: b);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstCaseExpression_constField() {
+  test_nonConstCaseExpression_constField() async {
     Source source = addSource(r'''
 f(double p) {
   switch (p) {
@@ -4026,13 +4181,13 @@ f(double p) {
       return false;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(
         source, [CompileTimeErrorCode.CASE_EXPRESSION_TYPE_IMPLEMENTS_EQUALS]);
     verify([source]);
   }
 
-  void test_nonConstCaseExpression_typeLiteral() {
+  test_nonConstCaseExpression_typeLiteral() async {
     Source source = addSource(r'''
 f(Type t) {
   switch (t) {
@@ -4043,73 +4198,73 @@ f(Type t) {
       return false;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstListElement_constField() {
+  test_nonConstListElement_constField() async {
     Source source = addSource(r'''
 main() {
   const [double.INFINITY];
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstMapAsExpressionStatement_const() {
+  test_nonConstMapAsExpressionStatement_const() async {
     Source source = addSource(r'''
 f() {
   const {'a' : 0, 'b' : 1};
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstMapAsExpressionStatement_notExpressionStatement() {
+  test_nonConstMapAsExpressionStatement_notExpressionStatement() async {
     Source source = addSource(r'''
 f() {
   var m = {'a' : 0, 'b' : 1};
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstMapAsExpressionStatement_typeArguments() {
+  test_nonConstMapAsExpressionStatement_typeArguments() async {
     Source source = addSource(r'''
 f() {
   <String, int> {'a' : 0, 'b' : 1};
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstMapKey_constField() {
+  test_nonConstMapKey_constField() async {
     Source source = addSource(r'''
 main() {
   const {double.INFINITY: 0};
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source,
         [CompileTimeErrorCode.CONST_MAP_KEY_EXPRESSION_TYPE_IMPLEMENTS_EQUALS]);
     verify([source]);
   }
 
-  void test_nonConstMapValue_constField() {
+  test_nonConstMapValue_constField() async {
     Source source = addSource(r'''
 main() {
   const {0: double.INFINITY};
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstValueInInitializer_binary_bool() {
+  test_nonConstValueInInitializer_binary_bool() async {
     Source source = addSource(r'''
 class A {
   final v;
@@ -4118,12 +4273,12 @@ class A {
   const A.b1(bool p) : v = p || true;
   const A.b2(bool p) : v = true || p;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [HintCode.DEAD_CODE]);
     verify([source]);
   }
 
-  void test_nonConstValueInInitializer_binary_dynamic() {
+  test_nonConstValueInInitializer_binary_dynamic() async {
     Source source = addSource(r'''
 class A {
   final v;
@@ -4148,12 +4303,12 @@ class A {
   const A.j1(p) : v = p % 5;
   const A.j2(p) : v = 5 % p;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     // operations on "p" are not resolved
   }
 
-  void test_nonConstValueInInitializer_binary_int() {
+  test_nonConstValueInInitializer_binary_int() async {
     Source source = addSource(r'''
 class A {
   final v;
@@ -4168,12 +4323,12 @@ class A {
   const A.e1(int p) : v = p << 5;
   const A.e2(int p) : v = 5 << p;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstValueInInitializer_binary_num() {
+  test_nonConstValueInInitializer_binary_num() async {
     Source source = addSource(r'''
 class A {
   final v;
@@ -4198,34 +4353,34 @@ class A {
   const A.j1(num p) : v = p % 5;
   const A.j2(num p) : v = 5 % p;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstValueInInitializer_field() {
+  test_nonConstValueInInitializer_field() async {
     Source source = addSource(r'''
 class A {
   final int a;
   const A() : a = 5;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstValueInInitializer_redirecting() {
+  test_nonConstValueInInitializer_redirecting() async {
     Source source = addSource(r'''
 class A {
   const A.named(p);
   const A() : this.named(42);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstValueInInitializer_super() {
+  test_nonConstValueInInitializer_super() async {
     Source source = addSource(r'''
 class A {
   const A(p);
@@ -4233,12 +4388,12 @@ class A {
 class B extends A {
   const B() : super(42);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonConstValueInInitializer_unary() {
+  test_nonConstValueInInitializer_unary() async {
     Source source = addSource(r'''
 class A {
   final v;
@@ -4246,38 +4401,38 @@ class A {
   const A.b(int p) : v = ~p;
   const A.c(num p) : v = -p;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonGenerativeConstructor() {
+  test_nonGenerativeConstructor() async {
     Source source = addSource(r'''
 class A {
   A.named() {}
-  factory A() {}
+  factory A() => null;
 }
 class B extends A {
   B() : super.named();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonTypeInCatchClause_isClass() {
+  test_nonTypeInCatchClause_isClass() async {
     Source source = addSource(r'''
 f() {
   try {
   } on String catch (e) {
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonTypeInCatchClause_isFunctionTypeAlias() {
+  test_nonTypeInCatchClause_isFunctionTypeAlias() async {
     Source source = addSource(r'''
 typedef F();
 f() {
@@ -4285,12 +4440,12 @@ f() {
   } on F catch (e) {
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonTypeInCatchClause_isTypeParameter() {
+  test_nonTypeInCatchClause_isTypeParameter() async {
     Source source = addSource(r'''
 class A<T> {
   f() {
@@ -4299,117 +4454,117 @@ class A<T> {
     }
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonTypeInCatchClause_noType() {
+  test_nonTypeInCatchClause_noType() async {
     Source source = addSource(r'''
 f() {
   try {
   } catch (e) {
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonVoidReturnForOperator_no() {
+  test_nonVoidReturnForOperator_no() async {
     Source source = addSource(r'''
 class A {
   operator []=(a, b) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonVoidReturnForOperator_void() {
+  test_nonVoidReturnForOperator_void() async {
     Source source = addSource(r'''
 class A {
   void operator []=(a, b) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonVoidReturnForSetter_function_no() {
+  test_nonVoidReturnForSetter_function_no() async {
     Source source = addSource("set x(v) {}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonVoidReturnForSetter_function_void() {
+  test_nonVoidReturnForSetter_function_void() async {
     Source source = addSource("void set x(v) {}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonVoidReturnForSetter_method_no() {
+  test_nonVoidReturnForSetter_method_no() async {
     Source source = addSource(r'''
 class A {
   set x(v) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nonVoidReturnForSetter_method_void() {
+  test_nonVoidReturnForSetter_method_void() async {
     Source source = addSource(r'''
 class A {
   void set x(v) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_null_callMethod() {
+  test_null_callMethod() async {
     Source source = addSource(r'''
 main() {
   null.m();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_null_callOperator() {
+  test_null_callOperator() async {
     Source source = addSource(r'''
 main() {
   null + 5;
   null == 5;
   null[0];
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_optionalParameterInOperator_required() {
+  test_optionalParameterInOperator_required() async {
     Source source = addSource(r'''
 class A {
   operator +(p) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_parameterDefaultDoesNotReferToParameterName() {
+  test_parameterDefaultDoesNotReferToParameterName() async {
     // The final "f" should refer to the toplevel function "f", not to the
     // parameter called "f".  See dartbug.com/13179.
     Source source = addSource('void f([void f([x]) = f]) {}');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_parameterScope_local() {
+  test_parameterScope_local() async {
     // Parameter names shouldn't conflict with the name of the function they
     // are enclosed in.
     Source source = addSource(r'''
@@ -4420,12 +4575,12 @@ f() {
 }
 h(x) {}
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_parameterScope_method() {
+  test_parameterScope_method() async {
     // Parameter names shouldn't conflict with the name of the function they
     // are enclosed in.
     Source source = addSource(r'''
@@ -4436,12 +4591,12 @@ class C {
 }
 h(x) {}
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_parameterScope_toplevel() {
+  test_parameterScope_toplevel() async {
     // Parameter names shouldn't conflict with the name of the function they
     // are enclosed in.
     Source source = addSource(r'''
@@ -4450,12 +4605,12 @@ g(g) {
 }
 h(x) {}
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_prefixCollidesWithTopLevelMembers() {
+  test_prefixCollidesWithTopLevelMembers() async {
     addNamedSource(
         "/lib.dart",
         r'''
@@ -4468,23 +4623,23 @@ p2() {}
 var p3;
 class p4 {}
 p.A a;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_propagateTypeArgs_intoBounds() {
+  test_propagateTypeArgs_intoBounds() async {
     Source source = addSource(r'''
 abstract class A<E> {}
 abstract class B<F> implements A<F>{}
 abstract class C<G, H extends A<G>> {}
 class D<I> extends C<I, B<I>> {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_propagateTypeArgs_intoSupertype() {
+  test_propagateTypeArgs_intoSupertype() async {
     Source source = addSource(r'''
 class A<T> {
   A(T p);
@@ -4494,12 +4649,12 @@ class B<S> extends A<S> {
   B(S p) : super(p);
   B.named(S p) : super.named(p);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_proxy_annotation_prefixed() {
+  test_proxy_annotation_prefixed() async {
     Source source = addSource(r'''
 library L;
 @proxy
@@ -4512,11 +4667,11 @@ f(A a) {
   a++;
   ++a;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_proxy_annotation_prefixed2() {
+  test_proxy_annotation_prefixed2() async {
     Source source = addSource(r'''
 library L;
 @proxy
@@ -4531,11 +4686,11 @@ class B {
     ++a;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_proxy_annotation_prefixed3() {
+  test_proxy_annotation_prefixed3() async {
     Source source = addSource(r'''
 library L;
 class B {
@@ -4550,11 +4705,11 @@ class B {
 }
 @proxy
 class A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_proxy_annotation_proxyHasPrefixedIdentifier() {
+  test_proxy_annotation_proxyHasPrefixedIdentifier() async {
     Source source = addSource(r'''
 library L;
 import 'dart:core' as core;
@@ -4563,11 +4718,11 @@ main() {
   new PrefixProxy().foo;
   new PrefixProxy().foo();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_proxy_annotation_simple() {
+  test_proxy_annotation_simple() async {
     Source source = addSource(r'''
 library L;
 @proxy
@@ -4579,11 +4734,11 @@ class B {
     var y = this + this;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_proxy_annotation_superclass() {
+  test_proxy_annotation_superclass() async {
     Source source = addSource(r'''
 library L;
 class B extends A {
@@ -4596,11 +4751,11 @@ class B extends A {
 }
 @proxy
 class A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_proxy_annotation_superclass_mixin() {
+  test_proxy_annotation_superclass_mixin() async {
     Source source = addSource(r'''
 library L;
 class B extends Object with A {
@@ -4613,11 +4768,11 @@ class B extends Object with A {
 }
 @proxy
 class A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_proxy_annotation_superinterface() {
+  test_proxy_annotation_superinterface() async {
     Source source = addSource(r'''
 library L;
 class B implements A {
@@ -4630,12 +4785,12 @@ class B implements A {
 }
 @proxy
 class A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_proxy_annotation_superinterface_infiniteLoop() {
-    Source source = addSource(r'''
+  test_proxy_annotation_superinterface_infiniteLoop() async {
+    addSource(r'''
 library L;
 class C implements A {
   m() {
@@ -4647,24 +4802,23 @@ class C implements A {
 }
 class B implements A{}
 class A implements B{}''');
-    computeLibrarySourceErrors(source);
     // Test is that a stack overflow isn't reached in resolution
     // (previous line), no need to assert error set.
   }
 
-  void test_recursiveConstructorRedirect() {
+  test_recursiveConstructorRedirect() async {
     Source source = addSource(r'''
 class A {
   A.a() : this.b();
   A.b() : this.c();
   A.c() {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_recursiveFactoryRedirect() {
+  test_recursiveFactoryRedirect() async {
     Source source = addSource(r'''
 class A {
   factory A() = B;
@@ -4673,14 +4827,14 @@ class B implements A {
   factory B() = C;
 }
 class C implements B {
-  factory C() {}
+  factory C() => null;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_redirectToInvalidFunctionType() {
+  test_redirectToInvalidFunctionType() async {
     Source source = addSource(r'''
 class A implements B {
   A(int p) {}
@@ -4688,12 +4842,12 @@ class A implements B {
 class B {
   factory B(int p) = A;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_redirectToInvalidReturnType() {
+  test_redirectToInvalidReturnType() async {
     Source source = addSource(r'''
 class A {
   A() {}
@@ -4701,23 +4855,23 @@ class A {
 class B extends A {
   factory B() = A;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_redirectToNonConstConstructor() {
+  test_redirectToNonConstConstructor() async {
     Source source = addSource(r'''
 class A {
   const A.a();
   const factory A.b() = A.a;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_referencedBeforeDeclaration_cascade() {
+  test_referencedBeforeDeclaration_cascade() async {
     Source source = addSource(r'''
 testRequestHandler() {}
 
@@ -4728,12 +4882,12 @@ main() {
   var stream = 123;
   print(stream);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_referenceToDeclaredVariableInInitializer_constructorName() {
+  test_referenceToDeclaredVariableInInitializer_constructorName() async {
     Source source = addSource(r'''
 class A {
   A.x() {}
@@ -4741,12 +4895,12 @@ class A {
 f() {
   var x = new A.x();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_referenceToDeclaredVariableInInitializer_methodName() {
+  test_referenceToDeclaredVariableInInitializer_methodName() async {
     Source source = addSource(r'''
 class A {
   x() {}
@@ -4754,12 +4908,12 @@ class A {
 f(A a) {
   var x = a.x();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_referenceToDeclaredVariableInInitializer_propertyName() {
+  test_referenceToDeclaredVariableInInitializer_propertyName() async {
     Source source = addSource(r'''
 class A {
   var x;
@@ -4767,77 +4921,77 @@ class A {
 f(A a) {
   var x = a.x;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_rethrowOutsideCatch() {
+  test_rethrowOutsideCatch() async {
     Source source = addSource(r'''
 class A {
   void m() {
     try {} catch (e) {rethrow;}
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_return_in_generator_async() {
+  test_return_in_generator_async() async {
     Source source = addSource('''
 import 'dart:async';
 Stream<int> f() async* {
   return;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_return_in_generator_sync() {
+  test_return_in_generator_sync() async {
     Source source = addSource('''
 Iterable<int> f() sync* {
   return;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnInGenerativeConstructor() {
+  test_returnInGenerativeConstructor() async {
     Source source = addSource(r'''
 class A {
   A() { return; }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnInGenerator_async() {
+  test_returnInGenerator_async() async {
     Source source = addSource(r'''
 f() async {
   return 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnInGenerator_sync() {
+  test_returnInGenerator_sync() async {
     Source source = addSource(r'''
 f() {
   return 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnOfInvalidType_async() {
+  test_returnOfInvalidType_async() async {
     Source source = addSource(r'''
 import 'dart:async';
 class A {
@@ -4845,12 +4999,24 @@ class A {
     return 0;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnOfInvalidType_dynamic() {
+  test_returnOfInvalidType_async_future_int_mismatches_future_null() async {
+    Source source = addSource(r'''
+import 'dart:async';
+Future<Null> f() async {
+  return 5;
+}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_returnOfInvalidType_dynamic() async {
     Source source = addSource(r'''
 class TypeError {}
 class A {
@@ -4864,44 +5030,44 @@ class A {
     }
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnOfInvalidType_dynamicAsTypeArgument() {
+  test_returnOfInvalidType_dynamicAsTypeArgument() async {
     Source source = addSource(r'''
 class I<T> {
   factory I() => new A<T>();
 }
 class A<T> implements I {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnOfInvalidType_subtype() {
+  test_returnOfInvalidType_subtype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {}
 A f(B b) { return b; }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnOfInvalidType_supertype() {
+  test_returnOfInvalidType_supertype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {}
 B f(A a) { return a; }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnOfInvalidType_typeParameter_18468() {
+  test_returnOfInvalidType_typeParameter_18468() async {
     // https://code.google.com/p/dart/issues/detail?id=18468
     //
     // This test verifies that the type of T is more specific than Type,
@@ -4916,41 +5082,42 @@ B f(A a) { return a; }''');
 class Foo<T> {
   Type get t => T;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source);
     verify([source]);
   }
 
-  void test_returnOfInvalidType_void() {
+  test_returnOfInvalidType_void() async {
     Source source = addSource(r'''
 void f1() {}
 void f2() { return; }
 void f3() { return null; }
 void f4() { return g1(); }
 void f5() { return g2(); }
+void f6() => throw 42;
 g1() {}
 void g2() {}
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnWithoutValue_noReturnType() {
+  test_returnWithoutValue_noReturnType() async {
     Source source = addSource("f() { return; }");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_returnWithoutValue_void() {
+  test_returnWithoutValue_void() async {
     Source source = addSource("void f() { return; }");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_reversedTypeArguments() {
+  test_reversedTypeArguments() async {
     Source source = addSource(r'''
 class Codec<S1, T1> {
   Codec<T1, S1> get inverted => new _InvertedCodec<T1, S1>(this);
@@ -4958,13 +5125,13 @@ class Codec<S1, T1> {
 class _InvertedCodec<T2, S2> extends Codec<T2, S2> {
   _InvertedCodec(Codec<S2, T2> codec);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_sharedDeferredPrefix() {
-    resolveWithErrors(<String>[
+  test_sharedDeferredPrefix() async {
+    await resolveWithErrors(<String>[
       r'''
 library lib1;
 f1() {}''',
@@ -4983,7 +5150,7 @@ main() { lib1.f1(); lib.f2(); lib.f3(); }'''
     ], <ErrorCode>[]);
   }
 
-  void test_staticAccessToInstanceMember_annotation() {
+  test_staticAccessToInstanceMember_annotation() async {
     Source source = addSource(r'''
 class A {
   const A.name();
@@ -4991,12 +5158,12 @@ class A {
 @A.name()
 main() {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_staticAccessToInstanceMember_method() {
+  test_staticAccessToInstanceMember_method() async {
     Source source = addSource(r'''
 class A {
   static m() {}
@@ -5005,12 +5172,12 @@ main() {
   A.m;
   A.m();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_staticAccessToInstanceMember_propertyAccess_field() {
+  test_staticAccessToInstanceMember_propertyAccess_field() async {
     Source source = addSource(r'''
 class A {
   static var f;
@@ -5019,12 +5186,12 @@ main() {
   A.f;
   A.f = 1;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_staticAccessToInstanceMember_propertyAccess_propertyAccessor() {
+  test_staticAccessToInstanceMember_propertyAccess_propertyAccessor() async {
     Source source = addSource(r'''
 class A {
   static get f => 42;
@@ -5034,12 +5201,12 @@ main() {
   A.f;
   A.f = 1;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_superInInvalidContext() {
+  test_superInInvalidContext() async {
     Source source = addSource(r'''
 class A {
   m() {}
@@ -5052,23 +5219,23 @@ class B extends A {
     var v = super.m();
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typeAliasCannotReferenceItself_returnClass_withTypeAlias() {
+  test_typeAliasCannotReferenceItself_returnClass_withTypeAlias() async {
     Source source = addSource(r'''
 typedef B A();
 class B {
   A a;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typeArgumentNotMatchingBounds_const() {
+  test_typeArgumentNotMatchingBounds_const() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {}
@@ -5076,67 +5243,103 @@ class G<E extends A> {
   const G();
 }
 f() { return const G<B>(); }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typeArgumentNotMatchingBounds_new() {
+  test_typeArgumentNotMatchingBounds_new() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {}
 class G<E extends A> {}
 f() { return new G<B>(); }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typeArgumentNotMatchingBounds_typeArgumentList_0() {
+  test_typeArgumentNotMatchingBounds_ofFunctionTypeAlias_hasBound() async {
+    Source source = addSource(r'''
+class A {}
+class B extends A {}
+typedef F<T extends A>();
+F<A> fa;
+F<B> fb;
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_typeArgumentNotMatchingBounds_ofFunctionTypeAlias_hasBound2() async {
+    Source source = addSource(r'''
+class MyClass<T> {}
+typedef MyFunction<T, P extends MyClass<T>>();
+class A<T, P extends MyClass<T>> {
+  MyFunction<T, P> f;
+}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_typeArgumentNotMatchingBounds_ofFunctionTypeAlias_noBound() async {
+    Source source = addSource(r'''
+typedef F<T>();
+F<int> f1;
+F<String> f2;
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_typeArgumentNotMatchingBounds_typeArgumentList_0() async {
     Source source = addSource("abstract class A<T extends A>{}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typeArgumentNotMatchingBounds_typeArgumentList_1() {
+  test_typeArgumentNotMatchingBounds_typeArgumentList_1() async {
     Source source = addSource("abstract class A<T extends A<A>>{}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typeArgumentNotMatchingBounds_typeArgumentList_20() {
+  test_typeArgumentNotMatchingBounds_typeArgumentList_20() async {
     Source source = addSource(
         "abstract class A<T extends A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A<A>>>>>>>>>>>>>>>>>>>>>{}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_booleanAnd_useInRight() {
+  test_typePromotion_booleanAnd_useInRight() async {
     Source source = addSource(r'''
 main(Object p) {
   p is String && p.length != 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void
-      test_typePromotion_booleanAnd_useInRight_accessedInClosureRight_noAssignment() {
+  test_typePromotion_booleanAnd_useInRight_accessedInClosureRight_noAssignment() async {
     Source source = addSource(r'''
 callMe(f()) { f(); }
 main(Object p) {
   (p is String) && callMe(() { p.length; });
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_conditional_issue14655() {
+  test_typePromotion_conditional_issue14655() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {}
@@ -5147,34 +5350,33 @@ print(_) {}
 main(A p) {
   (p is C) && (print(() => p) && (p is B)) ? p.mc() : p = null;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_conditional_useInThen() {
+  test_typePromotion_conditional_useInThen() async {
     Source source = addSource(r'''
 main(Object p) {
   p is String ? p.length : 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void
-      test_typePromotion_conditional_useInThen_accessedInClosure_noAssignment() {
+  test_typePromotion_conditional_useInThen_accessedInClosure_noAssignment() async {
     Source source = addSource(r'''
 callMe(f()) { f(); }
 main(Object p) {
   p is String ? callMe(() { p.length; }) : 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_functionType_arg_ignoreIfNotMoreSpecific() {
+  test_typePromotion_functionType_arg_ignoreIfNotMoreSpecific() async {
     Source source = addSource(r'''
 typedef FuncB(B b);
 typedef FuncA(A a);
@@ -5185,12 +5387,12 @@ main(FuncA f) {
     f(new A());
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_functionType_return_ignoreIfNotMoreSpecific() {
+  test_typePromotion_functionType_return_ignoreIfNotMoreSpecific() async {
     Source source = addSource(r'''
 class A {}
 typedef FuncAtoDyn(A a);
@@ -5200,12 +5402,12 @@ main(FuncAtoDyn f) {
     A a = f(new A());
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_functionType_return_voidToDynamic() {
+  test_typePromotion_functionType_return_voidToDynamic() async {
     Source source = addSource(r'''
 typedef FuncDynToDyn(x);
 typedef void FuncDynToVoid(x);
@@ -5215,12 +5417,12 @@ main(FuncDynToVoid f) {
     A a = f(null);
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_accessedInClosure_noAssignment() {
+  test_typePromotion_if_accessedInClosure_noAssignment() async {
     Source source = addSource(r'''
 callMe(f()) { f(); }
 main(Object p) {
@@ -5230,12 +5432,12 @@ main(Object p) {
     });
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_extends_moreSpecific() {
+  test_typePromotion_if_extends_moreSpecific() async {
     Source source = addSource(r'''
 class V {}
 class VP extends V {}
@@ -5249,12 +5451,12 @@ main(A<V> p) {
     p.b;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_hasAssignment_outsideAfter() {
+  test_typePromotion_if_hasAssignment_outsideAfter() async {
     Source source = addSource(r'''
 main(Object p) {
   if (p is String) {
@@ -5262,12 +5464,12 @@ main(Object p) {
   }
   p = 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_hasAssignment_outsideBefore() {
+  test_typePromotion_if_hasAssignment_outsideBefore() async {
     Source source = addSource(r'''
 main(Object p, Object p2) {
   p = p2;
@@ -5275,12 +5477,12 @@ main(Object p, Object p2) {
     p.length;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_implements_moreSpecific() {
+  test_typePromotion_if_implements_moreSpecific() async {
     Source source = addSource(r'''
 class V {}
 class VP extends V {}
@@ -5294,12 +5496,12 @@ main(A<V> p) {
     p.b;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_inClosure_assignedAfter_inSameFunction() {
+  test_typePromotion_if_inClosure_assignedAfter_inSameFunction() async {
     Source source = addSource(r'''
 main() {
   f(Object p) {
@@ -5309,12 +5511,12 @@ main() {
     p = 0;
   };
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_is_and_left() {
+  test_typePromotion_if_is_and_left() async {
     Source source = addSource(r'''
 bool tt() => true;
 main(Object p) {
@@ -5322,12 +5524,12 @@ main(Object p) {
     p.length;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_is_and_right() {
+  test_typePromotion_if_is_and_right() async {
     Source source = addSource(r'''
 bool tt() => true;
 main(Object p) {
@@ -5335,12 +5537,12 @@ main(Object p) {
     p.length;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_is_and_subThenSuper() {
+  test_typePromotion_if_is_and_subThenSuper() async {
     Source source = addSource(r'''
 class A {
   var a;
@@ -5354,36 +5556,36 @@ main(Object p) {
     p.b;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_is_parenthesized() {
+  test_typePromotion_if_is_parenthesized() async {
     Source source = addSource(r'''
 main(Object p) {
   if ((p is String)) {
     p.length;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_if_is_single() {
+  test_typePromotion_if_is_single() async {
     Source source = addSource(r'''
 main(Object p) {
   if (p is String) {
     p.length;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typePromotion_parentheses() {
+  test_typePromotion_parentheses() async {
     Source source = addSource(r'''
 main(Object p) {
   (p is String) ? p.length : 0;
@@ -5391,24 +5593,24 @@ main(Object p) {
   ((p)) is String ? p.length : 0;
   ((p) is String) ? p.length : 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typeType_class() {
+  test_typeType_class() async {
     Source source = addSource(r'''
 class C {}
 f(Type t) {}
 main() {
   f(C);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typeType_class_prefixed() {
+  test_typeType_class_prefixed() async {
     addNamedSource(
         "/lib.dart",
         r'''
@@ -5420,24 +5622,24 @@ f(Type t) {}
 main() {
   f(p.C);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typeType_functionTypeAlias() {
+  test_typeType_functionTypeAlias() async {
     Source source = addSource(r'''
 typedef F();
 f(Type t) {}
 main() {
   f(F);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_typeType_functionTypeAlias_prefixed() {
+  test_typeType_functionTypeAlias_prefixed() async {
     addNamedSource(
         "/lib.dart",
         r'''
@@ -5449,12 +5651,12 @@ f(Type t) {}
 main() {
   f(p.F);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedConstructorInInitializer_explicit_named() {
+  test_undefinedConstructorInInitializer_explicit_named() async {
     Source source = addSource(r'''
 class A {
   A.named() {}
@@ -5462,12 +5664,12 @@ class A {
 class B extends A {
   B() : super.named();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedConstructorInInitializer_explicit_unnamed() {
+  test_undefinedConstructorInInitializer_explicit_unnamed() async {
     Source source = addSource(r'''
 class A {
   A() {}
@@ -5475,12 +5677,12 @@ class A {
 class B extends A {
   B() : super();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedConstructorInInitializer_hasOptionalParameters() {
+  test_undefinedConstructorInInitializer_hasOptionalParameters() async {
     Source source = addSource(r'''
 class A {
   A([p]) {}
@@ -5488,12 +5690,12 @@ class A {
 class B extends A {
   B();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedConstructorInInitializer_implicit() {
+  test_undefinedConstructorInInitializer_implicit() async {
     Source source = addSource(r'''
 class A {
   A() {}
@@ -5501,24 +5703,24 @@ class A {
 class B extends A {
   B();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedConstructorInInitializer_implicit_typeAlias() {
+  test_undefinedConstructorInInitializer_implicit_typeAlias() async {
     Source source = addSource(r'''
 class M {}
 class A = Object with M;
 class B extends A {
   B();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedConstructorInInitializer_redirecting() {
+  test_undefinedConstructorInInitializer_redirecting() async {
     Source source = addSource(r'''
 class Foo {
   Foo.ctor();
@@ -5527,12 +5729,12 @@ class Bar extends Foo {
   Bar() : this.ctor();
   Bar.ctor() : super.ctor();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedGetter_static_conditionalAccess() {
+  test_undefinedGetter_static_conditionalAccess() async {
     // The conditional access operator '?.' can be used to access static
     // fields.
     Source source = addSource('''
@@ -5541,12 +5743,12 @@ class A {
 }
 var a = A?.x;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedGetter_typeSubstitution() {
+  test_undefinedGetter_typeSubstitution() async {
     Source source = addSource(r'''
 class A<E> {
   E element;
@@ -5556,72 +5758,52 @@ class B extends A<List> {
     element.last;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedIdentifier_hide() {
-    Source source = addSource(r'''
-library L;
-export 'lib1.dart' hide a;''');
-    addNamedSource("/lib1.dart", "library lib1;");
-    computeLibrarySourceErrors(source);
-    assertNoErrors(source);
-    verify([source]);
-  }
-
-  void test_undefinedIdentifier_show() {
-    Source source = addSource(r'''
-library L;
-export 'lib1.dart' show a;''');
-    addNamedSource("/lib1.dart", "library lib1;");
-    computeLibrarySourceErrors(source);
-    assertNoErrors(source);
-    verify([source]);
-  }
-
-  void test_undefinedIdentifier_synthetic_whenExpression() {
+  test_undefinedIdentifier_synthetic_whenExpression() async {
     Source source = addSource(r'''
 print(x) {}
 main() {
   print(is String);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [ParserErrorCode.MISSING_IDENTIFIER]);
   }
 
-  void test_undefinedIdentifier_synthetic_whenMethodName() {
+  test_undefinedIdentifier_synthetic_whenMethodName() async {
     Source source = addSource(r'''
 print(x) {}
 main(int p) {
   p.();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [ParserErrorCode.MISSING_IDENTIFIER]);
   }
 
-  void test_undefinedMethod_functionExpression_callMethod() {
+  test_undefinedMethod_functionExpression_callMethod() async {
     Source source = addSource(r'''
 main() {
   (() => null).call();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     // A call to verify(source) fails as '.call()' isn't resolved.
   }
 
-  void test_undefinedMethod_functionExpression_directCall() {
+  test_undefinedMethod_functionExpression_directCall() async {
     Source source = addSource(r'''
 main() {
   (() => null)();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     // A call to verify(source) fails as '(() => null)()' isn't resolved.
   }
 
-  void test_undefinedMethod_static_conditionalAccess() {
+  test_undefinedMethod_static_conditionalAccess() async {
     // The conditional access operator '?.' can be used to access static
     // methods.
     Source source = addSource('''
@@ -5630,12 +5812,12 @@ class A {
 }
 f() { A?.m(); }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedOperator_index() {
+  test_undefinedOperator_index() async {
     Source source = addSource(r'''
 class A {
   operator [](a) {}
@@ -5645,21 +5827,21 @@ f(A a) {
   a[0];
   a[0] = 1;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedOperator_tilde() {
+  test_undefinedOperator_tilde() async {
     Source source = addSource(r'''
 const A = 3;
 const B = ~((1 << A) - 1);''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedSetter_importWithPrefix() {
+  test_undefinedSetter_importWithPrefix() async {
     addNamedSource(
         "/lib.dart",
         r'''
@@ -5670,12 +5852,12 @@ import 'lib.dart' as x;
 main() {
   x.y = 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedSetter_static_conditionalAccess() {
+  test_undefinedSetter_static_conditionalAccess() async {
     // The conditional access operator '?.' can be used to access static
     // fields.
     Source source = addSource('''
@@ -5684,12 +5866,12 @@ class A {
 }
 f() { A?.x = 1; }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedSuperMethod_field() {
+  test_undefinedSuperMethod_field() async {
     Source source = addSource(r'''
 class A {
   var m;
@@ -5699,12 +5881,12 @@ class B extends A {
     super.m();
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_undefinedSuperMethod_method() {
+  test_undefinedSuperMethod_method() async {
     Source source = addSource(r'''
 class A {
   m() {}
@@ -5714,12 +5896,12 @@ class B extends A {
     super.m();
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unqualifiedReferenceToNonLocalStaticMember_fromComment_new() {
+  test_unqualifiedReferenceToNonLocalStaticMember_fromComment_new() async {
     Source source = addSource(r'''
 class A {
   A() {}
@@ -5728,134 +5910,145 @@ class A {
 /// [new A] or [new A.named]
 main() {
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_uriDoesNotExist_dll() {
+  test_unusedShownName_unresolved() async {
+    Source source = addSource(r'''
+import 'dart:math' show max, FooBar;
+main() {
+  print(max(1, 2));
+}
+''');
+    await computeAnalysisResult(source);
+    assertErrors(source, [HintCode.UNDEFINED_SHOWN_NAME]);
+  }
+
+  test_uriDoesNotExist_dll() async {
     addNamedSource("/lib.dll", "");
     Source source = addSource("import 'dart-ext:lib';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_uriDoesNotExist_dylib() {
+  test_uriDoesNotExist_dylib() async {
     addNamedSource("/lib.dylib", "");
     Source source = addSource("import 'dart-ext:lib';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_uriDoesNotExist_so() {
+  test_uriDoesNotExist_so() async {
     addNamedSource("/lib.so", "");
     Source source = addSource("import 'dart-ext:lib';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_wrongNumberOfParametersForOperator1() {
-    _check_wrongNumberOfParametersForOperator1("<");
-    _check_wrongNumberOfParametersForOperator1(">");
-    _check_wrongNumberOfParametersForOperator1("<=");
-    _check_wrongNumberOfParametersForOperator1(">=");
-    _check_wrongNumberOfParametersForOperator1("+");
-    _check_wrongNumberOfParametersForOperator1("/");
-    _check_wrongNumberOfParametersForOperator1("~/");
-    _check_wrongNumberOfParametersForOperator1("*");
-    _check_wrongNumberOfParametersForOperator1("%");
-    _check_wrongNumberOfParametersForOperator1("|");
-    _check_wrongNumberOfParametersForOperator1("^");
-    _check_wrongNumberOfParametersForOperator1("&");
-    _check_wrongNumberOfParametersForOperator1("<<");
-    _check_wrongNumberOfParametersForOperator1(">>");
-    _check_wrongNumberOfParametersForOperator1("[]");
+  test_wrongNumberOfParametersForOperator1() async {
+    await _check_wrongNumberOfParametersForOperator1("<");
+    await _check_wrongNumberOfParametersForOperator1(">");
+    await _check_wrongNumberOfParametersForOperator1("<=");
+    await _check_wrongNumberOfParametersForOperator1(">=");
+    await _check_wrongNumberOfParametersForOperator1("+");
+    await _check_wrongNumberOfParametersForOperator1("/");
+    await _check_wrongNumberOfParametersForOperator1("~/");
+    await _check_wrongNumberOfParametersForOperator1("*");
+    await _check_wrongNumberOfParametersForOperator1("%");
+    await _check_wrongNumberOfParametersForOperator1("|");
+    await _check_wrongNumberOfParametersForOperator1("^");
+    await _check_wrongNumberOfParametersForOperator1("&");
+    await _check_wrongNumberOfParametersForOperator1("<<");
+    await _check_wrongNumberOfParametersForOperator1(">>");
+    await _check_wrongNumberOfParametersForOperator1("[]");
   }
 
-  void test_wrongNumberOfParametersForOperator_index() {
+  test_wrongNumberOfParametersForOperator_index() async {
     Source source = addSource(r'''
 class A {
   operator []=(a, b) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_wrongNumberOfParametersForOperator_minus() {
-    _check_wrongNumberOfParametersForOperator("-", "");
-    _check_wrongNumberOfParametersForOperator("-", "a");
+  test_wrongNumberOfParametersForOperator_minus() async {
+    await _check_wrongNumberOfParametersForOperator("-", "");
+    await _check_wrongNumberOfParametersForOperator("-", "a");
   }
 
-  void test_wrongNumberOfParametersForSetter() {
+  test_wrongNumberOfParametersForSetter() async {
     Source source = addSource(r'''
 class A {
   set x(a) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_async_to_dynamic_type() {
+  test_yield_async_to_dynamic_type() async {
     Source source = addSource('''
 dynamic f() async* {
   yield 3;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_async_to_generic_type() {
+  test_yield_async_to_generic_type() async {
     Source source = addSource('''
 import 'dart:async';
 Stream f() async* {
   yield 3;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_async_to_parameterized_type() {
+  test_yield_async_to_parameterized_type() async {
     Source source = addSource('''
 import 'dart:async';
 Stream<int> f() async* {
   yield 3;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_async_to_untyped() {
+  test_yield_async_to_untyped() async {
     Source source = addSource('''
 f() async* {
   yield 3;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_async_dynamic_to_dynamic() {
+  test_yield_each_async_dynamic_to_dynamic() async {
     Source source = addSource('''
 f() async* {
   yield* g();
 }
 g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_async_dynamic_to_stream() {
+  test_yield_each_async_dynamic_to_stream() async {
     Source source = addSource('''
 import 'dart:async';
 Stream f() async* {
@@ -5863,12 +6056,12 @@ Stream f() async* {
 }
 g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_async_dynamic_to_typed_stream() {
+  test_yield_each_async_dynamic_to_typed_stream() async {
     Source source = addSource('''
 import 'dart:async';
 Stream<int> f() async* {
@@ -5876,12 +6069,12 @@ Stream<int> f() async* {
 }
 g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_async_stream_to_dynamic() {
+  test_yield_each_async_stream_to_dynamic() async {
     Source source = addSource('''
 import 'dart:async';
 f() async* {
@@ -5889,12 +6082,12 @@ f() async* {
 }
 Stream g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_async_typed_stream_to_dynamic() {
+  test_yield_each_async_typed_stream_to_dynamic() async {
     Source source = addSource('''
 import 'dart:async';
 f() async* {
@@ -5902,12 +6095,12 @@ f() async* {
 }
 Stream<int> g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_async_typed_stream_to_typed_stream() {
+  test_yield_each_async_typed_stream_to_typed_stream() async {
     Source source = addSource('''
 import 'dart:async';
 Stream<int> f() async* {
@@ -5915,163 +6108,160 @@ Stream<int> f() async* {
 }
 Stream<int> g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_sync_dynamic_to_dynamic() {
+  test_yield_each_sync_dynamic_to_dynamic() async {
     Source source = addSource('''
 f() sync* {
   yield* g();
 }
 g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_sync_dynamic_to_iterable() {
+  test_yield_each_sync_dynamic_to_iterable() async {
     Source source = addSource('''
 Iterable f() sync* {
   yield* g();
 }
 g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_sync_dynamic_to_typed_iterable() {
+  test_yield_each_sync_dynamic_to_typed_iterable() async {
     Source source = addSource('''
 Iterable<int> f() sync* {
   yield* g();
 }
 g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_sync_iterable_to_dynamic() {
+  test_yield_each_sync_iterable_to_dynamic() async {
     Source source = addSource('''
 f() sync* {
   yield* g();
 }
 Iterable g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_sync_typed_iterable_to_dynamic() {
+  test_yield_each_sync_typed_iterable_to_dynamic() async {
     Source source = addSource('''
 f() sync* {
   yield* g();
 }
 Iterable<int> g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_each_sync_typed_iterable_to_typed_iterable() {
+  test_yield_each_sync_typed_iterable_to_typed_iterable() async {
     Source source = addSource('''
 Iterable<int> f() sync* {
   yield* g();
 }
 Iterable<int> g() => null;
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_sync_to_dynamic_type() {
+  test_yield_sync_to_dynamic_type() async {
     Source source = addSource('''
 dynamic f() sync* {
   yield 3;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_sync_to_generic_type() {
+  test_yield_sync_to_generic_type() async {
     Source source = addSource('''
 Iterable f() sync* {
   yield 3;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_sync_to_parameterized_type() {
+  test_yield_sync_to_parameterized_type() async {
     Source source = addSource('''
 Iterable<int> f() sync* {
   yield 3;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yield_sync_to_untyped() {
+  test_yield_sync_to_untyped() async {
     Source source = addSource('''
 f() sync* {
   yield 3;
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yieldInNonGenerator_asyncStar() {
+  test_yieldInNonGenerator_asyncStar() async {
     Source source = addSource(r'''
 f() async* {
   yield 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_yieldInNonGenerator_syncStar() {
+  test_yieldInNonGenerator_syncStar() async {
     Source source = addSource(r'''
 f() sync* {
   yield 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void _check_wrongNumberOfParametersForOperator(
-      String name, String parameters) {
+  Future<Null> _check_wrongNumberOfParametersForOperator(
+      String name, String parameters) async {
     Source source = addSource("""
 class A {
   operator $name($parameters) {}
 }""");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     reset();
   }
 
-  void _check_wrongNumberOfParametersForOperator1(String name) {
-    _check_wrongNumberOfParametersForOperator(name, "a");
+  Future<Null> _check_wrongNumberOfParametersForOperator1(String name) async {
+    await _check_wrongNumberOfParametersForOperator(name, "a");
   }
-
-  CompilationUnit _getResolvedLibraryUnit(Source source) =>
-      analysisContext.getResolvedCompilationUnit2(source, source);
 }

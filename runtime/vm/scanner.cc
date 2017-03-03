@@ -15,20 +15,18 @@
 
 namespace dart {
 
-DEFINE_FLAG(bool, print_tokens, false, "Print scanned tokens.");
-
-
-// Quick access to the locally defined zone() method.
+// Quick access to the locally defined zone() and thread() methods.
 #define Z (zone())
+#define T (thread())
 
 
 class ScanContext : public ZoneAllocated {
  public:
   explicit ScanContext(Scanner* scanner)
-      :  next_(scanner->saved_context_),
-         string_delimiter_(scanner->string_delimiter_),
-         string_is_multiline_(scanner->string_is_multiline_),
-         brace_level_(scanner->brace_level_) {}
+      : next_(scanner->saved_context_),
+        string_delimiter_(scanner->string_delimiter_),
+        string_is_multiline_(scanner->string_is_multiline_),
+        brace_level_(scanner->brace_level_) {}
 
   void CopyTo(Scanner* scanner) {
     scanner->string_delimiter_ = string_delimiter_;
@@ -83,7 +81,8 @@ Scanner::Scanner(const String& src, const String& private_key)
       saved_context_(NULL),
       private_key_(String::ZoneHandle(private_key.raw())),
       char_at_func_(src.CharAtFunc()),
-      zone_(Thread::Current()->zone()) {
+      thread_(Thread::Current()),
+      zone_(thread_->zone()) {
   Reset();
 }
 
@@ -93,7 +92,7 @@ Scanner::~Scanner() {}
 
 void Scanner::ErrorMsg(const char* msg) {
   current_token_.kind = Token::kERROR;
-  current_token_.literal = &String::ZoneHandle(Z, Symbols::New(msg));
+  current_token_.literal = &String::ZoneHandle(Z, Symbols::New(T, msg));
   current_token_.position = c0_pos_;
   token_start_ = lookahead_pos_;
   current_token_.offset = lookahead_pos_;
@@ -101,7 +100,7 @@ void Scanner::ErrorMsg(const char* msg) {
 
 
 void Scanner::PushContext() {
-  ScanContext* ctx = new(Z) ScanContext(this);
+  ScanContext* ctx = new (Z) ScanContext(this);
   saved_context_ = ctx;
   string_delimiter_ = '\0';
   string_is_multiline_ = false;
@@ -147,9 +146,8 @@ bool Scanner::IsNumberStart(int32_t ch) {
 
 
 bool Scanner::IsHexDigit(int32_t c) {
-  return IsDecimalDigit(c)
-         || (('A' <= c) && (c <= 'F'))
-         || (('a' <= c) && (c <= 'f'));
+  return IsDecimalDigit(c) || (('A' <= c) && (c <= 'F')) ||
+         (('a' <= c) && (c <= 'f'));
 }
 
 
@@ -170,7 +168,7 @@ bool Scanner::IsIdent(const String& str) {
   if (str.Length() == 0 || !IsIdentStartChar(CallCharAt()(str, 0))) {
     return false;
   }
-  for (int i =  1; i < str.Length(); i++) {
+  for (int i = 1; i < str.Length(); i++) {
     if (!IsIdentChar(CallCharAt()(str, i))) {
       return false;
     }
@@ -179,24 +177,27 @@ bool Scanner::IsIdent(const String& str) {
 }
 
 
-// This method is used when parsing integers and doubles in Dart code. We
+// This method is used when parsing integers in Dart code. We
 // are reusing the Scanner's handling of number literals in that situation.
-bool Scanner::IsValidLiteral(const Scanner::GrowableTokenStream& tokens,
-                             Token::Kind literal_kind,
+bool Scanner::IsValidInteger(const String& str,
                              bool* is_positive,
                              const String** value) {
-  if ((tokens.length() == 2) &&
-      (tokens[0].kind == literal_kind) &&
-      (tokens[1].kind == Token::kEOS)) {
+  Scanner s(str, Symbols::Empty());
+  TokenDescriptor tokens[3];
+  s.Scan();
+  tokens[0] = s.current_token();
+  s.Scan();
+  tokens[1] = s.current_token();
+  s.Scan();
+  tokens[2] = s.current_token();
+
+  if ((tokens[0].kind == Token::kINTEGER) && (tokens[1].kind == Token::kEOS)) {
     *is_positive = true;
     *value = tokens[0].literal;
     return true;
   }
-  if ((tokens.length() == 3) &&
-      ((tokens[0].kind == Token::kADD) ||
-       (tokens[0].kind == Token::kSUB)) &&
-      (tokens[1].kind == literal_kind) &&
-      (tokens[2].kind == Token::kEOS)) {
+  if (((tokens[0].kind == Token::kADD) || (tokens[0].kind == Token::kSUB)) &&
+      (tokens[1].kind == Token::kINTEGER) && (tokens[2].kind == Token::kEOS)) {
     // Check there is no space between "+/-" and number.
     if ((tokens[0].offset + 1) != tokens[1].offset) {
       return false;
@@ -286,7 +287,7 @@ void Scanner::ConsumeBlockComment() {
     }
   }
   current_token_.kind =
-    (nesting_level == 0) ? Token::kWHITESP : Token::kILLEGAL;
+      (nesting_level == 0) ? Token::kWHITESP : Token::kILLEGAL;
 }
 
 
@@ -312,7 +313,7 @@ void Scanner::ScanIdentChars(bool allow_dollar) {
         int char_pos = 1;
         while ((char_pos < ident_length) &&
                (keyword[char_pos] ==
-                   CallCharAt()(source_, ident_pos + char_pos))) {
+                CallCharAt()(source_, ident_pos + char_pos))) {
           char_pos++;
         }
         if (char_pos == ident_length) {
@@ -327,11 +328,13 @@ void Scanner::ScanIdentChars(bool allow_dollar) {
 
   // We did not read a keyword.
   current_token_.kind = Token::kIDENT;
-  String& literal =
-      String::ZoneHandle(Z, Symbols::New(source_, ident_pos, ident_length));
+  String& literal = String::ZoneHandle(Z);
   if (ident_char0 == Library::kPrivateIdentifierStart) {
     // Private identifiers are mangled on a per library basis.
-    literal = Symbols::FromConcat(literal, private_key_);
+    literal = String::SubString(T, source_, ident_pos, ident_length);
+    literal = Symbols::FromConcat(T, literal, private_key_);
+  } else {
+    literal = Symbols::New(T, source_, ident_pos, ident_length);
   }
   current_token_.literal = &literal;
 }
@@ -367,8 +370,7 @@ void Scanner::ScanNumber(bool dec_point_seen) {
       }
     }
     if (((c0_ == 'e') || (c0_ == 'E')) &&
-        (IsDecimalDigit(LookaheadChar(1)) ||
-         (LookaheadChar(1) == '-') ||
+        (IsDecimalDigit(LookaheadChar(1)) || (LookaheadChar(1) == '-') ||
          (LookaheadChar(1) == '+'))) {
       Recognize(Token::kDOUBLE);
       if ((c0_ == '-') || (c0_ == '+')) {
@@ -386,7 +388,7 @@ void Scanner::ScanNumber(bool dec_point_seen) {
   if (current_token_.kind != Token::kILLEGAL) {
     intptr_t len = lookahead_pos_ - token_start_;
     const String& str =
-        String::ZoneHandle(Z, Symbols::New(source_, token_start_, len));
+        String::ZoneHandle(Z, Symbols::New(T, source_, token_start_, len));
     current_token_.literal = &str;
   }
 }
@@ -477,9 +479,7 @@ void Scanner::ScanEscapedCodePoint(int32_t* code_point) {
       }
     }
   }
-  if (is_valid &&
-      ((Utf::IsOutOfRange(*code_point) ||
-        (Utf16::IsSurrogate(*code_point))))) {
+  if (is_valid && (Utf::IsOutOfRange(*code_point))) {
     ErrorMsg("invalid code point");
   }
 }
@@ -539,8 +539,8 @@ void Scanner::ScanLiteralStringChars(bool is_raw, bool remove_whitespace) {
       // Scanned a string piece.
       ASSERT(string_chars.data() != NULL);
       // Strings are canonicalized: Allocate a symbol.
-      current_token_.literal = &String::ZoneHandle(Z,
-          Symbols::FromUTF32(string_chars.data(), string_chars.length()));
+      current_token_.literal = &String::ZoneHandle(
+          Z, Symbols::FromUTF32(T, string_chars.data(), string_chars.length()));
       // Preserve error tokens.
       if (current_token_.kind != Token::kERROR) {
         current_token_.kind = Token::kSTRING;
@@ -548,9 +548,8 @@ void Scanner::ScanLiteralStringChars(bool is_raw, bool remove_whitespace) {
       return;
     } else if (c0_ == string_delimiter_) {
       // Check if we are at the end of the string literal.
-      if (!string_is_multiline_ ||
-          ((LookaheadChar(1) == string_delimiter_) &&
-           (LookaheadChar(2) == string_delimiter_))) {
+      if (!string_is_multiline_ || ((LookaheadChar(1) == string_delimiter_) &&
+                                    (LookaheadChar(2) == string_delimiter_))) {
         if (string_is_multiline_) {
           ReadChar();  // Skip two string delimiters.
           ReadChar();
@@ -562,8 +561,9 @@ void Scanner::ScanLiteralStringChars(bool is_raw, bool remove_whitespace) {
           Recognize(Token::kSTRING);
           ASSERT(string_chars.data() != NULL);
           // Strings are canonicalized: Allocate a symbol.
-          current_token_.literal = &String::ZoneHandle(Z,
-              Symbols::FromUTF32(string_chars.data(), string_chars.length()));
+          current_token_.literal =
+              &String::ZoneHandle(Z, Symbols::FromUTF32(T, string_chars.data(),
+                                                        string_chars.length()));
         }
         EndStringLiteral();
         return;
@@ -871,8 +871,8 @@ void Scanner::Scan() {
           char utf8_char[5];
           int len = Utf8::Encode(c0_, utf8_char);
           utf8_char[len] = '\0';
-          OS::SNPrint(msg, sizeof(msg),
-                      "unexpected character: '%s' (U+%04X)\n", utf8_char, c0_);
+          OS::SNPrint(msg, sizeof(msg), "unexpected character: '%s' (U+%04X)\n",
+                      utf8_char, c0_);
           ErrorMsg(msg);
           ReadChar();
         }
@@ -881,82 +881,53 @@ void Scanner::Scan() {
 }
 
 
-void Scanner::ScanAll(GrowableTokenStream* token_stream) {
+void Scanner::ScanAll(TokenCollector* collector) {
   Reset();
   do {
     Scan();
-
     bool inserted_new_lines = false;
     for (intptr_t diff = current_token_.position.line - prev_token_line_;
-         diff > 0;
-         diff--) {
+         diff > 0; diff--) {
       newline_token_.position.line = current_token_.position.line - diff;
-      token_stream->Add(newline_token_);
+      collector->AddToken(newline_token_);
       inserted_new_lines = true;
     }
-
     if (inserted_new_lines &&
         ((current_token_.kind == Token::kINTERPOL_VAR) ||
          (current_token_.kind == Token::kINTERPOL_START))) {
       // NOTE: If this changes, be sure to update
       // Script::GenerateLineNumberArray to stay in sync.
       empty_string_token_.position.line = current_token_.position.line;
-      token_stream->Add(empty_string_token_);
+      collector->AddToken(empty_string_token_);
     }
-    token_stream->Add(current_token_);
+    collector->AddToken(current_token_);
     prev_token_line_ = current_token_.position.line;
   } while (current_token_.kind != Token::kEOS);
 }
 
 
-void Scanner::ScanTo(TokenPosition token_index) {
-  TokenPosition index = TokenPosition::kMinSource;
+void Scanner::ScanTo(intptr_t token_index) {
+  ASSERT(token_index >= 0);
+  intptr_t index = 0;
   Reset();
   do {
     Scan();
-
     bool inserted_new_lines = false;
     for (intptr_t diff = current_token_.position.line - prev_token_line_;
-         diff > 0;
-         diff--) {
+         diff > 0; diff--) {
       // Advance the index to account for tokens added in ScanAll.
-      index.Next();
+      index++;
       inserted_new_lines = true;
     }
-
     if (inserted_new_lines &&
         ((current_token_.kind == Token::kINTERPOL_VAR) ||
          (current_token_.kind == Token::kINTERPOL_START))) {
-          // Advance the index to account for tokens added in ScanAll.
-          index.Next();
+      // Advance the index to account for tokens added in ScanAll.
+      index++;
     }
-    index.Next();
+    index++;
     prev_token_line_ = current_token_.position.line;
   } while ((token_index >= index) && (current_token_.kind != Token::kEOS));
-}
-
-
-const Scanner::GrowableTokenStream& Scanner::GetStream() {
-  GrowableTokenStream* ts = new(Z) GrowableTokenStream(128);
-  ScanAll(ts);
-  if (FLAG_print_tokens) {
-    Scanner::PrintTokens(*ts);
-  }
-  return *ts;
-}
-
-
-void Scanner::PrintTokens(const GrowableTokenStream& ts) {
-  int currentLine = -1;
-  for (int i = 0; i < ts.length(); i++) {
-    const TokenDescriptor& td = ts[i];
-    if (currentLine != td.position.line) {
-      currentLine = td.position.line;
-      OS::Print("\n%d (%d): ", currentLine, i);
-    }
-    OS::Print("%s ", Token::Name(td.kind));
-  }
-  OS::Print("\n");
 }
 
 
@@ -970,7 +941,7 @@ void Scanner::InitOnce() {
     keywords_[i].kind = token;
     keywords_[i].keyword_chars = Token::Str(token);
     keywords_[i].keyword_len = strlen(Token::Str(token));
-    keywords_[i].keyword_symbol = &Symbols::Keyword(token);
+    keywords_[i].keyword_symbol = &Symbols::Token(token);
 
     int ch = keywords_[i].keyword_chars[0] - 'a';
     if (keywords_char_offset_[ch] == Token::kNumKeywords) {

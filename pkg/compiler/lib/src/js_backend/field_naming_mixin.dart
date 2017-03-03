@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of js_backend;
+part of js_backend.namer;
 
 abstract class _MinifiedFieldNamer implements Namer {
   _FieldNamingRegistry get fieldRegistry;
@@ -14,8 +14,9 @@ abstract class _MinifiedFieldNamer implements Namer {
   // this could be because the field belongs to a mixin. In such a case this
   // will return `null` and a normal field name has to be used.
   jsAst.Name _minifiedInstanceFieldPropertyName(Element element) {
-    if (backend.hasFixedBackendName(element)) {
-      return new StringBackedName(backend.getFixedBackendName(element));
+    if (backend.nativeData.hasFixedBackendName(element)) {
+      return new StringBackedName(
+          backend.nativeData.getFixedBackendName(element));
     }
 
     _FieldNamingScope names;
@@ -23,8 +24,7 @@ abstract class _MinifiedFieldNamer implements Namer {
       names = new _FieldNamingScope.forBox(element.box, fieldRegistry);
     } else {
       ClassElement cls = element.enclosingClass;
-      names =
-          new _FieldNamingScope.forClass(cls, compiler.world, fieldRegistry);
+      names = new _FieldNamingScope.forClass(cls, closedWorld, fieldRegistry);
     }
 
     if (names.containsField(element)) {
@@ -117,7 +117,7 @@ class _FieldNamingScope {
   }
 
   factory _FieldNamingScope.forClass(
-      ClassElement cls, ClassWorld world, _FieldNamingRegistry registry) {
+      ClassElement cls, ClosedWorld world, _FieldNamingRegistry registry) {
     _FieldNamingScope result = registry.scopes[cls];
     if (result != null) return result;
 
@@ -145,8 +145,8 @@ class _FieldNamingScope {
   }
 
   factory _FieldNamingScope.forBox(Local box, _FieldNamingRegistry registry) {
-    return registry.scopes.putIfAbsent(
-        box, () => new _BoxFieldNamingScope(box, registry));
+    return registry.scopes
+        .putIfAbsent(box, () => new _BoxFieldNamingScope(box, registry));
   }
 
   _FieldNamingScope.rootScope(this.container, this.registry)

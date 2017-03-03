@@ -6,12 +6,16 @@
 
 #include "vm/code_generator.h"
 #include "vm/flags.h"
+#include "vm/hash_table.h"
 #include "vm/heap.h"
 #include "vm/isolate.h"
 #include "vm/longjump.h"
 #include "vm/log.h"
 #include "vm/object_store.h"
+#include "vm/program_visitor.h"
 #include "vm/symbols.h"
+#include "vm/timeline.h"
+#include "vm/type_table.h"
 
 namespace dart {
 
@@ -77,7 +81,8 @@ void AddSuperType(const AbstractType& type,
 // Use array instead of set since we expect very few subclassed classes
 // to occur.
 static void CollectFinalizedSuperClasses(
-    const Class& cls_, GrowableArray<intptr_t>* finalized_super_classes) {
+    const Class& cls_,
+    GrowableArray<intptr_t>* finalized_super_classes) {
   Class& cls = Class::Handle(cls_.raw());
   AbstractType& super_type = Type::Handle();
   super_type = cls.super_type();
@@ -92,8 +97,8 @@ static void CollectFinalizedSuperClasses(
 }
 
 
-static void CollectImmediateSuperInterfaces(
-    const Class& cls, GrowableArray<intptr_t>* cids) {
+static void CollectImmediateSuperInterfaces(const Class& cls,
+                                            GrowableArray<intptr_t>* cids) {
   const Array& interfaces = Array::Handle(cls.interfaces());
   Class& ifc = Class::Handle();
   AbstractType& type = AbstractType::Handle();
@@ -116,8 +121,10 @@ static void CollectImmediateSuperInterfaces(
 // Processing ObjectStore::pending_classes_ occurs:
 // a) when bootstrap process completes (VerifyBootstrapClasses).
 // b) after the user classes are loaded (dart_api).
-bool ClassFinalizer::ProcessPendingClasses() {
+bool ClassFinalizer::ProcessPendingClasses(bool from_kernel) {
   Thread* thread = Thread::Current();
+  NOT_IN_PRODUCT(TimelineDurationScope tds(thread, Timeline::GetIsolateStream(),
+                                           "ProcessPendingClasses"));
   Isolate* isolate = thread->isolate();
   ASSERT(isolate != NULL);
   HANDLESCOPE(thread);
@@ -146,6 +153,12 @@ bool ClassFinalizer::ProcessPendingClasses() {
     for (intptr_t i = 0; i < class_array.Length(); i++) {
       cls ^= class_array.At(i);
       FinalizeTypesInClass(cls);
+      // Classes compiled from Dart sources are finalized more lazily, classes
+      // compiled from Kernel binaries can be finalized now (and should be,
+      // since we will not revisit them).
+      if (from_kernel) {
+        FinalizeClass(cls);
+      }
     }
     if (FLAG_print_classes) {
       for (intptr_t i = 0; i < class_array.Length(); i++) {
@@ -169,8 +182,8 @@ bool ClassFinalizer::ProcessPendingClasses() {
 
 // Adds all interfaces of cls into 'collected'. Duplicate entries may occur.
 // No cycles are allowed.
-void ClassFinalizer::CollectInterfaces(
-    const Class& cls, GrowableArray<const Class*>* collected) {
+void ClassFinalizer::CollectInterfaces(const Class& cls,
+                                       GrowableArray<const Class*>* collected) {
   Zone* zone = Thread::Current()->zone();
   const Array& interface_array = Array::Handle(zone, cls.interfaces());
   AbstractType& interface = AbstractType::Handle(zone);
@@ -184,7 +197,7 @@ void ClassFinalizer::CollectInterfaces(
 }
 
 
-#if defined(DART_NO_SNAPSHOT)
+#if !defined(DART_PRECOMPILED_RUNTIME)
 void ClassFinalizer::VerifyBootstrapClasses() {
   if (FLAG_trace_class_finalization) {
     OS::Print("VerifyBootstrapClasses START.\n");
@@ -250,7 +263,7 @@ void ClassFinalizer::VerifyBootstrapClasses() {
   }
   Isolate::Current()->heap()->Verify();
 }
-#endif  // defined(DART_NO_SNAPSHOT).
+#endif  // !defined(DART_PRECOMPILED_RUNTIME)
 
 
 static bool IsLoaded(const Type& type) {
@@ -259,32 +272,41 @@ static bool IsLoaded(const Type& type) {
   }
   const UnresolvedClass& unresolved_class =
       UnresolvedClass::Handle(type.unresolved_class());
-  const LibraryPrefix& prefix =
-      LibraryPrefix::Handle(unresolved_class.library_prefix());
-  return prefix.IsNull() || prefix.is_loaded();
+  const Object& prefix =
+      Object::Handle(unresolved_class.library_or_library_prefix());
+  if (prefix.IsNull()) {
+    return true;
+  } else if (prefix.IsLibraryPrefix()) {
+    return LibraryPrefix::Cast(prefix).is_loaded();
+  } else {
+    return true;
+  }
 }
 
 
 // Resolve unresolved_class in the library of cls, or return null.
 RawClass* ClassFinalizer::ResolveClass(
-      const Class& cls,
-      const UnresolvedClass& unresolved_class) {
+    const Class& cls,
+    const UnresolvedClass& unresolved_class) {
   const String& class_name = String::Handle(unresolved_class.ident());
   Library& lib = Library::Handle();
   Class& resolved_class = Class::Handle();
-  if (unresolved_class.library_prefix() == LibraryPrefix::null()) {
+  if (unresolved_class.library_or_library_prefix() == Object::null()) {
     lib = cls.library();
     ASSERT(!lib.IsNull());
     resolved_class = lib.LookupClass(class_name);
   } else {
-    LibraryPrefix& lib_prefix = LibraryPrefix::Handle();
-    lib_prefix = unresolved_class.library_prefix();
-    ASSERT(!lib_prefix.IsNull());
-    resolved_class = lib_prefix.LookupClass(class_name);
+    const Object& prefix =
+        Object::Handle(unresolved_class.library_or_library_prefix());
+
+    if (prefix.IsLibraryPrefix()) {
+      resolved_class = LibraryPrefix::Cast(prefix).LookupClass(class_name);
+    } else {
+      resolved_class = Library::Cast(prefix).LookupClass(class_name);
+    }
   }
   return resolved_class.raw();
 }
-
 
 
 void ClassFinalizer::ResolveRedirectingFactory(const Class& cls,
@@ -351,19 +373,18 @@ void ClassFinalizer::ResolveRedirectingFactoryTarget(
   ASSERT(!type.IsTypeParameter());  // Resolved in parser.
   if (type.IsDynamicType()) {
     // Replace the type with a malformed type and compile a throw when called.
-    type = NewFinalizedMalformedType(
-        Error::Handle(),  // No previous error.
-        Script::Handle(cls.script()),
-        factory.token_pos(),
-        "factory may not redirect to 'dynamic'");
+    type = NewFinalizedMalformedType(Error::Handle(),  // No previous error.
+                                     Script::Handle(cls.script()),
+                                     factory.token_pos(),
+                                     "factory may not redirect to 'dynamic'");
     factory.SetRedirectionType(type);
     ASSERT(factory.RedirectionTarget() == Function::null());
     return;
   }
   const Class& target_class = Class::Handle(type.type_class());
   String& target_class_name = String::Handle(target_class.Name());
-  String& target_name = String::Handle(
-      String::Concat(target_class_name, Symbols::Dot()));
+  String& target_name =
+      String::Handle(String::Concat(target_class_name, Symbols::Dot()));
   const String& identifier = String::Handle(factory.RedirectionIdentifier());
   if (!identifier.IsNull()) {
     target_name = String::Concat(target_name, identifier);
@@ -380,11 +401,9 @@ void ClassFinalizer::ResolveRedirectingFactoryTarget(
     // Replace the type with a malformed type and compile a throw when called.
     type = NewFinalizedMalformedType(
         Error::Handle(),  // No previous error.
-        Script::Handle(target_class.script()),
-        factory.token_pos(),
+        Script::Handle(target_class.script()), factory.token_pos(),
         "class '%s' has no constructor or factory named '%s'",
-        target_class_name.ToCString(),
-        user_visible_target_name.ToCString());
+        target_class_name.ToCString(), user_visible_target_name.ToCString());
     factory.SetRedirectionType(type);
     ASSERT(factory.RedirectionTarget() == Function::null());
     return;
@@ -438,8 +457,8 @@ void ClassFinalizer::ResolveRedirectingFactoryTarget(
     if (!target_type.IsInstantiated()) {
       const TypeArguments& type_args = TypeArguments::Handle(type.arguments());
       Error& bound_error = Error::Handle();
-      target_type ^= target_type.InstantiateFrom(
-          type_args, &bound_error, NULL, NULL, Heap::kOld);
+      target_type ^= target_type.InstantiateFrom(type_args, &bound_error, NULL,
+                                                 NULL, Heap::kOld);
       if (bound_error.IsNull()) {
         target_type ^= FinalizeType(cls, target_type, kCanonicalize);
       } else {
@@ -456,10 +475,9 @@ void ClassFinalizer::ResolveRedirectingFactoryTarget(
 }
 
 
-RawAbstractType* ClassFinalizer::ResolveTypeClass(const Class& cls,
-                                                  const Type& type) {
+void ClassFinalizer::ResolveTypeClass(const Class& cls, const Type& type) {
   if (type.IsFinalized()) {
-    return type.raw();
+    return;
   }
   if (FLAG_trace_type_finalization) {
     THR_Print("Resolve type class of '%s'\n",
@@ -482,79 +500,110 @@ RawAbstractType* ClassFinalizer::ResolveTypeClass(const Class& cls,
     type_class = ResolveClass(cls, unresolved_class);
     if (type_class.IsNull()) {
       // The type class could not be resolved. The type is malformed.
-      FinalizeMalformedType(
-          Error::Handle(),  // No previous error.
-          Script::Handle(cls.script()),
-          type,
-          "cannot resolve class '%s' from '%s'",
-          String::Handle(unresolved_class.Name()).ToCString(),
-          String::Handle(cls.Name()).ToCString());
-      return type.raw();
+      FinalizeMalformedType(Error::Handle(),  // No previous error.
+                            Script::Handle(cls.script()), type,
+                            "cannot resolve class '%s' from '%s'",
+                            String::Handle(unresolved_class.Name()).ToCString(),
+                            String::Handle(cls.Name()).ToCString());
+      return;
     }
+    // Replace unresolved class with resolved type class.
+    type.set_type_class(type_class);
   }
-  // Promote the Type to a FunctionType in case its type class is a typedef.
-  if (type_class.IsTypedefClass()) {
-    return FunctionType::New(type_class,
-                             TypeArguments::Handle(type.arguments()),
-                             Function::Handle(type_class.signature_function()),
-                             type.token_pos());
+  // Promote the type to a function type in case its type class is a typedef.
+  // Note that the type may already be a function type if it was parsed as a
+  // formal parameter function type.
+  if (!type.IsFunctionType() && type_class.IsTypedefClass() &&
+      !type.IsMalformedOrMalbounded()) {
+    type.set_signature(Function::Handle(type_class.signature_function()));
   }
-  // Replace unresolved class with resolved type class.
-  type.set_type_class(type_class);
-  return type.raw();
+  ASSERT(!type_class.IsTypedefClass() ||
+         (type.signature() != Function::null()));
+
+  // Replace FutureOr<T> type of async library with dynamic.
+  if ((type_class.library() == Library::AsyncLibrary()) &&
+      (type_class.Name() == Symbols::FutureOr().raw())) {
+    Type::Cast(type).set_type_class(Class::Handle(Object::dynamic_class()));
+    type.set_arguments(Object::null_type_arguments());
+  }
 }
 
 
-RawAbstractType* ClassFinalizer::ResolveType(const Class& cls,
-                                             const AbstractType& type) {
+void ClassFinalizer::ResolveType(const Class& cls, const AbstractType& type) {
   if (type.IsResolved()) {
-    return type.raw();
+    return;
   }
   if (FLAG_trace_type_finalization) {
     THR_Print("Resolve type '%s'\n", String::Handle(type.Name()).ToCString());
   }
-  AbstractType& resolved_type = AbstractType::Handle();
   if (type.IsType()) {
-    resolved_type = ResolveTypeClass(cls, Type::Cast(type));
-    if (resolved_type.IsMalformed()) {
-      ASSERT(resolved_type.IsResolved());
-      return resolved_type.raw();
+    ResolveTypeClass(cls, Type::Cast(type));
+    if (type.IsMalformed()) {
+      ASSERT(type.IsResolved());
+      return;
     }
-  } else {
-    ASSERT(type.IsFunctionType());
-    const Function& signature =
-        Function::Handle(FunctionType::Cast(type).signature());
-    const Class& scope_class =
-        Class::Handle(FunctionType::Cast(type).scope_class());
-    if (scope_class.IsTypedefClass()) {
-      ResolveSignature(scope_class, signature);
-    } else {
-      ResolveSignature(cls, signature);
-    }
-    resolved_type = type.raw();
   }
-  // Mark type as resolved before resolving its type arguments in order to avoid
-  // repeating resolution of recursive types.
-  resolved_type.SetIsResolved();
+  // Mark type as resolved before resolving its type arguments and, in case of a
+  // function type, its signature, in order to avoid cycles.
+  type.SetIsResolved();
   // Resolve type arguments, if any.
-  const TypeArguments& arguments =
-      TypeArguments::Handle(resolved_type.arguments());
+  const TypeArguments& arguments = TypeArguments::Handle(type.arguments());
   if (!arguments.IsNull()) {
     const intptr_t num_arguments = arguments.Length();
     AbstractType& type_argument = AbstractType::Handle();
     for (intptr_t i = 0; i < num_arguments; i++) {
       type_argument = arguments.TypeAt(i);
-      type_argument = ResolveType(cls, type_argument);
-      arguments.SetTypeAt(i, type_argument);
+      ResolveType(cls, type_argument);
     }
   }
-  return resolved_type.raw();
+  // Resolve signature if function type.
+  if (type.IsFunctionType()) {
+    const Function& signature = Function::Handle(Type::Cast(type).signature());
+    Type& signature_type = Type::Handle(signature.SignatureType());
+    if (signature_type.raw() != type.raw()) {
+      ResolveType(cls, signature_type);
+    } else {
+      const Class& scope_class = Class::Handle(type.type_class());
+      if (scope_class.IsTypedefClass()) {
+        ResolveSignature(scope_class, signature);
+      } else {
+        ResolveSignature(cls, signature);
+        if ((type.arguments() != TypeArguments::null()) &&
+            signature.HasInstantiatedSignature()) {
+          ASSERT(scope_class.IsGeneric());
+          // Although the scope class of this function type is generic,
+          // the signature of this function type does not refer to any
+          // of its type parameters. Reset its scope class to _Closure.
+          Type::Cast(type).set_type_class(Class::Handle(
+              Isolate::Current()->object_store()->closure_class()));
+          type.set_arguments(Object::null_type_arguments());
+        }
+      }
+      if (signature.IsSignatureFunction()) {
+        // Drop fields that are not necessary anymore after resolution.
+        // The parent function, owner, and token position of a shared
+        // canonical function type are meaningless, since the canonical
+        // representent is picked arbitrarily.
+        signature.set_parent_function(Function::Handle());
+        // TODO(regis): As long as we support metadata in typedef signatures,
+        // we cannot reset these fields used to reparse a typedef.
+        // Note that the scope class of a typedef function type is always
+        // preserved as the typedef class (not reset to _Closure class), thereby
+        // preventing sharing of canonical function types between typedefs.
+        // Not being shared, these fields are therefore always meaningful for
+        // typedefs.
+        if (!scope_class.IsTypedefClass()) {
+          signature.set_owner(Object::Handle());
+          signature.set_token_pos(TokenPosition::kNoSource);
+        }
+      }
+    }
+  }
 }
 
 
-void ClassFinalizer::FinalizeTypeParameters(
-    const Class& cls,
-    PendingTypes* pending_types) {
+void ClassFinalizer::FinalizeTypeParameters(const Class& cls,
+                                            PendingTypes* pending_types) {
   if (FLAG_trace_type_finalization) {
     THR_Print("Finalizing type parameters of '%s'\n",
               String::Handle(cls.Name()).ToCString());
@@ -572,8 +621,8 @@ void ClassFinalizer::FinalizeTypeParameters(
     const intptr_t num_types = type_parameters.Length();
     for (intptr_t i = 0; i < num_types; i++) {
       type_parameter ^= type_parameters.TypeAt(i);
-      type_parameter ^= FinalizeType(
-          cls, type_parameter, kFinalize, pending_types);
+      type_parameter ^=
+          FinalizeType(cls, type_parameter, kFinalize, pending_types);
       type_parameters.SetTypeAt(i, type_parameter);
     }
   }
@@ -596,8 +645,7 @@ void ClassFinalizer::CheckRecursiveType(const Class& cls,
   Zone* zone = Thread::Current()->zone();
   if (FLAG_trace_type_finalization) {
     THR_Print("Checking recursive type '%s': %s\n",
-              String::Handle(type.Name()).ToCString(),
-              type.ToCString());
+              String::Handle(type.Name()).ToCString(), type.ToCString());
   }
   const Class& type_cls = Class::Handle(zone, type.type_class());
   const TypeArguments& arguments =
@@ -629,19 +677,17 @@ void ClassFinalizer::CheckRecursiveType(const Class& cls,
                 String::Handle(pending_type.Name()).ToCString(),
                 pending_type.ToCString());
     }
-    if ((pending_type.raw() != type.raw()) &&
-        pending_type.IsType() &&
+    if ((pending_type.raw() != type.raw()) && pending_type.IsType() &&
         (pending_type.type_class() == type_cls.raw())) {
       pending_arguments = pending_type.arguments();
-      if (!pending_arguments.IsSubvectorEquivalent(arguments,
-                                                   first_type_param,
+      if (!pending_arguments.IsSubvectorEquivalent(arguments, first_type_param,
                                                    num_type_params) &&
           !pending_arguments.IsSubvectorInstantiated(first_type_param,
                                                      num_type_params)) {
         // Reject the non-contractive recursive type.
         const String& type_name = String::Handle(zone, type.Name());
-        ReportError(cls, type.token_pos(),
-                    "illegal recursive type '%s'", type_name.ToCString());
+        ReportError(cls, type.token_pos(), "illegal recursive type '%s'",
+                    type_name.ToCString());
       }
     }
   }
@@ -654,13 +700,13 @@ intptr_t ClassFinalizer::ExpandAndFinalizeTypeArguments(
     const Class& cls,
     const AbstractType& type,
     PendingTypes* pending_types) {
-  Zone* Z = Thread::Current()->zone();
+  Zone* zone = Thread::Current()->zone();
   // The type class does not need to be finalized in order to finalize the type,
   // however, it must at least be resolved (this was done as part of resolving
   // the type itself, a precondition to calling FinalizeType).
   // Also, the interfaces of the type class must be resolved and the type
   // parameters of the type class must be finalized.
-  Class& type_class = Class::Handle(Z, type.type_class());
+  Class& type_class = Class::Handle(zone, type.type_class());
   if (!type_class.is_type_finalized()) {
     FinalizeTypeParameters(type_class, pending_types);
     ResolveUpperBounds(type_class);
@@ -673,18 +719,18 @@ intptr_t ClassFinalizer::ExpandAndFinalizeTypeArguments(
 
   // If we are not reifying types, drop type arguments.
   if (!FLAG_reify) {
-    type.set_arguments(TypeArguments::Handle(Z, TypeArguments::null()));
+    type.set_arguments(Object::null_type_arguments());
   }
 
   // Initialize the type argument vector.
   // Check the number of parsed type arguments, if any.
   // Specifying no type arguments indicates a raw type, which is not an error.
   // However, type parameter bounds are checked below, even for a raw type.
-  TypeArguments& arguments = TypeArguments::Handle(Z, type.arguments());
+  TypeArguments& arguments = TypeArguments::Handle(zone, type.arguments());
   if (!arguments.IsNull() && (arguments.Length() != num_type_parameters)) {
     // Wrong number of type arguments. The type is mapped to the raw type.
     if (Isolate::Current()->error_on_bad_type()) {
-      const String& type_class_name = String::Handle(Z, type_class.Name());
+      const String& type_class_name = String::Handle(zone, type_class.Name());
       ReportError(cls, type.token_pos(),
                   "wrong number of type arguments for class '%s'",
                   type_class_name.ToCString());
@@ -704,7 +750,7 @@ intptr_t ClassFinalizer::ExpandAndFinalizeTypeArguments(
   // The full type argument vector consists of the type arguments of the
   // super types of type_class, which are initialized from the parsed
   // type arguments, followed by the parsed type arguments.
-  TypeArguments& full_arguments = TypeArguments::Handle(Z);
+  TypeArguments& full_arguments = TypeArguments::Handle(zone);
   if (FLAG_reify && (num_type_arguments > 0)) {
     // If no type arguments were parsed and if the super types do not prepend
     // type arguments to the vector, we can leave the vector as null.
@@ -713,8 +759,7 @@ intptr_t ClassFinalizer::ExpandAndFinalizeTypeArguments(
       // Copy the parsed type arguments at the correct offset in the full type
       // argument vector.
       const intptr_t offset = num_type_arguments - num_type_parameters;
-      AbstractType& type_arg =
-          AbstractType::Handle(Z, Type::DynamicType());
+      AbstractType& type_arg = AbstractType::Handle(zone, Type::DynamicType());
       // Leave the temporary type arguments at indices [0..offset[ as null.
       for (intptr_t i = 0; i < num_type_parameters; i++) {
         // If no type parameters were provided, a raw type is desired, so we
@@ -746,10 +791,10 @@ intptr_t ClassFinalizer::ExpandAndFinalizeTypeArguments(
         }
       }
       if (offset > 0) {
-        TrailPtr instantiation_trail = new Trail(Z, 4);
-        Error& bound_error = Error::Handle(Z);
-        FinalizeTypeArguments(type_class, full_arguments, offset,
-                              &bound_error, pending_types, instantiation_trail);
+        TrailPtr instantiation_trail = new Trail(zone, 4);
+        Error& bound_error = Error::Handle(zone);
+        FinalizeTypeArguments(type_class, full_arguments, offset, &bound_error,
+                              pending_types, instantiation_trail);
       }
       if (full_arguments.IsRaw(0, num_type_arguments)) {
         // The parameterized_type is raw. Set its argument vector to null, which
@@ -768,8 +813,8 @@ intptr_t ClassFinalizer::ExpandAndFinalizeTypeArguments(
            !full_arguments.IsRaw(0, num_type_arguments));
     if (FLAG_trace_type_finalization) {
       THR_Print("Marking type '%s' as finalized for class '%s'\n",
-                String::Handle(Z, type.Name()).ToCString(),
-                String::Handle(Z, cls.Name()).ToCString());
+                String::Handle(zone, type.Name()).ToCString(),
+                String::Handle(zone, cls.Name()).ToCString());
     }
     // Mark the type as finalized.
     type.SetIsFinalized();
@@ -812,13 +857,12 @@ intptr_t ClassFinalizer::ExpandAndFinalizeTypeArguments(
 // same time. Canonicalization happens when pending types are processed.
 // The trail is required to correctly instantiate a recursive type argument
 // of the super type.
-void ClassFinalizer::FinalizeTypeArguments(
-    const Class& cls,
-    const TypeArguments& arguments,
-    intptr_t num_uninitialized_arguments,
-    Error* bound_error,
-    PendingTypes* pending_types,
-    TrailPtr instantiation_trail) {
+void ClassFinalizer::FinalizeTypeArguments(const Class& cls,
+                                           const TypeArguments& arguments,
+                                           intptr_t num_uninitialized_arguments,
+                                           Error* bound_error,
+                                           PendingTypes* pending_types,
+                                           TrailPtr instantiation_trail) {
   ASSERT(arguments.Length() >= cls.NumTypeArguments());
   if (!cls.is_type_finalized()) {
     FinalizeTypeParameters(cls, pending_types);
@@ -832,12 +876,11 @@ void ClassFinalizer::FinalizeTypeArguments(
     ASSERT(num_super_type_args ==
            (cls.NumTypeArguments() - cls.NumOwnTypeArguments()));
     if (!super_type.IsFinalized() && !super_type.IsBeingFinalized()) {
-      super_type ^= FinalizeType(
-          cls, super_type, kFinalize, pending_types);
+      super_type ^= FinalizeType(cls, super_type, kFinalize, pending_types);
       cls.set_super_type(super_type);
     }
-    TypeArguments& super_type_args = TypeArguments::Handle(
-        super_type.arguments());
+    TypeArguments& super_type_args =
+        TypeArguments::Handle(super_type.arguments());
     // Offset of super type's type parameters in cls' type argument vector.
     const intptr_t super_offset = num_super_type_args - num_super_type_params;
     AbstractType& super_type_arg = AbstractType::Handle(Type::DynamicType());
@@ -846,7 +889,7 @@ void ClassFinalizer::FinalizeTypeArguments(
         super_type_arg = super_type_args.TypeAt(i);
         if (!super_type_arg.IsTypeRef()) {
           if (super_type_arg.IsBeingFinalized()) {
-            ASSERT(super_type_arg.IsType() || super_type_arg.IsFunctionType());
+            ASSERT(super_type_arg.IsType());
             CheckRecursiveType(cls, super_type_arg, pending_types);
             if (FLAG_trace_type_finalization) {
               THR_Print("Creating TypeRef '%s': '%s'\n",
@@ -857,8 +900,8 @@ void ClassFinalizer::FinalizeTypeArguments(
             super_type_args.SetTypeAt(i, super_type_arg);
           } else {
             if (!super_type_arg.IsFinalized()) {
-              super_type_arg ^= FinalizeType(
-                  cls, super_type_arg, kFinalize, pending_types);
+              super_type_arg ^=
+                  FinalizeType(cls, super_type_arg, kFinalize, pending_types);
               super_type_args.SetTypeAt(i, super_type_arg);
               // Note that super_type_arg may still not be finalized here, in
               // which case it is a TypeRef to a legal recursive type.
@@ -868,13 +911,13 @@ void ClassFinalizer::FinalizeTypeArguments(
         // Instantiate super_type_arg with the current argument vector.
         if (!super_type_arg.IsInstantiated()) {
           if (FLAG_trace_type_finalization && super_type_arg.IsTypeRef()) {
-            AbstractType& ref_type = AbstractType::Handle(
-                TypeRef::Cast(super_type_arg).type());
-            THR_Print("Instantiating TypeRef '%s': '%s'\n"
-                      "  instantiator: '%s'\n",
-                      String::Handle(super_type_arg.Name()).ToCString(),
-                      ref_type.ToCString(),
-                      arguments.ToCString());
+            AbstractType& ref_type =
+                AbstractType::Handle(TypeRef::Cast(super_type_arg).type());
+            THR_Print(
+                "Instantiating TypeRef '%s': '%s'\n"
+                "  instantiator: '%s'\n",
+                String::Handle(super_type_arg.Name()).ToCString(),
+                ref_type.ToCString(), arguments.ToCString());
           }
           Error& error = Error::Handle();
           super_type_arg = super_type_arg.InstantiateFrom(
@@ -900,20 +943,17 @@ void ClassFinalizer::FinalizeTypeArguments(
             pending_types->Add(super_type_arg);
             const Class& cls = Class::Handle(super_type_arg.type_class());
             FinalizeTypeArguments(
-                cls,
-                TypeArguments::Handle(super_type_arg.arguments()),
-                cls.NumTypeArguments() - cls.NumTypeParameters(),
-                bound_error,
-                pending_types,
-                instantiation_trail);
+                cls, TypeArguments::Handle(super_type_arg.arguments()),
+                cls.NumTypeArguments() - cls.NumTypeParameters(), bound_error,
+                pending_types, instantiation_trail);
             Type::Cast(super_type_arg).SetIsFinalized();
           }
         }
       }
       arguments.SetTypeAt(i, super_type_arg);
     }
-    FinalizeTypeArguments(super_class, arguments, super_offset,
-                          bound_error, pending_types, instantiation_trail);
+    FinalizeTypeArguments(super_class, arguments, super_offset, bound_error,
+                          pending_types, instantiation_trail);
   }
 }
 
@@ -999,19 +1039,21 @@ void ClassFinalizer::CheckTypeArgumentBounds(const Class& cls,
           !(type_arg.Equals(type_param) &&
             instantiated_bound.Equals(declared_bound))) {
         // If type_arg is a type parameter, its declared bound may not be
-        // resolved yet.
+        // finalized yet.
         if (type_arg.IsTypeParameter()) {
           const Class& type_arg_cls = Class::Handle(
               TypeParameter::Cast(type_arg).parameterized_class());
-          AbstractType& bound = AbstractType::Handle(
-              TypeParameter::Cast(type_arg).bound());
-          bound = ResolveType(type_arg_cls, bound);
-          TypeParameter::Cast(type_arg).set_bound(bound);
+          AbstractType& bound =
+              AbstractType::Handle(TypeParameter::Cast(type_arg).bound());
+          if (!bound.IsFinalized() && !bound.IsBeingFinalized()) {
+            bound = FinalizeType(type_arg_cls, bound, kCanonicalize);
+            TypeParameter::Cast(type_arg).set_bound(bound);
+          }
         }
         // This may be called only if type needs to be finalized, therefore
         // seems OK to allocate finalized types in old space.
-        if (!type_param.CheckBound(type_arg, instantiated_bound,
-                                   &error, NULL, Heap::kOld) &&
+        if (!type_param.CheckBound(type_arg, instantiated_bound, &error, NULL,
+                                   Heap::kOld) &&
             error.IsNull()) {
           // The bound cannot be checked at compile time; postpone to run time.
           type_arg = BoundedType::New(type_arg, instantiated_bound, type_param);
@@ -1033,21 +1075,21 @@ void ClassFinalizer::CheckTypeArgumentBounds(const Class& cls,
 
 void ClassFinalizer::CheckTypeBounds(const Class& cls,
                                      const AbstractType& type) {
-  Zone* Z = Thread::Current()->zone();
-  ASSERT(type.IsType() || type.IsFunctionType());
+  Zone* zone = Thread::Current()->zone();
+  ASSERT(type.IsType());
   ASSERT(type.IsFinalized());
   ASSERT(!type.IsCanonical());
-  TypeArguments& arguments = TypeArguments::Handle(Z, type.arguments());
+  TypeArguments& arguments = TypeArguments::Handle(zone, type.arguments());
   if (arguments.IsNull()) {
     return;
   }
   if (FLAG_trace_type_finalization) {
     THR_Print("Checking bounds of type '%s' for class '%s'\n",
-              String::Handle(Z, type.Name()).ToCString(),
-              String::Handle(Z, cls.Name()).ToCString());
+              String::Handle(zone, type.Name()).ToCString(),
+              String::Handle(zone, cls.Name()).ToCString());
   }
-  const Class& type_class = Class::Handle(Z, type.type_class());
-  Error& bound_error = Error::Handle(Z);
+  const Class& type_class = Class::Handle(zone, type.type_class());
+  Error& bound_error = Error::Handle(zone);
   CheckTypeArgumentBounds(type_class, arguments, &bound_error);
   // CheckTypeArgumentBounds may have indirectly canonicalized this type.
   if (!type.IsCanonical()) {
@@ -1056,42 +1098,36 @@ void ClassFinalizer::CheckTypeBounds(const Class& cls,
     // The bound error will be ignored in production mode.
     if (!bound_error.IsNull()) {
       // No compile-time error during finalization.
-      const String& type_name = String::Handle(Z, type.UserVisibleName());
-      FinalizeMalboundedType(bound_error,
-                             Script::Handle(Z, cls.script()),
-                             type,
-                             "type '%s' has an out of bound type argument",
-                             type_name.ToCString());
+      const String& type_name = String::Handle(zone, type.UserVisibleName());
+      FinalizeMalboundedType(
+          bound_error, Script::Handle(zone, cls.script()), type,
+          "type '%s' has an out of bound type argument", type_name.ToCString());
       if (FLAG_trace_type_finalization) {
         THR_Print("Marking type '%s' as malbounded: %s\n",
-                  String::Handle(Z, type.Name()).ToCString(),
+                  String::Handle(zone, type.Name()).ToCString(),
                   bound_error.ToErrorCString());
       }
     }
   }
   if (FLAG_trace_type_finalization) {
     THR_Print("Done checking bounds of type '%s': %s\n",
-              String::Handle(Z, type.Name()).ToCString(),
-              type.ToCString());
+              String::Handle(zone, type.Name()).ToCString(), type.ToCString());
   }
 }
 
 
-RawAbstractType* ClassFinalizer::FinalizeType(
-    const Class& cls,
-    const AbstractType& type,
-    FinalizationKind finalization,
-    PendingTypes* pending_types) {
+RawAbstractType* ClassFinalizer::FinalizeType(const Class& cls,
+                                              const AbstractType& type,
+                                              FinalizationKind finalization,
+                                              PendingTypes* pending_types) {
   // Only the 'root' type of the graph can be canonicalized, after all depending
   // types have been bound checked.
   ASSERT((pending_types == NULL) || (finalization < kCanonicalize));
   if (type.IsFinalized()) {
     // Ensure type is canonical if canonicalization is requested, unless type is
     // malformed.
-    if ((finalization >= kCanonicalize) &&
-        !type.IsMalformed() &&
-        !type.IsCanonical() &&
-        (type.IsType() || type.IsFunctionType())) {
+    if ((finalization >= kCanonicalize) && !type.IsMalformed() &&
+        !type.IsCanonical() && type.IsType()) {
       CheckTypeBounds(cls, type);
       return type.Canonicalize();
     }
@@ -1109,25 +1145,24 @@ RawAbstractType* ClassFinalizer::FinalizeType(
   // encountered here.
   ASSERT(!type.IsBeingFinalized());
 
-  Zone* Z = Thread::Current()->zone();
-  const AbstractType& resolved_type =
-      AbstractType::Handle(Z, ResolveType(cls, type));
+  Zone* zone = Thread::Current()->zone();
+  ResolveType(cls, type);
   // A malformed type gets mapped to a finalized type.
-  if (resolved_type.IsMalformed()) {
-    ASSERT(resolved_type.IsFinalized());
-    return resolved_type.raw();
+  if (type.IsMalformed()) {
+    ASSERT(type.IsFinalized());
+    return type.raw();
   }
 
   if (FLAG_trace_type_finalization) {
     THR_Print("Finalizing type '%s' for class '%s'\n",
-              String::Handle(Z, resolved_type.Name()).ToCString(),
-              String::Handle(Z, cls.Name()).ToCString());
+              String::Handle(zone, type.Name()).ToCString(),
+              String::Handle(zone, cls.Name()).ToCString());
   }
 
-  if (resolved_type.IsTypeParameter()) {
-    const TypeParameter& type_parameter = TypeParameter::Cast(resolved_type);
+  if (type.IsTypeParameter()) {
+    const TypeParameter& type_parameter = TypeParameter::Cast(type);
     const Class& parameterized_class =
-        Class::Handle(Z, type_parameter.parameterized_class());
+        Class::Handle(zone, type_parameter.parameterized_class());
     ASSERT(!parameterized_class.IsNull());
     // The index must reflect the position of this type parameter in the type
     // arguments vector of its parameterized class. The offset to add is the
@@ -1147,7 +1182,7 @@ RawAbstractType* ClassFinalizer::FinalizeType(
 
     if (FLAG_trace_type_finalization) {
       THR_Print("Done finalizing type parameter '%s' with index %" Pd "\n",
-                String::Handle(Z, type_parameter.name()).ToCString(),
+                String::Handle(zone, type_parameter.name()).ToCString(),
                 type_parameter.index());
     }
 
@@ -1155,18 +1190,18 @@ RawAbstractType* ClassFinalizer::FinalizeType(
     return type_parameter.raw();
   }
 
-  // At this point, we can only have a Type or a FunctionType.
-  ASSERT(resolved_type.IsType() || resolved_type.IsFunctionType());
+  // At this point, we can only have a Type.
+  ASSERT(type.IsType());
 
   // This type is the root type of the type graph if no pending types queue is
   // allocated yet.
   const bool is_root_type = (pending_types == NULL);
   if (is_root_type) {
-    pending_types = new PendingTypes(Z, 4);
+    pending_types = new PendingTypes(zone, 4);
   }
 
   const intptr_t num_expanded_type_arguments =
-      ExpandAndFinalizeTypeArguments(cls, resolved_type, pending_types);
+      ExpandAndFinalizeTypeArguments(cls, type, pending_types);
 
   // If we are done finalizing a graph of mutually recursive types, check their
   // bounds.
@@ -1179,18 +1214,18 @@ RawAbstractType* ClassFinalizer::FinalizeType(
     }
   }
 
-  // If the type is a FunctionType, we also need to finalize the types in its
+  // If the type is a function type, we also need to finalize the types in its
   // signature, i.e. finalize the result type and parameter types of the
   // signature function of this function type.
   // We do this after marking this type as finalized in order to allow a
   // function type to refer to itself via its parameter types and result type.
   // Note that we do not instantiate these types according to the type
   // arguments. This will happen on demand when executing a type test.
-  if (resolved_type.IsFunctionType()) {
+  if (type.IsFunctionType()) {
     const Function& signature =
-        Function::Handle(Z, FunctionType::Cast(resolved_type).signature());
+        Function::Handle(zone, Type::Cast(type).signature());
     const Class& scope_class =
-        Class::Handle(Z, FunctionType::Cast(resolved_type).scope_class());
+        Class::Handle(zone, Type::Cast(type).type_class());
     if (scope_class.IsTypedefClass()) {
       FinalizeSignature(scope_class, signature);
     } else {
@@ -1200,58 +1235,78 @@ RawAbstractType* ClassFinalizer::FinalizeType(
 
   if (FLAG_trace_type_finalization) {
     THR_Print("Done finalizing type '%s' with %" Pd " type args: %s\n",
-              String::Handle(Z, resolved_type.Name()).ToCString(),
-              num_expanded_type_arguments,
-              resolved_type.ToCString());
+              String::Handle(zone, type.Name()).ToCString(),
+              num_expanded_type_arguments, type.ToCString());
   }
 
   if (finalization >= kCanonicalize) {
     if (FLAG_trace_type_finalization) {
       THR_Print("Canonicalizing type '%s'\n",
-                String::Handle(Z, resolved_type.Name()).ToCString());
+                String::Handle(zone, type.Name()).ToCString());
       AbstractType& canonical_type =
-          AbstractType::Handle(Z, resolved_type.Canonicalize());
+          AbstractType::Handle(zone, type.Canonicalize());
       THR_Print("Done canonicalizing type '%s'\n",
-                String::Handle(Z, canonical_type.Name()).ToCString());
+                String::Handle(zone, canonical_type.Name()).ToCString());
       return canonical_type.raw();
     }
-    return resolved_type.Canonicalize();
+    return type.Canonicalize();
   } else {
-    return resolved_type.raw();
+    return type.raw();
   }
 }
 
 
 void ClassFinalizer::ResolveSignature(const Class& cls,
                                       const Function& function) {
+  AbstractType& type = AbstractType::Handle();
+  // Resolve upper bounds of function type parameters.
+  const intptr_t num_type_params = function.NumTypeParameters();
+  if (num_type_params > 0) {
+    TypeParameter& type_param = TypeParameter::Handle();
+    const TypeArguments& type_params =
+        TypeArguments::Handle(function.type_parameters());
+    for (intptr_t i = 0; i < num_type_params; i++) {
+      type_param ^= type_params.TypeAt(i);
+      type = type_param.bound();
+      ResolveType(cls, type);
+    }
+  }
   // Resolve result type.
-  AbstractType& type = AbstractType::Handle(function.result_type());
+  type = function.result_type();
   // It is not a compile time error if this name does not resolve to a class or
   // interface.
-  AbstractType& resolved_type = AbstractType::Handle(ResolveType(cls, type));
-  if (resolved_type.raw() != type.raw()) {
-    function.set_result_type(resolved_type);
-  }
+  ResolveType(cls, type);
   // Resolve formal parameter types.
   const intptr_t num_parameters = function.NumParameters();
   for (intptr_t i = 0; i < num_parameters; i++) {
     type = function.ParameterTypeAt(i);
-    resolved_type = ResolveType(cls, type);
-    if (resolved_type.raw() != type.raw()) {
-      function.SetParameterTypeAt(i, resolved_type);
-    }
+    ResolveType(cls, type);
   }
 }
 
 
 void ClassFinalizer::FinalizeSignature(const Class& cls,
                                        const Function& function) {
+  AbstractType& type = AbstractType::Handle();
+  AbstractType& finalized_type = AbstractType::Handle();
+  // Finalize upper bounds of function type parameters.
+  const intptr_t num_type_params = function.NumTypeParameters();
+  if (num_type_params > 0) {
+    TypeParameter& type_param = TypeParameter::Handle();
+    const TypeArguments& type_params =
+        TypeArguments::Handle(function.type_parameters());
+    for (intptr_t i = 0; i < num_type_params; i++) {
+      type_param ^= type_params.TypeAt(i);
+      type = type_param.bound();
+      finalized_type = FinalizeType(cls, type, kCanonicalize);
+      if (finalized_type.raw() != type.raw()) {
+        type_param.set_bound(finalized_type);
+      }
+    }
+  }
   // Finalize result type.
-  AbstractType& type = AbstractType::Handle(function.result_type());
-  // It is not a compile time error if this name does not resolve to a class or
-  // interface.
-  AbstractType& finalized_type =
-      AbstractType::Handle(FinalizeType(cls, type, kCanonicalize));
+  type = function.result_type();
+  finalized_type = FinalizeType(cls, type, kCanonicalize);
   // The result type may be malformed or malbounded.
   if (finalized_type.raw() != type.raw()) {
     function.set_result_type(finalized_type);
@@ -1305,8 +1360,7 @@ static RawClass* FindSuperOwnerOfFunction(const Class& cls,
   super_class = cls.SuperClass();
   while (!super_class.IsNull()) {
     function = super_class.LookupFunction(name);
-    if (!function.IsNull() &&
-        !function.is_static() &&
+    if (!function.IsNull() && !function.is_static() &&
         !function.IsMethodExtractor()) {
       return super_class.raw();
     }
@@ -1330,8 +1384,7 @@ void ClassFinalizer::ResolveUpperBounds(const Class& cls) {
   for (intptr_t i = 0; i < num_type_params; i++) {
     type_param ^= type_params.TypeAt(i);
     bound = type_param.bound();
-    bound = ResolveType(cls, bound);
-    type_param.set_bound(bound);
+    ResolveType(cls, bound);
   }
 }
 
@@ -1382,14 +1435,14 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
   //   instance method.
 
   // Resolve type of fields and check for conflicts in super classes.
-  Zone* Z = Thread::Current()->zone();
-  Array& array = Array::Handle(Z, cls.fields());
-  Field& field = Field::Handle(Z);
-  AbstractType& type = AbstractType::Handle(Z);
-  String& name = String::Handle(Z);
-  String& getter_name = String::Handle(Z);
-  String& setter_name = String::Handle(Z);
-  Class& super_class = Class::Handle(Z);
+  Zone* zone = Thread::Current()->zone();
+  Array& array = Array::Handle(zone, cls.fields());
+  Field& field = Field::Handle(zone);
+  AbstractType& type = AbstractType::Handle(zone);
+  String& name = String::Handle(zone);
+  String& getter_name = String::Handle(zone);
+  String& setter_name = String::Handle(zone);
+  Class& super_class = Class::Handle(zone);
   const intptr_t num_fields = array.Length();
   for (intptr_t i = 0; i < num_fields; i++) {
     field ^= array.At(i);
@@ -1401,15 +1454,13 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
       getter_name = Field::GetterSymbol(name);
       super_class = FindSuperOwnerOfInstanceMember(cls, name, getter_name);
       if (!super_class.IsNull()) {
-        const String& class_name = String::Handle(Z, cls.Name());
-        const String& super_class_name = String::Handle(Z, super_class.Name());
+        const String& class_name = String::Handle(zone, cls.Name());
+        const String& super_cls_name = String::Handle(zone, super_class.Name());
         ReportError(cls, field.token_pos(),
                     "static field '%s' of class '%s' conflicts with "
                     "instance member '%s' of super class '%s'",
-                    name.ToCString(),
-                    class_name.ToCString(),
-                    name.ToCString(),
-                    super_class_name.ToCString());
+                    name.ToCString(), class_name.ToCString(), name.ToCString(),
+                    super_cls_name.ToCString());
       }
       // An implicit setter is not generated for a static field, therefore, we
       // cannot rely on the code below handling the static setter case to report
@@ -1417,15 +1468,13 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
       setter_name = Field::SetterSymbol(name);
       super_class = FindSuperOwnerOfFunction(cls, setter_name);
       if (!super_class.IsNull()) {
-        const String& class_name = String::Handle(Z, cls.Name());
-        const String& super_class_name = String::Handle(Z, super_class.Name());
+        const String& class_name = String::Handle(zone, cls.Name());
+        const String& super_cls_name = String::Handle(zone, super_class.Name());
         ReportError(cls, field.token_pos(),
                     "static field '%s' of class '%s' conflicts with "
                     "instance setter '%s=' of super class '%s'",
-                    name.ToCString(),
-                    class_name.ToCString(),
-                    name.ToCString(),
-                    super_class_name.ToCString());
+                    name.ToCString(), class_name.ToCString(), name.ToCString(),
+                    super_cls_name.ToCString());
       }
 
     } else {
@@ -1433,46 +1482,41 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
       // (but not getter).
       super_class = FindSuperOwnerOfFunction(cls, name);
       if (!super_class.IsNull()) {
-        const String& class_name = String::Handle(Z, cls.Name());
-        const String& super_class_name = String::Handle(Z, super_class.Name());
+        const String& class_name = String::Handle(zone, cls.Name());
+        const String& super_cls_name = String::Handle(zone, super_class.Name());
         ReportError(cls, field.token_pos(),
                     "field '%s' of class '%s' conflicts with method '%s' "
                     "of super class '%s'",
-                    name.ToCString(),
-                    class_name.ToCString(),
-                    name.ToCString(),
-                    super_class_name.ToCString());
+                    name.ToCString(), class_name.ToCString(), name.ToCString(),
+                    super_cls_name.ToCString());
       }
     }
-    if (field.is_static() &&
-        (field.StaticValue() != Object::null()) &&
+    if (field.is_static() && (field.StaticValue() != Object::null()) &&
         (field.StaticValue() != Object::sentinel().raw())) {
       // The parser does not preset the value if the type is a type parameter or
       // is parameterized unless the value is null.
-      Error& error = Error::Handle(Z);
+      Error& error = Error::Handle(zone);
       if (type.IsMalformedOrMalbounded()) {
         error = type.error();
       } else {
         ASSERT(type.IsInstantiated());
       }
-      const Instance& const_value =
-          Instance::Handle(Z, field.StaticValue());
+      const Instance& const_value = Instance::Handle(zone, field.StaticValue());
       if (!error.IsNull() ||
           (!type.IsDynamicType() &&
-           !const_value.IsInstanceOf(type,
-                                     Object::null_type_arguments(),
+           !const_value.IsInstanceOf(type, Object::null_type_arguments(),
                                      &error))) {
         if (Isolate::Current()->error_on_bad_type()) {
-          const AbstractType& const_value_type = AbstractType::Handle(
-              Z, const_value.GetType());
-          const String& const_value_type_name = String::Handle(
-              Z, const_value_type.UserVisibleName());
-          const String& type_name = String::Handle(Z, type.UserVisibleName());
+          const AbstractType& const_value_type =
+              AbstractType::Handle(zone, const_value.GetType(Heap::kNew));
+          const String& const_value_type_name =
+              String::Handle(zone, const_value_type.UserVisibleName());
+          const String& type_name =
+              String::Handle(zone, type.UserVisibleName());
           ReportErrors(error, cls, field.token_pos(),
                        "error initializing static %s field '%s': "
                        "type '%s' is not a subtype of type '%s'",
-                       field.is_const() ? "const" : "final",
-                       name.ToCString(),
+                       field.is_const() ? "const" : "final", name.ToCString(),
                        const_value_type_name.ToCString(),
                        type_name.ToCString());
         } else {
@@ -1485,67 +1529,67 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
           // we create an implicit static final getter and reset the field value
           // to the sentinel value.
           const Function& getter = Function::Handle(
-              Z,
-              Function::New(getter_name,
-                            RawFunction::kImplicitStaticFinalGetter,
-                            /* is_static = */ true,
-                            /* is_const = */ field.is_const(),
-                            /* is_abstract = */ false,
-                            /* is_external = */ false,
-                            /* is_native = */ false,
-                            cls,
-                            field.token_pos()));
+              zone, Function::New(
+                        getter_name, RawFunction::kImplicitStaticFinalGetter,
+                        /* is_static = */ true,
+                        /* is_const = */ field.is_const(),
+                        /* is_abstract = */ false,
+                        /* is_external = */ false,
+                        /* is_native = */ false, cls, field.token_pos()));
           getter.set_result_type(type);
           getter.set_is_debuggable(false);
+          getter.set_kernel_function(field.kernel_field());
           cls.AddFunction(getter);
           field.SetStaticValue(Object::sentinel(), true);
         }
       }
     }
   }
-  // Collect interfaces, super interfaces, and super classes of this class.
-  GrowableArray<const Class*> interfaces(Z, 4);
-  CollectInterfaces(cls, &interfaces);
-  // Include superclasses in list of interfaces and super interfaces.
-  super_class = cls.SuperClass();
-  while (!super_class.IsNull()) {
-    interfaces.Add(&Class::ZoneHandle(Z, super_class.raw()));
-    CollectInterfaces(super_class, &interfaces);
-    super_class = super_class.SuperClass();
+  // If we check for bad overrides, collect interfaces, super interfaces, and
+  // super classes of this class.
+  GrowableArray<const Class*> interfaces(zone, 4);
+  if (Isolate::Current()->error_on_bad_override()) {
+    CollectInterfaces(cls, &interfaces);
+    // Include superclasses in list of interfaces and super interfaces.
+    super_class = cls.SuperClass();
+    while (!super_class.IsNull()) {
+      interfaces.Add(&Class::ZoneHandle(zone, super_class.raw()));
+      CollectInterfaces(super_class, &interfaces);
+      super_class = super_class.SuperClass();
+    }
   }
   // Resolve function signatures and check for conflicts in super classes and
   // interfaces.
   array = cls.functions();
-  Function& function = Function::Handle(Z);
-  Function& overridden_function = Function::Handle(Z);
+  Function& function = Function::Handle(zone);
+  Function& overridden_function = Function::Handle(zone);
   const intptr_t num_functions = array.Length();
-  Error& error = Error::Handle(Z);
+  Error& error = Error::Handle(zone);
   for (intptr_t i = 0; i < num_functions; i++) {
     function ^= array.At(i);
     FinalizeSignature(cls, function);
     name = function.name();
     // Report signature conflicts only.
-    if (Isolate::Current()->error_on_bad_override() &&
-        !function.is_static() && !function.IsGenerativeConstructor()) {
+    if (Isolate::Current()->error_on_bad_override() && !function.is_static() &&
+        !function.IsGenerativeConstructor()) {
       // A constructor cannot override anything.
       for (intptr_t i = 0; i < interfaces.length(); i++) {
-        const Class* super_class = interfaces.At(i);
-        // Finalize superclass since overrides check relies on all members
-        // of the superclass to be finalized.
-        FinalizeClass(*super_class);
-        overridden_function = super_class->LookupDynamicFunction(name);
+        const Class* interface = interfaces.At(i);
+        // All interfaces should have been finalized since override checks
+        // rely on all interface members to be finalized.
+        ASSERT(interface->is_finalized());
+        overridden_function = interface->LookupDynamicFunction(name);
         if (!overridden_function.IsNull() &&
             !function.HasCompatibleParametersWith(overridden_function,
                                                   &error)) {
-          const String& class_name = String::Handle(Z, cls.Name());
-          const String& super_class_name =
-              String::Handle(Z, super_class->Name());
+          const String& class_name = String::Handle(zone, cls.Name());
+          const String& interface_name =
+              String::Handle(zone, interface->Name());
           ReportErrors(error, cls, function.token_pos(),
-                       "class '%s' overrides method '%s' of super "
-                       "class '%s' with incompatible parameters",
-                       class_name.ToCString(),
-                       name.ToCString(),
-                       super_class_name.ToCString());
+                       "class '%s' overrides method '%s' of super class or "
+                       "interface '%s' with incompatible parameters",
+                       class_name.ToCString(), name.ToCString(),
+                       interface_name.ToCString());
         }
       }
     }
@@ -1553,16 +1597,14 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
       if (function.is_static()) {
         super_class = FindSuperOwnerOfFunction(cls, name);
         if (!super_class.IsNull()) {
-          const String& class_name = String::Handle(Z, cls.Name());
-          const String& super_class_name =
-              String::Handle(Z, super_class.Name());
+          const String& class_name = String::Handle(zone, cls.Name());
+          const String& super_cls_name =
+              String::Handle(zone, super_class.Name());
           ReportError(cls, function.token_pos(),
                       "static setter '%s=' of class '%s' conflicts with "
                       "instance setter '%s=' of super class '%s'",
-                      name.ToCString(),
-                      class_name.ToCString(),
-                      name.ToCString(),
-                      super_class_name.ToCString());
+                      name.ToCString(), class_name.ToCString(),
+                      name.ToCString(), super_cls_name.ToCString());
         }
       }
       continue;
@@ -1576,17 +1618,17 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
     if (function.is_static()) {
       super_class = FindSuperOwnerOfInstanceMember(cls, name, getter_name);
       if (!super_class.IsNull()) {
-        const String& class_name = String::Handle(Z, cls.Name());
-        const String& super_class_name = String::Handle(Z, super_class.Name());
-        ReportError(cls, function.token_pos(),
-                    "static %s '%s' of class '%s' conflicts with "
-                    "instance member '%s' of super class '%s'",
-                    (function.IsGetterFunction() ||
-                     function.IsImplicitGetterFunction()) ? "getter" : "method",
-                    name.ToCString(),
-                    class_name.ToCString(),
-                    name.ToCString(),
-                    super_class_name.ToCString());
+        const String& class_name = String::Handle(zone, cls.Name());
+        const String& super_cls_name = String::Handle(zone, super_class.Name());
+        ReportError(
+            cls, function.token_pos(),
+            "static %s '%s' of class '%s' conflicts with "
+            "instance member '%s' of super class '%s'",
+            (function.IsGetterFunction() || function.IsImplicitGetterFunction())
+                ? "getter"
+                : "method",
+            name.ToCString(), class_name.ToCString(), name.ToCString(),
+            super_cls_name.ToCString());
       }
       if (function.IsRedirectingFactory()) {
         // The function may be a still unresolved redirecting factory. Do not
@@ -1594,7 +1636,7 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
         // However, the redirection type should be finalized.
         // If the redirection type is from a deferred library and is not
         // yet loaded, do not attempt to resolve.
-        Type& type = Type::Handle(Z, function.RedirectionType());
+        Type& type = Type::Handle(zone, function.RedirectionType());
         if (IsLoaded(type)) {
           type ^= FinalizeType(cls, type, kCanonicalize);
           function.SetRedirectionType(type);
@@ -1604,15 +1646,13 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
                function.IsImplicitGetterFunction()) {
       super_class = FindSuperOwnerOfFunction(cls, name);
       if (!super_class.IsNull()) {
-        const String& class_name = String::Handle(Z, cls.Name());
-        const String& super_class_name = String::Handle(Z, super_class.Name());
+        const String& class_name = String::Handle(zone, cls.Name());
+        const String& super_cls_name = String::Handle(zone, super_class.Name());
         ReportError(cls, function.token_pos(),
                     "getter '%s' of class '%s' conflicts with "
                     "method '%s' of super class '%s'",
-                    name.ToCString(),
-                    class_name.ToCString(),
-                    name.ToCString(),
-                    super_class_name.ToCString());
+                    name.ToCString(), class_name.ToCString(), name.ToCString(),
+                    super_cls_name.ToCString());
       }
     } else if (!function.IsSetterFunction() &&
                !function.IsImplicitSetterFunction()) {
@@ -1620,15 +1660,13 @@ void ClassFinalizer::ResolveAndFinalizeMemberTypes(const Class& cls) {
       // have the same name. Thus, we do not need to check setters.
       super_class = FindSuperOwnerOfFunction(cls, getter_name);
       if (!super_class.IsNull()) {
-        const String& class_name = String::Handle(Z, cls.Name());
-        const String& super_class_name = String::Handle(Z, super_class.Name());
+        const String& class_name = String::Handle(zone, cls.Name());
+        const String& super_cls_name = String::Handle(zone, super_class.Name());
         ReportError(cls, function.token_pos(),
                     "method '%s' of class '%s' conflicts with "
                     "getter '%s' of super class '%s'",
-                    name.ToCString(),
-                    class_name.ToCString(),
-                    name.ToCString(),
-                    super_class_name.ToCString());
+                    name.ToCString(), class_name.ToCString(), name.ToCString(),
+                    super_cls_name.ToCString());
       }
     }
   }
@@ -1657,8 +1695,8 @@ void ClassFinalizer::CloneMixinAppTypeParameters(const Class& mixin_app_class) {
   ASSERT(mixin_app_class.type_parameters() == TypeArguments::null());
   Thread* thread = Thread::Current();
   Zone* zone = thread->zone();
-  const AbstractType& super_type = AbstractType::Handle(zone,
-      mixin_app_class.super_type());
+  const AbstractType& super_type =
+      AbstractType::Handle(zone, mixin_app_class.super_type());
   ASSERT(super_type.IsResolved());
   const Class& super_class = Class::Handle(zone, super_type.type_class());
   const intptr_t num_super_type_params = super_class.NumTypeParameters();
@@ -1694,13 +1732,15 @@ void ClassFinalizer::CloneMixinAppTypeParameters(const Class& mixin_app_class) {
       }
     }
 
-    const TypeArguments& cloned_type_params = TypeArguments::Handle(zone,
+    const TypeArguments& cloned_type_params = TypeArguments::Handle(
+        zone,
         TypeArguments::New((share_type_params ? 0 : num_super_type_params) +
                            num_mixin_type_params));
     TypeParameter& param = TypeParameter::Handle(zone);
     TypeParameter& cloned_param = TypeParameter::Handle(zone);
     String& param_name = String::Handle(zone);
     AbstractType& param_bound = AbstractType::Handle(zone);
+    Function& null_function = Function::Handle(zone);
     intptr_t cloned_index = 0;
 
     // First, clone the super class type parameters. Rename them so that
@@ -1709,8 +1749,8 @@ void ClassFinalizer::CloneMixinAppTypeParameters(const Class& mixin_app_class) {
     if (!share_type_params && (num_super_type_params > 0)) {
       const TypeArguments& super_type_params =
           TypeArguments::Handle(zone, super_class.type_parameters());
-      const TypeArguments& super_type_args = TypeArguments::Handle(zone,
-          TypeArguments::New(num_super_type_params));
+      const TypeArguments& super_type_args = TypeArguments::Handle(
+          zone, TypeArguments::New(num_super_type_params));
       // The cloned super class type parameters do not need to repeat their
       // bounds, since the bound checks will be performed at the super class
       // level. As a consequence, if this mixin application is used itself as a
@@ -1723,12 +1763,11 @@ void ClassFinalizer::CloneMixinAppTypeParameters(const Class& mixin_app_class) {
       for (intptr_t i = 0; i < num_super_type_params; i++) {
         param ^= super_type_params.TypeAt(i);
         param_name = param.name();
-        param_name = Symbols::FromConcat(param_name, Symbols::Backtick());
-        cloned_param = TypeParameter::New(mixin_app_class,
-                                          cloned_index,
-                                          param_name,
-                                          param_bound,
-                                          param.token_pos());
+        param_name =
+            Symbols::FromConcat(thread, param_name, Symbols::Backtick());
+        cloned_param =
+            TypeParameter::New(mixin_app_class, null_function, cloned_index, 0,
+                               param_name, param_bound, param.token_pos());
         cloned_type_params.SetTypeAt(cloned_index, cloned_param);
         // Change the type arguments of the super type to refer to the
         // cloned type parameters of the mixin application class.
@@ -1751,8 +1790,8 @@ void ClassFinalizer::CloneMixinAppTypeParameters(const Class& mixin_app_class) {
           TypeArguments::Handle(zone, mixin_class.type_parameters());
       const intptr_t offset =
           mixin_class.NumTypeArguments() - mixin_class.NumTypeParameters();
-      const TypeArguments& mixin_type_args = TypeArguments::Handle(zone,
-          TypeArguments::New(num_mixin_type_params));
+      const TypeArguments& mixin_type_args = TypeArguments::Handle(
+          zone, TypeArguments::New(num_mixin_type_params));
       instantiator ^= TypeArguments::New(offset + num_mixin_type_params);
       bool has_uninstantiated_bounds = false;
       for (intptr_t i = 0; i < num_mixin_type_params; i++) {
@@ -1762,11 +1801,10 @@ void ClassFinalizer::CloneMixinAppTypeParameters(const Class& mixin_app_class) {
         if (!param_bound.IsInstantiated()) {
           has_uninstantiated_bounds = true;
         }
-        cloned_param = TypeParameter::New(mixin_app_class,
-                                          cloned_index,  // Unfinalized index.
-                                          param_name,
-                                          param_bound,
-                                          param.token_pos());
+        cloned_param =
+            TypeParameter::New(mixin_app_class, null_function,
+                               cloned_index,  // Unfinalized index.
+                               0, param_name, param_bound, param.token_pos());
         cloned_type_params.SetTypeAt(cloned_index, cloned_param);
         mixin_type_args.SetTypeAt(i, cloned_param);  // Unfinalized length.
         instantiator.SetTypeAt(offset + i, cloned_param);  // Finalized length.
@@ -1789,8 +1827,7 @@ void ClassFinalizer::CloneMixinAppTypeParameters(const Class& mixin_app_class) {
           param_bound = param.bound();
           if (!param_bound.IsInstantiated()) {
             // Make sure the bound is finalized before instantiating it.
-            if (!param_bound.IsFinalized() &&
-                !param_bound.IsBeingFinalized()) {
+            if (!param_bound.IsFinalized() && !param_bound.IsBeingFinalized()) {
               param_bound =
                   FinalizeType(mixin_app_class, param_bound, kCanonicalize);
               param.set_bound(param_bound);  // In case part of recursive type.
@@ -1904,35 +1941,36 @@ void ClassFinalizer::ApplyMixinAppAlias(const Class& mixin_app_class,
   // If this mixin alias is aliasing another mixin alias, another class
   // will be inserted via recursion. No need to check here.
   // The mixin type may or may not be finalized yet.
-  Zone* zone = Thread::Current()->zone();
-  AbstractType& super_type = AbstractType::Handle(zone,
-                                                  mixin_app_class.super_type());
+  Thread* thread = Thread::Current();
+  Zone* zone = thread->zone();
+  AbstractType& super_type =
+      AbstractType::Handle(zone, mixin_app_class.super_type());
   const Type& mixin_type = Type::Handle(zone, mixin_app_class.mixin());
   const Class& mixin_class = Class::Handle(zone, mixin_type.type_class());
   ASSERT(mixin_class.is_mixin_app_alias());
-  const Class& aliased_mixin_app_class = Class::Handle(zone,
-      mixin_class.SuperClass());
+  const Class& aliased_mixin_app_class =
+      Class::Handle(zone, mixin_class.SuperClass());
   // Note that the super class of aliased_mixin_app_class can itself be a
   // mixin application class (this happens if the alias is mixing more than one
   // type). Instead of trying to recursively insert yet another class as the
   // super class of this inserted class, we apply the composition rules of the
   // spec and only mixin the members of aliased_mixin_app_class, not those of
   // its super class. In other words, we only mixin the last mixin of the alias.
-  const Type& aliased_mixin_type = Type::Handle(zone,
-      aliased_mixin_app_class.mixin());
+  const Type& aliased_mixin_type =
+      Type::Handle(zone, aliased_mixin_app_class.mixin());
   // The name of the inserted mixin application class is the name of mixin
   // class name with a backtick added.
   String& inserted_class_name = String::Handle(zone, mixin_app_class.Name());
-  inserted_class_name = String::Concat(inserted_class_name,
-                                       Symbols::Backtick());
+  inserted_class_name =
+      String::Concat(inserted_class_name, Symbols::Backtick());
   const Library& library = Library::Handle(zone, mixin_app_class.library());
-  Class& inserted_class = Class::Handle(zone,
-      library.LookupLocalClass(inserted_class_name));
+  Class& inserted_class =
+      Class::Handle(zone, library.LookupLocalClass(inserted_class_name));
   if (inserted_class.IsNull()) {
-    inserted_class_name = Symbols::New(inserted_class_name);
+    inserted_class_name = Symbols::New(thread, inserted_class_name);
     const Script& script = Script::Handle(zone, mixin_app_class.script());
-    inserted_class = Class::New(
-        inserted_class_name, script, mixin_app_class.token_pos());
+    inserted_class = Class::New(library, inserted_class_name, script,
+                                mixin_app_class.token_pos());
     inserted_class.set_is_synthesized_class();
     library.AddClass(inserted_class);
 
@@ -1955,10 +1993,10 @@ void ClassFinalizer::ApplyMixinAppAlias(const Class& mixin_app_class,
     // After FinalizeTypesInClass, if the mixin type and interface type are
     // generic, their type arguments will refer to the type parameters of
     // inserted_class.
-    const Type& inserted_class_mixin_type = Type::Handle(zone,
-        Type::New(Class::Handle(zone, aliased_mixin_type.type_class()),
-                  Object::null_type_arguments(),
-                  aliased_mixin_type.token_pos()));
+    const Type& inserted_class_mixin_type = Type::Handle(
+        zone, Type::New(Class::Handle(zone, aliased_mixin_type.type_class()),
+                        Object::null_type_arguments(),
+                        aliased_mixin_type.token_pos()));
     inserted_class.set_mixin(inserted_class_mixin_type);
     // Add the mixin type to the list of interfaces that the mixin application
     // class implements. This is necessary so that cycle check work at
@@ -1998,8 +2036,8 @@ void ClassFinalizer::ApplyMixinAppAlias(const Class& mixin_app_class,
   // will finalize mixin_class_super_type.
   // The aliased_mixin_type does not need to be finalized, but only resolved.
   ASSERT(aliased_mixin_type.IsResolved());
-  const Class& aliased_mixin_type_class = Class::Handle(zone,
-      aliased_mixin_type.type_class());
+  const Class& aliased_mixin_type_class =
+      Class::Handle(zone, aliased_mixin_type.type_class());
   FinalizeTypesInClass(mixin_class);
   const intptr_t num_aliased_mixin_type_params =
       aliased_mixin_type_class.NumTypeParameters();
@@ -2035,15 +2073,15 @@ void ClassFinalizer::ApplyMixinAppAlias(const Class& mixin_app_class,
           // BoundedType objects, so no bound error may occur.
           ASSERT(bound_error.IsNull());
           upper_bound = BoundedType::Cast(type).bound();
-          upper_bound = upper_bound.InstantiateFrom(
-              instantiator, &bound_error, NULL, NULL, Heap::kOld);
+          upper_bound = upper_bound.InstantiateFrom(instantiator, &bound_error,
+                                                    NULL, NULL, Heap::kOld);
           ASSERT(bound_error.IsNull());
           type_parameter = BoundedType::Cast(type).type_parameter();
           // The type parameter that declared the bound does not change.
           type = BoundedType::New(bounded_type, upper_bound, type_parameter);
         } else {
-          type = type.InstantiateFrom(
-              instantiator, &bound_error, NULL, NULL, Heap::kOld);
+          type = type.InstantiateFrom(instantiator, &bound_error, NULL, NULL,
+                                      Heap::kOld);
           ASSERT(bound_error.IsNull());
         }
       }
@@ -2069,8 +2107,7 @@ void ClassFinalizer::ApplyMixinAppAlias(const Class& mixin_app_class,
       new_super_type_args.SetTypeAt(num_super_type_params + i, type);
     }
   }
-  super_type = Type::New(inserted_class,
-                         new_super_type_args,
+  super_type = Type::New(inserted_class, new_super_type_args,
                          mixin_app_class.token_pos());
   mixin_app_class.set_super_type(super_type);
 
@@ -2079,18 +2116,18 @@ void ClassFinalizer::ApplyMixinAppAlias(const Class& mixin_app_class,
   ASSERT(!mixin_app_class.is_type_finalized());
   ASSERT(!mixin_app_class.is_mixin_type_applied());
   if (FLAG_trace_class_finalization) {
-    THR_Print("Inserting class '%s' %s\n"
-              "  as super type '%s' with %" Pd " type args: %s\n"
-              "  of mixin application alias '%s' %s\n",
-              String::Handle(inserted_class.Name()).ToCString(),
-              TypeArguments::Handle(
-                  inserted_class.type_parameters()).ToCString(),
-              String::Handle(zone, super_type.Name()).ToCString(),
-              num_super_type_params + num_aliased_mixin_type_params,
-              super_type.ToCString(),
-              String::Handle(mixin_app_class.Name()).ToCString(),
-              TypeArguments::Handle(
-                  mixin_app_class.type_parameters()).ToCString());
+    THR_Print(
+        "Inserting class '%s' %s\n"
+        "  as super type '%s' with %" Pd
+        " type args: %s\n"
+        "  of mixin application alias '%s' %s\n",
+        String::Handle(inserted_class.Name()).ToCString(),
+        TypeArguments::Handle(inserted_class.type_parameters()).ToCString(),
+        String::Handle(zone, super_type.Name()).ToCString(),
+        num_super_type_params + num_aliased_mixin_type_params,
+        super_type.ToCString(),
+        String::Handle(mixin_app_class.Name()).ToCString(),
+        TypeArguments::Handle(mixin_app_class.type_parameters()).ToCString());
   }
 }
 
@@ -2130,12 +2167,12 @@ void ClassFinalizer::ApplyMixinType(const Class& mixin_app_class,
   ResolveSuperTypeAndInterfaces(mixin_app_class, &visited_interfaces);
 
   if (FLAG_trace_class_finalization) {
-    THR_Print("Done applying mixin type '%s' to class '%s' %s extending '%s'\n",
-              String::Handle(mixin_type.Name()).ToCString(),
-              String::Handle(mixin_app_class.Name()).ToCString(),
-              TypeArguments::Handle(
-                  mixin_app_class.type_parameters()).ToCString(),
-              AbstractType::Handle(mixin_app_class.super_type()).ToCString());
+    THR_Print(
+        "Done applying mixin type '%s' to class '%s' %s extending '%s'\n",
+        String::Handle(mixin_type.Name()).ToCString(),
+        String::Handle(mixin_app_class.Name()).ToCString(),
+        TypeArguments::Handle(mixin_app_class.type_parameters()).ToCString(),
+        AbstractType::Handle(mixin_app_class.super_type()).ToCString());
   }
   // Mark the application class as having been applied its mixin type in order
   // to avoid cycles while finalizing its mixin type.
@@ -2158,25 +2195,26 @@ void ClassFinalizer::CreateForwardingConstructors(
     const Class& mixin_app,
     const Class& mixin_cls,
     const GrowableObjectArray& cloned_funcs) {
-  const String& mixin_name = String::Handle(mixin_app.Name());
-  const Class& super_class = Class::Handle(mixin_app.SuperClass());
-  const String& super_name = String::Handle(super_class.Name());
-  const Array& functions = Array::Handle(super_class.functions());
+  Thread* T = Thread::Current();
+  Zone* Z = T->zone();
+  const String& mixin_name = String::Handle(Z, mixin_app.Name());
+  const Class& super_class = Class::Handle(Z, mixin_app.SuperClass());
+  const String& super_name = String::Handle(Z, super_class.Name());
+  const Array& functions = Array::Handle(Z, super_class.functions());
   const intptr_t num_functions = functions.Length();
-  Function& func = Function::Handle();
+  Function& func = Function::Handle(Z);
   for (intptr_t i = 0; i < num_functions; i++) {
     func ^= functions.At(i);
     if (func.IsGenerativeConstructor()) {
       // Build constructor name from mixin application class name
       // and name of cloned super class constructor.
-      const String& ctor_name = String::Handle(func.name());
-      String& clone_name = String::Handle(
-          String::SubString(ctor_name, super_name.Length()));
-      clone_name = Symbols::FromConcat(mixin_name, clone_name);
+      const String& ctor_name = String::Handle(Z, func.name());
+      String& clone_name =
+          String::Handle(Z, String::SubString(ctor_name, super_name.Length()));
+      clone_name = Symbols::FromConcat(T, mixin_name, clone_name);
 
       if (FLAG_trace_class_finalization) {
-        THR_Print("Cloning constructor '%s' as '%s'\n",
-                  ctor_name.ToCString(),
+        THR_Print("Cloning constructor '%s' as '%s'\n", ctor_name.ToCString(),
                   clone_name.ToCString());
       }
 
@@ -2184,18 +2222,15 @@ void ClassFinalizer::CreateForwardingConstructors(
       // class. The source is the mixin class. The source may be needed
       // to parse field initializer expressions in the mixin class.
       const PatchClass& owner =
-          PatchClass::Handle(PatchClass::New(mixin_app, mixin_cls));
+          PatchClass::Handle(Z, PatchClass::New(mixin_app, mixin_cls));
 
       const Function& clone = Function::Handle(
-          Function::New(clone_name,
-                        func.kind(),
-                        func.is_static(),
-                        false,  // Not const.
-                        false,  // Not abstract.
-                        false,  // Not external.
-                        false,  // Not native.
-                        owner,
-                        mixin_cls.token_pos()));
+          Z, Function::New(clone_name, func.kind(), func.is_static(),
+                           false,  // Not const.
+                           false,  // Not abstract.
+                           false,  // Not external.
+                           false,  // Not native.
+                           owner, mixin_cls.token_pos()));
       clone.set_num_fixed_parameters(func.num_fixed_parameters());
       clone.SetNumOptionalParameters(func.NumOptionalParameters(),
                                      func.HasOptionalPositionalParameters());
@@ -2205,11 +2240,11 @@ void ClassFinalizer::CreateForwardingConstructors(
       const intptr_t num_parameters = func.NumParameters();
       // The cloned ctor shares the parameter names array with the
       // original.
-      const Array& parameter_names = Array::Handle(func.parameter_names());
+      const Array& parameter_names = Array::Handle(Z, func.parameter_names());
       ASSERT(parameter_names.Length() == num_parameters);
       clone.set_parameter_names(parameter_names);
       // The parameter types of the cloned constructor are 'dynamic'.
-      clone.set_parameter_types(Array::Handle(Array::New(num_parameters)));
+      clone.set_parameter_types(Array::Handle(Z, Array::New(num_parameters)));
       for (intptr_t n = 0; n < num_parameters; n++) {
         clone.SetParameterTypeAt(n, Object::dynamic_type());
       }
@@ -2237,20 +2272,32 @@ void ClassFinalizer::ApplyMixinMembers(const Class& cls) {
 
   if (FLAG_trace_class_finalization) {
     THR_Print("Applying mixin members of %s to %s at pos %s\n",
-              mixin_cls.ToCString(),
-              cls.ToCString(),
+              mixin_cls.ToCString(), cls.ToCString(),
               cls.token_pos().ToCString());
   }
 
   const GrowableObjectArray& cloned_funcs =
       GrowableObjectArray::Handle(zone, GrowableObjectArray::New());
 
-  CreateForwardingConstructors(cls, mixin_cls, cloned_funcs);
-
   Array& functions = Array::Handle(zone);
   Function& func = Function::Handle(zone);
+
   // The parser creates the mixin application class with no functions.
-  ASSERT((functions = cls.functions(), functions.Length() == 0));
+  // But the Kernel frontend will generate mixin classes with only
+  // constructors inside them, which forward to the base class constructors.
+  //
+  // => We generate the constructors if they are not already there.
+  functions = cls.functions();
+  if (functions.Length() == 0) {
+    CreateForwardingConstructors(cls, mixin_cls, cloned_funcs);
+  } else {
+    for (intptr_t i = 0; i < functions.Length(); i++) {
+      func ^= functions.At(i);
+      ASSERT(func.kernel_function() != 0);
+      cloned_funcs.Add(func);
+    }
+  }
+
   // Now clone the functions from the mixin class.
   functions = mixin_cls.functions();
   const intptr_t num_functions = functions.Length();
@@ -2260,13 +2307,12 @@ void ClassFinalizer::ApplyMixinMembers(const Class& cls) {
       // A mixin class must not have explicit constructors.
       if (!func.IsImplicitConstructor()) {
         const Script& script = Script::Handle(cls.script());
-        const Error& error = Error::Handle(
-            LanguageError::NewFormatted(Error::Handle(),
-                script, func.token_pos(), Report::AtLocation,
-                Report::kError, Heap::kNew,
-                "constructor '%s' is illegal in mixin class %s",
-                String::Handle(func.UserVisibleName()).ToCString(),
-                String::Handle(zone, mixin_cls.Name()).ToCString()));
+        const Error& error = Error::Handle(LanguageError::NewFormatted(
+            Error::Handle(), script, func.token_pos(), Report::AtLocation,
+            Report::kError, Heap::kNew,
+            "constructor '%s' is illegal in mixin class %s",
+            String::Handle(func.UserVisibleName()).ToCString(),
+            String::Handle(zone, mixin_cls.Name()).ToCString()));
 
         ReportErrors(error, cls, cls.token_pos(),
                      "mixin class '%s' must not have constructors",
@@ -2274,10 +2320,8 @@ void ClassFinalizer::ApplyMixinMembers(const Class& cls) {
       }
       continue;  // Skip the implicit constructor.
     }
-    if (!func.is_static() &&
-        !func.IsMethodExtractor() &&
-        !func.IsNoSuchMethodDispatcher() &&
-        !func.IsInvokeFieldDispatcher()) {
+    if (!func.is_static() && !func.IsMethodExtractor() &&
+        !func.IsNoSuchMethodDispatcher() && !func.IsInvokeFieldDispatcher()) {
       func = func.Clone(cls);
       cloned_funcs.Add(func);
     }
@@ -2305,8 +2349,7 @@ void ClassFinalizer::ApplyMixinMembers(const Class& cls) {
 
   if (FLAG_trace_class_finalization) {
     THR_Print("Done applying mixin members of %s to %s\n",
-              mixin_cls.ToCString(),
-              cls.ToCString());
+              mixin_cls.ToCString(), cls.ToCString());
   }
 }
 
@@ -2361,16 +2404,16 @@ void ClassFinalizer::FinalizeTypesInClass(const Class& cls) {
     cls.set_mixin(mixin_type);
   }
   if (cls.IsTypedefClass()) {
-    const Function& signature = Function::Handle(cls.signature_function());
-    FunctionType& type = FunctionType::Handle(signature.SignatureType());
+    Function& signature = Function::Handle(cls.signature_function());
+    Type& type = Type::Handle(signature.SignatureType());
+    ASSERT(type.signature() == signature.raw());
 
     // Check for illegal self references.
     GrowableArray<intptr_t> visited_aliases;
     if (!IsTypedefCycleFree(cls, type, &visited_aliases)) {
       const String& name = String::Handle(cls.Name());
       ReportError(cls, cls.token_pos(),
-                  "typedef '%s' illegally refers to itself",
-                  name.ToCString());
+                  "typedef '%s' illegally refers to itself", name.ToCString());
     }
     cls.set_is_type_finalized();
 
@@ -2381,7 +2424,12 @@ void ClassFinalizer::FinalizeTypesInClass(const Class& cls) {
 
     // Resolve and finalize the signature type of this typedef.
     type ^= FinalizeType(cls, type, kCanonicalizeWellFormed);
+
+    // If a different canonical signature type is returned, update the signature
+    // function of the typedef.
+    signature = type.signature();
     signature.SetSignatureType(type);
+    cls.set_signature_function(signature);
 
     // Closure instances do not refer to this typedef as their class, so there
     // is no need to add this typedef class to the subclasses of _Closure.
@@ -2441,7 +2489,24 @@ void ClassFinalizer::FinalizeTypesInClass(const Class& cls) {
     // fields because type parameters are parsed before the class body. Since
     // 'ResolveAndFinalizeMemberTypes(cls)' has not been called yet, unfinalized
     // member types could choke the snapshotter.
-    ASSERT(Array::Handle(cls.functions()).Length() == 0);
+    // Or
+    // if the class is being refinalized because a patch is being applied
+    // after the class has been finalized then it is ok for the class to have
+    // functions.
+    //
+    // TODO(kmillikin): This ASSERT will fail when bootstrapping from Kernel
+    // because classes are first created, methods are added, and then classes
+    // are finalized.  It is not easy to finalize classes earlier because not
+    // all bootstrap classes have been created yet.  It would be possible to
+    // create all classes, delay adding methods, finalize the classes, and then
+    // reprocess all classes to add methods, but that seems unnecessary.
+    // Marking the bootstrap classes as is_refinalize_after_patch seems cute but
+    // it causes other things to fail by violating their assumptions.  Reenable
+    // this ASSERT if it's important, remove it if it's just a sanity check and
+    // not required for correctness.
+    //
+    // ASSERT((Array::Handle(cls.functions()).Length() == 0) ||
+    //        cls.is_refinalize_after_patch());
   }
 }
 
@@ -2464,16 +2529,24 @@ void ClassFinalizer::FinalizeClass(const Class& cls) {
     cls.set_is_finalized();
     return;
   }
+  // Ensure super class is finalized.
+  const Class& super = Class::Handle(cls.SuperClass());
+  if (!super.IsNull()) {
+    FinalizeClass(super);
+  }
+  // Ensure interfaces are finalized in case we check for bad overrides.
+  if (Isolate::Current()->error_on_bad_override()) {
+    GrowableArray<const Class*> interfaces(4);
+    CollectInterfaces(cls, &interfaces);
+    for (intptr_t i = 0; i < interfaces.length(); i++) {
+      FinalizeClass(*interfaces.At(i));
+    }
+  }
   if (cls.IsMixinApplication()) {
     // Copy instance methods and fields from the mixin class.
     // This has to happen before the check whether the methods of
     // the class conflict with inherited methods.
     ApplyMixinMembers(cls);
-  }
-  // Ensure super class is finalized.
-  const Class& super = Class::Handle(cls.SuperClass());
-  if (!super.IsNull()) {
-    FinalizeClass(super);
   }
   // Mark as parsed and finalized.
   cls.Finalize();
@@ -2492,9 +2565,9 @@ void ClassFinalizer::FinalizeClass(const Class& cls) {
     cls.SetFunctions(functions);
   }
   // Every class should have at least a constructor, unless it is a top level
-  // class or a typedef class.
-  ASSERT(cls.IsTopLevel() ||
-         cls.IsTypedefClass() ||
+  // class or a typedef class. The Kernel frontend does not create an implicit
+  // constructor for abstract classes.
+  ASSERT(cls.IsTopLevel() || cls.IsTypedefClass() || cls.is_abstract() ||
          (Array::Handle(cls.functions()).Length() > 0));
   // Resolve and finalize all member types.
   ResolveAndFinalizeMemberTypes(cls);
@@ -2520,22 +2593,46 @@ void ClassFinalizer::FinalizeClass(const Class& cls) {
 // getter function object for each enumeration value and for the
 // values field. We also don't have to generate the code for these getters
 // from thin air (no source code is available).
-void ClassFinalizer::AllocateEnumValues(const Class &enum_cls) {
+void ClassFinalizer::AllocateEnumValues(const Class& enum_cls) {
+  Thread* thread = Thread::Current();
+  Zone* zone = thread->zone();
   const Field& index_field =
-      Field::Handle(enum_cls.LookupInstanceField(Symbols::Index()));
+      Field::Handle(zone, enum_cls.LookupInstanceField(Symbols::Index()));
   ASSERT(!index_field.IsNull());
+  const Field& name_field = Field::Handle(
+      zone, enum_cls.LookupInstanceFieldAllowPrivate(Symbols::_name()));
+  ASSERT(!name_field.IsNull());
   const Field& values_field =
-      Field::Handle(enum_cls.LookupStaticField(Symbols::Values()));
+      Field::Handle(zone, enum_cls.LookupStaticField(Symbols::Values()));
   ASSERT(!values_field.IsNull());
-  ASSERT(Instance::Handle(values_field.StaticValue()).IsArray());
-  Array& values_list = Array::Handle(
-      Array::RawCast(values_field.StaticValue()));
+  ASSERT(Instance::Handle(zone, values_field.StaticValue()).IsArray());
+  Array& values_list =
+      Array::Handle(zone, Array::RawCast(values_field.StaticValue()));
+  const String& enum_name = String::Handle(enum_cls.ScrubbedName());
+  const String& name_prefix =
+      String::Handle(String::Concat(enum_name, Symbols::Dot()));
 
-  const Array& fields = Array::Handle(enum_cls.fields());
-  Field& field = Field::Handle();
-  Instance& ordinal_value = Instance::Handle();
-  Instance& enum_value = Instance::Handle();
+  Field& field = Field::Handle(zone);
+  Instance& ordinal_value = Instance::Handle(zone);
+  Instance& enum_value = Instance::Handle(zone);
 
+  String& enum_ident = String::Handle();
+
+  enum_ident =
+      Symbols::FromConcat(thread, Symbols::_DeletedEnumPrefix(), enum_name);
+  enum_value = Instance::New(enum_cls, Heap::kOld);
+  enum_value.SetField(index_field, Smi::Handle(zone, Smi::New(-1)));
+  enum_value.SetField(name_field, enum_ident);
+  const char* error_msg = NULL;
+  enum_value = enum_value.CheckAndCanonicalize(thread, &error_msg);
+  ASSERT(!enum_value.IsNull());
+  ASSERT(enum_value.IsCanonical());
+  field = enum_cls.LookupStaticField(Symbols::_DeletedEnumSentinel());
+  ASSERT(!field.IsNull());
+  field.SetStaticValue(enum_value, true);
+  field.RecordStore(enum_value);
+
+  const Array& fields = Array::Handle(zone, enum_cls.fields());
   for (intptr_t i = 0; i < fields.Length(); i++) {
     field = Field::RawCast(fields.At(i));
     if (!field.is_static()) continue;
@@ -2544,10 +2641,19 @@ void ClassFinalizer::AllocateEnumValues(const Class &enum_cls) {
     // contain the smi value of the ordinal number, which was stored in
     // the field by the parser. Other fields contain non-smi values.
     if (!ordinal_value.IsSmi()) continue;
+    enum_ident = field.name();
+    // Construct the string returned by toString.
+    ASSERT(!enum_ident.IsNull());
+    // For the user-visible name of the enumeration value, we need to
+    // unmangle private names.
+    if (enum_ident.CharAt(0) == '_') {
+      enum_ident = String::ScrubName(enum_ident);
+    }
+    enum_ident = Symbols::FromConcat(thread, name_prefix, enum_ident);
     enum_value = Instance::New(enum_cls, Heap::kOld);
     enum_value.SetField(index_field, ordinal_value);
-    const char* error_msg = "";
-    enum_value = enum_value.CheckAndCanonicalize(&error_msg);
+    enum_value.SetField(name_field, enum_ident);
+    enum_value = enum_value.CheckAndCanonicalize(thread, &error_msg);
     ASSERT(!enum_value.IsNull());
     ASSERT(enum_value.IsCanonical());
     field.SetStaticValue(enum_value, true);
@@ -2557,8 +2663,7 @@ void ClassFinalizer::AllocateEnumValues(const Class &enum_cls) {
     values_list.SetAt(ord, enum_value);
   }
   values_list.MakeImmutable();
-  const char* error_msg = NULL;
-  values_list ^= values_list.CheckAndCanonicalize(&error_msg);
+  values_list ^= values_list.CheckAndCanonicalize(thread, &error_msg);
   ASSERT(!values_list.IsNull());
 }
 
@@ -2568,8 +2673,8 @@ bool ClassFinalizer::IsSuperCycleFree(const Class& cls) {
   Class& test2 = Class::Handle(cls.SuperClass());
   // A finalized class has been checked for cycles.
   // Using the hare and tortoise algorithm for locating cycles.
-  while (!test1.is_type_finalized() &&
-         !test2.IsNull() && !test2.is_type_finalized()) {
+  while (!test1.is_type_finalized() && !test2.IsNull() &&
+         !test2.is_type_finalized()) {
     if (test1.raw() == test2.raw()) {
       // Found a cycle.
       return false;
@@ -2590,21 +2695,19 @@ bool ClassFinalizer::IsTypedefCycleFree(const Class& cls,
                                         const AbstractType& type,
                                         GrowableArray<intptr_t>* visited) {
   ASSERT(visited != NULL);
-  AbstractType& resolved_type = AbstractType::Handle(ResolveType(cls, type));
+  ResolveType(cls, type);
   bool checking_typedef = false;
-  if ((resolved_type.IsType() || resolved_type.IsFunctionType()) &&
-      !resolved_type.IsMalformed()) {
+  if (type.IsType() && !type.IsMalformed()) {
     AbstractType& other_type = AbstractType::Handle();
-    if (resolved_type.IsFunctionType()) {
-      const Class& scope_class = Class::Handle(resolved_type.type_class());
+    if (type.IsFunctionType()) {
+      const Class& scope_class = Class::Handle(type.type_class());
       const Function& signature_function =
-          Function::Handle(FunctionType::Cast(resolved_type).signature());
+          Function::Handle(Type::Cast(type).signature());
       // The signature function of this function type may be a local signature
       // function used in a formal parameter type of the typedef signature, but
       // not the typedef signature function itself, thus not qualifying as an
       // illegal self reference.
-      if (!scope_class.is_type_finalized() &&
-          scope_class.IsTypedefClass() &&
+      if (!scope_class.is_type_finalized() && scope_class.IsTypedefClass() &&
           (scope_class.signature_function() == signature_function.raw())) {
         checking_typedef = true;
         const intptr_t scope_class_id = scope_class.id();
@@ -2645,8 +2748,7 @@ bool ClassFinalizer::IsTypedefCycleFree(const Class& cls,
         }
       }
     }
-    const TypeArguments& type_args =
-        TypeArguments::Handle(resolved_type.arguments());
+    const TypeArguments& type_args = TypeArguments::Handle(type.arguments());
     if (!type_args.IsNull()) {
       for (intptr_t i = 0; i < type_args.Length(); i++) {
         other_type = type_args.TypeAt(i);
@@ -2737,7 +2839,8 @@ RawType* ClassFinalizer::ResolveMixinAppType(
     const MixinAppType& mixin_app_type) {
   // Lookup or create mixin application classes in the library of cls
   // and resolve super type and mixin types.
-  Zone* zone = Thread::Current()->zone();
+  Thread* thread = Thread::Current();
+  Zone* zone = thread->zone();
   const Library& library = Library::Handle(zone, cls.library());
   ASSERT(!library.IsNull());
   const Script& script = Script::Handle(zone, cls.script());
@@ -2746,33 +2849,44 @@ RawType* ClassFinalizer::ResolveMixinAppType(
       GrowableObjectArray::Handle(zone, GrowableObjectArray::New());
   AbstractType& mixin_super_type =
       AbstractType::Handle(zone, mixin_app_type.super_type());
-  mixin_super_type = ResolveType(cls, mixin_super_type);
+  ResolveType(cls, mixin_super_type);
   ASSERT(mixin_super_type.HasResolvedTypeClass());  // Even if malformed.
   if (mixin_super_type.IsMalformedOrMalbounded()) {
     ReportError(Error::Handle(zone, mixin_super_type.error()));
   }
   if (mixin_super_type.IsDynamicType()) {
-    ReportError(cls, cls.token_pos(),
-                "class '%s' may not extend 'dynamic'",
+    ReportError(cls, cls.token_pos(), "class '%s' may not extend 'dynamic'",
                 String::Handle(zone, cls.Name()).ToCString());
   }
   // The super type may have a BoundedType as type argument, but cannot be
   // a BoundedType itself.
   CollectTypeArguments(cls, Type::Cast(mixin_super_type), type_args);
   AbstractType& mixin_type = AbstractType::Handle(zone);
-  Class& mixin_type_class = Class::Handle(zone);
   Class& mixin_app_class = Class::Handle(zone);
+  Class& mixin_super_type_class = Class::Handle(zone);
+  Class& mixin_type_class = Class::Handle(zone);
+  Library& mixin_super_type_library = Library::Handle(zone);
+  Library& mixin_type_library = Library::Handle(zone);
   String& mixin_app_class_name = String::Handle(zone);
   String& mixin_type_class_name = String::Handle(zone);
   AbstractType& super_type_arg = AbstractType::Handle(zone);
   AbstractType& mixin_type_arg = AbstractType::Handle(zone);
+  Type& generic_mixin_type = Type::Handle(zone);
+  Array& interfaces = Array::Handle(zone);
   const intptr_t depth = mixin_app_type.Depth();
   for (intptr_t i = 0; i < depth; i++) {
     mixin_type = mixin_app_type.MixinTypeAt(i);
     ASSERT(!mixin_type.IsNull());
-    mixin_type = ResolveType(cls, mixin_type);
+    ResolveType(cls, mixin_type);
     ASSERT(mixin_type.HasResolvedTypeClass());  // Even if malformed.
     ASSERT(mixin_type.IsType());
+    if (mixin_type.IsMalformedOrMalbounded()) {
+      ReportError(Error::Handle(zone, mixin_type.error()));
+    }
+    if (mixin_type.IsDynamicType()) {
+      ReportError(cls, cls.token_pos(), "class '%s' may not mixin 'dynamic'",
+                  String::Handle(zone, cls.Name()).ToCString());
+    }
     const intptr_t num_super_type_args = type_args.Length();
     CollectTypeArguments(cls, Type::Cast(mixin_type), type_args);
 
@@ -2781,7 +2895,7 @@ RawType* ClassFinalizer::ResolveMixinAppType(
     // thereby allowing for further optimizations, such as instantiator vector
     // reuse or sharing of type arguments with the super class.
     bool share_type_params = (num_super_type_args > 0) &&
-        (type_args.Length() == 2*num_super_type_args);
+                             (type_args.Length() == 2 * num_super_type_args);
     if (share_type_params) {
       for (intptr_t i = 0; i < num_super_type_args; i++) {
         super_type_arg ^= type_args.At(i);
@@ -2798,37 +2912,52 @@ RawType* ClassFinalizer::ResolveMixinAppType(
     }
 
     // The name of the mixin application class is a combination of
-    // the super class name and mixin class name.
+    // the super class name and mixin class name, as well as their respective
+    // library private keys if their library is different than the library of
+    // the mixin application class.
+    // Note that appending the library url would break naming conventions (e.g.
+    // no period in the class name).
     mixin_app_class_name = mixin_super_type.ClassName();
-    mixin_app_class_name = String::Concat(mixin_app_class_name,
-                                          Symbols::Ampersand());
+    mixin_super_type_class = mixin_super_type.type_class();
+    mixin_super_type_library = mixin_super_type_class.library();
+    if (mixin_super_type_library.raw() != library.raw()) {
+      mixin_app_class_name = String::Concat(
+          mixin_app_class_name,
+          String::Handle(zone, mixin_super_type_library.private_key()));
+    }
+    mixin_app_class_name =
+        String::Concat(mixin_app_class_name, Symbols::Ampersand());
     // If the type parameters are shared between the super type and the mixin
     // type, use two ampersand symbols, so that the class has a different name
     // and is not reused in a context where this optimization is not possible.
     if (share_type_params) {
-      mixin_app_class_name = String::Concat(mixin_app_class_name,
-                                            Symbols::Ampersand());
+      mixin_app_class_name =
+          String::Concat(mixin_app_class_name, Symbols::Ampersand());
     }
     mixin_type_class_name = mixin_type.ClassName();
-    mixin_app_class_name = String::Concat(mixin_app_class_name,
-                                          mixin_type_class_name);
+    mixin_type_class = mixin_type.type_class();
+    mixin_type_library = mixin_type_class.library();
+    if (mixin_type_library.raw() != library.raw()) {
+      mixin_type_class_name = String::Concat(
+          mixin_type_class_name,
+          String::Handle(zone, mixin_type_library.private_key()));
+    }
+    mixin_app_class_name =
+        String::Concat(mixin_app_class_name, mixin_type_class_name);
     mixin_app_class = library.LookupLocalClass(mixin_app_class_name);
     if (mixin_app_class.IsNull()) {
-      mixin_app_class_name = Symbols::New(mixin_app_class_name);
-      mixin_app_class = Class::New(mixin_app_class_name,
-                                   script,
+      mixin_app_class_name = Symbols::New(thread, mixin_app_class_name);
+      mixin_app_class = Class::New(library, mixin_app_class_name, script,
                                    mixin_type.token_pos());
       mixin_app_class.set_super_type(mixin_super_type);
-      mixin_type_class = mixin_type.type_class();
-      const Type& generic_mixin_type = Type::Handle(zone,
-          Type::New(mixin_type_class,
-                    Object::null_type_arguments(),
-                    mixin_type.token_pos()));
+      generic_mixin_type =
+          Type::New(mixin_type_class, Object::null_type_arguments(),
+                    mixin_type.token_pos());
       mixin_app_class.set_mixin(generic_mixin_type);
       // Add the mixin type to the list of interfaces that the mixin application
       // class implements. This is necessary so that cycle check work at
       // compile time (type arguments are ignored by that check).
-      const Array& interfaces = Array::Handle(zone, Array::New(1));
+      interfaces = Array::New(1);
       interfaces.SetAt(0, generic_mixin_type);
       ASSERT(mixin_app_class.interfaces() == Object::empty_array().raw());
       mixin_app_class.set_interfaces(interfaces);
@@ -2846,8 +2975,7 @@ RawType* ClassFinalizer::ResolveMixinAppType(
     // This mixin application class becomes the type class of the super type of
     // the next mixin application class. It is however too early to provide the
     // correct super type arguments. We use the raw type for now.
-    mixin_super_type = Type::New(mixin_app_class,
-                                 Object::null_type_arguments(),
+    mixin_super_type = Type::New(mixin_app_class, Object::null_type_arguments(),
                                  mixin_type.token_pos());
   }
   TypeArguments& mixin_app_args = TypeArguments::Handle(zone);
@@ -2881,7 +3009,8 @@ RawType* ClassFinalizer::ResolveMixinAppType(
 // graph. If we visit an interface a second time on a given path,
 // we found a loop.
 void ClassFinalizer::ResolveSuperTypeAndInterfaces(
-    const Class& cls, GrowableArray<intptr_t>* visited) {
+    const Class& cls,
+    GrowableArray<intptr_t>* visited) {
   if (cls.is_cycle_free()) {
     return;
   }
@@ -2895,8 +3024,7 @@ void ClassFinalizer::ResolveSuperTypeAndInterfaces(
     if ((*visited)[i] == cls_index) {
       // We have already visited class 'cls'. We found a cycle.
       const String& class_name = String::Handle(zone, cls.Name());
-      ReportError(cls, cls.token_pos(),
-                  "cyclic reference found for class '%s'",
+      ReportError(cls, cls.token_pos(), "cyclic reference found for class '%s'",
                   class_name.ToCString());
     }
   }
@@ -2931,13 +3059,12 @@ void ClassFinalizer::ResolveSuperTypeAndInterfaces(
   Class& interface_class = Class::Handle(zone);
 
   // Resolve super type. Failures lead to a longjmp.
-  super_type = ResolveType(cls, super_type);
+  ResolveType(cls, super_type);
   if (super_type.IsMalformedOrMalbounded()) {
     ReportError(Error::Handle(zone, super_type.error()));
   }
   if (super_type.IsDynamicType()) {
-    ReportError(cls, cls.token_pos(),
-                "class '%s' may not extend 'dynamic'",
+    ReportError(cls, cls.token_pos(), "class '%s' may not extend 'dynamic'",
                 String::Handle(zone, cls.Name()).ToCString());
   }
   interface_class = super_type.type_class();
@@ -2945,12 +3072,10 @@ void ClassFinalizer::ResolveSuperTypeAndInterfaces(
     ReportError(cls, cls.token_pos(),
                 "class '%s' may not extend function type alias '%s'",
                 String::Handle(zone, cls.Name()).ToCString(),
-                String::Handle(zone,
-                               super_type.UserVisibleName()).ToCString());
+                String::Handle(zone, super_type.UserVisibleName()).ToCString());
   }
   if (interface_class.is_enum_class()) {
-    ReportError(cls, cls.token_pos(),
-                "class '%s' may not extend enum '%s'",
+    ReportError(cls, cls.token_pos(), "class '%s' may not extend enum '%s'",
                 String::Handle(zone, cls.Name()).ToCString(),
                 String::Handle(zone, interface_class.Name()).ToCString());
   }
@@ -2977,10 +3102,10 @@ void ClassFinalizer::ResolveSuperTypeAndInterfaces(
       case kImmutableArrayCid:
       case kGrowableObjectArrayCid:
 #define DO_NOT_EXTEND_TYPED_DATA_CLASSES(clazz)                                \
-      case kTypedData##clazz##Cid:                                             \
-      case kTypedData##clazz##ViewCid:                                         \
-      case kExternalTypedData##clazz##Cid:
-      CLASS_LIST_TYPED_DATA(DO_NOT_EXTEND_TYPED_DATA_CLASSES)
+  case kTypedData##clazz##Cid:                                                 \
+  case kTypedData##clazz##ViewCid:                                             \
+  case kExternalTypedData##clazz##Cid:
+        CLASS_LIST_TYPED_DATA(DO_NOT_EXTEND_TYPED_DATA_CLASSES)
 #undef DO_NOT_EXTEND_TYPED_DATA_CLASSES
       case kByteDataViewCid:
       case kWeakPropertyCid:
@@ -2988,8 +3113,7 @@ void ClassFinalizer::ResolveSuperTypeAndInterfaces(
         break;
       default: {
         // Special case: classes for which we don't have a known class id.
-        if (super_type.IsDoubleType() ||
-            super_type.IsIntType() ||
+        if (super_type.IsDoubleType() || super_type.IsIntType() ||
             super_type.IsStringType()) {
           is_error = true;
         }
@@ -2997,10 +3121,9 @@ void ClassFinalizer::ResolveSuperTypeAndInterfaces(
       }
     }
     if (is_error) {
-      const String& interface_name = String::Handle(zone,
-                                                    interface_class.Name());
-      ReportError(cls, cls.token_pos(),
-                  "'%s' is not allowed to extend '%s'",
+      const String& interface_name =
+          String::Handle(zone, interface_class.Name());
+      ReportError(cls, cls.token_pos(), "'%s' is not allowed to extend '%s'",
                   String::Handle(zone, cls.Name()).ToCString(),
                   interface_name.ToCString());
     }
@@ -3011,7 +3134,7 @@ void ClassFinalizer::ResolveSuperTypeAndInterfaces(
   // Resolve interfaces. Failures lead to a longjmp.
   for (intptr_t i = 0; i < super_interfaces.Length(); i++) {
     interface ^= super_interfaces.At(i);
-    interface = ResolveType(cls, interface);
+    ResolveType(cls, interface);
     ASSERT(!interface.IsTypeParameter());  // Should be detected by parser.
     // A malbounded interface is only reported when involved in a type test.
     if (interface.IsMalformed()) {
@@ -3023,15 +3146,15 @@ void ClassFinalizer::ResolveSuperTypeAndInterfaces(
     }
     interface_class = interface.type_class();
     if (interface_class.IsTypedefClass()) {
-      const String& interface_name = String::Handle(zone,
-                                                    interface_class.Name());
+      const String& interface_name =
+          String::Handle(zone, interface_class.Name());
       ReportError(cls, cls.token_pos(),
                   "function type alias '%s' may not be used as interface",
                   interface_name.ToCString());
     }
     if (interface_class.is_enum_class()) {
-      const String& interface_name = String::Handle(zone,
-                                                    interface_class.Name());
+      const String& interface_name =
+          String::Handle(zone, interface_class.Name());
       ReportError(cls, cls.token_pos(),
                   "enum '%s' may not be used as interface",
                   interface_name.ToCString());
@@ -3039,18 +3162,14 @@ void ClassFinalizer::ResolveSuperTypeAndInterfaces(
     // Verify that unless cls belongs to core lib, it cannot extend, implement,
     // or mixin any of Null, bool, num, int, double, String, dynamic.
     if (!cls_belongs_to_core_lib) {
-      if (interface.IsBoolType() ||
-          interface.IsNullType() ||
-          interface.IsNumberType() ||
-          interface.IsIntType() ||
-          interface.IsDoubleType() ||
-          interface.IsStringType() ||
+      if (interface.IsBoolType() || interface.IsNullType() ||
+          interface.IsNumberType() || interface.IsIntType() ||
+          interface.IsDoubleType() || interface.IsStringType() ||
           interface.IsDynamicType()) {
-        const String& interface_name = String::Handle(zone,
-                                                      interface_class.Name());
+        const String& interface_name =
+            String::Handle(zone, interface_class.Name());
         if (cls.IsMixinApplication()) {
-          ReportError(cls, cls.token_pos(),
-                      "illegal mixin of '%s'",
+          ReportError(cls, cls.token_pos(), "illegal mixin of '%s'",
                       interface_name.ToCString());
         } else {
           ReportError(cls, cls.token_pos(),
@@ -3097,8 +3216,7 @@ void ClassFinalizer::PrintClassInformation(const Class& cls) {
   THR_Print("class '%s'", class_name.ToCString());
   const Library& library = Library::Handle(cls.library());
   if (!library.IsNull()) {
-    THR_Print(" library '%s%s':\n",
-              String::Handle(library.url()).ToCString(),
+    THR_Print(" library '%s%s':\n", String::Handle(library.url()).ToCString(),
               String::Handle(library.private_key()).ToCString());
   } else {
     THR_Print(" (null library):\n");
@@ -3143,11 +3261,9 @@ void ClassFinalizer::MarkTypeMalformed(const Error& prev_error,
                                        const Type& type,
                                        const char* format,
                                        va_list args) {
-  LanguageError& error = LanguageError::Handle(
-      LanguageError::NewFormattedV(
-          prev_error, script, type.token_pos(), Report::AtLocation,
-          Report::kMalformedType, Heap::kOld,
-          format, args));
+  LanguageError& error = LanguageError::Handle(LanguageError::NewFormattedV(
+      prev_error, script, type.token_pos(), Report::AtLocation,
+      Report::kMalformedType, Heap::kOld, format, args));
   if (Isolate::Current()->error_on_bad_type()) {
     ReportError(error);
   }
@@ -3170,13 +3286,13 @@ void ClassFinalizer::MarkTypeMalformed(const Error& prev_error,
 RawType* ClassFinalizer::NewFinalizedMalformedType(const Error& prev_error,
                                                    const Script& script,
                                                    TokenPosition type_pos,
-                                                   const char* format, ...) {
+                                                   const char* format,
+                                                   ...) {
   va_list args;
   va_start(args, format);
-  const UnresolvedClass& unresolved_class = UnresolvedClass::Handle(
-      UnresolvedClass::New(LibraryPrefix::Handle(),
-                           Symbols::Empty(),
-                           type_pos));
+  const UnresolvedClass& unresolved_class =
+      UnresolvedClass::Handle(UnresolvedClass::New(LibraryPrefix::Handle(),
+                                                   Symbols::Empty(), type_pos));
   const Type& type = Type::Handle(
       Type::New(unresolved_class, TypeArguments::Handle(), type_pos));
   MarkTypeMalformed(prev_error, script, type, format, args);
@@ -3190,7 +3306,8 @@ RawType* ClassFinalizer::NewFinalizedMalformedType(const Error& prev_error,
 void ClassFinalizer::FinalizeMalformedType(const Error& prev_error,
                                            const Script& script,
                                            const Type& type,
-                                           const char* format, ...) {
+                                           const char* format,
+                                           ...) {
   va_list args;
   va_start(args, format);
   MarkTypeMalformed(prev_error, script, type, format, args);
@@ -3201,14 +3318,13 @@ void ClassFinalizer::FinalizeMalformedType(const Error& prev_error,
 void ClassFinalizer::FinalizeMalboundedType(const Error& prev_error,
                                             const Script& script,
                                             const AbstractType& type,
-                                            const char* format, ...) {
+                                            const char* format,
+                                            ...) {
   va_list args;
   va_start(args, format);
-  LanguageError& error = LanguageError::Handle(
-      LanguageError::NewFormattedV(
-          prev_error, script, type.token_pos(), Report::AtLocation,
-          Report::kMalboundedType, Heap::kOld,
-          format, args));
+  LanguageError& error = LanguageError::Handle(LanguageError::NewFormattedV(
+      prev_error, script, type.token_pos(), Report::AtLocation,
+      Report::kMalboundedType, Heap::kOld, format, args));
   va_end(args);
   if (Isolate::Current()->error_on_bad_type()) {
     ReportError(error);
@@ -3230,7 +3346,8 @@ void ClassFinalizer::ReportError(const Error& error) {
 void ClassFinalizer::ReportErrors(const Error& prev_error,
                                   const Class& cls,
                                   TokenPosition token_pos,
-                                  const char* format, ...) {
+                                  const char* format,
+                                  ...) {
   va_list args;
   va_start(args, format);
   const Script& script = Script::Handle(cls.script());
@@ -3242,12 +3359,13 @@ void ClassFinalizer::ReportErrors(const Error& prev_error,
 
 void ClassFinalizer::ReportError(const Class& cls,
                                  TokenPosition token_pos,
-                                 const char* format, ...) {
+                                 const char* format,
+                                 ...) {
   va_list args;
   va_start(args, format);
   const Script& script = Script::Handle(cls.script());
-  Report::MessageV(Report::kError,
-                   script, token_pos, Report::AtLocation, format, args);
+  Report::MessageV(Report::kError, script, token_pos, Report::AtLocation,
+                   format, args);
   va_end(args);
   UNREACHABLE();
 }
@@ -3268,8 +3386,7 @@ void ClassFinalizer::VerifyImplicitFieldOffsets() {
 
   // First verify field offsets of all the TypedDataView classes.
   for (intptr_t cid = kTypedDataInt8ArrayViewCid;
-       cid <= kTypedDataFloat32x4ArrayViewCid;
-       cid++) {
+       cid <= kTypedDataFloat32x4ArrayViewCid; cid++) {
     cls = class_table.At(cid);  // Get the TypedDataView class.
     error = cls.EnsureIsFinalized(thread);
     ASSERT(error.IsNull());
@@ -3325,6 +3442,272 @@ void ClassFinalizer::VerifyImplicitFieldOffsets() {
   expected_name ^= String::New("_data");
   ASSERT(String::EqualsIgnoringPrivateKey(name, expected_name));
 #endif
+}
+
+
+void ClassFinalizer::SortClasses() {
+  Thread* T = Thread::Current();
+  Zone* Z = T->zone();
+  Isolate* I = T->isolate();
+  ClassTable* table = I->class_table();
+  intptr_t num_cids = table->NumCids();
+  intptr_t* old_to_new_cid = new intptr_t[num_cids];
+  for (intptr_t cid = 0; cid < kNumPredefinedCids; cid++) {
+    old_to_new_cid[cid] = cid;  // The predefined classes cannot change cids.
+  }
+  for (intptr_t cid = kNumPredefinedCids; cid < num_cids; cid++) {
+    old_to_new_cid[cid] = -1;
+  }
+
+  intptr_t next_new_cid = kNumPredefinedCids;
+  GrowableArray<intptr_t> dfs_stack;
+  Class& cls = Class::Handle(Z);
+  GrowableObjectArray& subclasses = GrowableObjectArray::Handle(Z);
+
+  // Object doesn't use its subclasses list.
+  for (intptr_t cid = kNumPredefinedCids; cid < num_cids; cid++) {
+    if (!table->HasValidClassAt(cid)) {
+      continue;
+    }
+    cls = table->At(cid);
+    if (cls.is_patch()) {
+      continue;
+    }
+    if (cls.SuperClass() == I->object_store()->object_class()) {
+      dfs_stack.Add(cid);
+    }
+  }
+
+  while (dfs_stack.length() > 0) {
+    intptr_t cid = dfs_stack.RemoveLast();
+    ASSERT(table->HasValidClassAt(cid));
+    cls = table->At(cid);
+    ASSERT(!cls.IsNull());
+    if (old_to_new_cid[cid] == -1) {
+      old_to_new_cid[cid] = next_new_cid++;
+      if (FLAG_trace_class_finalization) {
+        THR_Print("%" Pd ": %s, was %" Pd "\n", old_to_new_cid[cid],
+                  cls.ToCString(), cid);
+      }
+    }
+    subclasses = cls.direct_subclasses();
+    if (!subclasses.IsNull()) {
+      for (intptr_t i = 0; i < subclasses.Length(); i++) {
+        cls ^= subclasses.At(i);
+        ASSERT(!cls.IsNull());
+        dfs_stack.Add(cls.id());
+      }
+    }
+  }
+
+  // Top-level classes, typedefs, patch classes, etc.
+  for (intptr_t cid = kNumPredefinedCids; cid < num_cids; cid++) {
+    if (old_to_new_cid[cid] == -1) {
+      old_to_new_cid[cid] = next_new_cid++;
+      if (FLAG_trace_class_finalization && table->HasValidClassAt(cid)) {
+        cls = table->At(cid);
+        THR_Print("%" Pd ": %s, was %" Pd "\n", old_to_new_cid[cid],
+                  cls.ToCString(), cid);
+      }
+    }
+  }
+  ASSERT(next_new_cid == num_cids);
+
+  RemapClassIds(old_to_new_cid);
+  delete[] old_to_new_cid;
+  RehashTypes();  // Types use cid's as part of their hashes.
+}
+
+
+class CidRewriteVisitor : public ObjectVisitor {
+ public:
+  explicit CidRewriteVisitor(intptr_t* old_to_new_cids)
+      : old_to_new_cids_(old_to_new_cids) {}
+
+  intptr_t Map(intptr_t cid) {
+    ASSERT(cid != -1);
+    return old_to_new_cids_[cid];
+  }
+
+  void VisitObject(RawObject* obj) {
+    if (obj->IsClass()) {
+      RawClass* cls = Class::RawCast(obj);
+      cls->ptr()->id_ = Map(cls->ptr()->id_);
+    } else if (obj->IsField()) {
+      RawField* field = Field::RawCast(obj);
+      field->ptr()->guarded_cid_ = Map(field->ptr()->guarded_cid_);
+      field->ptr()->is_nullable_ = Map(field->ptr()->is_nullable_);
+    } else if (obj->IsTypeParameter()) {
+      RawTypeParameter* param = TypeParameter::RawCast(obj);
+      param->ptr()->parameterized_class_id_ =
+          Map(param->ptr()->parameterized_class_id_);
+    } else if (obj->IsType()) {
+      RawType* type = Type::RawCast(obj);
+      RawObject* id = type->ptr()->type_class_id_;
+      if (!id->IsHeapObject()) {
+        type->ptr()->type_class_id_ =
+            Smi::New(Map(Smi::Value(Smi::RawCast(id))));
+      }
+    } else {
+      intptr_t old_cid = obj->GetClassId();
+      intptr_t new_cid = Map(old_cid);
+      if (old_cid != new_cid) {
+        // Don't touch objects that are unchanged. In particular, Instructions,
+        // which are write-protected.
+        obj->SetClassId(new_cid);
+      }
+    }
+  }
+
+ private:
+  intptr_t* old_to_new_cids_;
+};
+
+
+void ClassFinalizer::RemapClassIds(intptr_t* old_to_new_cid) {
+  Isolate* I = Thread::Current()->isolate();
+
+  // Code, ICData, allocation stubs have now-invalid cids.
+  ClearAllCode();
+
+  {
+    HeapIterationScope his;
+    I->set_remapping_cids(true);
+
+    // Update the class table. Do it before rewriting cids in headers, as the
+    // heap walkers load an object's size *after* calling the visitor.
+    I->class_table()->Remap(old_to_new_cid);
+
+    // Rewrite cids in headers and cids in Classes, Fields, Types and
+    // TypeParameters.
+    {
+      CidRewriteVisitor visitor(old_to_new_cid);
+      I->heap()->VisitObjects(&visitor);
+    }
+    I->set_remapping_cids(false);
+  }
+
+#if defined(DEBUG)
+  I->class_table()->Validate();
+  I->heap()->Verify();
+#endif
+}
+
+
+class ClearTypeHashVisitor : public ObjectVisitor {
+ public:
+  explicit ClearTypeHashVisitor(Zone* zone)
+      : type_param_(TypeParameter::Handle(zone)),
+        type_(Type::Handle(zone)),
+        type_args_(TypeArguments::Handle(zone)),
+        bounded_type_(BoundedType::Handle(zone)) {}
+
+  void VisitObject(RawObject* obj) {
+    if (obj->IsTypeParameter()) {
+      type_param_ ^= obj;
+      type_param_.SetHash(0);
+    } else if (obj->IsType()) {
+      type_ ^= obj;
+      type_.SetHash(0);
+    } else if (obj->IsBoundedType()) {
+      bounded_type_ ^= obj;
+      bounded_type_.SetHash(0);
+    } else if (obj->IsTypeArguments()) {
+      type_args_ ^= obj;
+      type_args_.SetHash(0);
+    }
+  }
+
+ private:
+  TypeParameter& type_param_;
+  Type& type_;
+  TypeArguments& type_args_;
+  BoundedType& bounded_type_;
+};
+
+
+void ClassFinalizer::RehashTypes() {
+  Thread* T = Thread::Current();
+  Zone* Z = T->zone();
+  Isolate* I = T->isolate();
+
+  // Clear all cached hash values.
+  {
+    HeapIterationScope his;
+    ClearTypeHashVisitor visitor(Z);
+    I->heap()->VisitObjects(&visitor);
+  }
+
+  // Rehash the canonical Types table.
+  ObjectStore* object_store = I->object_store();
+  GrowableObjectArray& types =
+      GrowableObjectArray::Handle(Z, GrowableObjectArray::New());
+  Array& types_array = Array::Handle(Z);
+  Type& type = Type::Handle(Z);
+  {
+    CanonicalTypeSet types_table(Z, object_store->canonical_types());
+    types_array = HashTables::ToArray(types_table, false);
+    for (intptr_t i = 0; i < types_array.Length(); i++) {
+      type ^= types_array.At(i);
+      types.Add(type);
+    }
+    types_table.Release();
+  }
+
+  intptr_t dict_size = Utils::RoundUpToPowerOfTwo(types.Length() * 4 / 3);
+  types_array = HashTables::New<CanonicalTypeSet>(dict_size, Heap::kOld);
+  CanonicalTypeSet types_table(Z, types_array.raw());
+  for (intptr_t i = 0; i < types.Length(); i++) {
+    type ^= types.At(i);
+    bool present = types_table.Insert(type);
+    ASSERT(!present || type.IsRecursive());
+  }
+  object_store->set_canonical_types(types_table.Release());
+
+  // Rehash the canonical TypeArguments table.
+  Array& typeargs_array = Array::Handle(Z);
+  GrowableObjectArray& typeargs =
+      GrowableObjectArray::Handle(Z, GrowableObjectArray::New());
+  TypeArguments& typearg = TypeArguments::Handle(Z);
+  {
+    CanonicalTypeArgumentsSet typeargs_table(
+        Z, object_store->canonical_type_arguments());
+    typeargs_array = HashTables::ToArray(typeargs_table, false);
+    for (intptr_t i = 0; i < typeargs_array.Length(); i++) {
+      typearg ^= typeargs_array.At(i);
+      typeargs.Add(typearg);
+    }
+    typeargs_table.Release();
+  }
+
+  dict_size = Utils::RoundUpToPowerOfTwo(typeargs.Length() * 4 / 3);
+  typeargs_array =
+      HashTables::New<CanonicalTypeArgumentsSet>(dict_size, Heap::kOld);
+  CanonicalTypeArgumentsSet typeargs_table(Z, typeargs_array.raw());
+  for (intptr_t i = 0; i < typeargs.Length(); i++) {
+    typearg ^= typeargs.At(i);
+    bool present = typeargs_table.Insert(typearg);
+    ASSERT(!present || typearg.IsRecursive());
+  }
+  object_store->set_canonical_type_arguments(typeargs_table.Release());
+}
+
+
+void ClassFinalizer::ClearAllCode() {
+  class ClearCodeFunctionVisitor : public FunctionVisitor {
+    void Visit(const Function& function) {
+      function.ClearCode();
+      function.ClearICDataArray();
+    }
+  };
+  ClearCodeFunctionVisitor function_visitor;
+  ProgramVisitor::VisitFunctions(&function_visitor);
+
+  class ClearCodeClassVisitor : public ClassVisitor {
+    void Visit(const Class& cls) { cls.DisableAllocationStub(); }
+  };
+  ClearCodeClassVisitor class_visitor;
+  ProgramVisitor::VisitClasses(&class_visitor);
 }
 
 }  // namespace dart

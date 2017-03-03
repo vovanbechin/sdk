@@ -7,15 +7,16 @@ library test.analysis.get_navigation;
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analysis_server/src/domain_analysis.dart';
 import 'package:analyzer/file_system/file_system.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../utils.dart';
 import 'notification_navigation_test.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(GetNavigationTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(GetNavigationTest);
+    defineReflectiveTests(GetNavigationTest_Driver);
+  });
 }
 
 @reflectiveTest
@@ -25,7 +26,9 @@ class GetNavigationTest extends AbstractNavigationTest {
   @override
   void setUp() {
     super.setUp();
-    server.handlers = [new AnalysisDomainHandler(server),];
+    server.handlers = [
+      new AnalysisDomainHandler(server),
+    ];
     createProject();
   }
 
@@ -43,18 +46,6 @@ main() {
 
   test_fileDoesNotExist() {
     String file = '$projectPath/doesNotExist.dart';
-    return _checkInvalid(file, -1, -1);
-  }
-
-  test_fileWithoutContext() {
-    String file = '/outside.dart';
-    addFile(
-        file,
-        '''
-main() {
-  print(42);
-}
-''');
     return _checkInvalid(file, -1, -1);
   }
 
@@ -244,5 +235,28 @@ main() {
     targetFiles = result.files;
     targets = result.targets;
     regions = result.regions;
+  }
+}
+
+@reflectiveTest
+class GetNavigationTest_Driver extends GetNavigationTest {
+  @override
+  void setUp() {
+    enableNewAnalysisDriver = true;
+    generateSummaryFiles = true;
+    super.setUp();
+  }
+
+  test_fileOutsideOfRoot() async {
+    testFile = '/outside.dart';
+    addTestFile('''
+main() {
+  var test = 0;
+  print(test);
+}
+''');
+    await _getNavigation(testFile, testCode.indexOf('test);'), 0);
+    assertHasRegion('test);');
+    assertHasTarget('test = 0');
   }
 }

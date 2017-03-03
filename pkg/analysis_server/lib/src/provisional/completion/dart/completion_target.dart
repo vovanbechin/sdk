@@ -12,6 +12,10 @@ import 'package:analyzer/src/generated/utilities_dart.dart';
 
 int _computeArgIndex(AstNode containingNode, Object entity) {
   var argList = containingNode;
+  if (argList is NamedExpression) {
+    entity = argList;
+    argList = argList.parent;
+  }
   if (argList is ArgumentList) {
     NodeList<Expression> args = argList.arguments;
     for (int index = 0; index < args.length; ++index) {
@@ -21,6 +25,13 @@ int _computeArgIndex(AstNode containingNode, Object entity) {
     }
     if (args.isEmpty) {
       return 0;
+    }
+    if (entity == argList.rightParenthesis) {
+      // Parser ignores trailing commas
+      if (argList.rightParenthesis.previous?.lexeme == ',') {
+        return args.length;
+      }
+      return args.length - 1;
     }
   }
   return null;
@@ -130,16 +141,21 @@ class CompletionTarget {
   /**
    * Compute the appropriate [CompletionTarget] for the given [offset] within
    * the [compilationUnit].
+   *
+   * Optionally, start the search from within [entryPoint] instead of using
+   * the [compilationUnit], which is useful for analyzing ASTs that have no
+   * [compilationUnit] such as dart expressions within angular templates.
    */
   factory CompletionTarget.forOffset(
-      CompilationUnit compilationUnit, int offset) {
+      CompilationUnit compilationUnit, int offset,
+      {AstNode entryPoint}) {
     // The precise algorithm is as follows.  We perform a depth-first search of
     // all edges in the parse tree (both those that point to AST nodes and
     // those that point to tokens), visiting parents before children.  The
     // first edge which points to an entity satisfying either _isCandidateToken
     // or _isCandidateNode is the completion target.  If no edge is found that
     // satisfies these two predicates, then we set the completion target entity
-    // to null and the containingNode to the compilationUnit.
+    // to null and the containingNode to the entryPoint.
     //
     // Note that if a token is not a candidate target, then none of the tokens
     // that precede it are candidate targets either.  Therefore any entity
@@ -147,8 +163,10 @@ class CompletionTarget {
     // prune the search to the point where no recursion is necessary; at each
     // step in the process we know exactly which child node we need to proceed
     // to.
-    AstNode containingNode = compilationUnit;
-    outerLoop: while (true) {
+    entryPoint ??= compilationUnit;
+    AstNode containingNode = entryPoint;
+    outerLoop:
+    while (true) {
       if (containingNode is Comment) {
         // Comments are handled specially: we descend into any CommentReference
         // child node that contains the cursor offset.
@@ -192,14 +210,14 @@ class CompletionTarget {
             Token commentToken =
                 _getContainingCommentToken(entity.beginToken, offset);
             if (commentToken != null) {
-              entity = commentToken;
               // If the preceding comment is dartdoc token, then update
               // the containing node to be the dartdoc comment.
               // Otherwise completion is not required.
               Comment docComment =
                   _getContainingDocComment(containingNode, commentToken);
               if (docComment != null) {
-                containingNode = docComment;
+                return new CompletionTarget._(
+                    compilationUnit, offset, docComment, commentToken, false);
               } else {
                 return new CompletionTarget._(compilationUnit, offset,
                     compilationUnit, commentToken, true);
@@ -225,13 +243,13 @@ class CompletionTarget {
       // the first time through the outer loop (since we only jump to the start
       // of the outer loop after determining that the completion target is
       // inside an entity).  We can check that assumption by verifying that
-      // containingNode is still the compilationUnit.
-      assert(identical(containingNode, compilationUnit));
+      // containingNode is still the entryPoint.
+      assert(identical(containingNode, entryPoint));
 
       // Since no completion target was found, we set the completion target
-      // entity to null and use the compilationUnit as the parent.
+      // entity to null and use the entryPoint as the parent.
       return new CompletionTarget._(
-          compilationUnit, offset, compilationUnit, null, false);
+          compilationUnit, offset, entryPoint, null, false);
     }
   }
 
@@ -272,6 +290,9 @@ class CompletionTarget {
       return false;
     }
     AstNode parent = containingNode.parent;
+    if (parent is ArgumentList) {
+      parent = parent.parent;
+    }
     if (parent is InstanceCreationExpression) {
       DartType instType = parent.bestType;
       if (instType != null) {
@@ -282,7 +303,8 @@ class CompletionTarget {
               ? intTypeElem.getNamedConstructor(constructorName.name)
               : intTypeElem.unnamedConstructor;
           return constructor != null &&
-              _isFunctionalParameter(constructor.parameters, argIndex);
+              _isFunctionalParameter(
+                  constructor.parameters, argIndex, containingNode);
         }
       }
     } else if (parent is MethodInvocation) {
@@ -290,9 +312,11 @@ class CompletionTarget {
       if (methodName != null) {
         Element methodElem = methodName.bestElement;
         if (methodElem is MethodElement) {
-          return _isFunctionalParameter(methodElem.parameters, argIndex);
+          return _isFunctionalParameter(
+              methodElem.parameters, argIndex, containingNode);
         } else if (methodElem is FunctionElement) {
-          return _isFunctionalParameter(methodElem.parameters, argIndex);
+          return _isFunctionalParameter(
+              methodElem.parameters, argIndex, containingNode);
         }
       }
     }
@@ -305,14 +329,17 @@ class CompletionTarget {
    * needs to be resolved so that [isFunctionalArgument] will work.
    */
   bool maybeFunctionalArgument() {
-    if (argIndex == null) {
-      return false;
+    if (argIndex != null) {
+      if (containingNode is ArgumentList) {
+        return true;
+      }
+      if (containingNode is NamedExpression) {
+        if (containingNode.parent is ArgumentList) {
+          return true;
+        }
+      }
     }
-    AstNode argList = containingNode;
-    if (argList is! ArgumentList) {
-      return false;
-    }
-    return true;
+    return false;
   }
 
   /**
@@ -408,18 +435,25 @@ class CompletionTarget {
   /**
    * Return `true` if the parameter is a functional parameter.
    */
-  static bool _isFunctionalParameter(
-      List<ParameterElement> parameters, int paramIndex) {
+  static bool _isFunctionalParameter(List<ParameterElement> parameters,
+      int paramIndex, AstNode containingNode) {
+    DartType paramType;
     if (paramIndex < parameters.length) {
       ParameterElement param = parameters[paramIndex];
-      DartType paramType = param.type;
       if (param.parameterKind == ParameterKind.NAMED) {
-        // TODO(danrubel) handle named parameters
-        return false;
+        if (containingNode is NamedExpression) {
+          String name = containingNode.name?.label?.name;
+          param = parameters.firstWhere(
+              (ParameterElement param) =>
+                  param.parameterKind == ParameterKind.NAMED &&
+                  param.name == name,
+              orElse: () => null);
+          paramType = param?.type;
+        }
       } else {
-        return paramType is FunctionType || paramType is FunctionTypeAlias;
+        paramType = param.type;
       }
     }
-    return false;
+    return paramType is FunctionType || paramType is FunctionTypeAlias;
   }
 }

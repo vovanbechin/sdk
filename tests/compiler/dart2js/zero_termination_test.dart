@@ -15,6 +15,8 @@ import 'package:async_helper/async_helper.dart';
 import 'package:expect/expect.dart';
 import 'package:path/path.dart' as path;
 
+import 'launch_helper.dart' show launchDart2Js;
+
 Uri pathOfData = Platform.script;
 Directory tempDir;
 String outFilePath;
@@ -30,9 +32,9 @@ Future handleRequest(HttpRequest request) {
   final File file = new File(requestPath.toFilePath());
   return file.exists().then((bool found) {
     if (found) {
-      file.openRead()
-          .pipe(request.response)
-          .catchError((e) { _sendNotFound(request.response); });
+      file.openRead().pipe(request.response).catchError((e) {
+        _sendNotFound(request.response);
+      });
     } else {
       _sendNotFound(request.response);
     }
@@ -44,14 +46,6 @@ void cleanup() {
   if (outFile.existsSync()) {
     outFile.deleteSync();
   }
-}
-
-Future launchDart2Js(args) {
-  String ext = Platform.isWindows ? '.bat' : '';
-  String command =
-      path.normalize(path.join(path.fromUri(Platform.script),
-                    '../../../../sdk/bin/dart2js${ext}'));
-  return Process.run(command, args, stdoutEncoding: null);
 }
 
 void check(ProcessResult result) {
@@ -67,23 +61,24 @@ void check(ProcessResult result) {
 }
 
 Future testFile() async {
-  String inFilePath = pathOfData.resolve('one_line_dart_program.dart').path;
+  String inFilePath =
+      pathOfData.resolve('data/one_line_dart_program.dart').path;
   List<String> args = [inFilePath, "--out=" + outFilePath];
 
   await cleanup();
-  check(await launchDart2Js(args));
+  check(await launchDart2Js(args, noStdoutEncoding: true));
   await cleanup();
 }
 
 Future serverRunning(HttpServer server) async {
   int port = server.port;
-  String inFilePath = "http://127.0.0.1:$port/one_line_dart_program.dart";
+  String inFilePath = "http://127.0.0.1:$port/data/one_line_dart_program.dart";
   List<String> args = [inFilePath, "--out=" + outFilePath];
 
   server.listen(handleRequest);
   try {
     await cleanup();
-    check(await launchDart2Js(args));
+    check(await launchDart2Js(args, noStdoutEncoding: true));
   } finally {
     await server.close();
     await cleanup();
@@ -91,7 +86,8 @@ Future serverRunning(HttpServer server) async {
 }
 
 Future testHttp() {
-  return HttpServer.bind(InternetAddress.LOOPBACK_IP_V4, 0)
+  return HttpServer
+      .bind(InternetAddress.LOOPBACK_IP_V4, 0)
       .then((HttpServer server) => serverRunning(server));
 }
 
@@ -103,7 +99,7 @@ runTests() async {
     await testFile();
     await testHttp();
   } finally {
-    await tempDir.delete(recursive:true);
+    await tempDir.delete(recursive: true);
   }
 }
 

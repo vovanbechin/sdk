@@ -6,10 +6,11 @@ library analyzer.src.task.html;
 
 import 'dart:collection';
 
+import 'package:analyzer/error/error.dart';
+import 'package:analyzer/exception/exception.dart';
 import 'package:analyzer/src/context/cache.dart';
 import 'package:analyzer/src/dart/scanner/scanner.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
 import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/plugin/engine_plugin.dart';
@@ -74,13 +75,17 @@ class DartScript implements Source {
   bool get isInSystemLibrary => source.isInSystemLibrary;
 
   @override
+  Source get librarySource => source;
+
+  @override
   int get modificationStamp => source.modificationStamp;
 
   @override
   String get shortName => source.shortName;
 
   @override
-  Uri get uri => throw new StateError('uri not supported for scripts');
+  Uri get uri => source.uri
+      .replace(queryParameters: {'offset': fragments[0].offset.toString()});
 
   @override
   UriKind get uriKind =>
@@ -88,10 +93,6 @@ class DartScript implements Source {
 
   @override
   bool exists() => source.exists();
-
-  @override
-  Uri resolveRelativeUri(Uri relativeUri) =>
-      throw new StateError('resolveRelativeUri not supported for scripts');
 }
 
 /**
@@ -170,7 +171,7 @@ class DartScriptsTask extends SourceBasedAnalysisTask {
    * input descriptors describing those inputs for a task with the
    * given [target].
    */
-  static Map<String, TaskInput> buildInputs(Source target) {
+  static Map<String, TaskInput> buildInputs(AnalysisTarget target) {
     return <String, TaskInput>{DOCUMENT_INPUT: HTML_DOCUMENT.of(target)};
   }
 
@@ -241,7 +242,7 @@ class HtmlErrorsTask extends SourceBasedAnalysisTask {
    * input descriptors describing those inputs for a task with the
    * given [target].
    */
-  static Map<String, TaskInput> buildInputs(Source target) {
+  static Map<String, TaskInput> buildInputs(AnalysisTarget target) {
     EnginePlugin enginePlugin = AnalysisEngine.instance.enginePlugin;
     Map<String, TaskInput> inputs = <String, TaskInput>{
       DART_ERRORS_INPUT: DART_SCRIPTS.of(target).toListOf(DART_ERRORS)
@@ -273,6 +274,11 @@ class ParseHtmlTask extends SourceBasedAnalysisTask {
   static const String CONTENT_INPUT_NAME = 'CONTENT_INPUT_NAME';
 
   /**
+   * The name of the input whose value is the modification time of the file.
+   */
+  static const String MODIFICATION_TIME_INPUT = 'MODIFICATION_TIME_INPUT';
+
+  /**
    * The task descriptor describing this kind of task.
    */
   static final TaskDescriptor DESCRIPTOR = new TaskDescriptor(
@@ -296,7 +302,8 @@ class ParseHtmlTask extends SourceBasedAnalysisTask {
   void internalPerform() {
     String content = getRequiredInput(CONTENT_INPUT_NAME);
 
-    if (context.getModificationStamp(target.source) < 0) {
+    int modificationTime = getRequiredInput(MODIFICATION_TIME_INPUT);
+    if (modificationTime < 0) {
       String message = 'Content could not be read';
       if (context is InternalAnalysisContext) {
         CacheEntry entry =
@@ -346,8 +353,11 @@ class ParseHtmlTask extends SourceBasedAnalysisTask {
    * input descriptors describing those inputs for a task with the given
    * [source].
    */
-  static Map<String, TaskInput> buildInputs(Source source) {
-    return <String, TaskInput>{CONTENT_INPUT_NAME: CONTENT.of(source)};
+  static Map<String, TaskInput> buildInputs(AnalysisTarget source) {
+    return <String, TaskInput>{
+      CONTENT_INPUT_NAME: CONTENT.of(source),
+      MODIFICATION_TIME_INPUT: MODIFICATION_TIME.of(source)
+    };
   }
 
   /**

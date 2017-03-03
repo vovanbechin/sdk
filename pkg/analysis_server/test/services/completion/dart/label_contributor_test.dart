@@ -11,15 +11,16 @@ import 'package:analysis_server/plugin/protocol/protocol.dart'
 import 'package:analysis_server/src/protocol_server.dart';
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/label_contributor.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../../utils.dart';
 import 'completion_contributor_util.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(LabelContributorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(LabelContributorTest);
+    defineReflectiveTests(LabelContributorTest_Driver);
+  });
 }
 
 @reflectiveTest
@@ -323,4 +324,10 @@ void main() {
     await computeSuggestions();
     assertSuggestLabel('foo');
   }
+}
+
+@reflectiveTest
+class LabelContributorTest_Driver extends LabelContributorTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

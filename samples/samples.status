@@ -2,6 +2,9 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
+[$runtime == vm && $compiler == none && $system == fuchsia]
+*: Skip  # Not yet triaged.
+
 [ $browser ]
 # Skip tests that uses dart:io
 build_dart: Skip
@@ -14,19 +17,17 @@ sample_extension: Skip
 [ $compiler == dart2js && $cps_ir && $checked ]
 sample_extension: Crash # Unable to compile UnsupportedError.message.
 
-
 [ $compiler == dart2analyzer ]
 build_dart: Skip
 
-[ $compiler == dart2dart ]
-# Skip until we stabilize language tests.
-*: Skip
+[ $compiler == dart2analyzer && $builder_tag == strong ]
+*: Skip # Issue 28649
 
 [ $arch == arm ]
-sample_extension/test/sample_extension_test: Skip # Issue 14705
+sample_extension/test/*: Skip # Issue 14705
 
-[ $arch == simarm64 ]
-*: Skip
+[ $compiler == precompiler ]
+sample_extension/test/*: Skip # These tests attempt to spawn another script using the precompiled runtime.
 
-[ $noopt || $runtime == dart_precompiled || $runtime == dart_product ]
-sample_extension: RuntimeError # Platform.executable
+[ $compiler == none && $runtime == vm && $system == windows && $mode == debug ]
+sample_extension/test/sample_extension_app_snapshot_test: Pass, RuntimeError # Issue 28842

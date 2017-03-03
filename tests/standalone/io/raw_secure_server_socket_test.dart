@@ -6,6 +6,11 @@
 // VMOptions=--short_socket_read
 // VMOptions=--short_socket_write
 // VMOptions=--short_socket_read --short_socket_write
+// OtherResources=certificates/server_chain.pem
+// OtherResources=certificates/server_key.pem
+// OtherResources=certificates/trusted_certs.pem
+// OtherResources=certificates/untrusted_server_chain.pem
+// OtherResources=certificates/untrusted_server_key.pem
 
 import "dart:async";
 import "dart:io";
@@ -25,10 +30,12 @@ SecurityContext clientContext = new SecurityContext()
   ..setTrustedCertificates(localFile('certificates/trusted_certs.pem'));
 
 void testSimpleBind() {
+  print("asyncStart testSimpleBind");
   asyncStart();
   RawSecureServerSocket.bind(HOST, 0, serverContext).then((s) {
     Expect.isTrue(s.port > 0);
     s.close();
+    print("asyncEnd testSimpleBind");
     asyncEnd();
   });
 }
@@ -38,24 +45,29 @@ void testInvalidBind() {
 
   // Bind to a unknown DNS name.
   asyncStart();
+  print("asyncStart testInvalidBind");
   RawSecureServerSocket.bind("ko.faar.__hest__", 0, serverContext).then((_) {
     Expect.fail("Failure expected");
   }).catchError((error) {
     Expect.isTrue(error is SocketException);
+    print("asyncEnd testInvalidBind");
     asyncEnd();
   });
 
   // Bind to an unavaliable IP-address.
   asyncStart();
+  print("asyncStart testInvalidBind 2");
   RawSecureServerSocket.bind("8.8.8.8", 0, serverContext).then((_) {
     Expect.fail("Failure expected");
   }).catchError((error) {
     Expect.isTrue(error is SocketException);
+    print("asyncEnd testInvalidBind 2");
     asyncEnd();
   });
 
   // Bind to a port already in use.
   asyncStart();
+  print("asyncStart testInvalidBind 3");
   RawSecureServerSocket.bind(HOST, 0, serverContext).then((s) {
     RawSecureServerSocket.bind(HOST,
                                s.port,
@@ -67,12 +79,14 @@ void testInvalidBind() {
     .catchError((error) {
       Expect.isTrue(error is SocketException);
       s.close();
+      print("asyncEnd testInvalidBind 3");
       asyncEnd();
     });
   });
 }
 
 void testSimpleConnect() {
+  print("asyncStart testSimpleConnect");
   asyncStart();
   RawSecureServerSocket.bind(HOST, 0, serverContext).then((server) {
     var clientEndFuture =
@@ -83,13 +97,17 @@ void testSimpleConnect() {
         clientEnd.shutdown(SocketDirection.SEND);
         serverEnd.shutdown(SocketDirection.SEND);
         server.close();
+        print("asyncEnd testSimpleConnect");
         asyncEnd();
       });
     });
   });
 }
 
+int debugTestSimpleConnectFailCounter = 0;
 void testSimpleConnectFail(SecurityContext context, bool cancelOnError) {
+  var counter = debugTestSimpleConnectFailCounter++;
+  print("asyncStart testSimpleConnectFail $counter");
   asyncStart();
   RawSecureServerSocket.bind(HOST, 0, context).then((server) {
     var clientEndFuture =
@@ -105,9 +123,11 @@ void testSimpleConnectFail(SecurityContext context, bool cancelOnError) {
       Expect.fail("No server connection expected.");
     },
     onError: (error) {
-      Expect.isTrue(error is HandshakeException);
+      Expect.isTrue(error is SocketException ||
+                    error is HandshakeException);
       clientEndFuture.then((_) {
         if (!cancelOnError) server.close();
+        print("asyncEnd testSimpleConnectFail $counter");
         asyncEnd();
       });
     },
@@ -116,6 +136,7 @@ void testSimpleConnectFail(SecurityContext context, bool cancelOnError) {
 }
 
 void testServerListenAfterConnect() {
+  print("asyncStart testServerListenAfterConnect");
   asyncStart();
   RawSecureServerSocket.bind(HOST, 0, serverContext).then((server) {
     Expect.isTrue(server.port > 0);
@@ -127,6 +148,7 @@ void testServerListenAfterConnect() {
           clientEnd.shutdown(SocketDirection.SEND);
           serverEnd.shutdown(SocketDirection.SEND);
           server.close();
+          print("asyncEnd testServerListenAfterConnect");
           asyncEnd();
         });
       });
@@ -176,6 +198,8 @@ void testSimpleReadWrite({bool listenSecure,
     Expect.fail("Invalid arguments to testSimpleReadWrite");
   }
 
+  print("asyncStart testSimpleReadWrite($listenSecure, $connectSecure, "
+       "$handshakeBeforeSecure, $postponeSecure, $dropReads");
   asyncStart();
 
   const messageSize = 1000;
@@ -473,6 +497,8 @@ void testSimpleReadWrite({bool listenSecure,
 
     connectClient(server.port).then(runClient).then((socket) {
       socket.close();
+      print("asyncEnd testSimpleReadWrite($listenSecure, $connectSecure, "
+       "$handshakeBeforeSecure, $postponeSecure, $dropReads");
       asyncEnd();
     });
   }
@@ -486,6 +512,8 @@ void testSimpleReadWrite({bool listenSecure,
 }
 
 testPausedSecuringSubscription(bool pausedServer, bool pausedClient) {
+  print(
+      "asyncStart testPausedSecuringSubscription $pausedServer $pausedClient");
   asyncStart();
   var clientComplete = new Completer();
   RawServerSocket.bind(HOST, 0).then((server) {
@@ -499,6 +527,8 @@ testPausedSecuringSubscription(bool pausedServer, bool pausedClient) {
           server.close();
           clientComplete.future.then((_) {
             client.close();
+            print("asyncEnd testPausedSecuringSubscription "
+                "$pausedServer $pausedClient");
             asyncEnd();
           });
         }
@@ -556,10 +586,12 @@ testPausedSecuringSubscription(bool pausedServer, bool pausedClient) {
 }
 
 main() {
+  print("asyncStart main");
   asyncStart();
   InternetAddress.lookup("localhost").then((hosts) {
     HOST = hosts.first;
     runTests();
+    print("asyncEnd main");
     asyncEnd();
   });
 }

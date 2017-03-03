@@ -12,7 +12,6 @@
       'type': 'none',
       'dependencies': [
         '../../runtime/dart-runtime.gyp:dart',
-        '../../pkg/pkg.gyp:pkg_packages',
         'dart2js_files_stamp',
       ],
       'actions': [
@@ -21,10 +20,12 @@
           'inputs': [
             '<(PRODUCT_DIR)/<(EXECUTABLE_PREFIX)dart<(EXECUTABLE_SUFFIX)',
             '../../sdk/lib/_internal/sdk_library_metadata/lib/libraries.dart',
-            '<!@(["python", "../../tools/list_files.py", "\\.dart$", "../../runtime/lib", "../../sdk/lib/_internal/dartdoc"])',
+            '<!@(["python", "../../tools/list_files.py",  "relative", '
+                '"\\.dart$", '
+                '"../../runtime/lib", '
+                '"../../sdk/lib/_internal/dartdoc"])',
             'create_snapshot.dart',
             '<(SHARED_INTERMEDIATE_DIR)/dart2js_files.stamp',
-            '<(SHARED_INTERMEDIATE_DIR)/packages.stamp',
             '../../tools/VERSION',
           ],
           'outputs': [
@@ -33,10 +34,10 @@
           ],
           'action': [
             '<(PRODUCT_DIR)/<(EXECUTABLE_PREFIX)dart<(EXECUTABLE_SUFFIX)',
+            '--packages=../../.packages',
             'create_snapshot.dart',
             '--output_dir=<(SHARED_INTERMEDIATE_DIR)',
             '--dart2js_main=pkg/compiler/lib/src/dart2js.dart',
-            '--package_root=<(PRODUCT_DIR)/packages/',
           ],
         },
       ],
@@ -53,7 +54,8 @@
           'action_name': 'make_dart2js_files_stamp',
           'inputs': [
             '../../tools/create_timestamp_file.py',
-            '<!@(["python", "../../tools/list_files.py", "\\.dart$",'
+            '<!@(["python", "../../tools/list_files.py", "relative", '
+                '"\\.dart$", '
                 ' "../../pkg/compiler/lib"])',
           ],
           'outputs': [

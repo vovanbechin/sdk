@@ -5,58 +5,51 @@
 library dart2js.parser.element_listener;
 
 import '../common.dart';
-import '../diagnostics/messages.dart' show
-    MessageTemplate;
-import '../elements/elements.dart' show
-    Element,
-    LibraryElement,
-    MetadataAnnotation;
-import '../elements/modelx.dart' show
-    CompilationUnitElementX,
-    DeclarationSite,
-    ElementX,
-    EnumClassElementX,
-    FieldElementX,
-    LibraryElementX,
-    NamedMixinApplicationElementX,
-    VariableList;
+import '../diagnostics/messages.dart' show MessageTemplate;
+import '../elements/elements.dart'
+    show Element, LibraryElement, MetadataAnnotation;
+import '../elements/modelx.dart'
+    show
+        CompilationUnitElementX,
+        DeclarationSite,
+        ElementX,
+        EnumClassElementX,
+        FieldElementX,
+        LibraryElementX,
+        MetadataAnnotationX,
+        NamedMixinApplicationElementX,
+        VariableList;
+import '../id_generator.dart';
 import '../native/native.dart' as native;
-import '../string_validator.dart' show
-    StringValidator;
-import '../tokens/keyword.dart' show
-    Keyword;
-import '../tokens/precedence_constants.dart' as Precedence show
-    BAD_INPUT_INFO;
-import '../tokens/token.dart' show
-    BeginGroupToken,
-    ErrorToken,
-    KeywordToken,
-    Token;
-import '../tokens/token_constants.dart' as Tokens show
-    EOF_TOKEN;
+import '../string_validator.dart' show StringValidator;
+import 'package:front_end/src/fasta/scanner.dart'
+    show Keyword, BeginGroupToken, ErrorToken, KeywordToken, StringToken, Token;
+import 'package:front_end/src/fasta/scanner.dart' as Tokens show EOF_TOKEN;
+import 'package:front_end/src/fasta/scanner/precedence.dart' as Precedence
+    show BAD_INPUT_INFO, IDENTIFIER_INFO;
 import '../tree/tree.dart';
-import '../util/util.dart' show
-    Link,
-    LinkBuilder;
+import '../util/util.dart' show Link, LinkBuilder;
+import 'package:front_end/src/fasta/parser.dart'
+    show ErrorKind, Listener, ParserError, optional;
+import 'package:front_end/src/fasta/parser/identifier_context.dart'
+    show IdentifierContext;
+import 'partial_elements.dart'
+    show
+        PartialClassElement,
+        PartialElement,
+        PartialFieldList,
+        PartialFunctionElement,
+        PartialMetadataAnnotation,
+        PartialTypedefElement;
 
-import 'partial_elements.dart' show
-    PartialClassElement,
-    PartialElement,
-    PartialFieldList,
-    PartialFunctionElement,
-    PartialMetadataAnnotation,
-    PartialTypedefElement;
-import 'listener.dart' show
-    closeBraceFor,
-    Listener,
-    ParserError,
-    VERBOSE;
-
-typedef int IdGenerator();
+const bool VERBOSE = false;
 
 /// Options used for scanning.
 ///
 /// Use this to conditionally support special tokens.
+///
+/// TODO(johnniwinther): This class should be renamed, it is not about options
+/// in the same sense as `CompilerOptions` or `DiagnosticOptions`.
 class ScannerOptions {
   /// If `true` the pseudo keyword `native` is supported.
   final bool canUseNative;
@@ -94,11 +87,12 @@ class ElementListener extends Listener {
 
   bool suppressParseErrors = false;
 
-  ElementListener(
-      this.scannerOptions,
-      DiagnosticReporter reporter,
-      this.compilationUnitElement,
-      this.idGenerator)
+  /// Set to true each time we parse a native function body. It is reset in
+  /// [handleInvalidFunctionBody] which is called immediately after.
+  bool lastErrorWasNativeFunctionBody = false;
+
+  ElementListener(this.scannerOptions, DiagnosticReporter reporter,
+      this.compilationUnitElement, this.idGenerator)
       : this.reporter = reporter,
         stringValidator = new StringValidator(reporter),
         interpolationScope = const Link<StringQuoting>();
@@ -121,8 +115,8 @@ class ElementListener extends Listener {
     StringNode node = popNode();
     // TODO(lrn): Handle interpolations in script tags.
     if (node.isInterpolation) {
-      reporter.internalError(node,
-          "String interpolation not supported in library tags.");
+      reporter.internalError(
+          node, "String interpolation not supported in library tags.");
       return null;
     }
     return node;
@@ -133,17 +127,19 @@ class ElementListener extends Listener {
     // in sourced files.
     LibraryElement library = compilationUnitElement.implementationLibrary;
     return !compilationUnitElement.hasMembers &&
-           library.entryCompilationUnit == compilationUnitElement;
+        library.entryCompilationUnit == compilationUnitElement;
   }
 
+  @override
   void endLibraryName(Token libraryKeyword, Token semicolon) {
     Expression name = popNode();
-    addLibraryTag(new LibraryName(libraryKeyword, name,
-                                  popMetadata(compilationUnitElement)));
+    addLibraryTag(new LibraryName(
+        libraryKeyword, name, popMetadata(compilationUnitElement)));
   }
 
+  @override
   void endImport(Token importKeyword, Token deferredKeyword, Token asKeyword,
-                 Token semicolon) {
+      Token semicolon) {
     NodeList combinators = popNode();
     bool isDeferred = deferredKeyword != null;
     Identifier prefix;
@@ -152,17 +148,18 @@ class ElementListener extends Listener {
     }
     NodeList conditionalUris = popNode();
     StringNode uri = popLiteralString();
-    addLibraryTag(new Import(importKeyword, uri, conditionalUris,
-                             prefix, combinators,
-                             popMetadata(compilationUnitElement),
-                             isDeferred: isDeferred));
+    addLibraryTag(new Import(importKeyword, uri, conditionalUris, prefix,
+        combinators, popMetadata(compilationUnitElement),
+        isDeferred: isDeferred));
   }
 
+  @override
   void endDottedName(int count, Token token) {
     NodeList identifiers = makeNodeList(count, null, null, '.');
     pushNode(new DottedName(token, identifiers));
   }
 
+  @override
   void endConditionalUris(int count) {
     if (count == 0) {
       pushNode(null);
@@ -171,6 +168,7 @@ class ElementListener extends Listener {
     }
   }
 
+  @override
   void endConditionalUri(Token ifToken, Token equalSign) {
     StringNode uri = popNode();
     LiteralString conditionValue = (equalSign != null) ? popNode() : null;
@@ -178,25 +176,28 @@ class ElementListener extends Listener {
     pushNode(new ConditionalUri(ifToken, identifier, conditionValue, uri));
   }
 
+  @override
   void endEnum(Token enumKeyword, Token endBrace, int count) {
     NodeList names = makeNodeList(count, enumKeyword.next.next, endBrace, ",");
     Identifier name = popNode();
 
-    int id = idGenerator();
+    int id = idGenerator.getNextFreeId();
     Element enclosing = compilationUnitElement;
-    pushElement(new EnumClassElementX(name.source, enclosing, id,
-        new Enum(enumKeyword, name, names)));
+    pushElement(new EnumClassElementX(
+        name.source, enclosing, id, new Enum(enumKeyword, name, names)));
     rejectBuiltInIdentifier(name);
   }
 
+  @override
   void endExport(Token exportKeyword, Token semicolon) {
     NodeList combinators = popNode();
     NodeList conditionalUris = popNode();
     StringNode uri = popNode();
     addLibraryTag(new Export(exportKeyword, uri, conditionalUris, combinators,
-                             popMetadata(compilationUnitElement)));
+        popMetadata(compilationUnitElement)));
   }
 
+  @override
   void endCombinators(int count) {
     if (0 == count) {
       pushNode(null);
@@ -205,8 +206,10 @@ class ElementListener extends Listener {
     }
   }
 
+  @override
   void endHide(Token hideKeyword) => pushCombinator(hideKeyword);
 
+  @override
   void endShow(Token showKeyword) => pushCombinator(showKeyword);
 
   void pushCombinator(Token keywordToken) {
@@ -214,30 +217,35 @@ class ElementListener extends Listener {
     pushNode(new Combinator(identifiers, keywordToken));
   }
 
+  @override
   void endIdentifierList(int count) {
     pushNode(makeNodeList(count, null, null, ","));
   }
 
+  @override
   void endTypeList(int count) {
     pushNode(makeNodeList(count, null, null, ","));
   }
 
+  @override
   void endPart(Token partKeyword, Token semicolon) {
     StringNode uri = popLiteralString();
-    addLibraryTag(new Part(partKeyword, uri,
-                           popMetadata(compilationUnitElement)));
+    addLibraryTag(
+        new Part(partKeyword, uri, popMetadata(compilationUnitElement)));
   }
 
+  @override
   void endPartOf(Token partKeyword, Token semicolon) {
     Expression name = popNode();
-    addPartOfTag(new PartOf(partKeyword, name,
-                            popMetadata(compilationUnitElement)));
+    addPartOfTag(
+        new PartOf(partKeyword, name, popMetadata(compilationUnitElement)));
   }
 
   void addPartOfTag(PartOf tag) {
     compilationUnitElement.setPartOf(tag, reporter);
   }
 
+  @override
   void endMetadata(Token beginToken, Token periodBeforeName, Token endToken) {
     if (periodBeforeName != null) {
       popNode(); // Discard name.
@@ -246,22 +254,29 @@ class ElementListener extends Listener {
     pushMetadata(new PartialMetadataAnnotation(beginToken, endToken));
   }
 
+  @override
   void endTopLevelDeclaration(Token token) {
     if (!metadata.isEmpty) {
-      recoverableError(metadata.first.beginToken,
-                       'Metadata not supported here.');
+      MetadataAnnotationX first = metadata.first;
+      recoverableError(reporter.spanFromToken(first.beginToken),
+          'Metadata not supported here.');
       metadata.clear();
     }
   }
 
-  void endClassDeclaration(int interfacesCount, Token beginToken,
-                           Token extendsKeyword, Token implementsKeyword,
-                           Token endToken) {
+  @override
+  void endClassDeclaration(
+      int interfacesCount,
+      Token beginToken,
+      Token classKeyword,
+      Token extendsKeyword,
+      Token implementsKeyword,
+      Token endToken) {
     makeNodeList(interfacesCount, implementsKeyword, null, ","); // interfaces
     popNode(); // superType
     popNode(); // typeParameters
     Identifier name = popNode();
-    int id = idGenerator();
+    int id = idGenerator.getNextFreeId();
     PartialClassElement element = new PartialClassElement(
         name.source, beginToken, endToken, compilationUnitElement, id);
     pushElement(element);
@@ -277,85 +292,102 @@ class ElementListener extends Listener {
     }
   }
 
-  void endFunctionTypeAlias(Token typedefKeyword, Token endToken) {
-    popNode(); // TODO(karlklose): do not throw away typeVariables.
-    Identifier name = popNode();
-    popNode(); // returnType
-    pushElement(
-        new PartialTypedefElement(
-            name.source, compilationUnitElement, typedefKeyword, endToken));
+  @override
+  void endFunctionTypeAlias(
+      Token typedefKeyword, Token equals, Token endToken) {
+    Identifier name;
+    if (equals == null) {
+      popNode(); // TODO(karlklose): do not throw away typeVariables.
+      name = popNode();
+      popNode(); // returnType
+    } else {
+      popNode();  // Function type.
+      popNode();  // TODO(karlklose): do not throw away typeVariables.
+      name = popNode();
+    }
+    pushElement(new PartialTypedefElement(
+        name.source, compilationUnitElement, typedefKeyword, endToken));
     rejectBuiltInIdentifier(name);
   }
 
-  void endNamedMixinApplication(Token classKeyword,
-                                Token implementsKeyword,
-                                Token endToken) {
+  @override
+  void endNamedMixinApplication(Token beginToken, Token classKeyword,
+      Token equals, Token implementsKeyword, Token endToken) {
     NodeList interfaces = (implementsKeyword != null) ? popNode() : null;
     MixinApplication mixinApplication = popNode();
-    Modifiers modifiers = popNode();
     NodeList typeParameters = popNode();
     Identifier name = popNode();
+    Modifiers modifiers = popNode();
     NamedMixinApplication namedMixinApplication = new NamedMixinApplication(
-        name, typeParameters, modifiers, mixinApplication, interfaces,
-        classKeyword, endToken);
+        name,
+        typeParameters,
+        modifiers,
+        mixinApplication,
+        interfaces,
+        beginToken,
+        endToken);
 
-    int id = idGenerator();
+    int id = idGenerator.getNextFreeId();
     Element enclosing = compilationUnitElement;
     pushElement(new NamedMixinApplicationElementX(
         name.source, enclosing, id, namedMixinApplication));
     rejectBuiltInIdentifier(name);
   }
 
+  @override
   void endMixinApplication() {
     NodeList mixins = popNode();
-    TypeAnnotation superclass = popNode();
+    NominalTypeAnnotation superclass = popNode();
     pushNode(new MixinApplication(superclass, mixins));
   }
 
+  @override
   void handleVoidKeyword(Token token) {
-    pushNode(new TypeAnnotation(new Identifier(token), null));
+    pushNode(new NominalTypeAnnotation(new Identifier(token), null));
   }
 
+  @override
   void endTopLevelMethod(Token beginToken, Token getOrSet, Token endToken) {
     bool hasParseError = currentMemberHasParseError;
     memberErrors = memberErrors.tail;
+    popNode(); // typeVariables
     Identifier name = popNode();
     popNode(); // type
     Modifiers modifiers = popNode();
-    PartialFunctionElement element = new PartialFunctionElement(
-        name.source, beginToken, getOrSet, endToken,
-        modifiers, compilationUnitElement);
+    PartialFunctionElement element = new PartialFunctionElement(name.source,
+        beginToken, getOrSet, endToken, modifiers, compilationUnitElement);
     element.hasParseError = hasParseError;
     pushElement(element);
   }
 
+  @override
   void endTopLevelFields(int count, Token beginToken, Token endToken) {
     bool hasParseError = currentMemberHasParseError;
     memberErrors = memberErrors.tail;
     void buildFieldElement(Identifier name, VariableList fields) {
-      pushElement(
-          new FieldElementX(name, compilationUnitElement, fields));
+      pushElement(new FieldElementX(name, compilationUnitElement, fields));
     }
+
     NodeList variables = makeNodeList(count, null, null, ",");
     popNode(); // type
     Modifiers modifiers = popNode();
     buildFieldElements(modifiers, variables, compilationUnitElement,
-                       buildFieldElement,
-                       beginToken, endToken, hasParseError);
+        buildFieldElement, beginToken, endToken, hasParseError);
   }
 
-  void buildFieldElements(Modifiers modifiers,
-                          NodeList variables,
-                          Element enclosingElement,
-                          void buildFieldElement(Identifier name,
-                                                 VariableList fields),
-                          Token beginToken, Token endToken,
-                          bool hasParseError) {
+  void buildFieldElements(
+      Modifiers modifiers,
+      NodeList variables,
+      Element enclosingElement,
+      void buildFieldElement(Identifier name, VariableList fields),
+      Token beginToken,
+      Token endToken,
+      bool hasParseError) {
     VariableList fields =
         new PartialFieldList(beginToken, endToken, modifiers, hasParseError);
     for (Link<Node> variableNodes = variables.nodes;
-         !variableNodes.isEmpty;
-         variableNodes = variableNodes.tail) {
+        !variableNodes.isEmpty;
+        variableNodes = variableNodes.tail) {
       Expression initializedIdentifier = variableNodes.head;
       Identifier identifier = initializedIdentifier.asIdentifier();
       if (identifier == null) {
@@ -365,58 +397,85 @@ class ElementListener extends Listener {
     }
   }
 
-  void handleIdentifier(Token token) {
+  @override
+  void handleIdentifier(Token token, IdentifierContext context) {
     pushNode(new Identifier(token));
   }
 
+  @override
   void handleQualified(Token period) {
     Identifier last = popNode();
     Expression first = popNode();
     pushNode(new Send(first, last));
   }
 
+  @override
+  void handleNoConstructorReferenceContinuationAfterTypeArguments(Token token) {
+  }
+
+  @override
   void handleNoType(Token token) {
     pushNode(null);
   }
 
-  void endTypeVariable(Token token) {
-    TypeAnnotation bound = popNode();
+  @override
+  void endTypeVariable(Token token, Token extendsOrSuper) {
+    NominalTypeAnnotation bound = popNode();
     Identifier name = popNode();
-    pushNode(new TypeVariable(name, bound));
+    pushNode(new TypeVariable(name, extendsOrSuper, bound));
     rejectBuiltInIdentifier(name);
   }
 
+  @override
   void endTypeVariables(int count, Token beginToken, Token endToken) {
     pushNode(makeNodeList(count, beginToken, endToken, ','));
   }
 
-  void handleNoTypeVariables(token) {
+  @override
+  void handleNoTypeVariables(Token token) {
     pushNode(null);
   }
 
+  @override
   void endTypeArguments(int count, Token beginToken, Token endToken) {
     pushNode(makeNodeList(count, beginToken, endToken, ','));
   }
 
+  @override
   void handleNoTypeArguments(Token token) {
     pushNode(null);
   }
 
-  void endType(Token beginToken, Token endToken) {
+  @override
+  void handleType(Token beginToken, Token endToken) {
     NodeList typeArguments = popNode();
     Expression typeName = popNode();
-    pushNode(new TypeAnnotation(typeName, typeArguments));
+    pushNode(new NominalTypeAnnotation(typeName, typeArguments));
   }
 
+  void handleNoName(Token token) {
+    pushNode(null);
+  }
+
+  @override
+  void handleFunctionType(Token functionToken, Token endToken) {
+    popNode();  // Type parameters.
+    popNode();  // Return type.
+    pushNode(null);
+  }
+
+  @override
   void handleParenthesizedExpression(BeginGroupToken token) {
     Expression expression = popNode();
     pushNode(new ParenthesizedExpression(expression, token));
   }
 
+  @override
   void handleModifier(Token token) {
     pushNode(new Identifier(token));
   }
 
+  @override
   void handleModifiers(int count) {
     if (count == 0) {
       pushNode(Modifiers.EMPTY);
@@ -426,29 +485,240 @@ class ElementListener extends Listener {
     }
   }
 
-  Token expected(String string, Token token) {
-    if (token is ErrorToken) {
-      reportErrorToken(token);
-    } else if (identical(';', string)) {
-      // When a semicolon is missing, it often leads to an error on the
-      // following line. So we try to find the token preceding the semicolon
-      // and report that something is missing *after* it.
-      Token preceding = findPrecedingToken(token);
-      if (preceding == token) {
-        reportError(
-            token, MessageKind.MISSING_TOKEN_BEFORE_THIS, {'token': string});
-      } else {
-        reportError(
-            preceding, MessageKind.MISSING_TOKEN_AFTER_THIS, {'token': string});
-      }
-      return token;
+  @override
+  Token handleUnrecoverableError(Token token, ErrorKind kind, Map arguments) {
+    Token next = handleError(token, kind, arguments);
+    if (next == null &&
+        kind != ErrorKind.UnterminatedComment &&
+        kind != ErrorKind.UnterminatedString) {
+      throw new ParserError.fromTokens(token, token, kind, arguments);
     } else {
-      reportFatalError(
-          token,
-          MessageTemplate.TEMPLATES[MessageKind.MISSING_TOKEN_BEFORE_THIS]
-              .message({'token': string}, true).toString());
+      return next;
     }
-    return skipToEof(token);
+  }
+
+  @override
+  void handleRecoverableError(Token token, ErrorKind kind, Map arguments) {
+    handleError(token, kind, arguments);
+  }
+
+  @override
+  void handleInvalidExpression(Token token) {
+    pushNode(new ErrorExpression(token));
+  }
+
+  @override
+  void handleInvalidFunctionBody(Token token) {
+    lastErrorWasNativeFunctionBody = false;
+  }
+
+  @override
+  void handleInvalidTypeReference(Token token) {
+    pushNode(null);
+  }
+
+  Token handleError(Token token, ErrorKind kind, Map arguments) {
+    MessageKind errorCode;
+
+    switch (kind) {
+      case ErrorKind.ExpectedButGot:
+        String expected = arguments["expected"];
+        if (identical(";", expected)) {
+          // When a semicolon is missing, it often leads to an error on the
+          // following line. So we try to find the token preceding the semicolon
+          // and report that something is missing *after* it.
+          Token preceding = findPrecedingToken(token);
+          if (preceding == token) {
+            reportErrorFromToken(token, MessageKind.MISSING_TOKEN_BEFORE_THIS,
+                {'token': expected});
+          } else {
+            reportErrorFromToken(preceding,
+                MessageKind.MISSING_TOKEN_AFTER_THIS, {'token': expected});
+          }
+          return token;
+        } else {
+          reportFatalError(
+              reporter.spanFromToken(token),
+              MessageTemplate.TEMPLATES[MessageKind.MISSING_TOKEN_BEFORE_THIS]
+                  .message({'token': expected}, true).toString());
+          return null;
+        }
+        break;
+
+      case ErrorKind.ExpectedIdentifier:
+        if (token is KeywordToken) {
+          reportErrorFromToken(
+              token,
+              MessageKind.EXPECTED_IDENTIFIER_NOT_RESERVED_WORD,
+              {'keyword': token.value});
+        } else if (token is ErrorToken) {
+          // TODO(ahe): This is dead code.
+          return synthesizeIdentifier(token);
+        } else {
+          reportFatalError(reporter.spanFromToken(token),
+              "Expected identifier, but got '${token.value}'.");
+        }
+        return token;
+
+      case ErrorKind.ExpectedType:
+        reportFatalError(reporter.spanFromToken(token),
+            "Expected a type, but got '${token.value}'.");
+        return null;
+
+      case ErrorKind.ExpectedExpression:
+        reportFatalError(reporter.spanFromToken(token),
+            "Expected an expression, but got '${token.value}'.");
+        return null;
+
+      case ErrorKind.UnexpectedToken:
+        String message = "Unexpected token '${token.value}'.";
+        if (token.info == Precedence.BAD_INPUT_INFO) {
+          message = token.value;
+        }
+        reportFatalError(reporter.spanFromToken(token), message);
+        return null;
+
+      case ErrorKind.ExpectedBlockToSkip:
+        if (optional("native", token)) {
+          return native.handleNativeBlockToSkip(this, token);
+        } else {
+          errorCode = MessageKind.BODY_EXPECTED;
+        }
+        break;
+
+      case ErrorKind.ExpectedFunctionBody:
+        if (optional("native", token)) {
+          lastErrorWasNativeFunctionBody = true;
+          return native.handleNativeFunctionBody(this, token);
+        } else {
+          reportFatalError(reporter.spanFromToken(token),
+              "Expected a function body, but got '${token.value}'.");
+        }
+        return null;
+
+      case ErrorKind.ExpectedClassBodyToSkip:
+      case ErrorKind.ExpectedClassBody:
+        reportFatalError(reporter.spanFromToken(token),
+            "Expected a class body, but got '${token.value}'.");
+        return null;
+
+      case ErrorKind.ExpectedDeclaration:
+        reportFatalError(reporter.spanFromToken(token),
+            "Expected a declaration, but got '${token.value}'.");
+        return null;
+
+      case ErrorKind.UnmatchedToken:
+        reportErrorFromToken(token, MessageKind.UNMATCHED_TOKEN, arguments);
+        Token next = token.next;
+        while (next is ErrorToken) {
+          next = next.next;
+        }
+        return next;
+
+      case ErrorKind.EmptyNamedParameterList:
+        errorCode = MessageKind.EMPTY_NAMED_PARAMETER_LIST;
+        break;
+
+      case ErrorKind.EmptyOptionalParameterList:
+        errorCode = MessageKind.EMPTY_OPTIONAL_PARAMETER_LIST;
+        break;
+
+      case ErrorKind.ExpectedBody:
+        errorCode = MessageKind.BODY_EXPECTED;
+        break;
+
+      case ErrorKind.ExpectedHexDigit:
+        errorCode = MessageKind.HEX_DIGIT_EXPECTED;
+        break;
+
+      case ErrorKind.ExpectedOpenParens:
+        errorCode = MessageKind.GENERIC;
+        arguments = {"text": "Expected '('."};
+        break;
+
+      case ErrorKind.ExpectedString:
+        reportFatalError(reporter.spanFromToken(token),
+            "Expected a String, but got '${token.value}'.");
+        return null;
+
+      case ErrorKind.ExtraneousModifier:
+        errorCode = MessageKind.EXTRANEOUS_MODIFIER;
+        break;
+
+      case ErrorKind.ExtraneousModifierReplace:
+        errorCode = MessageKind.EXTRANEOUS_MODIFIER_REPLACE;
+        break;
+
+      case ErrorKind.InvalidAwaitFor:
+        errorCode = MessageKind.INVALID_AWAIT_FOR;
+        break;
+
+      case ErrorKind.AsciiControlCharacter:
+      case ErrorKind.NonAsciiIdentifier:
+      case ErrorKind.NonAsciiWhitespace:
+      case ErrorKind.Encoding:
+        errorCode = MessageKind.BAD_INPUT_CHARACTER;
+        break;
+
+      case ErrorKind.InvalidInlineFunctionType:
+        errorCode = MessageKind.INVALID_INLINE_FUNCTION_TYPE;
+        break;
+
+      case ErrorKind.InvalidSyncModifier:
+        errorCode = MessageKind.INVALID_SYNC_MODIFIER;
+        break;
+
+      case ErrorKind.InvalidVoid:
+        errorCode = MessageKind.VOID_NOT_ALLOWED;
+        break;
+
+      case ErrorKind.UnexpectedDollarInString:
+        errorCode = MessageKind.MALFORMED_STRING_LITERAL;
+        break;
+
+      case ErrorKind.MissingExponent:
+        errorCode = MessageKind.EXPONENT_MISSING;
+        break;
+
+      case ErrorKind.PositionalParameterWithEquals:
+        errorCode = MessageKind.POSITIONAL_PARAMETER_WITH_EQUALS;
+        break;
+
+      case ErrorKind.RequiredParameterWithDefault:
+        errorCode = MessageKind.REQUIRED_PARAMETER_WITH_DEFAULT;
+        break;
+
+      case ErrorKind.UnmatchedToken:
+        errorCode = MessageKind.UNMATCHED_TOKEN;
+        break;
+
+      case ErrorKind.UnsupportedPrefixPlus:
+        errorCode = MessageKind.UNSUPPORTED_PREFIX_PLUS;
+        break;
+
+      case ErrorKind.UnterminatedComment:
+        errorCode = MessageKind.UNTERMINATED_COMMENT;
+        break;
+
+      case ErrorKind.UnterminatedString:
+        errorCode = MessageKind.UNTERMINATED_STRING;
+        break;
+
+      case ErrorKind.UnterminatedToken:
+        errorCode = MessageKind.UNTERMINATED_TOKEN;
+        break;
+
+      case ErrorKind.StackOverflow:
+        errorCode = MessageKind.GENERIC;
+        arguments = {"text": "Stack overflow."};
+        break;
+
+      case ErrorKind.Unspecified:
+        errorCode = MessageKind.GENERIC;
+        break;
+    }
+    SourceSpan span = reporter.spanFromToken(token);
+    reportError(span, errorCode, arguments);
   }
 
   /// Finds the preceding token via the begin token of the last AST node pushed
@@ -508,116 +778,13 @@ class ElementListener extends Listener {
     return null;
   }
 
-  Token expectedIdentifier(Token token) {
-    if (token is KeywordToken) {
-      reportError(
-          token, MessageKind.EXPECTED_IDENTIFIER_NOT_RESERVED_WORD,
-          {'keyword': token.value});
-    } else if (token is ErrorToken) {
-      reportErrorToken(token);
-      return synthesizeIdentifier(token);
-    } else {
-      reportFatalError(token,
-          "Expected identifier, but got '${token.value}'.");
-    }
-    return token;
-  }
-
-  Token expectedType(Token token) {
-    pushNode(null);
-    if (token is ErrorToken) {
-      reportErrorToken(token);
-      return synthesizeIdentifier(token);
-    } else {
-      reportFatalError(
-          token, "Expected a type, but got '${token.value}'.");
-      return skipToEof(token);
-    }
-  }
-
-  Token expectedExpression(Token token) {
-    if (token is ErrorToken) {
-      reportErrorToken(token);
-      pushNode(new ErrorExpression(token));
-      return token.next;
-    } else {
-      reportFatalError(token,
-                       "Expected an expression, but got '${token.value}'.");
-      pushNode(null);
-      return skipToEof(token);
-    }
-  }
-
-  Token unexpected(Token token) {
-    if (token is ErrorToken) {
-      reportErrorToken(token);
-    } else {
-      String message = "Unexpected token '${token.value}'.";
-      if (token.info == Precedence.BAD_INPUT_INFO) {
-        message = token.value;
-      }
-      reportFatalError(token, message);
-    }
-    return skipToEof(token);
-  }
-
-  Token expectedBlockToSkip(Token token) {
-    if (identical(token.stringValue, 'native')) {
-      return native.handleNativeBlockToSkip(this, token);
-    } else {
-      return unexpected(token);
-    }
-  }
-
-  Token expectedFunctionBody(Token token) {
-    if (token is ErrorToken) {
-      reportErrorToken(token);
-    } else {
-      String printString = token.value;
-      reportFatalError(token,
-                       "Expected a function body, but got '$printString'.");
-    }
-    return skipToEof(token);
-  }
-
-  Token expectedClassBody(Token token) {
-    if (token is ErrorToken) {
-      reportErrorToken(token);
-    } else {
-      reportFatalError(token,
-                       "Expected a class body, but got '${token.value}'.");
-    }
-    return skipToEof(token);
-  }
-
-  Token expectedClassBodyToSkip(Token token) {
-    return unexpected(token);
-  }
-
-  Token expectedDeclaration(Token token) {
-    if (token is ErrorToken) {
-      reportErrorToken(token);
-    } else {
-      reportFatalError(token,
-                       "Expected a declaration, but got '${token.value}'.");
-    }
-    return skipToEof(token);
-  }
-
-  Token unmatched(Token token) {
-    if (token is ErrorToken) {
-      reportErrorToken(token);
-    } else {
-      String begin = token.value;
-      String end = closeBraceFor(begin);
-      reportError(
-          token, MessageKind.UNMATCHED_TOKEN, {'begin': begin, 'end': end});
-    }
-    Token next = token.next;
-    while (next is ErrorToken) {
-      next = next.next;
-    }
-    return next;
+  /// Finds the preceding token via the begin token of the last AST node pushed
+  /// on the [nodes] stack.
+  Token synthesizeIdentifier(Token token) {
+    Token synthesizedToken = new StringToken.fromString(
+        Precedence.IDENTIFIER_INFO, '?', token.charOffset);
+    synthesizedToken.next = token.next;
+    return synthesizedToken;
   }
 
   void recoverableError(Spannable node, String message) {
@@ -669,8 +836,8 @@ class ElementListener extends Listener {
     print(message);
   }
 
-  NodeList makeNodeList(int count, Token beginToken, Token endToken,
-                        String delimiter) {
+  NodeList makeNodeList(
+      int count, Token beginToken, Token endToken, String delimiter) {
     Link<Node> poppedNodes = const Link<Node>();
     for (; count > 0; --count) {
       // This effectively reverses the order of nodes so they end up
@@ -680,6 +847,7 @@ class ElementListener extends Listener {
     return new NodeList(beginToken, poppedNodes, endToken, delimiter);
   }
 
+  @override
   void beginLiteralString(Token token) {
     String source = token.value;
     StringQuoting quoting = StringValidator.quotingFromString(source);
@@ -689,26 +857,26 @@ class ElementListener extends Listener {
     pushNode(new LiteralString(token, null));
   }
 
+  @override
   void handleStringPart(Token token) {
     // Just push an unvalidated token now, and replace it when we know the
     // end of the interpolation.
     pushNode(new LiteralString(token, null));
   }
 
+  @override
   void endLiteralString(int count) {
     StringQuoting quoting = popQuoting();
 
-    Link<StringInterpolationPart> parts =
-        const Link<StringInterpolationPart>();
+    Link<StringInterpolationPart> parts = const Link<StringInterpolationPart>();
     // Parts of the string interpolation are popped in reverse order,
     // starting with the last literal string part.
     bool isLast = true;
     for (int i = 0; i < count; i++) {
       LiteralString string = popNode();
-      DartString validation =
-          stringValidator.validateInterpolationPart(string.token, quoting,
-                                                    isFirst: false,
-                                                    isLast: isLast);
+      DartString validation = stringValidator.validateInterpolationPart(
+          string.token, quoting,
+          isFirst: false, isLast: isLast);
       // Replace the unvalidated LiteralString with a new LiteralString
       // object that has the validation result included.
       string = new LiteralString(string.token, validation);
@@ -718,10 +886,9 @@ class ElementListener extends Listener {
     }
 
     LiteralString string = popNode();
-    DartString validation =
-        stringValidator.validateInterpolationPart(string.token, quoting,
-                                                  isFirst: true,
-                                                  isLast: isLast);
+    DartString validation = stringValidator.validateInterpolationPart(
+        string.token, quoting,
+        isFirst: true, isLast: isLast);
     string = new LiteralString(string.token, validation);
     if (isLast) {
       pushNode(string);
@@ -731,6 +898,7 @@ class ElementListener extends Listener {
     }
   }
 
+  @override
   void handleStringJuxtaposition(int stringCount) {
     assert(stringCount != 0);
     Expression accumulator = popNode();
@@ -743,27 +911,18 @@ class ElementListener extends Listener {
     pushNode(accumulator);
   }
 
+  @override
   void beginMember(Token token) {
     memberErrors = memberErrors.prepend(false);
   }
 
+  @override
   void beginTopLevelMember(Token token) {
     beginMember(token);
   }
 
-  void endFields(fieldCount, start, token) {
-    memberErrors = memberErrors.tail;
-  }
-
-  void endMethod(getOrSet, start, token) {
-    memberErrors = memberErrors.tail;
-  }
-
-  void beginFactoryMethod(Token token) {
-    memberErrors = memberErrors.prepend(false);
-  }
-
-  void endFactoryMethod(Token beginToken, Token endToken) {
+  @override
+  void endMember() {
     memberErrors = memberErrors.tail;
   }
 
@@ -772,17 +931,23 @@ class ElementListener extends Listener {
   void reportFatalError(Spannable spannable, String message) {
     reportError(spannable, MessageKind.GENERIC, {'text': message});
     // Some parse errors are infeasible to recover from, so we throw an error.
-    throw new ParserError(message);
+    SourceSpan span = reporter.spanFromSpannable(spannable);
+    throw new ParserError(
+        span.begin, span.end, ErrorKind.Unspecified, {'text': message});
   }
 
-  void reportError(Spannable spannable,
-                   MessageKind errorCode,
-                   [Map arguments = const {}]) {
+  void reportError(Spannable spannable, MessageKind errorCode,
+      [Map arguments = const {}]) {
     if (currentMemberHasParseError) return; // Error already reported.
     if (suppressParseErrors) return;
     if (!memberErrors.isEmpty) {
       memberErrors = memberErrors.tail.prepend(true);
     }
     reporter.reportErrorMessage(spannable, errorCode, arguments);
+  }
+
+  void reportErrorFromToken(Token token, MessageKind errorCode,
+      [Map arguments = const {}]) {
+    reportError(reporter.spanFromToken(token), errorCode, arguments);
   }
 }

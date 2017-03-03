@@ -11,10 +11,16 @@
 #include "vm/pages.h"
 #include "vm/safepoint.h"
 #include "vm/thread_pool.h"
+#include "vm/timeline.h"
 
 namespace dart {
 
 bool GCSweeper::SweepPage(HeapPage* page, FreeList* freelist, bool locked) {
+  if (page->is_image_page()) {
+    // Don't clear mark bits.
+    return true;
+  }
+
   // Keep track whether this page is still in use.
   bool in_use = false;
 
@@ -110,36 +116,39 @@ class SweeperTask : public ThreadPool::Task {
     ASSERT(freelist_ != NULL);
     MonitorLocker ml(old_space_->tasks_lock());
     old_space_->set_tasks(old_space_->tasks() + 1);
-    ml.Notify();
   }
 
   virtual void Run() {
-    bool result = Thread::EnterIsolateAsHelper(task_isolate_);
+    bool result =
+        Thread::EnterIsolateAsHelper(task_isolate_, Thread::kSweeperTask);
     ASSERT(result);
-    Thread* thread = Thread::Current();
-    GCSweeper sweeper;
+    {
+      Thread* thread = Thread::Current();
+      TIMELINE_FUNCTION_GC_DURATION(thread, "SweeperTask");
+      GCSweeper sweeper;
 
-    HeapPage* page = first_;
-    HeapPage* prev_page = NULL;
+      HeapPage* page = first_;
+      HeapPage* prev_page = NULL;
 
-    while (page != NULL) {
-      thread->CheckForSafepoint();
-      HeapPage* next_page = page->next();
-      ASSERT(page->type() == HeapPage::kData);
-      bool page_in_use = sweeper.SweepPage(page, freelist_, false);
-      if (page_in_use) {
-        prev_page = page;
-      } else {
-        old_space_->FreePage(page, prev_page);
+      while (page != NULL) {
+        thread->CheckForSafepoint();
+        HeapPage* next_page = page->next();
+        ASSERT(page->type() == HeapPage::kData);
+        bool page_in_use = sweeper.SweepPage(page, freelist_, false);
+        if (page_in_use) {
+          prev_page = page;
+        } else {
+          old_space_->FreePage(page, prev_page);
+        }
+        {
+          // Notify the mutator thread that we have added elements to the free
+          // list or that more capacity is available.
+          MonitorLocker ml(old_space_->tasks_lock());
+          ml.Notify();
+        }
+        if (page == last_) break;
+        page = next_page;
       }
-      {
-        // Notify the mutator thread that we have added elements to the free
-        // list or that more capacity is available.
-        MonitorLocker ml(old_space_->tasks_lock());
-        ml.Notify();
-      }
-      if (page == last_) break;
-      page = next_page;
     }
     // Exit isolate cleanly *before* notifying it, to avoid shutdown race.
     Thread::ExitIsolateAsHelper();
@@ -147,7 +156,7 @@ class SweeperTask : public ThreadPool::Task {
     {
       MonitorLocker ml(old_space_->tasks_lock());
       old_space_->set_tasks(old_space_->tasks() - 1);
-      ml.Notify();
+      ml.NotifyAll();
     }
   }
 
@@ -164,11 +173,8 @@ void GCSweeper::SweepConcurrent(Isolate* isolate,
                                 HeapPage* first,
                                 HeapPage* last,
                                 FreeList* freelist) {
-  SweeperTask* task =
-      new SweeperTask(isolate,
-                      isolate->heap()->old_space(),
-                      first, last,
-                      freelist);
+  SweeperTask* task = new SweeperTask(isolate, isolate->heap()->old_space(),
+                                      first, last, freelist);
   ThreadPool* pool = Dart::thread_pool();
   pool->Run(task);
 }

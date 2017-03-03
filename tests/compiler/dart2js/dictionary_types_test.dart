@@ -8,7 +8,7 @@ import 'memory_compiler.dart';
 import 'compiler_helper.dart' show findElement;
 
 var SOURCES = const {
-'AddAll.dart': """
+  'AddAll.dart': """
   var dictionaryA = {'string': "aString", 'int': 42, 'double': 21.5,
                      'list': []};
   var dictionaryB = {'string': "aString", 'int': 42, 'double': 21.5,
@@ -28,7 +28,7 @@ var SOURCES = const {
     nullOrInt = dictionaryB['intTwo'];
   }
 """,
-'Union.dart': """
+  'Union.dart': """
   var dictionaryA = {'string': "aString", 'int': 42, 'double': 21.5,
                      'list': []};
   var dictionaryB = {'string': "aString", 'intTwo': 42, 'list': []};
@@ -44,7 +44,7 @@ var SOURCES = const {
     doubleOrNull = union['double'];
   }
 """,
-'ValueType.dart': """
+  'ValueType.dart': """
   var dictionary = {'string': "aString", 'int': 42, 'double': 21.5, 'list': []};
   var keyD = 'double';
   var keyI = 'int';
@@ -58,7 +58,7 @@ var SOURCES = const {
     var x = [intOrNull, justNull];
   }
 """,
-'Propagation.dart': """
+  'Propagation.dart': """
   class A {
     A();
     foo(value) {
@@ -84,7 +84,7 @@ var SOURCES = const {
     print(it.foo(dictionary) + 2);
   }
 """,
-'Bailout.dart': """
+  'Bailout.dart': """
   var dict = makeMap([1,2]);
   var notInt = 0;
   var alsoNotInt = 0;
@@ -100,22 +100,23 @@ var SOURCES = const {
     alsoNotInt = dict['goo'];
     print("\$notInt and \$alsoNotInt.");
   }
-"""};
+"""
+};
 
 void main() {
   asyncTest(() async {
-    await compileAndTest("AddAll.dart", (types, getType, compiler) {
+    await compileAndTest("AddAll.dart", (types, getType, closedWorld) {
       Expect.equals(getType('int'), types.uint31Type);
       Expect.equals(getType('anotherInt'), types.uint31Type);
       Expect.equals(getType('dynamic'), types.dynamicType);
       Expect.equals(getType('nullOrInt'), types.uint31Type.nullable());
     });
-    await compileAndTest("Union.dart", (types, getType, compiler) {
+    await compileAndTest("Union.dart", (types, getType, closedWorld) {
       Expect.equals(getType('nullOrInt'), types.uint31Type.nullable());
-      Expect.isTrue(getType('aString').containsOnlyString(compiler.world));
+      Expect.isTrue(getType('aString').containsOnlyString(closedWorld));
       Expect.equals(getType('doubleOrNull'), types.doubleType.nullable());
     });
-    await compileAndTest("ValueType.dart", (types, getType, compiler) {
+    await compileAndTest("ValueType.dart", (types, getType, closedWorld) {
       Expect.equals(getType('knownDouble'), types.doubleType);
       Expect.equals(getType('intOrNull'), types.uint31Type.nullable());
       Expect.equals(getType('justNull'), types.nullType);
@@ -123,7 +124,7 @@ void main() {
     await compileAndTest("Propagation.dart", (code) {
       Expect.isFalse(code.contains("J.\$add\$ns"));
     }, createCode: true);
-    await compileAndTest("Bailout.dart", (types, getType, compiler) {
+    await compileAndTest("Bailout.dart", (types, getType, closedWorld) {
       Expect.equals(getType('notInt'), types.dynamicType);
       Expect.equals(getType('alsoNotInt'), types.dynamicType);
       Expect.isFalse(getType('dict').isDictionary);
@@ -133,18 +134,22 @@ void main() {
 
 compileAndTest(source, checker, {createCode: false}) async {
   CompilationResult result = await runCompiler(
-      entryPoint: Uri.parse('memory:'+source),
+      entryPoint: Uri.parse('memory:' + source),
       memorySourceFiles: SOURCES,
-      beforeRun: (compiler) { compiler.stopAfterTypeInference = !createCode; });
+      beforeRun: (compiler) {
+        compiler.stopAfterTypeInference = !createCode;
+      });
   var compiler = result.compiler;
-  var typesTask = compiler.typesTask;
-  var typesInferrer = typesTask.typesInferrer;
+  var typesInferrer = compiler.globalInference.typesInferrerInternal;
+  var closedWorld = typesInferrer.closedWorld;
+  var commonMasks = closedWorld.commonMasks;
   getType(String name) {
     var element = findElement(compiler, name);
     return typesInferrer.getTypeOfElement(element);
   }
+
   if (!createCode) {
-    checker(typesTask, getType, compiler);
+    checker(commonMasks, getType, closedWorld);
   } else {
     var element = compiler.mainFunction;
     var code = compiler.backend.getGeneratedCode(element);

@@ -28,15 +28,15 @@ class Bar {
 
 main() {
   asyncTest(() => MockCompiler.create((MockCompiler compiler) {
-    testClass(TEST_0, compiler);
-    testClass(TEST_1, compiler);
-  }));
+        testClass(TEST_0, compiler);
+        testClass(TEST_1, compiler);
+      }));
 }
 
 testClass(String code, MockCompiler compiler) {
   int skip = code.indexOf('{');
   ClassElementX cls = parseUnit(code, compiler, compiler.mainApp).head;
-  cls.parseNode(compiler.parsing);
+  cls.parseNode(compiler.parsingContext);
   cls.forEachLocalMember((Element e) {
     String name = e.name;
     if (e.isConstructor) {

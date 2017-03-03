@@ -6,15 +6,16 @@ library test.services.completion.contributor.dart.library_member;
 
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/library_member_contributor.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../../utils.dart';
 import 'completion_contributor_util.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(LibraryMemberContributorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(LibraryMemberContributorTest);
+    defineReflectiveTests(LibraryMemberContributorTest_Driver);
+  });
 }
 
 @reflectiveTest
@@ -32,6 +33,21 @@ class LibraryMemberContributorTest extends DartCompletionContributorTest {
     assertNotSuggested('loadLibrary');
   }
 
+  test_libraryPrefix2() async {
+    // SimpleIdentifier  MethodInvocation  ExpressionStatement
+    addTestSource('import "dart:async" as bar; foo() {bar.^ print("f")}');
+    await computeSuggestions();
+    assertSuggestClass('Future');
+  }
+
+  test_libraryPrefix3() async {
+    // SimpleIdentifier  MethodInvocation  ExpressionStatement
+    addTestSource('import "dart:async" as bar; foo() {new bar.F^ print("f")}');
+    await computeSuggestions();
+    assertSuggestConstructor('Future');
+    assertSuggestConstructor('Future.delayed');
+  }
+
   test_libraryPrefix_cascade() async {
     addTestSource('''
     import "dart:math" as math;
@@ -45,7 +61,7 @@ class LibraryMemberContributorTest extends DartCompletionContributorTest {
     import "dart:math" as math;
     main() {math.^.}''');
     await computeSuggestions();
-    assertSuggestFunction('min', 'num');
+    assertSuggestFunction('min', 'T');
   }
 
   test_libraryPrefix_cascade3() async {
@@ -61,22 +77,7 @@ class LibraryMemberContributorTest extends DartCompletionContributorTest {
     import "dart:math" as math;
     main() {math.^.a}''');
     await computeSuggestions();
-    assertSuggestFunction('min', 'num');
-  }
-
-  test_libraryPrefix2() async {
-    // SimpleIdentifier  MethodInvocation  ExpressionStatement
-    addTestSource('import "dart:async" as bar; foo() {bar.^ print("f")}');
-    await computeSuggestions();
-    assertSuggestClass('Future');
-  }
-
-  test_libraryPrefix3() async {
-    // SimpleIdentifier  MethodInvocation  ExpressionStatement
-    addTestSource('import "dart:async" as bar; foo() {new bar.F^ print("f")}');
-    await computeSuggestions();
-    assertSuggestConstructor('Future');
-    assertSuggestConstructor('Future.delayed');
+    assertSuggestFunction('min', 'T');
   }
 
   test_libraryPrefix_deferred() async {
@@ -268,4 +269,10 @@ class LibraryMemberContributorTest extends DartCompletionContributorTest {
     await computeSuggestions();
     assertNoSuggestions();
   }
+}
+
+@reflectiveTest
+class LibraryMemberContributorTest_Driver extends LibraryMemberContributorTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

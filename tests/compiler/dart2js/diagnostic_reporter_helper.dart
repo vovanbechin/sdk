@@ -6,17 +6,17 @@ library dart2js.diagnostic_reporter.helper;
 
 import 'package:compiler/src/diagnostics/diagnostic_listener.dart';
 import 'package:compiler/src/diagnostics/messages.dart';
-import 'package:compiler/src/diagnostics/spannable.dart';
 import 'package:compiler/src/diagnostics/source_span.dart';
+import 'package:compiler/src/diagnostics/spannable.dart';
 import 'package:compiler/src/elements/elements.dart';
+import 'package:front_end/src/fasta/scanner.dart';
+import 'options_helper.dart';
 
 abstract class DiagnosticReporterWrapper extends DiagnosticReporter {
   DiagnosticReporter get reporter;
 
   @override
-  DiagnosticMessage createMessage(
-      Spannable spannable,
-      MessageKind messageKind,
+  DiagnosticMessage createMessage(Spannable spannable, MessageKind messageKind,
       [Map arguments = const {}]) {
     return reporter.createMessage(spannable, messageKind, arguments);
   }
@@ -35,31 +35,26 @@ abstract class DiagnosticReporterWrapper extends DiagnosticReporter {
   DiagnosticOptions get options => reporter.options;
 
   @override
-  void reportError(
-      DiagnosticMessage message,
-      [List<DiagnosticMessage> infos = const <DiagnosticMessage> []]) {
+  void reportError(DiagnosticMessage message,
+      [List<DiagnosticMessage> infos = const <DiagnosticMessage>[]]) {
     reporter.reportError(message, infos);
   }
 
   @override
-  void reportHint(
-      DiagnosticMessage message,
-      [List<DiagnosticMessage> infos = const <DiagnosticMessage> []]) {
+  void reportHint(DiagnosticMessage message,
+      [List<DiagnosticMessage> infos = const <DiagnosticMessage>[]]) {
     reporter.reportHint(message, infos);
   }
 
   @override
-  void reportInfo(
-      Spannable node,
-      MessageKind errorCode,
+  void reportInfo(Spannable node, MessageKind errorCode,
       [Map arguments = const {}]) {
     reporter.reportInfo(node, errorCode, arguments);
   }
 
   @override
-  void reportWarning(
-      DiagnosticMessage message,
-      [List<DiagnosticMessage> infos = const <DiagnosticMessage> []]) {
+  void reportWarning(DiagnosticMessage message,
+      [List<DiagnosticMessage> infos = const <DiagnosticMessage>[]]) {
     reporter.reportWarning(message, infos);
   }
 
@@ -69,7 +64,13 @@ abstract class DiagnosticReporterWrapper extends DiagnosticReporter {
   }
 
   @override
+  SourceSpan spanFromToken(Token token) => reporter.spanFromToken(token);
+
+  @override
   withCurrentElement(Element element, f()) {
     return reporter.withCurrentElement(element, f);
   }
+
+  @override
+  bool get hasReportedError => reporter.hasReportedError;
 }

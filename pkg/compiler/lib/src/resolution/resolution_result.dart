@@ -5,11 +5,10 @@
 library dart2js.resolution.result;
 
 import '../constants/expressions.dart';
-import '../dart_types.dart';
+import '../elements/resolution_types.dart';
 import '../elements/elements.dart';
 import '../tree/tree.dart';
-import '../universe/call_structure.dart' show
-    CallStructure;
+import '../universe/call_structure.dart' show CallStructure;
 
 enum ResultKind {
   NONE,
@@ -33,7 +32,7 @@ abstract class ResolutionResult {
   ResultKind get kind;
   Node get node => null;
   Element get element => null;
-  DartType get type => null;
+  ResolutionDartType get type => null;
   ConstantExpression get constant => null;
   bool get isConstant => false;
 }
@@ -68,9 +67,10 @@ class ElementResult extends ResolutionResult {
   String toString() => 'ElementResult($element)';
 }
 
-/// The result for the resolution of a node that points to an [DartType].
+/// The result for the resolution of a node that points to an
+/// [ResolutionDartType].
 class TypeResult extends ResolutionResult {
-  final DartType type;
+  final ResolutionDartType type;
 
   TypeResult(this.type) {
     assert(type != null);
@@ -98,7 +98,7 @@ class ConstantResult extends ResolutionResult {
 
   ResultKind get kind => ResultKind.CONSTANT;
 
-  String toString() => 'ConstantResult(${constant.getText()})';
+  String toString() => 'ConstantResult(${constant.toDartText()})';
 }
 
 class NoneResult extends ResolutionResult {
@@ -121,9 +121,7 @@ class ArgumentsResult {
   /// expression.
   final bool isValidAsConstant;
 
-  ArgumentsResult(
-      this.callStructure,
-      this.argumentResults,
+  ArgumentsResult(this.callStructure, this.argumentResults,
       {this.isValidAsConstant});
 
   /// Returns the list of [ConstantExpression]s for each of the arguments. If

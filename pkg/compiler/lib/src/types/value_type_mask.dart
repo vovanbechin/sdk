@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of types;
+part of masks;
 
 class ValueTypeMask extends ForwardingTypeMask {
   final TypeMask forwardTo;
@@ -11,9 +11,7 @@ class ValueTypeMask extends ForwardingTypeMask {
   ValueTypeMask(this.forwardTo, this.value);
 
   TypeMask nullable() {
-    return isNullable
-        ? this
-        : new ValueTypeMask(forwardTo.nullable(), value);
+    return isNullable ? this : new ValueTypeMask(forwardTo.nullable(), value);
   }
 
   TypeMask nonNullable() {
@@ -29,21 +27,19 @@ class ValueTypeMask extends ForwardingTypeMask {
     return super.equalsDisregardNull(other) && value == other.value;
   }
 
-  TypeMask intersection(TypeMask other, ClassWorld classWorld) {
-    TypeMask forwardIntersection = forwardTo.intersection(other, classWorld);
+  TypeMask intersection(TypeMask other, ClosedWorld closedWorld) {
+    TypeMask forwardIntersection = forwardTo.intersection(other, closedWorld);
     if (forwardIntersection.isEmptyOrNull) return forwardIntersection;
-    return forwardIntersection.isNullable
-        ? nullable()
-        : nonNullable();
+    return forwardIntersection.isNullable ? nullable() : nonNullable();
   }
 
-  bool operator==(other) => super == other;
+  bool operator ==(other) => super == other;
 
   int get hashCode {
     return computeHashCode(value, isNullable, forwardTo);
   }
 
   String toString() {
-    return 'Value mask: [${value.unparse()}] type: $forwardTo';
+    return 'Value mask: [${value.toDartText()}] type: $forwardTo';
   }
 }

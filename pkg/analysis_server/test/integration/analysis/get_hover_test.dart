@@ -2,25 +2,23 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.integration.analysis.get.hover;
-
 import 'dart:async';
 
 import 'package:analysis_server/plugin/protocol/protocol.dart';
-import 'package:path/path.dart';
+import 'package:path/path.dart' as path;
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../utils.dart';
 import '../integration_tests.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(AnalysisGetHoverIntegrationTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(AnalysisGetHoverIntegrationTest);
+    defineReflectiveTests(AnalysisGetHoverIntegrationTest_Driver);
+  });
 }
 
-@reflectiveTest
-class AnalysisGetHoverIntegrationTest
+class AbstractAnalysisGetHoverIntegrationTest
     extends AbstractAnalysisServerIntegrationTest {
   /**
    * Pathname of the file containing Dart code.
@@ -78,7 +76,7 @@ main() {
       expect(info.offset, equals(offset));
       expect(info.length, equals(length));
       if (isCore) {
-        expect(basename(info.containingLibraryPath), equals('core.dart'));
+        expect(path.basename(info.containingLibraryPath), equals('core.dart'));
         expect(info.containingLibraryName, equals('dart.core'));
       } else if (isLocal || isLiteral) {
         expect(info.containingLibraryPath, isNull);
@@ -173,13 +171,14 @@ main() {
           isLocal: true,
           docRegexp: 'Documentation for func',
           parameterRegexps: ['.*']));
-      tests.add(checkHover('add(', 3, ['List', 'add'], 'method', null,
+      tests.add(checkHover(
+          'add(', 3, ['List', 'add'], 'method', ['dynamic', 'void'],
           isCore: true, docRegexp: '.*'));
       tests.add(checkHover(
           'localVar)', 8, ['num', 'localVar'], 'local variable', ['num'],
           isLocal: true, parameterRegexps: ['.*'], propagatedType: 'int'));
       tests.add(checkHover(
-          'func(35', 4, ['func', 'int', 'param'], 'function', null,
+          'func(35', 4, ['func', 'int', 'param'], 'function', ['int', 'void'],
           docRegexp: 'Documentation for func'));
       tests.add(checkHover('35', 2, null, null, ['int'],
           isLiteral: true, parameterRegexps: ['int', 'param']));
@@ -187,4 +186,15 @@ main() {
       return Future.wait(tests);
     });
   }
+}
+
+@reflectiveTest
+class AnalysisGetHoverIntegrationTest
+    extends AbstractAnalysisGetHoverIntegrationTest {}
+
+@reflectiveTest
+class AnalysisGetHoverIntegrationTest_Driver
+    extends AbstractAnalysisGetHoverIntegrationTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

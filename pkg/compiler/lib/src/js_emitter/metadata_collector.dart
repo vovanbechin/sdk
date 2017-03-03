@@ -2,7 +2,30 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of dart2js.js_emitter;
+library dart2js.js_emitter.metadata_collector;
+
+import 'package:js_ast/src/precedence.dart' as js_precedence;
+
+import '../common.dart';
+import '../compiler.dart' show Compiler;
+import '../constants/values.dart';
+import '../elements/resolution_types.dart'
+    show ResolutionDartType, ResolutionTypedefType;
+import '../deferred_load.dart' show OutputUnit;
+import '../elements/elements.dart'
+    show
+        ConstructorElement,
+        Element,
+        FunctionElement,
+        FunctionSignature,
+        MetadataAnnotation,
+        ParameterElement;
+import '../js/js.dart' as jsAst;
+import '../js/js.dart' show js;
+import '../js_backend/js_backend.dart'
+    show JavaScriptBackend, TypeVariableHandler;
+
+import 'code_emitter_task.dart' show Emitter;
 
 /// Represents an entry's position in one of the global metadata arrays.
 ///
@@ -63,9 +86,9 @@ class _ForwardingMetadataEntry extends _MetadataEntry implements Placeholder {
   _ForwardingMetadataEntry([this.debug]);
 
   _MetadataEntry get forwardTo {
-     assert(isBound);
-     return _forwardTo;
-   }
+    assert(isBound);
+    return _forwardTo;
+  }
 
   jsAst.Expression get entry {
     assert(isBound);
@@ -93,8 +116,7 @@ class _MetadataList extends jsAst.DeferredExpression {
   jsAst.Expression _value;
 
   void setExpression(jsAst.Expression value) {
-    // TODO(herhut): Enable the below assertion once incremental mode is gone.
-    // assert(_value == null);
+    assert(_value == null);
     assert(value.precedenceLevel == this.precedenceLevel);
     _value = value;
   }
@@ -130,14 +152,8 @@ class MetadataCollector implements jsAst.TokenFinalizer {
   }
 
   /// A map used to canonicalize the entries of types.
-  Map<OutputUnit, Map<DartType, _BoundMetadataEntry>> _typesMap =
-      <OutputUnit, Map<DartType, _BoundMetadataEntry>>{};
-
-  // To support incremental compilation, we have to be able to eagerly emit
-  // metadata and add metadata later on. We use the below two counters for
-  // this.
-  int _globalMetadataCounter = 0;
-  int _globalTypesCounter = 0;
+  Map<OutputUnit, Map<ResolutionDartType, _BoundMetadataEntry>> _typesMap =
+      <OutputUnit, Map<ResolutionDartType, _BoundMetadataEntry>>{};
 
   MetadataCollector(this._compiler, this._emitter) {
     _globalMetadataMap = new Map<String, _BoundMetadataEntry>();
@@ -148,8 +164,8 @@ class MetadataCollector implements jsAst.TokenFinalizer {
   DiagnosticReporter get reporter => _compiler.reporter;
 
   bool _mustEmitMetadataFor(Element element) {
-    return _backend.mustRetainMetadata &&
-        _backend.referencedFromMirrorSystem(element);
+    return _backend.mirrorsData.mustRetainMetadata &&
+        _backend.mirrorsData.referencedFromMirrorSystem(element);
   }
 
   /// The metadata function returns the metadata associated with
@@ -172,8 +188,8 @@ class MetadataCollector implements jsAst.TokenFinalizer {
         }
       }
       if (metadata.isEmpty) return null;
-      return js('function() { return # }',
-          new jsAst.ArrayInitializer(metadata));
+      return js(
+          'function() { return # }', new jsAst.ArrayInitializer(metadata));
     });
   }
 
@@ -193,7 +209,7 @@ class MetadataCollector implements jsAst.TokenFinalizer {
 
       ConstructorElement constructor = function;
       while (constructor.isRedirectingFactory &&
-             !constructor.isCyclicRedirection) {
+          !constructor.isCyclicRedirection) {
         // TODO(sra): Remove the loop once effectiveTarget forwards to patches.
         constructor = constructor.effectiveTarget.implementation;
       }
@@ -213,7 +229,7 @@ class MetadataCollector implements jsAst.TokenFinalizer {
           (targetParameterMap == null) ? element : targetParameterMap[element];
       ConstantValue constant = (parameter == null)
           ? null
-          : _backend.constants.getConstantValueForVariable(parameter);
+          : _backend.constants.getConstantValue(parameter.constant);
       jsAst.Expression expression = (constant == null)
           ? new jsAst.LiteralNull()
           : _emitter.constantReference(constant);
@@ -223,8 +239,8 @@ class MetadataCollector implements jsAst.TokenFinalizer {
   }
 
   Map<ParameterElement, ParameterElement>
-  mapRedirectingFactoryConstructorOptionalParameters(
-      FunctionSignature source, FunctionSignature target) {
+      mapRedirectingFactoryConstructorOptionalParameters(
+          FunctionSignature source, FunctionSignature target) {
     var map = <ParameterElement, ParameterElement>{};
 
     if (source.optionalParametersAreNamed !=
@@ -247,8 +263,8 @@ class MetadataCollector implements jsAst.TokenFinalizer {
       int i = source.requiredParameterCount;
       for (ParameterElement element in source.orderedOptionalParameters) {
         if (i >= target.requiredParameterCount && i < target.parameterCount) {
-          map[element] =
-              target.orderedOptionalParameters[i - target.requiredParameterCount];
+          map[element] = target
+              .orderedOptionalParameters[i - target.requiredParameterCount];
         }
         ++i;
       }
@@ -266,17 +282,18 @@ class MetadataCollector implements jsAst.TokenFinalizer {
     return _addGlobalMetadata(_emitter.constantReference(constant));
   }
 
-  jsAst.Expression reifyType(DartType type, {ignoreTypeVariables: false}) {
-    return reifyTypeForOutputUnit(type,
-                                  _compiler.deferredLoadTask.mainOutputUnit,
-                                  ignoreTypeVariables: ignoreTypeVariables);
+  jsAst.Expression reifyType(ResolutionDartType type,
+      {ignoreTypeVariables: false}) {
+    return reifyTypeForOutputUnit(
+        type, _compiler.deferredLoadTask.mainOutputUnit,
+        ignoreTypeVariables: ignoreTypeVariables);
   }
 
-  jsAst.Expression reifyTypeForOutputUnit(DartType type,
-                                          OutputUnit outputUnit,
-                                          {ignoreTypeVariables: false}) {
+  jsAst.Expression reifyTypeForOutputUnit(
+      ResolutionDartType type, OutputUnit outputUnit,
+      {ignoreTypeVariables: false}) {
     return addTypeInOutputUnit(type, outputUnit,
-                               ignoreTypeVariables: ignoreTypeVariables);
+        ignoreTypeVariables: ignoreTypeVariables);
   }
 
   jsAst.Expression reifyName(String name) {
@@ -293,28 +310,22 @@ class MetadataCollector implements jsAst.TokenFinalizer {
 
   _MetadataEntry _addGlobalMetadata(jsAst.Node node) {
     String nameToKey(jsAst.Name name) => "${name.key}";
-    String printed = jsAst.prettyPrint(
-        node, _compiler, renamerForNames: nameToKey);
+    String printed =
+        jsAst.prettyPrint(node, _compiler, renamerForNames: nameToKey);
     return _globalMetadataMap.putIfAbsent(printed, () {
-      _BoundMetadataEntry result = new _BoundMetadataEntry(node);
-      if (_compiler.hasIncrementalSupport) {
-        result.finalize(_globalMetadataCounter++);
-      }
-      return result;
+      return new _BoundMetadataEntry(node);
     });
   }
 
-  jsAst.Expression _computeTypeRepresentation(DartType type,
-                                              {ignoreTypeVariables: false}) {
-    jsAst.Expression representation = _backend.rtiEncoder.getTypeRepresentation(
-        type,
-        (variable) {
-          if (ignoreTypeVariables) return new jsAst.LiteralNull();
-          return _typeVariableHandler.reifyTypeVariable(variable.element);
-        },
-        (TypedefType typedef) {
-          return _backend.isAccessibleByReflection(typedef.element);
-        });
+  jsAst.Expression _computeTypeRepresentation(ResolutionDartType type,
+      {ignoreTypeVariables: false}) {
+    jsAst.Expression representation =
+        _backend.rtiEncoder.getTypeRepresentation(type, (variable) {
+      if (ignoreTypeVariables) return new jsAst.LiteralNull();
+      return _typeVariableHandler.reifyTypeVariable(variable.element);
+    }, (ResolutionTypedefType typedef) {
+      return _backend.mirrorsData.isAccessibleByReflection(typedef.element);
+    });
 
     if (representation is jsAst.LiteralString) {
       // We don't want the representation to be a string, since we use
@@ -324,23 +335,18 @@ class MetadataCollector implements jsAst.TokenFinalizer {
     }
 
     return representation;
-
   }
 
-  jsAst.Expression addTypeInOutputUnit(DartType type,
-                                       OutputUnit outputUnit,
-                                       {ignoreTypeVariables: false}) {
+  jsAst.Expression addTypeInOutputUnit(
+      ResolutionDartType type, OutputUnit outputUnit,
+      {ignoreTypeVariables: false}) {
     if (_typesMap[outputUnit] == null) {
-      _typesMap[outputUnit] = new Map<DartType, _BoundMetadataEntry>();
+      _typesMap[outputUnit] =
+          new Map<ResolutionDartType, _BoundMetadataEntry>();
     }
     return _typesMap[outputUnit].putIfAbsent(type, () {
-      _BoundMetadataEntry result = new _BoundMetadataEntry(
-          _computeTypeRepresentation(type,
-                                     ignoreTypeVariables: ignoreTypeVariables));
-      if (_compiler.hasIncrementalSupport) {
-        result.finalize(_globalTypesCounter++);
-      }
-      return result;
+      return new _BoundMetadataEntry(_computeTypeRepresentation(type,
+          ignoreTypeVariables: ignoreTypeVariables));
     });
   }
 
@@ -367,19 +373,16 @@ class MetadataCollector implements jsAst.TokenFinalizer {
       }
       return true;
     }
+
     void countTokensInTypes(Iterable<_BoundMetadataEntry> entries) {
       jsAst.TokenCounter counter = new jsAst.TokenCounter();
-      entries.where((_BoundMetadataEntry e) => e._rc > 0)
-             .map((_BoundMetadataEntry e) => e.entry)
-             .forEach(counter.countTokens);
+      entries
+          .where((_BoundMetadataEntry e) => e._rc > 0)
+          .map((_BoundMetadataEntry e) => e.entry)
+          .forEach(counter.countTokens);
     }
 
     jsAst.ArrayInitializer finalizeMap(Map<dynamic, _BoundMetadataEntry> map) {
-      // When in incremental mode, we allocate entries eagerly.
-      if (_compiler.hasIncrementalSupport) {
-        return new jsAst.ArrayInitializer(map.values.toList());
-      }
-
       bool isUsed(_BoundMetadataEntry entry) => entry.isUsed;
       List<_BoundMetadataEntry> entries = map.values.where(isUsed).toList();
       entries.sort();
@@ -394,7 +397,7 @@ class MetadataCollector implements jsAst.TokenFinalizer {
       List<jsAst.Node> values =
           entries.map((_BoundMetadataEntry e) => e.entry).toList();
 
-       return new jsAst.ArrayInitializer(values);
+      return new jsAst.ArrayInitializer(values);
     }
 
     _globalMetadata.setExpression(finalizeMap(_globalMetadataMap));

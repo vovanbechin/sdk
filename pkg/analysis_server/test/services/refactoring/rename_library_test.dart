@@ -6,21 +6,22 @@ library test.services.refactoring.rename_library;
 
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../utils.dart';
 import 'abstract_rename.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(RenameLibraryTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(RenameLibraryTest);
+    defineReflectiveTests(RenameLibraryTest_Driver);
+  });
 }
 
 @reflectiveTest
 class RenameLibraryTest extends RenameRefactoringTest {
-  void test_checkNewName() {
-    indexTestUnit('''
+  test_checkNewName() async {
+    await indexTestUnit('''
 library my.app;
 ''');
     _createRenameRefactoring();
@@ -48,11 +49,13 @@ library my.app;
         '''
 part of my.app;
 ''');
-    indexTestUnit('''
+    await indexTestUnit('''
 library my.app;
 part 'part.dart';
 ''');
-    index.indexUnit(context.resolveCompilationUnit2(unitSource, testSource));
+    if (!enableNewAnalysisDriver) {
+      index.indexUnit(context.resolveCompilationUnit2(unitSource, testSource));
+    }
     // configure refactoring
     _createRenameRefactoring();
     expect(refactoring.refactoringName, 'Rename Library');
@@ -76,11 +79,13 @@ part of the.new.name;
         '''
 part of my .  app;
 ''');
-    indexTestUnit('''
+    await indexTestUnit('''
 library my    . app;
 part 'part.dart';
 ''');
-    index.indexUnit(context.resolveCompilationUnit2(unitSource, testSource));
+    if (!enableNewAnalysisDriver) {
+      index.indexUnit(context.resolveCompilationUnit2(unitSource, testSource));
+    }
     // configure refactoring
     _createRenameRefactoring();
     expect(refactoring.refactoringName, 'Rename Library');
@@ -101,4 +106,10 @@ part of the.new.name;
   void _createRenameRefactoring() {
     createRenameRefactoringForElement(testUnitElement.library);
   }
+}
+
+@reflectiveTest
+class RenameLibraryTest_Driver extends RenameLibraryTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

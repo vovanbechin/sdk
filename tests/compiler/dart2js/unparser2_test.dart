@@ -5,18 +5,15 @@
 import "package:expect/expect.dart";
 import "package:compiler/src/parser/element_listener.dart";
 import "package:compiler/src/parser/node_listener.dart";
-import "package:compiler/src/parser/parser.dart";
-import "package:compiler/src/scanner/string_scanner.dart";
-import "package:compiler/src/tokens/token.dart";
+import "package:front_end/src/fasta/parser.dart";
+import "package:front_end/src/fasta/scanner.dart";
 import "package:compiler/src/tree/tree.dart";
 
 import "package:compiler/src/diagnostics/diagnostic_listener.dart";
 import "package:compiler/src/elements/elements.dart"
-    show CompilationUnitElement,
-         LibraryElement;
+    show CompilationUnitElement, LibraryElement;
 import "package:compiler/src/elements/modelx.dart"
-    show CompilationUnitElementX,
-         LibraryElementX;
+    show CompilationUnitElementX, LibraryElementX;
 import "package:compiler/src/script.dart";
 
 main() {
@@ -84,16 +81,15 @@ void compareCode(String code, {String expectedResult}) {
   Expect.equals(expectedResult, doUnparse(code));
 }
 
-
 String doUnparse(String source) {
   MessageCollector diagnosticListener = new MessageCollector();
   Script script = new Script(null, null, null);
   LibraryElement lib = new LibraryElementX(script);
   CompilationUnitElement element = new CompilationUnitElementX(script, lib);
-  StringScanner scanner = new StringScanner.fromString(source);
+  StringScanner scanner = new StringScanner(source);
   Token beginToken = scanner.tokenize();
-  NodeListener listener = new NodeListener(
-      const ScannerOptions(), diagnosticListener, element);
+  NodeListener listener =
+      new NodeListener(const ScannerOptions(), diagnosticListener, element);
   Parser parser = new Parser(listener);
   parser.parseUnit(beginToken);
   Node node = listener.popNode();

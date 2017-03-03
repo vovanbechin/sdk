@@ -5,21 +5,22 @@
 library test.services.refactoring.rename_label;
 
 import 'package:analysis_server/plugin/protocol/protocol.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../utils.dart';
 import 'abstract_rename.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(RenameLabelTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(RenameLabelTest);
+    defineReflectiveTests(RenameLabelTest_Driver);
+  });
 }
 
 @reflectiveTest
 class RenameLabelTest extends RenameRefactoringTest {
-  test_checkNewName_LocalVariableElement() {
-    indexTestUnit('''
+  test_checkNewName_LocalVariableElement() async {
+    await indexTestUnit('''
 main() {
 test:
   while (true) {
@@ -43,8 +44,8 @@ test:
     assertRefactoringStatusOK(refactoring.checkNewName());
   }
 
-  test_createChange() {
-    indexTestUnit('''
+  test_createChange() async {
+    await indexTestUnit('''
 main() {
 test:
   while (true) {
@@ -68,8 +69,8 @@ newName:
 ''');
   }
 
-  test_oldName() {
-    indexTestUnit('''
+  test_oldName() async {
+    await indexTestUnit('''
 main() {
 test:
   while (true) {
@@ -82,4 +83,10 @@ test:
     // old name
     expect(refactoring.oldName, 'test');
   }
+}
+
+@reflectiveTest
+class RenameLabelTest_Driver extends RenameLabelTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

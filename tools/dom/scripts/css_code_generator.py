@@ -107,11 +107,16 @@ $(ANNOTATIONS)$(NATIVESPEC)$(CLASS_MODIFIERS)class $CLASSNAME $EXTENDS with
   factory $CLASSNAME() => new CssStyleDeclaration.css('');
 
   factory $CLASSNAME.css(String css) {
-    final style = new Element.tag('div').style;
+    final style = new DivElement().style;
     style.cssText = css;
     return style;
   }
 
+  /// Returns the value of the property if the provided *CSS* property
+  /// name is supported on this element and if the value is set. Otherwise
+  /// returns an empty string.
+  ///
+  /// Please note the property name uses camelCase, not-hyphens.
   String getPropertyValue(String propertyName) {
     var propValue = _getPropertyValueHelper(propertyName);
     return propValue != null ? propValue : '';
@@ -154,7 +159,7 @@ $endif
 $if DARTIUM
   bool _hasProperty(String propertyName) =>
   $if JSINTEROP
-      _blink.BlinkCSSStyleDeclaration.instance.$__propertyQuery___Callback_1_(unwrap_jso(this), propertyName) != null;
+      _blink.BlinkCSSStyleDeclaration.instance.$__propertyQuery___Callback_1_(this, propertyName);
   $else
       _blink.BlinkCSSStyleDeclaration.$__propertyQuery___Callback_1(this, propertyName);
   $endif

@@ -8,9 +8,8 @@ import 'dart:io';
 
 import 'package:analyzer_cli/src/driver.dart';
 import 'package:analyzer_cli/src/options.dart';
-import 'package:args/args.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
 main() {
   group('CommandLineOptions', () {
@@ -19,27 +18,33 @@ main() {
         CommandLineOptions options =
             CommandLineOptions.parse(['--dart-sdk', '.', 'foo.dart']);
         expect(options, isNotNull);
+        expect(options.buildMode, isFalse);
+        expect(options.buildAnalysisOutput, isNull);
+        expect(options.buildSummaryInputs, isEmpty);
+        expect(options.buildSummaryOnly, isFalse);
+        expect(options.buildSummaryOutput, isNull);
+        expect(options.buildSummaryOutputSemantic, isNull);
+        expect(options.buildSuppressExitCode, isFalse);
         expect(options.dartSdkPath, isNotNull);
+        expect(options.disableCacheFlushing, isFalse);
         expect(options.disableHints, isFalse);
         expect(options.lints, isFalse);
         expect(options.displayVersion, isFalse);
         expect(options.enableStrictCallChecks, isFalse);
         expect(options.enableSuperMixins, isFalse);
-        expect(options.enableConditionalDirectives, isFalse);
         expect(options.enableTypeChecks, isFalse);
         expect(options.hintsAreFatal, isFalse);
         expect(options.ignoreUnrecognizedFlags, isFalse);
         expect(options.log, isFalse);
         expect(options.machineFormat, isFalse);
-        expect(options.packageMode, isFalse);
         expect(options.packageRootPath, isNull);
-        expect(options.packageSummaryInputs, isEmpty);
         expect(options.shouldBatch, isFalse);
         expect(options.showPackageWarnings, isFalse);
         expect(options.showSdkWarnings, isFalse);
         expect(options.sourceFiles, equals(['foo.dart']));
         expect(options.warningsAreFatal, isFalse);
         expect(options.strongMode, isFalse);
+        expect(options.lintsAreFatal, isFalse);
       });
 
       test('batch', () {
@@ -53,6 +58,12 @@ main() {
             .parse(['--dart-sdk', '.', '-Dfoo=bar', 'foo.dart']);
         expect(options.definedVariables['foo'], equals('bar'));
         expect(options.definedVariables['bar'], isNull);
+      });
+
+      test('disable cache flushing', () {
+        CommandLineOptions options = CommandLineOptions
+            .parse(['--dart-sdk', '.', '--disable-cache-flushing', 'foo.dart']);
+        expect(options.disableCacheFlushing, isTrue);
       });
 
       test('enable strict call checks', () {
@@ -111,7 +122,7 @@ main() {
 
       test('package root', () {
         CommandLineOptions options = CommandLineOptions
-            .parse(['--dart-sdk', '.', '-p', 'bar', 'foo.dart']);
+            .parse(['--dart-sdk', '.', '--package-root', 'bar', 'foo.dart']);
         expect(options.packageRootPath, equals('bar'));
       });
 
@@ -123,7 +134,7 @@ main() {
 
       test('sdk warnings', () {
         CommandLineOptions options = CommandLineOptions
-            .parse(['--dart-sdk', '.', '--warnings', 'foo.dart']);
+            .parse(['--dart-sdk', '.', '--sdk-warnings', 'foo.dart']);
         expect(options.showSdkWarnings, isTrue);
       });
 
@@ -140,13 +151,6 @@ main() {
         expect(options.warningsAreFatal, isTrue);
       });
 
-      test('notice unrecognized flags', () {
-        expect(
-            () => new CommandLineParser()
-                .parse(['--bar', '--baz', 'foo.dart'], {}),
-            throwsA(new isInstanceOf<FormatException>()));
-      });
-
       test('ignore unrecognized flags', () {
         CommandLineOptions options = CommandLineOptions.parse([
           '--ignore-unrecognized-flags',
@@ -160,21 +164,16 @@ main() {
         expect(options.sourceFiles, equals(['foo.dart']));
       });
 
-      test('ignore unrecognized options', () {
-        CommandLineParser parser =
-            new CommandLineParser(alwaysIgnoreUnrecognized: true);
-        parser.addOption('optionA');
-        parser.addFlag('flagA');
-        ArgResults argResults =
-            parser.parse(['--optionA=1', '--optionB=2', '--flagA'], {});
-        expect(argResults['optionA'], '1');
-        expect(argResults['flagA'], isTrue);
-      });
-
       test('strong mode', () {
         CommandLineOptions options =
             CommandLineOptions.parse(['--strong', 'foo.dart']);
         expect(options.strongMode, isTrue);
+      });
+
+      test('hintsAreFatal', () {
+        CommandLineOptions options = CommandLineOptions
+            .parse(['--dart-sdk', '.', '--fatal-lints', 'foo.dart']);
+        expect(options.lintsAreFatal, isTrue);
       });
 
       test("can't specify package and package-root", () {
@@ -231,45 +230,110 @@ class AbstractStatusTest {
 class CommandLineOptionsTest extends AbstractStatusTest {
   CommandLineOptions options;
 
-  test_packageMode() {
-    _parse(['--package-mode', '/path/to/pkg']);
-    expect(options.packageMode, isTrue);
-    print(options.packageSummaryInputs);
+  test_buildAnalysisOutput() {
+    _parse([
+      '--build-mode',
+      '--build-analysis-output=//path/to/output.analysis',
+      'package:p/foo.dart|/path/to/p/lib/foo.dart'
+    ]);
+    expect(options.buildMode, isTrue);
+    expect(options.buildAnalysisOutput, '//path/to/output.analysis');
   }
 
-  test_packageSummaryInput() {
-    _parse([
-      '--package-mode',
-      '--package-summary-input=aaa,/path/to/aaa.sum',
-      '--package-summary-input=long.package.bbb,/path/to/bbb.sum',
-      '/path/to/pkg'
-    ]);
-    expect(options.packageMode, isTrue);
-    Map<String, String> map = options.packageSummaryInputs;
-    expect(map, hasLength(2));
-    expect(map, containsPair('aaa', '/path/to/aaa.sum'));
-    expect(map, containsPair('long.package.bbb', '/path/to/bbb.sum'));
+  test_buildMode() {
+    _parse(['--build-mode', 'package:p/foo.dart|/path/to/p/lib/foo.dart']);
+    expect(options.buildMode, isTrue);
   }
 
-  test_packageSummaryInput_noComma() {
-    _parse([
-      '--package-mode',
-      '--package-summary-input=noCommaInMapping',
-      '/path/to/pkg'
-    ]);
-    expect(lastExitHandlerCode, 15);
-    expect(errorStringBuffer.toString(), contains('--package-summary-input'));
-    expect(errorStringBuffer.toString(), contains('noCommaInMapping'));
+  test_buildMode_allowsEmptyFileList() {
+    _parse(['--build-mode']);
+    expect(options.buildMode, isTrue);
+    expect(options.sourceFiles, isEmpty);
   }
 
-  test_packageSummaryOutput() {
+  test_buildSummaryInputs_commaSeparated() {
     _parse([
-      '--package-mode',
-      '--package-summary-output=/path/to/output.sum',
-      '/path/to/pkg'
+      '--build-mode',
+      '--build-summary-input=/path/to/aaa.sum,/path/to/bbb.sum',
+      'package:p/foo.dart|/path/to/p/lib/foo.dart'
     ]);
-    expect(options.packageMode, isTrue);
-    expect(options.packageSummaryOutput, '/path/to/output.sum');
+    expect(options.buildMode, isTrue);
+    expect(
+        options.buildSummaryInputs, ['/path/to/aaa.sum', '/path/to/bbb.sum']);
+  }
+
+  test_buildSummaryInputs_commaSeparated_normalMode() {
+    _parse([
+      '--build-summary-input=/path/to/aaa.sum,/path/to/bbb.sum',
+      '/path/to/p/lib/foo.dart'
+    ]);
+    expect(options.buildMode, isFalse);
+    expect(
+        options.buildSummaryInputs, ['/path/to/aaa.sum', '/path/to/bbb.sum']);
+  }
+
+  test_buildSummaryInputs_separateFlags() {
+    _parse([
+      '--build-mode',
+      '--build-summary-input=/path/to/aaa.sum',
+      '--build-summary-input=/path/to/bbb.sum',
+      'package:p/foo.dart|/path/to/p/lib/foo.dart'
+    ]);
+    expect(options.buildMode, isTrue);
+    expect(
+        options.buildSummaryInputs, ['/path/to/aaa.sum', '/path/to/bbb.sum']);
+  }
+
+  test_buildSummaryInputs_separateFlags_normalMode() {
+    _parse([
+      '--build-summary-input=/path/to/aaa.sum',
+      '--build-summary-input=/path/to/bbb.sum',
+      'package:p/foo.dart|/path/to/p/lib/foo.dart'
+    ]);
+    expect(options.buildMode, isFalse);
+    expect(
+        options.buildSummaryInputs, ['/path/to/aaa.sum', '/path/to/bbb.sum']);
+  }
+
+  test_buildSummaryOnly() {
+    _parse([
+      '--build-mode',
+      '--build-summary-output=/path/to/aaa.sum',
+      '--build-summary-only',
+      'package:p/foo.dart|/path/to/p/lib/foo.dart'
+    ]);
+    expect(options.buildMode, isTrue);
+    expect(options.buildSummaryOnly, isTrue);
+  }
+
+  test_buildSummaryOutput() {
+    _parse([
+      '--build-mode',
+      '--build-summary-output=//path/to/output.sum',
+      'package:p/foo.dart|/path/to/p/lib/foo.dart'
+    ]);
+    expect(options.buildMode, isTrue);
+    expect(options.buildSummaryOutput, '//path/to/output.sum');
+  }
+
+  test_buildSummaryOutputSemantic() {
+    _parse([
+      '--build-mode',
+      '--build-summary-output-semantic=//path/to/output.sum',
+      'package:p/foo.dart|/path/to/p/lib/foo.dart'
+    ]);
+    expect(options.buildMode, isTrue);
+    expect(options.buildSummaryOutputSemantic, '//path/to/output.sum');
+  }
+
+  test_buildSuppressExitCode() {
+    _parse([
+      '--build-mode',
+      '--build-suppress-exit-code',
+      'package:p/foo.dart|/path/to/p/lib/foo.dart'
+    ]);
+    expect(options.buildMode, isTrue);
+    expect(options.buildSuppressExitCode, isTrue);
   }
 
   void _parse(List<String> args) {

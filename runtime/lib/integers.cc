@@ -16,8 +16,10 @@
 
 namespace dart {
 
-DEFINE_FLAG(bool, trace_intrinsified_natives, false,
-    "Report if any of the intrinsified natives are called");
+DEFINE_FLAG(bool,
+            trace_intrinsified_natives,
+            false,
+            "Report if any of the intrinsified natives are called");
 
 // Smi natives.
 
@@ -42,8 +44,8 @@ DEFINE_NATIVE_ENTRY(Integer_bitAndFromInteger, 2) {
   ASSERT(CheckInteger(right));
   ASSERT(CheckInteger(left));
   if (FLAG_trace_intrinsified_natives) {
-    OS::Print("Integer_bitAndFromInteger %s & %s\n",
-        right.ToCString(), left.ToCString());
+    OS::Print("Integer_bitAndFromInteger %s & %s\n", right.ToCString(),
+              left.ToCString());
   }
   const Integer& result = Integer::Handle(left.BitOp(Token::kBIT_AND, right));
   // A null result indicates that a bigint operation is required.
@@ -57,8 +59,8 @@ DEFINE_NATIVE_ENTRY(Integer_bitOrFromInteger, 2) {
   ASSERT(CheckInteger(right));
   ASSERT(CheckInteger(left));
   if (FLAG_trace_intrinsified_natives) {
-    OS::Print("Integer_bitOrFromInteger %s | %s\n",
-        left.ToCString(), right.ToCString());
+    OS::Print("Integer_bitOrFromInteger %s | %s\n", left.ToCString(),
+              right.ToCString());
   }
   const Integer& result = Integer::Handle(left.BitOp(Token::kBIT_OR, right));
   // A null result indicates that a bigint operation is required.
@@ -72,8 +74,8 @@ DEFINE_NATIVE_ENTRY(Integer_bitXorFromInteger, 2) {
   ASSERT(CheckInteger(right));
   ASSERT(CheckInteger(left));
   if (FLAG_trace_intrinsified_natives) {
-    OS::Print("Integer_bitXorFromInteger %s ^ %s\n",
-        left.ToCString(), right.ToCString());
+    OS::Print("Integer_bitXorFromInteger %s ^ %s\n", left.ToCString(),
+              right.ToCString());
   }
   const Integer& result = Integer::Handle(left.BitOp(Token::kBIT_XOR, right));
   // A null result indicates that a bigint operation is required.
@@ -87,8 +89,8 @@ DEFINE_NATIVE_ENTRY(Integer_addFromInteger, 2) {
   ASSERT(CheckInteger(right_int));
   ASSERT(CheckInteger(left_int));
   if (FLAG_trace_intrinsified_natives) {
-    OS::Print("Integer_addFromInteger %s + %s\n",
-        left_int.ToCString(), right_int.ToCString());
+    OS::Print("Integer_addFromInteger %s + %s\n", left_int.ToCString(),
+              right_int.ToCString());
   }
   const Integer& result =
       Integer::Handle(left_int.ArithmeticOp(Token::kADD, right_int));
@@ -103,8 +105,8 @@ DEFINE_NATIVE_ENTRY(Integer_subFromInteger, 2) {
   ASSERT(CheckInteger(right_int));
   ASSERT(CheckInteger(left_int));
   if (FLAG_trace_intrinsified_natives) {
-    OS::Print("Integer_subFromInteger %s - %s\n",
-        left_int.ToCString(), right_int.ToCString());
+    OS::Print("Integer_subFromInteger %s - %s\n", left_int.ToCString(),
+              right_int.ToCString());
   }
   const Integer& result =
       Integer::Handle(left_int.ArithmeticOp(Token::kSUB, right_int));
@@ -119,8 +121,8 @@ DEFINE_NATIVE_ENTRY(Integer_mulFromInteger, 2) {
   ASSERT(CheckInteger(right_int));
   ASSERT(CheckInteger(left_int));
   if (FLAG_trace_intrinsified_natives) {
-    OS::Print("Integer_mulFromInteger %s * %s\n",
-        left_int.ToCString(), right_int.ToCString());
+    OS::Print("Integer_mulFromInteger %s * %s\n", left_int.ToCString(),
+              right_int.ToCString());
   }
   const Integer& result =
       Integer::Handle(left_int.ArithmeticOp(Token::kMUL, right_int));
@@ -146,10 +148,10 @@ DEFINE_NATIVE_ENTRY(Integer_moduloFromInteger, 2) {
   const Integer& right_int = Integer::CheckedHandle(arguments->NativeArgAt(0));
   GET_NON_NULL_NATIVE_ARGUMENT(Integer, left_int, arguments->NativeArgAt(1));
   ASSERT(CheckInteger(right_int));
-  ASSERT(CheckInteger(right_int));
+  ASSERT(CheckInteger(left_int));
   if (FLAG_trace_intrinsified_natives) {
-    OS::Print("Integer_moduloFromInteger %s mod %s\n",
-        left_int.ToCString(), right_int.ToCString());
+    OS::Print("Integer_moduloFromInteger %s mod %s\n", left_int.ToCString(),
+              right_int.ToCString());
   }
   if (right_int.IsZero()) {
     // Should have been caught before calling into runtime.
@@ -168,8 +170,8 @@ DEFINE_NATIVE_ENTRY(Integer_greaterThanFromInteger, 2) {
   ASSERT(CheckInteger(right));
   ASSERT(CheckInteger(left));
   if (FLAG_trace_intrinsified_natives) {
-    OS::Print("Integer_greaterThanFromInteger %s > %s\n",
-        left.ToCString(), right.ToCString());
+    OS::Print("Integer_greaterThanFromInteger %s > %s\n", left.ToCString(),
+              right.ToCString());
   }
   return Bool::Get(left.CompareWith(right) == 1).raw();
 }
@@ -181,8 +183,8 @@ DEFINE_NATIVE_ENTRY(Integer_equalToInteger, 2) {
   ASSERT(CheckInteger(left));
   ASSERT(CheckInteger(right));
   if (FLAG_trace_intrinsified_natives) {
-    OS::Print("Integer_equalToInteger %s == %s\n",
-        left.ToCString(), right.ToCString());
+    OS::Print("Integer_equalToInteger %s == %s\n", left.ToCString(),
+              right.ToCString());
   }
   return Bool::Get(left.CompareWith(right) == 0).raw();
 }
@@ -206,14 +208,9 @@ static RawInteger* ParseInteger(const String& value) {
     }
   }
 
-  Scanner scanner(value, Symbols::Empty());
-  const Scanner::GrowableTokenStream& tokens = scanner.GetStream();
   const String* int_string;
   bool is_positive;
-  if (Scanner::IsValidLiteral(tokens,
-                             Token::kINTEGER,
-                             &is_positive,
-                             &int_string)) {
+  if (Scanner::IsValidInteger(value, &is_positive, &int_string)) {
     if (is_positive) {
       return Integer::New(*int_string);
     }
@@ -244,7 +241,7 @@ DEFINE_NATIVE_ENTRY(Integer_fromEnvironment, 3) {
       if (result.IsSmi()) {
         return result.raw();
       }
-      return result.CheckAndCanonicalize(NULL);
+      return result.CheckAndCanonicalize(thread, NULL);
     }
   }
   return default_value.raw();
@@ -290,25 +287,16 @@ static RawInteger* ShiftOperationHelper(Token::Kind kind,
 }
 
 
-DEFINE_NATIVE_ENTRY(Integer_leftShiftWithMask32, 3) {
-  const Integer& value = Integer::CheckedHandle(arguments->NativeArgAt(0));
-  GET_NON_NULL_NATIVE_ARGUMENT(Integer, shift_count, arguments->NativeArgAt(1));
-  GET_NON_NULL_NATIVE_ARGUMENT(Integer, mask, arguments->NativeArgAt(2));
-  ASSERT(CheckInteger(value));
-  ASSERT(CheckInteger(shift_count));
-  ASSERT(CheckInteger(mask));
-  if (!shift_count.IsSmi()) {
-    // Shift count is too large..
-    const Instance& exception =
-        Instance::Handle(isolate->object_store()->out_of_memory());
-    Exceptions::Throw(thread, exception);
+DEFINE_NATIVE_ENTRY(Smi_bitAndFromSmi, 2) {
+  const Smi& left = Smi::CheckedHandle(arguments->NativeArgAt(0));
+  GET_NON_NULL_NATIVE_ARGUMENT(Smi, right, arguments->NativeArgAt(1));
+  if (FLAG_trace_intrinsified_natives) {
+    OS::Print("Smi_bitAndFromSmi %s & %s\n", left.ToCString(),
+              right.ToCString());
   }
-  const Smi& smi_shift_count = Smi::Cast(shift_count);
-  const Integer& shift_result = Integer::Handle(
-      ShiftOperationHelper(Token::kSHL, value, smi_shift_count));
-  const Integer& result =
-      Integer::Handle(shift_result.BitOp(Token::kBIT_AND, mask));
-  return result.AsValidInteger();
+  const Smi& left_value = Smi::Cast(left);
+  const Smi& right_value = Smi::Cast(right);
+  return Smi::New(left_value.Value() & right_value.Value());
 }
 
 
@@ -317,12 +305,11 @@ DEFINE_NATIVE_ENTRY(Smi_shrFromInt, 2) {
   GET_NON_NULL_NATIVE_ARGUMENT(Integer, value, arguments->NativeArgAt(1));
   ASSERT(CheckInteger(amount));
   ASSERT(CheckInteger(value));
-  const Integer& result = Integer::Handle(
-      ShiftOperationHelper(Token::kSHR, value, amount));
+  const Integer& result =
+      Integer::Handle(ShiftOperationHelper(Token::kSHR, value, amount));
   // A null result indicates that a bigint operation is required.
   return result.IsNull() ? result.raw() : result.AsValidInteger();
 }
-
 
 
 DEFINE_NATIVE_ENTRY(Smi_shlFromInt, 2) {
@@ -331,11 +318,11 @@ DEFINE_NATIVE_ENTRY(Smi_shlFromInt, 2) {
   ASSERT(CheckInteger(amount));
   ASSERT(CheckInteger(value));
   if (FLAG_trace_intrinsified_natives) {
-    OS::Print("Smi_shlFromInt: %s << %s\n",
-        value.ToCString(), amount.ToCString());
+    OS::Print("Smi_shlFromInt: %s << %s\n", value.ToCString(),
+              amount.ToCString());
   }
-  const Integer& result = Integer::Handle(
-      ShiftOperationHelper(Token::kSHL, value, amount));
+  const Integer& result =
+      Integer::Handle(ShiftOperationHelper(Token::kSHL, value, amount));
   // A null result indicates that a bigint operation is required.
   return result.IsNull() ? result.raw() : result.AsValidInteger();
 }
@@ -422,6 +409,12 @@ DEFINE_NATIVE_ENTRY(Bigint_getDigits, 1) {
 
 
 DEFINE_NATIVE_ENTRY(Bigint_allocate, 4) {
+  if (FLAG_limit_ints_to_64_bits) {
+    // The allocated Bigint value is not necessarily out of range, but it may
+    // be used as an operand in an operation resulting in a Bigint.
+    Exceptions::ThrowRangeErrorMsg(
+        "Integer operand requires conversion to Bigint");
+  }
   // First arg is null type arguments, since class Bigint is not parameterized.
   const Bool& neg = Bool::CheckedHandle(arguments->NativeArgAt(1));
   const Smi& used = Smi::CheckedHandle(arguments->NativeArgAt(2));

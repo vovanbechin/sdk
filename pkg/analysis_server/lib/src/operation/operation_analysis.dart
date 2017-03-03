@@ -17,23 +17,23 @@ import 'package:analysis_server/src/protocol_server.dart' as protocol;
 import 'package:analysis_server/src/services/dependencies/library_dependencies.dart';
 import 'package:analysis_server/src/services/search/search_engine.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/standard_resolution_map.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/error/error.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
 import 'package:analyzer/src/generated/source.dart';
 
 /**
- * Runs the given function [f] with the working cache size in [context].
- * Returns the result of [f] invocation.
+ * Run the given function [f] with the given [context] made active.
+ * Return the result of [f] invocation.
  */
-runWithWorkingCacheSize(AnalysisContext context, f()) {
-  int currentCacheSize = context.analysisOptions.cacheSize;
-  if (currentCacheSize < PerformAnalysisOperation.WORKING_CACHE_SIZE) {
-    setCacheSize(context, PerformAnalysisOperation.WORKING_CACHE_SIZE);
+runWithActiveContext(AnalysisContext context, f()) {
+  if (context is InternalAnalysisContext && !context.isActive) {
+    context.isActive = true;
     try {
       return f();
     } finally {
-      setCacheSize(context, currentCacheSize);
+      context.isActive = false;
     }
   } else {
     return f();
@@ -49,12 +49,19 @@ scheduleImplementedNotification(
   for (String file in files) {
     CompilationUnitElement unitElement = server.getCompilationUnitElement(file);
     if (unitElement != null) {
-      ImplementedComputer computer =
-          new ImplementedComputer(searchEngine, unitElement);
-      await computer.compute();
-      var params = new protocol.AnalysisImplementedParams(
-          file, computer.classes, computer.members);
-      server.sendNotification(params.toNotification());
+      try {
+        ImplementedComputer computer =
+            new ImplementedComputer(searchEngine, unitElement);
+        await computer.compute();
+        var params = new protocol.AnalysisImplementedParams(
+            file, computer.classes, computer.members);
+        server.sendNotification(params.toNotification());
+      } catch (exception, stackTrace) {
+        server.sendServerErrorNotification(
+            'Failed to send analysis.implemented notification.',
+            exception,
+            stackTrace);
+      }
     }
   }
 }
@@ -65,7 +72,8 @@ scheduleImplementedNotification(
 void scheduleIndexOperation(
     AnalysisServer server, String file, CompilationUnit dartUnit) {
   if (server.index != null) {
-    AnalysisContext context = dartUnit.element.context;
+    AnalysisContext context =
+        resolutionMap.elementDeclaredByCompilationUnit(dartUnit).context;
     server.addOperation(new _DartIndexOperation(context, file, dartUnit));
   }
 }
@@ -89,8 +97,7 @@ void scheduleNotificationOperations(
     return;
   }
   // Dart
-  CompilationUnit dartUnit =
-      resolvedDartUnit != null ? resolvedDartUnit : parsedDartUnit;
+  CompilationUnit dartUnit = resolvedDartUnit ?? parsedDartUnit;
   if (resolvedDartUnit != null) {
     if (server.hasAnalysisSubscription(
         protocol.AnalysisService.HIGHLIGHTS, file)) {
@@ -128,13 +135,17 @@ void scheduleNotificationOperations(
 
 void sendAnalysisNotificationAnalyzedFiles(AnalysisServer server) {
   _sendNotification(server, () {
-    // TODO(paulberry): if it proves to be too inefficient to recompute the set
-    // of analyzed files each time analysis is complete, consider modifying the
-    // analysis engine to update this set incrementally as analysis is
-    // performed.
-    LibraryDependencyCollector collector =
-        new LibraryDependencyCollector(server.analysisContexts.toList());
-    Set<String> analyzedFiles = collector.collectLibraryDependencies();
+    Set<String> analyzedFiles;
+    if (server.options.enableNewAnalysisDriver) {
+      analyzedFiles = server.driverMap.values
+          .map((driver) => driver.knownFiles)
+          .expand((files) => files)
+          .toSet();
+    } else {
+      LibraryDependencyCollector collector =
+          new LibraryDependencyCollector(server.analysisContexts.toList());
+      analyzedFiles = collector.collectLibraryDependencies();
+    }
     Set<String> prevAnalyzedFiles = server.prevAnalyzedFiles;
     if (prevAnalyzedFiles != null &&
         prevAnalyzedFiles.length == analyzedFiles.length &&
@@ -160,8 +171,9 @@ void sendAnalysisNotificationErrors(
     if (errors == null) {
       errors = <AnalysisError>[];
     }
-    var serverErrors =
-        protocol.doAnalysisError_listFromEngine(context, lineInfo, errors);
+    AnalysisOptions analysisOptions = context.analysisOptions;
+    var serverErrors = protocol.doAnalysisError_listFromEngine(
+        analysisOptions, lineInfo, errors);
     var params = new protocol.AnalysisErrorsParams(file, serverErrors);
     server.sendNotification(params.toNotification());
   });
@@ -246,16 +258,6 @@ void sendAnalysisNotificationOverrides(
   });
 }
 
-/**
- * Sets the cache size in the given [context] to the given value.
- */
-void setCacheSize(AnalysisContext context, int cacheSize) {
-  AnalysisOptionsImpl options =
-      new AnalysisOptionsImpl.from(context.analysisOptions);
-  options.cacheSize = cacheSize;
-  context.analysisOptions = options;
-}
-
 String _computeLibraryName(CompilationUnit unit) {
   for (Directive directive in unit.directives) {
     if (directive is LibraryDirective && directive.name != null) {
@@ -324,9 +326,6 @@ class OccurrencesOperation extends _NotificationOperation
  * Instances of [PerformAnalysisOperation] perform a single analysis task.
  */
 class PerformAnalysisOperation extends ServerOperation {
-  static const int IDLE_CACHE_SIZE = AnalysisOptionsImpl.DEFAULT_CACHE_SIZE;
-  static const int WORKING_CACHE_SIZE = 512;
-
   final bool isContinue;
 
   PerformAnalysisOperation(AnalysisContext context, this.isContinue)
@@ -364,20 +363,15 @@ class PerformAnalysisOperation extends ServerOperation {
     //   sendStatusNotification(context.toString(), taskDescription);
     // });
     if (!isContinue) {
-      setCacheSize(context, WORKING_CACHE_SIZE);
+      _setContextActive(true);
     }
     // prepare results
     AnalysisResult result = context.performAnalysisTask();
     List<ChangeNotice> notices = result.changeNotices;
     // nothing to analyze
     if (notices == null) {
-      bool cacheInconsistencyFixed = context.validateCacheConsistency();
-      if (cacheInconsistencyFixed) {
-        server.addOperation(new PerformAnalysisOperation(context, true));
-        return;
-      }
-      // analysis is done
-      setCacheSize(context, IDLE_CACHE_SIZE);
+      server.scheduleCacheConsistencyValidation(context);
+      _setContextActive(false);
       server.sendContextAnalysisDoneNotifications(
           context, AnalysisDoneReason.COMPLETE);
       return;
@@ -406,6 +400,16 @@ class PerformAnalysisOperation extends ServerOperation {
           context, parsedDartUnit, resolvedDartUnit, notice.errors);
       // done
       server.fileAnalyzed(notice);
+    }
+  }
+
+  /**
+   * Make the [context] active or idle.
+   */
+  void _setContextActive(bool active) {
+    AnalysisContext context = this.context;
+    if (context is InternalAnalysisContext) {
+      context.isActive = active;
     }
   }
 

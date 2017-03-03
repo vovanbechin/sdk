@@ -18,7 +18,7 @@ import 'package:analyzer/src/task/driver.dart';
 import 'package:analyzer/task/model.dart';
 import 'package:plugin/manager.dart';
 import 'package:plugin/plugin.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 
 import 'mock_sdk.dart';
 
@@ -45,9 +45,12 @@ Element findChildElement(Element root, String name, [ElementKind kind]) {
 typedef void _ElementVisitorFunction(Element element);
 
 class AbstractContextTest {
+  static final MockSdk SHARED_MOCK_SDK = new MockSdk();
+  static final MockSdk SHARED_STRONG_MOCK_SDK = new MockSdk();
+
   MemoryResourceProvider resourceProvider = new MemoryResourceProvider();
 
-  DartSdk sdk = new MockSdk();
+  DartSdk sdk;
   SourceFactory sourceFactory;
   AnalysisContextImpl context;
   AnalysisCache analysisCache;
@@ -120,8 +123,11 @@ class AbstractContextTest {
     return new AnalysisContextImpl();
   }
 
+  DartSdk createDartSdk() => new MockSdk(resourceProvider: resourceProvider);
+
   Source newSource(String path, [String content = '']) {
-    File file = resourceProvider.newFile(path, content);
+    File file =
+        resourceProvider.newFile(resourceProvider.convertPath(path), content);
     return file.createSource();
   }
 
@@ -135,10 +141,11 @@ class AbstractContextTest {
   }
 
   void prepareAnalysisContext([AnalysisOptions options]) {
+    sdk = createDartSdk();
     sdkResolver = new DartUriResolver(sdk);
     resourceResolver = new ResourceUriResolver(resourceProvider);
-    sourceFactory =
-        new SourceFactory(<UriResolver>[sdkResolver, resourceResolver]);
+    sourceFactory = new SourceFactory(
+        <UriResolver>[sdkResolver, resourceResolver], null, resourceProvider);
     context = createAnalysisContext();
     if (options != null) {
       context.analysisOptions = options;
@@ -155,8 +162,6 @@ class AbstractContextTest {
   void setUp() {
     List<Plugin> plugins = <Plugin>[];
     plugins.addAll(AnalysisEngine.instance.requiredPlugins);
-    plugins.add(AnalysisEngine.instance.commandLinePlugin);
-    plugins.add(AnalysisEngine.instance.optionsPlugin);
 
     ExtensionManager manager = new ExtensionManager();
     manager.processPlugins(plugins);

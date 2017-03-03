@@ -20,8 +20,8 @@ $if DART2JS
     return _create_2(blobParts, bag);
   }
 
-  static _create_1(parts) => JS('Blob', 'new Blob(#)', parts);
-  static _create_2(parts, bag) => JS('Blob', 'new Blob(#, #)', parts, bag);
+  static _create_1(parts) => JS('Blob', 'new self.Blob(#)', parts);
+  static _create_2(parts, bag) => JS('Blob', 'new self.Blob(#, #)', parts, bag);
 
   static _create_bag() => JS('var', '{}');
   static _bag_set(bag, key, value) { JS('void', '#[#] = #', bag, key, value); }
@@ -31,15 +31,15 @@ $else
     // TODO: any coercions on the elements of blobParts, e.g. coerce a typed
     // array to ArrayBuffer if it is a total view.
 
-    var parts = convertDartToNative_List(blobParts.map(unwrap_jso).toList());
+    var parts = convertDartToNative_List(blobParts);
     if (type == null && endings == null) {
-      return wrap_jso(_blink.BlinkBlob.instance.constructorCallback_1_(parts));
+      return _blink.BlinkBlob.instance.constructorCallback_1_(parts);
     }
     var bag = {};
     if (type != null) bag['type'] = type;
     if (endings != null) bag['endings'] = endings;
-    return wrap_jso(_blink.BlinkBlob.instance.constructorCallback_2_(parts,
-        convertDartToNative_Dictionary(bag)));
+    return _blink.BlinkBlob.instance.constructorCallback_2_(parts,
+        convertDartToNative_Dictionary(bag));
   }
   $endif
 $endif

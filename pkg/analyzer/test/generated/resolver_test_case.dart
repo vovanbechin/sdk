@@ -4,466 +4,35 @@
 
 library analyzer.test.generated.resolver_test_case;
 
+import 'dart:async';
+
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/standard_resolution_map.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:analyzer/error/error.dart';
+import 'package:analyzer/file_system/file_system.dart';
+import 'package:analyzer/file_system/memory_file_system.dart';
+import 'package:analyzer/source/package_map_resolver.dart';
+import 'package:analyzer/src/dart/analysis/byte_store.dart';
+import 'package:analyzer/src/dart/analysis/driver.dart';
+import 'package:analyzer/src/dart/analysis/file_state.dart';
 import 'package:analyzer/src/dart/element/element.dart';
 import 'package:analyzer/src/dart/element/type.dart';
-import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
-import 'package:analyzer/src/generated/java_core.dart';
+import 'package:analyzer/src/error/codes.dart';
+import 'package:analyzer/src/generated/engine.dart' hide AnalysisResult;
 import 'package:analyzer/src/generated/java_engine.dart';
-import 'package:analyzer/src/generated/java_engine_io.dart';
 import 'package:analyzer/src/generated/resolver.dart';
+import 'package:analyzer/src/generated/sdk.dart';
 import 'package:analyzer/src/generated/source_io.dart';
-import 'package:analyzer/src/generated/testing/ast_factory.dart';
+import 'package:analyzer/src/generated/testing/ast_test_factory.dart';
 import 'package:analyzer/src/generated/testing/element_factory.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 
+import '../src/context/mock_sdk.dart';
 import 'analysis_context_factory.dart';
 import 'test_support.dart';
-
-class ResolverTestCase extends EngineTestCase {
-  /**
-   * The analysis context used to parse the compilation units being resolved.
-   */
-  InternalAnalysisContext analysisContext2;
-
-  /**
-   * Specifies if [assertErrors] should check for [HintCode.UNUSED_ELEMENT] and
-   * [HintCode.UNUSED_FIELD].
-   */
-  bool enableUnusedElement = false;
-
-  /**
-   * Specifies if [assertErrors] should check for [HintCode.UNUSED_LOCAL_VARIABLE].
-   */
-  bool enableUnusedLocalVariable = false;
-
-  AnalysisContext get analysisContext => analysisContext2;
-
-  /**
-   * Return a type provider that can be used to test the results of resolution.
-   *
-   * @return a type provider
-   * @throws AnalysisException if dart:core cannot be resolved
-   */
-  TypeProvider get typeProvider => analysisContext2.typeProvider;
-
-  /**
-   * Return a type system that can be used to test the results of resolution.
-   *
-   * @return a type system
-   */
-  TypeSystem get typeSystem => analysisContext2.typeSystem;
-
-  /**
-   * Add a source file to the content provider. The file path should be absolute.
-   *
-   * @param filePath the path of the file being added
-   * @param contents the contents to be returned by the content provider for the specified file
-   * @return the source object representing the added file
-   */
-  Source addNamedSource(String filePath, String contents) {
-    Source source = cacheSource(filePath, contents);
-    ChangeSet changeSet = new ChangeSet();
-    changeSet.addedSource(source);
-    analysisContext2.applyChanges(changeSet);
-    return source;
-  }
-
-  /**
-   * Add a source file to the content provider.
-   *
-   * @param contents the contents to be returned by the content provider for the specified file
-   * @return the source object representing the added file
-   */
-  Source addSource(String contents) => addNamedSource("/test.dart", contents);
-
-  /**
-   * Assert that the number of errors reported against the given source matches the number of errors
-   * that are given and that they have the expected error codes. The order in which the errors were
-   * gathered is ignored.
-   *
-   * @param source the source against which the errors should have been reported
-   * @param expectedErrorCodes the error codes of the errors that should have been reported
-   * @throws AnalysisException if the reported errors could not be computed
-   * @throws AssertionFailedError if a different number of errors have been reported than were
-   *           expected
-   */
-  void assertErrors(Source source,
-      [List<ErrorCode> expectedErrorCodes = ErrorCode.EMPTY_LIST]) {
-    GatheringErrorListener errorListener = new GatheringErrorListener();
-    for (AnalysisError error in analysisContext2.computeErrors(source)) {
-      expect(error.source, source);
-      ErrorCode errorCode = error.errorCode;
-      if (!enableUnusedElement &&
-          (errorCode == HintCode.UNUSED_ELEMENT ||
-              errorCode == HintCode.UNUSED_FIELD)) {
-        continue;
-      }
-      if (!enableUnusedLocalVariable &&
-          (errorCode == HintCode.UNUSED_CATCH_CLAUSE ||
-              errorCode == HintCode.UNUSED_CATCH_STACK ||
-              errorCode == HintCode.UNUSED_LOCAL_VARIABLE)) {
-        continue;
-      }
-      errorListener.onError(error);
-    }
-    errorListener.assertErrorsWithCodes(expectedErrorCodes);
-  }
-
-  /**
-   * Asserts that [code] verifies, but has errors with the given error codes.
-   *
-   * Like [assertErrors], but takes a string of source code.
-   */
-  // TODO(rnystrom): Use this in more tests that have the same structure.
-  void assertErrorsInCode(String code, List<ErrorCode> errors) {
-    Source source = addSource(code);
-    computeLibrarySourceErrors(source);
-    assertErrors(source, errors);
-    verify([source]);
-  }
-
-  /**
-   * Asserts that [code] has errors with the given error codes.
-   *
-   * Like [assertErrors], but takes a string of source code.
-   */
-  void assertErrorsInUnverifiedCode(String code, List<ErrorCode> errors) {
-    Source source = addSource(code);
-    computeLibrarySourceErrors(source);
-    assertErrors(source, errors);
-  }
-
-  /**
-   * Assert that no errors have been reported against the given source.
-   *
-   * @param source the source against which no errors should have been reported
-   * @throws AnalysisException if the reported errors could not be computed
-   * @throws AssertionFailedError if any errors have been reported
-   */
-  void assertNoErrors(Source source) {
-    assertErrors(source);
-  }
-
-  /**
-   * Asserts that [code] has no errors or warnings.
-   */
-  // TODO(rnystrom): Use this in more tests that have the same structure.
-  void assertNoErrorsInCode(String code) {
-    Source source = addSource(code);
-    computeLibrarySourceErrors(source);
-    assertNoErrors(source);
-    verify([source]);
-  }
-
-  /**
-   * Cache the source file content in the source factory but don't add the source to the analysis
-   * context. The file path should be absolute.
-   *
-   * @param filePath the path of the file being cached
-   * @param contents the contents to be returned by the content provider for the specified file
-   * @return the source object representing the cached file
-   */
-  Source cacheSource(String filePath, String contents) {
-    Source source = new FileBasedSource(FileUtilities2.createFile(filePath));
-    analysisContext2.setContents(source, contents);
-    return source;
-  }
-
-  /**
-   * Change the contents of the given [source] to the given [contents].
-   */
-  void changeSource(Source source, String contents) {
-    analysisContext2.setContents(source, contents);
-    ChangeSet changeSet = new ChangeSet();
-    changeSet.changedSource(source);
-    analysisContext2.applyChanges(changeSet);
-  }
-
-  /**
-   * Computes errors for the given [librarySource].
-   * This assumes that the given [librarySource] and its parts have already
-   * been added to the content provider using the method [addNamedSource].
-   */
-  void computeLibrarySourceErrors(Source librarySource) {
-    analysisContext.computeErrors(librarySource);
-  }
-
-  /**
-   * Create a library element that represents a library named `"test"` containing a single
-   * empty compilation unit.
-   *
-   * @return the library element that was created
-   */
-  LibraryElementImpl createDefaultTestLibrary() =>
-      createTestLibrary(AnalysisContextFactory.contextWithCore(), "test");
-
-  /**
-   * Create a library element that represents a library with the given name containing a single
-   * empty compilation unit.
-   *
-   * @param libraryName the name of the library to be created
-   * @return the library element that was created
-   */
-  LibraryElementImpl createTestLibrary(
-      AnalysisContext context, String libraryName,
-      [List<String> typeNames]) {
-    String fileName = "$libraryName.dart";
-    FileBasedSource definingCompilationUnitSource =
-    createNamedSource(fileName);
-    List<CompilationUnitElement> sourcedCompilationUnits;
-    if (typeNames == null) {
-      sourcedCompilationUnits = CompilationUnitElement.EMPTY_LIST;
-    } else {
-      int count = typeNames.length;
-      sourcedCompilationUnits = new List<CompilationUnitElement>(count);
-      for (int i = 0; i < count; i++) {
-        String typeName = typeNames[i];
-        ClassElementImpl type =
-        new ClassElementImpl.forNode(AstFactory.identifier3(typeName));
-        String fileName = "$typeName.dart";
-        CompilationUnitElementImpl compilationUnit =
-        new CompilationUnitElementImpl(fileName);
-        compilationUnit.source = createNamedSource(fileName);
-        compilationUnit.librarySource = definingCompilationUnitSource;
-        compilationUnit.types = <ClassElement>[type];
-        sourcedCompilationUnits[i] = compilationUnit;
-      }
-    }
-    CompilationUnitElementImpl compilationUnit =
-    new CompilationUnitElementImpl(fileName);
-    compilationUnit.librarySource =
-        compilationUnit.source = definingCompilationUnitSource;
-    LibraryElementImpl library = new LibraryElementImpl.forNode(
-        context, AstFactory.libraryIdentifier2([libraryName]));
-    library.definingCompilationUnit = compilationUnit;
-    library.parts = sourcedCompilationUnits;
-    return library;
-  }
-
-  Expression findTopLevelConstantExpression(
-      CompilationUnit compilationUnit, String name) =>
-      findTopLevelDeclaration(compilationUnit, name).initializer;
-
-  VariableDeclaration findTopLevelDeclaration(
-      CompilationUnit compilationUnit, String name) {
-    for (CompilationUnitMember member in compilationUnit.declarations) {
-      if (member is TopLevelVariableDeclaration) {
-        for (VariableDeclaration variable in member.variables.variables) {
-          if (variable.name.name == name) {
-            return variable;
-          }
-        }
-      }
-    }
-    return null;
-    // Not found
-  }
-
-  /**
-   * In the rare cases we want to group several tests into single "test_" method, so need a way to
-   * reset test instance to reuse it.
-   */
-  void reset() {
-    analysisContext2 = AnalysisContextFactory.contextWithCore();
-  }
-
-  /**
-   * Reset the analysis context to have the given options applied.
-   *
-   * @param options the analysis options to be applied to the context
-   */
-  void resetWithOptions(AnalysisOptions options) {
-    analysisContext2 =
-        AnalysisContextFactory.contextWithCoreAndOptions(options);
-  }
-
-  /**
-   * Given a library and all of its parts, resolve the contents of the library and the contents of
-   * the parts. This assumes that the sources for the library and its parts have already been added
-   * to the content provider using the method [addNamedSource].
-   *
-   * @param librarySource the source for the compilation unit that defines the library
-   * @return the element representing the resolved library
-   * @throws AnalysisException if the analysis could not be performed
-   */
-  LibraryElement resolve2(Source librarySource) =>
-      analysisContext2.computeLibraryElement(librarySource);
-
-  /**
-   * Return the resolved compilation unit corresponding to the given source in the given library.
-   *
-   * @param source the source of the compilation unit to be returned
-   * @param library the library in which the compilation unit is to be resolved
-   * @return the resolved compilation unit
-   * @throws Exception if the compilation unit could not be resolved
-   */
-  CompilationUnit resolveCompilationUnit(
-      Source source, LibraryElement library) =>
-      analysisContext2.resolveCompilationUnit(source, library);
-
-  CompilationUnit resolveSource(String sourceText) =>
-      resolveSource2("/test.dart", sourceText);
-
-  CompilationUnit resolveSource2(String fileName, String sourceText) {
-    Source source = addNamedSource(fileName, sourceText);
-    LibraryElement library = analysisContext.computeLibraryElement(source);
-    return analysisContext.resolveCompilationUnit(source, library);
-  }
-
-  Source resolveSources(List<String> sourceTexts) {
-    for (int i = 0; i < sourceTexts.length; i++) {
-      CompilationUnit unit =
-      resolveSource2("/lib${i + 1}.dart", sourceTexts[i]);
-      // reference the source if this is the last source
-      if (i + 1 == sourceTexts.length) {
-        return unit.element.source;
-      }
-    }
-    return null;
-  }
-
-  void resolveWithAndWithoutExperimental(
-      List<String> strSources,
-      List<ErrorCode> codesWithoutExperimental,
-      List<ErrorCode> codesWithExperimental) {
-    // Setup analysis context as non-experimental
-    AnalysisOptionsImpl options = new AnalysisOptionsImpl();
-//    options.enableDeferredLoading = false;
-    resetWithOptions(options);
-    // Analysis and assertions
-    Source source = resolveSources(strSources);
-    assertErrors(source, codesWithoutExperimental);
-    verify([source]);
-    // Setup analysis context as experimental
-    reset();
-    // Analysis and assertions
-    source = resolveSources(strSources);
-    assertErrors(source, codesWithExperimental);
-    verify([source]);
-  }
-
-  void resolveWithErrors(List<String> strSources, List<ErrorCode> codes) {
-    // Analysis and assertions
-    Source source = resolveSources(strSources);
-    assertErrors(source, codes);
-    verify([source]);
-  }
-
-  @override
-  void setUp() {
-    ElementFactory.flushStaticState();
-    super.setUp();
-    reset();
-  }
-
-  @override
-  void tearDown() {
-    analysisContext2 = null;
-    super.tearDown();
-  }
-
-  /**
-   * Verify that all of the identifiers in the compilation units associated with
-   * the given [sources] have been resolved.
-   */
-  void verify(List<Source> sources) {
-    ResolutionVerifier verifier = new ResolutionVerifier();
-    for (Source source in sources) {
-      List<Source> libraries = analysisContext2.getLibrariesContaining(source);
-      for (Source library in libraries) {
-        analysisContext2
-            .resolveCompilationUnit2(source, library)
-            .accept(verifier);
-      }
-    }
-    verifier.assertResolved();
-  }
-
-  /**
-   * @param code the code that assigns the value to the variable "v", no matter how. We check that
-   *          "v" has expected static and propagated type.
-   */
-  void assertPropagatedAssignedType(String code, DartType expectedStaticType,
-      DartType expectedPropagatedType) {
-    SimpleIdentifier identifier = findMarkedIdentifier(code, "v = ");
-    expect(identifier.staticType, same(expectedStaticType));
-    expect(identifier.propagatedType, same(expectedPropagatedType));
-  }
-
-  /**
-   * @param code the code that iterates using variable "v". We check that
-   *          "v" has expected static and propagated type.
-   */
-  void assertPropagatedIterationType(String code, DartType expectedStaticType,
-      DartType expectedPropagatedType) {
-    SimpleIdentifier identifier = findMarkedIdentifier(code, "v in ");
-    expect(identifier.staticType, same(expectedStaticType));
-    expect(identifier.propagatedType, same(expectedPropagatedType));
-  }
-
-  /**
-   * Check the static and propagated types of the expression marked with "; // marker" comment.
-   *
-   * @param code source code to analyze, with the expression to check marked with "// marker".
-   * @param expectedStaticType if non-null, check actual static type is equal to this.
-   * @param expectedPropagatedType if non-null, check actual static type is equal to this.
-   * @throws Exception
-   */
-  void assertTypeOfMarkedExpression(String code, DartType expectedStaticType,
-      DartType expectedPropagatedType) {
-    SimpleIdentifier identifier = findMarkedIdentifier(code, "; // marker");
-    if (expectedStaticType != null) {
-      expect(identifier.staticType, expectedStaticType);
-    }
-    expect(identifier.propagatedType, expectedPropagatedType);
-  }
-
-  /**
-   * Create a source object representing a file with the given [fileName] and
-   * give it an empty content. Return the source that was created.
-   */
-  FileBasedSource createNamedSource(String fileName) {
-    FileBasedSource source =
-    new FileBasedSource(FileUtilities2.createFile(fileName));
-    analysisContext2.setContents(source, "");
-    return source;
-  }
-
-  /**
-   * Return the `SimpleIdentifier` marked by `marker`. The source code must have no
-   * errors and be verifiable.
-   *
-   * @param code source code to analyze.
-   * @param marker marker identifying sought after expression in source code.
-   * @return expression marked by the marker.
-   * @throws Exception
-   */
-  SimpleIdentifier findMarkedIdentifier(String code, String marker) {
-    try {
-      Source source = addSource(code);
-      LibraryElement library = resolve2(source);
-      assertNoErrors(source);
-      verify([source]);
-      CompilationUnit unit = resolveCompilationUnit(source, library);
-      // Could generalize this further by making [SimpleIdentifier.class] a
-      // parameter.
-      return EngineTestCase.findNode(
-          unit, code, marker, (node) => node is SimpleIdentifier);
-    } catch (exception) {
-      // Is there a better exception to throw here? The point is that an
-      // assertion failure here should be a failure, in both "test_*" and
-      // "fail_*" tests. However, an assertion failure is success for the
-      // purpose of "fail_*" tests, so without catching them here "fail_*" tests
-      // can succeed by failing for the wrong reason.
-      throw new JavaException("Unexexpected assertion failure: $exception");
-    }
-  }
-}
 
 /**
  * An AST visitor used to verify that all of the nodes in an AST structure that
@@ -673,8 +242,8 @@ class ResolutionVerifier extends RecursiveAstVisitor<Object> {
     if (node.name == "void") {
       return null;
     }
-    if (node.staticType != null &&
-        node.staticType.isDynamic &&
+    if (resolutionMap.staticTypeForExpression(node) != null &&
+        resolutionMap.staticTypeForExpression(node).isDynamic &&
         node.staticElement == null) {
       return null;
     }
@@ -714,7 +283,10 @@ class ResolutionVerifier extends RecursiveAstVisitor<Object> {
       if (root is CompilationUnit) {
         CompilationUnit rootCU = root;
         if (rootCU.element != null) {
-          return rootCU.element.source.fullName;
+          return resolutionMap
+              .elementDeclaredByCompilationUnit(rootCU)
+              .source
+              .fullName;
         } else {
           return "<unknown file- CompilationUnit.getElement() returned null>";
         }
@@ -738,6 +310,510 @@ class ResolutionVerifier extends RecursiveAstVisitor<Object> {
   }
 }
 
+class ResolverTestCase extends EngineTestCase {
+  /**
+   * The resource provider used by the test case.
+   */
+  MemoryResourceProvider resourceProvider = new MemoryResourceProvider();
+
+  /**
+   * The analysis context used to parse the compilation units being resolved.
+   */
+  InternalAnalysisContext analysisContext2;
+
+  /**
+   * Specifies if [assertErrors] should check for [HintCode.UNUSED_ELEMENT] and
+   * [HintCode.UNUSED_FIELD].
+   */
+  bool enableUnusedElement = false;
+
+  /**
+   * Specifies if [assertErrors] should check for [HintCode.UNUSED_LOCAL_VARIABLE].
+   */
+  bool enableUnusedLocalVariable = false;
+
+  final Map<Source, TestAnalysisResult> analysisResults = {};
+
+  StringBuffer _logBuffer = new StringBuffer();
+  FileContentOverlay fileContentOverlay = new FileContentOverlay();
+  AnalysisDriver driver;
+
+  AnalysisContext get analysisContext => analysisContext2;
+
+  bool get enableNewAnalysisDriver => false;
+
+  /**
+   * Return a type provider that can be used to test the results of resolution.
+   *
+   * @return a type provider
+   * @throws AnalysisException if dart:core cannot be resolved
+   */
+  TypeProvider get typeProvider {
+    if (enableNewAnalysisDriver) {
+      if (analysisResults.isEmpty) {
+        fail('typeProvider can be called after computing an analysis result.');
+      }
+      return analysisResults.values.first.unit.element.context.typeProvider;
+    } else {
+      return analysisContext2.typeProvider;
+    }
+  }
+
+  /**
+   * Return a type system that can be used to test the results of resolution.
+   *
+   * @return a type system
+   */
+  TypeSystem get typeSystem => analysisContext2.typeSystem;
+
+  /**
+   * Add a source file with the given [filePath] in the root of the file system.
+   * The file path should be absolute. The file will have the given [contents]
+   * set in the content provider. Return the source representing the added file.
+   */
+  Source addNamedSource(String filePath, String contents) {
+    filePath = resourceProvider.convertPath(filePath);
+    File file = resourceProvider.newFile(filePath, contents);
+    Source source = file.createSource();
+    if (enableNewAnalysisDriver) {
+      driver.addFile(filePath);
+    } else {
+      analysisContext2.setContents(source, contents);
+      ChangeSet changeSet = new ChangeSet();
+      changeSet.addedSource(source);
+      analysisContext2.applyChanges(changeSet);
+    }
+    return source;
+  }
+
+  /**
+   * Add a source file named 'test.dart' in the root of the file system. The
+   * file will have the given [contents] set in the content provider. Return the
+   * source representing the added file.
+   */
+  Source addSource(String contents) => addNamedSource("/test.dart", contents);
+
+  /**
+   * Assert that the number of errors reported against the given
+   * [source] matches the number of errors that are given and that they have
+   * the expected error codes. The order in which the errors were gathered is
+   * ignored.
+   */
+  void assertErrors(Source source,
+      [List<ErrorCode> expectedErrorCodes = const <ErrorCode>[]]) {
+    TestAnalysisResult result = analysisResults[source];
+    expect(result, isNotNull);
+
+    GatheringErrorListener errorListener = new GatheringErrorListener();
+    for (AnalysisError error in result.errors) {
+      expect(error.source, source);
+      ErrorCode errorCode = error.errorCode;
+      if (!enableUnusedElement &&
+          (errorCode == HintCode.UNUSED_ELEMENT ||
+              errorCode == HintCode.UNUSED_FIELD)) {
+        continue;
+      }
+      if (!enableUnusedLocalVariable &&
+          (errorCode == HintCode.UNUSED_CATCH_CLAUSE ||
+              errorCode == HintCode.UNUSED_CATCH_STACK ||
+              errorCode == HintCode.UNUSED_LOCAL_VARIABLE)) {
+        continue;
+      }
+      errorListener.onError(error);
+    }
+    errorListener.assertErrorsWithCodes(expectedErrorCodes);
+  }
+
+  /**
+   * Asserts that [code] verifies, but has errors with the given error codes.
+   *
+   * Like [assertErrors], but takes a string of source code.
+   */
+  // TODO(rnystrom): Use this in more tests that have the same structure.
+  Future<Null> assertErrorsInCode(String code, List<ErrorCode> errors) async {
+    Source source = addSource(code);
+    await computeAnalysisResult(source);
+    assertErrors(source, errors);
+    verify([source]);
+  }
+
+  /**
+   * Asserts that [code] has errors with the given error codes.
+   *
+   * Like [assertErrors], but takes a string of source code.
+   */
+  Future<Null> assertErrorsInUnverifiedCode(
+      String code, List<ErrorCode> errors) async {
+    Source source = addSource(code);
+    await computeAnalysisResult(source);
+    assertErrors(source, errors);
+  }
+
+  /**
+   * Assert that no errors have been reported against the given source.
+   *
+   * @param source the source against which no errors should have been reported
+   * @throws AnalysisException if the reported errors could not be computed
+   * @throws AssertionFailedError if any errors have been reported
+   */
+  void assertNoErrors(Source source) {
+    assertErrors(source);
+  }
+
+  /**
+   * Asserts that [code] has no errors or warnings.
+   */
+  // TODO(rnystrom): Use this in more tests that have the same structure.
+  Future<Null> assertNoErrorsInCode(String code) async {
+    Source source = addSource(code);
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  /**
+   * @param code the code that assigns the value to the variable "v", no matter how. We check that
+   *          "v" has expected static and propagated type.
+   */
+  void assertPropagatedAssignedType(String code, CompilationUnit unit,
+      DartType expectedStaticType, DartType expectedPropagatedType) {
+    SimpleIdentifier identifier = findMarkedIdentifier(code, unit, "v = ");
+    expect(identifier.staticType, expectedStaticType);
+    expect(identifier.propagatedType, expectedPropagatedType);
+  }
+
+  /**
+   * @param code the code that iterates using variable "v". We check that
+   *          "v" has expected static and propagated type.
+   */
+  void assertPropagatedIterationType(String code, CompilationUnit unit,
+      DartType expectedStaticType, DartType expectedPropagatedType) {
+    SimpleIdentifier identifier = findMarkedIdentifier(code, unit, "v in ");
+    expect(identifier.staticType, expectedStaticType);
+    expect(identifier.propagatedType, expectedPropagatedType);
+  }
+
+  /**
+   * Check the static and propagated types of the expression marked with "; // marker" comment.
+   *
+   * @param code source code to analyze, with the expression to check marked with "// marker".
+   * @param expectedStaticType if non-null, check actual static type is equal to this.
+   * @param expectedPropagatedType if non-null, check actual static type is equal to this.
+   * @throws Exception
+   */
+  void assertTypeOfMarkedExpression(String code, CompilationUnit unit,
+      DartType expectedStaticType, DartType expectedPropagatedType) {
+    SimpleIdentifier identifier =
+        findMarkedIdentifier(code, unit, "; // marker");
+    if (expectedStaticType != null) {
+      expect(identifier.staticType, expectedStaticType);
+    }
+    expect(identifier.propagatedType, expectedPropagatedType);
+  }
+
+  /**
+   * Change the contents of the given [source] to the given [contents].
+   */
+  void changeSource(Source source, String contents) {
+    analysisContext2.setContents(source, contents);
+    ChangeSet changeSet = new ChangeSet();
+    changeSet.changedSource(source);
+    analysisContext2.applyChanges(changeSet);
+  }
+
+  Future<TestAnalysisResult> computeAnalysisResult(Source source) async {
+    TestAnalysisResult analysisResult;
+    if (enableNewAnalysisDriver) {
+      AnalysisResult result = await driver.getResult(source.fullName);
+      analysisResult =
+          new TestAnalysisResult(source, result.unit, result.errors);
+    } else {
+      analysisContext2.computeKindOf(source);
+      List<Source> libraries = analysisContext2.getLibrariesContaining(source);
+      if (libraries.length > 0) {
+        CompilationUnit unit =
+            analysisContext.resolveCompilationUnit2(source, libraries.first);
+        List<AnalysisError> errors = analysisContext.computeErrors(source);
+        analysisResult = new TestAnalysisResult(source, unit, errors);
+      }
+    }
+    analysisResults[source] = analysisResult;
+    return analysisResult;
+  }
+
+  /**
+   * Compute the analysis result to the given [code] in '/test.dart'.
+   */
+  Future<TestAnalysisResult> computeTestAnalysisResult(String code) async {
+    Source source = addSource(code);
+    return await computeAnalysisResult(source);
+  }
+
+  /**
+   * Create a library element that represents a library named `"test"` containing a single
+   * empty compilation unit.
+   *
+   * @return the library element that was created
+   */
+  LibraryElementImpl createDefaultTestLibrary() =>
+      createTestLibrary(AnalysisContextFactory.contextWithCore(), "test");
+
+  /**
+   * Create a source object representing a file with the given [fileName] and
+   * give it an empty content. Return the source that was created.
+   */
+  Source createNamedSource(String fileName) {
+    Source source = resourceProvider.getFile(fileName).createSource();
+    analysisContext2.setContents(source, '');
+    return source;
+  }
+
+  /**
+   * Create a library element that represents a library with the given name containing a single
+   * empty compilation unit.
+   *
+   * @param libraryName the name of the library to be created
+   * @return the library element that was created
+   */
+  LibraryElementImpl createTestLibrary(
+      AnalysisContext context, String libraryName,
+      [List<String> typeNames]) {
+    String fileName = "/test/$libraryName.dart";
+    Source definingCompilationUnitSource = createNamedSource(fileName);
+    List<CompilationUnitElement> sourcedCompilationUnits;
+    if (typeNames == null) {
+      sourcedCompilationUnits = CompilationUnitElement.EMPTY_LIST;
+    } else {
+      int count = typeNames.length;
+      sourcedCompilationUnits = new List<CompilationUnitElement>(count);
+      for (int i = 0; i < count; i++) {
+        String typeName = typeNames[i];
+        ClassElementImpl type =
+            new ClassElementImpl.forNode(AstTestFactory.identifier3(typeName));
+        String fileName = "$typeName.dart";
+        CompilationUnitElementImpl compilationUnit =
+            new CompilationUnitElementImpl(fileName);
+        compilationUnit.source = createNamedSource(fileName);
+        compilationUnit.librarySource = definingCompilationUnitSource;
+        compilationUnit.types = <ClassElement>[type];
+        sourcedCompilationUnits[i] = compilationUnit;
+      }
+    }
+    CompilationUnitElementImpl compilationUnit =
+        new CompilationUnitElementImpl(fileName);
+    compilationUnit.librarySource =
+        compilationUnit.source = definingCompilationUnitSource;
+    LibraryElementImpl library = new LibraryElementImpl.forNode(
+        context, AstTestFactory.libraryIdentifier2([libraryName]));
+    library.definingCompilationUnit = compilationUnit;
+    library.parts = sourcedCompilationUnits;
+    return library;
+  }
+
+  /**
+   * Return the [SimpleIdentifier] from [unit] marked by [marker] in [code].
+   * The source code must have no errors and be verifiable.
+   */
+  SimpleIdentifier findMarkedIdentifier(
+      String code, CompilationUnit unit, String marker) {
+    return EngineTestCase.findNode(
+        unit, code, marker, (node) => node is SimpleIdentifier);
+  }
+
+  Expression findTopLevelConstantExpression(
+          CompilationUnit compilationUnit, String name) =>
+      findTopLevelDeclaration(compilationUnit, name).initializer;
+  VariableDeclaration findTopLevelDeclaration(
+      CompilationUnit compilationUnit, String name) {
+    for (CompilationUnitMember member in compilationUnit.declarations) {
+      if (member is TopLevelVariableDeclaration) {
+        for (VariableDeclaration variable in member.variables.variables) {
+          if (variable.name.name == name) {
+            return variable;
+          }
+        }
+      }
+    }
+    return null;
+    // Not found
+  }
+
+  /**
+   * Re-create the analysis context being used by the test case.
+   */
+  void reset() {
+    resetWith();
+  }
+
+  /**
+   * Re-create the analysis context being used by the test with the either given
+   * [options] or [packages].
+   */
+  void resetWith({AnalysisOptions options, List<List<String>> packages}) {
+    if (options != null && packages != null) {
+      fail('Only packages or options can be specified.');
+    }
+    if (enableNewAnalysisDriver) {
+      options ??= new AnalysisOptionsImpl();
+      DartSdk sdk = new MockSdk(resourceProvider: resourceProvider)
+        ..context.analysisOptions = options;
+
+      List<UriResolver> resolvers = <UriResolver>[
+        new DartUriResolver(sdk),
+        new ResourceUriResolver(resourceProvider)
+      ];
+      if (packages != null) {
+        var packageMap = <String, List<Folder>>{};
+        packages.forEach((args) {
+          String name = args[0];
+          String path =
+              resourceProvider.convertPath('/packages/$name/$name.dart');
+          String content = args[1];
+          File file = resourceProvider.newFile(path, content);
+          packageMap[name] = <Folder>[file.parent];
+        });
+        resolvers.add(new PackageMapUriResolver(resourceProvider, packageMap));
+      }
+      SourceFactory sourceFactory = new SourceFactory(resolvers);
+
+      PerformanceLog log = new PerformanceLog(_logBuffer);
+      AnalysisDriverScheduler scheduler = new AnalysisDriverScheduler(log);
+      driver = new AnalysisDriver(
+          scheduler,
+          log,
+          resourceProvider,
+          new MemoryByteStore(),
+          fileContentOverlay,
+          'test',
+          sourceFactory,
+          options);
+      scheduler.start();
+    } else {
+      if (packages != null) {
+        var packageMap = <String, String>{};
+        packages.forEach((args) {
+          String name = args[0];
+          String content = args[1];
+          packageMap['package:$name/$name.dart'] = content;
+        });
+        analysisContext2 = AnalysisContextFactory.contextWithCoreAndPackages(
+            packageMap,
+            resourceProvider: resourceProvider);
+      } else if (options != null) {
+        analysisContext2 = AnalysisContextFactory.contextWithCoreAndOptions(
+            options,
+            resourceProvider: resourceProvider);
+      } else {
+        analysisContext2 = AnalysisContextFactory.contextWithCore(
+            resourceProvider: resourceProvider);
+      }
+    }
+  }
+
+  /**
+   * Given a library and all of its parts, resolve the contents of the library and the contents of
+   * the parts. This assumes that the sources for the library and its parts have already been added
+   * to the content provider using the method [addNamedSource].
+   *
+   * @param librarySource the source for the compilation unit that defines the library
+   * @return the element representing the resolved library
+   * @throws AnalysisException if the analysis could not be performed
+   */
+  LibraryElement resolve2(Source librarySource) =>
+      analysisContext2.computeLibraryElement(librarySource);
+
+  /**
+   * Return the resolved compilation unit corresponding to the given source in the given library.
+   *
+   * @param source the source of the compilation unit to be returned
+   * @param library the library in which the compilation unit is to be resolved
+   * @return the resolved compilation unit
+   * @throws Exception if the compilation unit could not be resolved
+   */
+  CompilationUnit resolveCompilationUnit(
+          Source source, LibraryElement library) =>
+      analysisContext2.resolveCompilationUnit(source, library);
+
+  Future<CompilationUnit> resolveSource(String sourceText) =>
+      resolveSource2('/test.dart', sourceText);
+
+  Future<CompilationUnit> resolveSource2(
+      String fileName, String sourceText) async {
+    Source source = addNamedSource(fileName, sourceText);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
+    return analysisResult.unit;
+  }
+
+  Future<Source> resolveSources(List<String> sourceTexts) async {
+    for (int i = 0; i < sourceTexts.length; i++) {
+      Source source = addNamedSource('/lib${i + 1}.dart', sourceTexts[i]);
+      await computeAnalysisResult(source);
+      // reference the source if this is the last source
+      if (i + 1 == sourceTexts.length) {
+        return source;
+      }
+    }
+    return null;
+  }
+
+  Future<Null> resolveWithAndWithoutExperimental(
+      List<String> strSources,
+      List<ErrorCode> codesWithoutExperimental,
+      List<ErrorCode> codesWithExperimental) async {
+    // Setup analysis context as non-experimental
+    AnalysisOptionsImpl options = new AnalysisOptionsImpl();
+//    options.enableDeferredLoading = false;
+    resetWith(options: options);
+    // Analysis and assertions
+    Source source = await resolveSources(strSources);
+    await computeAnalysisResult(source);
+    assertErrors(source, codesWithoutExperimental);
+    verify([source]);
+    // Setup analysis context as experimental
+    reset();
+    // Analysis and assertions
+    source = await resolveSources(strSources);
+    await computeAnalysisResult(source);
+    assertErrors(source, codesWithExperimental);
+    verify([source]);
+  }
+
+  Future<Null> resolveWithErrors(
+      List<String> strSources, List<ErrorCode> codes) async {
+    Source source = await resolveSources(strSources);
+    assertErrors(source, codes);
+    verify([source]);
+  }
+
+  @override
+  void setUp() {
+    ElementFactory.flushStaticState();
+    super.setUp();
+    reset();
+  }
+
+  @override
+  void tearDown() {
+    analysisContext2 = null;
+    AnalysisEngine.instance.clearCaches();
+    super.tearDown();
+  }
+
+  /**
+   * Verify that all of the identifiers in the compilation units associated with
+   * the given [sources] have been resolved.
+   */
+  void verify(List<Source> sources) {
+    ResolutionVerifier verifier = new ResolutionVerifier();
+    for (Source source in sources) {
+      TestAnalysisResult result = analysisResults[source];
+      expect(result, isNotNull);
+      result.unit.accept(verifier);
+    }
+    verifier.assertResolved();
+  }
+}
+
 /**
  * Shared infrastructure for [StaticTypeAnalyzer2Test] and
  * [StrongModeStaticTypeAnalyzer2Test].
@@ -752,20 +828,34 @@ class StaticTypeAnalyzer2TestShared extends ResolverTestCase {
    * stringifies to [type] and that its generics match the given stringified
    * output.
    */
-  expectFunctionType(String name, String type,
+  FunctionTypeImpl expectFunctionType(String name, String type,
       {String elementTypeParams: '[]',
       String typeParams: '[]',
       String typeArgs: '[]',
-      String typeFormals: '[]'}) {
+      String typeFormals: '[]',
+      String identifierType}) {
+    identifierType ??= type;
+
+    typeParameters(Element element) {
+      if (element is ExecutableElement) {
+        return element.typeParameters;
+      } else if (element is ParameterElement) {
+        return element.typeParameters;
+      }
+      fail('Wrong element type: ${element.runtimeType}');
+    }
+
     SimpleIdentifier identifier = findIdentifier(name);
     // Element is either ExecutableElement or ParameterElement.
     var element = identifier.staticElement;
-    FunctionTypeImpl functionType = identifier.staticType;
+    FunctionTypeImpl functionType = (element as dynamic).type;
     expect(functionType.toString(), type);
-    expect(element.typeParameters.toString(), elementTypeParams);
+    expect(identifier.staticType.toString(), identifierType);
+    expect(typeParameters(element).toString(), elementTypeParams);
     expect(functionType.typeParameters.toString(), typeParams);
     expect(functionType.typeArguments.toString(), typeArgs);
     expect(functionType.typeFormals.toString(), typeFormals);
+    return functionType;
   }
 
   /**
@@ -800,12 +890,29 @@ class StaticTypeAnalyzer2TestShared extends ResolverTestCase {
   void expectInitializerType(String name, type, [propagatedType]) {
     SimpleIdentifier identifier = findIdentifier(name);
     VariableDeclaration declaration =
-    identifier.getAncestor((node) => node is VariableDeclaration);
+        identifier.getAncestor((node) => node is VariableDeclaration);
     Expression initializer = declaration.initializer;
     _expectType(initializer.staticType, type);
     if (propagatedType != null) {
       _expectType(initializer.propagatedType, propagatedType);
     }
+  }
+
+  SimpleIdentifier findIdentifier(String search) {
+    SimpleIdentifier identifier = EngineTestCase.findNode(
+        testUnit, testCode, search, (node) => node is SimpleIdentifier);
+    return identifier;
+  }
+
+  Future<Null> resolveTestUnit(String code, {bool noErrors: true}) async {
+    testCode = code;
+    testSource = addSource(testCode);
+    TestAnalysisResult analysisResult = await computeAnalysisResult(testSource);
+    if (noErrors) {
+      assertNoErrors(testSource);
+    }
+    verify([testSource]);
+    testUnit = analysisResult.unit;
   }
 
   /**
@@ -821,19 +928,11 @@ class StaticTypeAnalyzer2TestShared extends ResolverTestCase {
       expect(type, expected);
     }
   }
+}
 
-  SimpleIdentifier findIdentifier(String search) {
-    SimpleIdentifier identifier = EngineTestCase.findNode(
-        testUnit, testCode, search, (node) => node is SimpleIdentifier);
-    return identifier;
-  }
-
-  void resolveTestUnit(String code) {
-    testCode = code;
-    testSource = addSource(testCode);
-    LibraryElement library = resolve2(testSource);
-    assertNoErrors(testSource);
-    verify([testSource]);
-    testUnit = resolveCompilationUnit(testSource, library);
-  }
+class TestAnalysisResult {
+  final Source source;
+  final CompilationUnit unit;
+  final List<AnalysisError> errors;
+  TestAnalysisResult(this.source, this.unit, this.errors);
 }

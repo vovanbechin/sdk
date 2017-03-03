@@ -10,6 +10,7 @@
 #include "vm/code_patcher.h"
 #include "vm/dart_api_impl.h"
 #include "vm/dart_api_state.h"
+#include "vm/native_symbol.h"
 #include "vm/object_store.h"
 #include "vm/reusable_handles.h"
 #include "vm/safepoint.h"
@@ -20,7 +21,9 @@
 
 namespace dart {
 
-DEFINE_FLAG(bool, trace_natives, false,
+DEFINE_FLAG(bool,
+            trace_natives,
+            false,
             "Trace invocation of natives (debug mode only)");
 
 
@@ -90,7 +93,8 @@ const uint8_t* NativeEntry::ResolveSymbol(uword pc) {
 
 uword NativeEntry::NativeCallWrapperEntry() {
   uword entry = reinterpret_cast<uword>(NativeEntry::NativeCallWrapper);
-#if defined(USING_SIMULATOR)
+#if defined(USING_SIMULATOR) && !defined(TARGET_ARCH_DBC)
+  // DBC does not use redirections unlike other simulators.
   entry = Simulator::RedirectExternalReference(
       entry, Simulator::kNativeCall, NativeEntry::kNumCallWrapperArguments);
 #endif
@@ -131,6 +135,7 @@ void NativeEntry::NativeCallWrapperNoStackCheck(Dart_NativeArguments args,
   /* Tell MemorySanitizer 'arguments' is initialized by generated code. */
   MSAN_UNPOISON(arguments, sizeof(*arguments));
   Thread* thread = arguments->thread();
+  ASSERT(thread->execution_state() == Thread::kThreadInGenerated);
   if (!arguments->IsNativeAutoSetupScope()) {
     TransitionGeneratedToNative transition(thread);
     func(args);
@@ -146,13 +151,11 @@ void NativeEntry::NativeCallWrapperNoStackCheck(Dart_NativeArguments args,
     TRACE_NATIVE_CALL("0x%" Px "", reinterpret_cast<uintptr_t>(func));
     TransitionGeneratedToNative transition(thread);
     if (scope == NULL) {
-      scope = new ApiLocalScope(current_top_scope,
-                                thread->top_exit_frame_info());
+      scope =
+          new ApiLocalScope(current_top_scope, thread->top_exit_frame_info());
       ASSERT(scope != NULL);
     } else {
-      scope->Reinit(thread,
-                    current_top_scope,
-                    thread->top_exit_frame_info());
+      scope->Reinit(thread, current_top_scope, thread->top_exit_frame_info());
       thread->set_api_reusable_scope(NULL);
     }
     thread->set_api_top_scope(scope);  // New scope is now the top scope.
@@ -172,11 +175,14 @@ void NativeEntry::NativeCallWrapperNoStackCheck(Dart_NativeArguments args,
       delete scope;
     }
     DEOPTIMIZE_ALOT;
-    VERIFY_ON_TRANSITION;
   }
+  ASSERT(thread->execution_state() == Thread::kThreadInGenerated);
+  VERIFY_ON_TRANSITION;
 }
 
 
+// DBC does not support lazy native call linking.
+#if !defined(TARGET_ARCH_DBC)
 static NativeFunction ResolveNativeFunction(Zone* zone,
                                             const Function& func,
                                             bool* is_bootstrap_native) {
@@ -191,8 +197,8 @@ static NativeFunction ResolveNativeFunction(Zone* zone,
 
   const int num_params = NativeArguments::ParameterCountForResolution(func);
   bool auto_setup_scope = true;
-  return NativeEntry::ResolveNative(
-      library, native_name, num_params, &auto_setup_scope);
+  return NativeEntry::ResolveNative(library, native_name, num_params,
+                                    &auto_setup_scope);
 }
 
 
@@ -232,27 +238,25 @@ void NativeEntry::LinkNativeCall(Dart_NativeArguments args) {
     }
 
     bool is_bootstrap_native = false;
-    target_function = ResolveNativeFunction(
-        arguments->thread()->zone(), func, &is_bootstrap_native);
+    target_function = ResolveNativeFunction(arguments->thread()->zone(), func,
+                                            &is_bootstrap_native);
     ASSERT(target_function != NULL);
 
 #if defined(DEBUG)
     {
       NativeFunction current_function = NULL;
-      const Code& current_trampoline = Code::Handle(
-          CodePatcher::GetNativeCallAt(caller_frame->pc(),
-                                       code,
-                                       &current_function));
+      const Code& current_trampoline =
+          Code::Handle(CodePatcher::GetNativeCallAt(caller_frame->pc(), code,
+                                                    &current_function));
 #if !defined(USING_SIMULATOR)
       ASSERT(current_function ==
              reinterpret_cast<NativeFunction>(LinkNativeCall));
 #else
-      ASSERT(current_function ==
-             reinterpret_cast<NativeFunction>(
-                 Simulator::RedirectExternalReference(
-                     reinterpret_cast<uword>(LinkNativeCall),
-                     Simulator::kBootstrapNativeCall,
-                     NativeEntry::kNumArguments)));
+      ASSERT(
+          current_function ==
+          reinterpret_cast<NativeFunction>(Simulator::RedirectExternalReference(
+              reinterpret_cast<uword>(LinkNativeCall),
+              Simulator::kBootstrapNativeCall, NativeEntry::kNumArguments)));
 #endif
       ASSERT(current_trampoline.raw() ==
              StubCode::CallBootstrapCFunction_entry()->code());
@@ -260,26 +264,26 @@ void NativeEntry::LinkNativeCall(Dart_NativeArguments args) {
 #endif
 
     call_through_wrapper = !is_bootstrap_native;
-    const Code& trampoline = Code::Handle(call_through_wrapper ?
-        StubCode::CallNativeCFunction_entry()->code() :
-        StubCode::CallBootstrapCFunction_entry()->code());
+    const Code& trampoline =
+        Code::Handle(call_through_wrapper
+                         ? StubCode::CallNativeCFunction_entry()->code()
+                         : StubCode::CallBootstrapCFunction_entry()->code());
 
     NativeFunction patch_target_function = target_function;
 #if defined(USING_SIMULATOR)
     if (!call_through_wrapper) {
-      patch_target_function = reinterpret_cast<NativeFunction>(
-          Simulator::RedirectExternalReference(
+      patch_target_function =
+          reinterpret_cast<NativeFunction>(Simulator::RedirectExternalReference(
               reinterpret_cast<uword>(patch_target_function),
               Simulator::kBootstrapNativeCall, NativeEntry::kNumArguments));
     }
 #endif
 
-    CodePatcher::PatchNativeCallAt(
-        caller_frame->pc(), code, patch_target_function, trampoline);
+    CodePatcher::PatchNativeCallAt(caller_frame->pc(), code,
+                                   patch_target_function, trampoline);
 
     if (FLAG_trace_natives) {
-      OS::Print("    -> %p (%s)\n",
-                target_function,
+      OS::Print("    -> %p (%s)\n", target_function,
                 is_bootstrap_native ? "bootstrap" : "non-bootstrap");
     }
   }
@@ -295,6 +299,7 @@ void NativeEntry::LinkNativeCall(Dart_NativeArguments args) {
     target_function(arguments);
   }
 }
+#endif  // !defined(TARGET_ARCH_DBC)
 
 
 }  // namespace dart

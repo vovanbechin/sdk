@@ -2,11 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:unittest/unittest.dart';
+import 'package:test_reflective_loader/test_reflective_loader.dart';
 
 import 'analysis/test_all.dart' as analysis_all;
 import 'analysis_server_test.dart' as analysis_server_test;
 import 'channel/test_all.dart' as channel_test;
+import 'completion_test.dart' as completion_test;
+import 'context_manager_driver_test.dart' as context_manager_driver_test;
 import 'context_manager_test.dart' as context_manager_test;
 import 'domain_analysis_test.dart' as domain_analysis_test;
 import 'domain_completion_test.dart' as domain_completion_test;
@@ -21,20 +23,21 @@ import 'protocol_test.dart' as protocol_test;
 import 'search/test_all.dart' as search_all;
 import 'server_options_test.dart' as server_options;
 import 'services/test_all.dart' as services_all;
+import 'single_context_manager_test.dart' as single_context_manager_test;
 import 'socket_server_test.dart' as socket_server_test;
 import 'source/test_all.dart' as source_all;
 import 'src/test_all.dart' as src_all;
-import 'utils.dart';
 
 /**
  * Utility for manually running all tests.
  */
 main() {
-  initializeTestEnvironment();
-  group('analysis_server', () {
+  defineReflectiveSuite(() {
     analysis_all.main();
     analysis_server_test.main();
     channel_test.main();
+    completion_test.main();
+    context_manager_driver_test.main();
     context_manager_test.main();
     domain_analysis_test.main();
     domain_completion_test.main();
@@ -49,8 +52,9 @@ main() {
     search_all.main();
     server_options.main();
     services_all.main();
+    single_context_manager_test.main();
     socket_server_test.main();
     source_all.main();
     src_all.main();
-  });
+  }, name: 'analysis_server');
 }

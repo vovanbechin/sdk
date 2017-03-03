@@ -15,6 +15,31 @@ import 'package:analyzer/src/dart/element/element.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/source.dart';
 
+NavigationCollector computeDartNavigation(NavigationCollector collector,
+    CompilationUnit unit, int offset, int length) {
+  _DartNavigationCollector dartCollector =
+      new _DartNavigationCollector(collector);
+  _DartNavigationComputerVisitor visitor =
+      new _DartNavigationComputerVisitor(dartCollector);
+  if (offset == null || length == null) {
+    unit.accept(visitor);
+  } else {
+    AstNode node = _getNodeForRange(unit, offset, length);
+    node?.accept(visitor);
+  }
+  return collector;
+}
+
+AstNode _getNodeForRange(CompilationUnit unit, int offset, int length) {
+  AstNode node = new NodeLocator(offset, offset + length).searchWithin(unit);
+  for (AstNode n = node; n != null; n = n.parent) {
+    if (n is Directive) {
+      return n;
+    }
+  }
+  return node;
+}
+
 /**
  * A computer for navigation regions in a Dart [CompilationUnit].
  */
@@ -27,29 +52,9 @@ class DartNavigationComputer implements NavigationContributor {
       CompilationUnit unit =
           context.getResolvedCompilationUnit2(source, libraries.first);
       if (unit != null) {
-        _DartNavigationCollector dartCollector =
-            new _DartNavigationCollector(collector);
-        _DartNavigationComputerVisitor visitor =
-            new _DartNavigationComputerVisitor(dartCollector);
-        if (offset == null || length == null) {
-          unit.accept(visitor);
-        } else {
-          AstNode node = _getNodeForRange(unit, offset, length);
-          node?.accept(visitor);
-        }
+        computeDartNavigation(collector, unit, offset, length);
       }
     }
-  }
-
-  static AstNode _getNodeForRange(
-      CompilationUnit unit, int offset, int length) {
-    AstNode node = new NodeLocator(offset, offset + length).searchWithin(unit);
-    for (AstNode n = node; n != null; n = n.parent) {
-      if (n is Directive) {
-        return n;
-      }
-    }
-    return node;
   }
 }
 
@@ -127,21 +132,21 @@ class _DartNavigationComputerVisitor extends RecursiveAstVisitor {
     }
     computer._addRegionForNode(node.constructorName, element);
     // arguments
-    _safelyVisit(node.arguments);
+    node.arguments?.accept(this);
   }
 
   @override
   visitAssignmentExpression(AssignmentExpression node) {
-    _safelyVisit(node.leftHandSide);
+    node.leftHandSide?.accept(this);
     computer._addRegionForToken(node.operator, node.bestElement);
-    _safelyVisit(node.rightHandSide);
+    node.rightHandSide?.accept(this);
   }
 
   @override
   visitBinaryExpression(BinaryExpression node) {
-    _safelyVisit(node.leftOperand);
+    node.leftOperand?.accept(this);
     computer._addRegionForToken(node.operator, node.bestElement);
-    _safelyVisit(node.rightOperand);
+    node.rightOperand?.accept(this);
   }
 
   @override
@@ -255,7 +260,7 @@ class _DartNavigationComputerVisitor extends RecursiveAstVisitor {
     computer._addRegionForToken(node.thisKeyword, element);
     computer._addRegionForNode(node.constructorName, element);
     // process arguments
-    _safelyVisit(node.argumentList);
+    node.argumentList?.accept(this);
   }
 
   @override
@@ -277,7 +282,7 @@ class _DartNavigationComputerVisitor extends RecursiveAstVisitor {
     computer._addRegionForToken(node.superKeyword, element);
     computer._addRegionForNode(node.constructorName, element);
     // process arguments
-    _safelyVisit(node.argumentList);
+    node.argumentList?.accept(this);
   }
 
   void _addConstructorName(AstNode parent, ConstructorName node) {
@@ -322,12 +327,6 @@ class _DartNavigationComputerVisitor extends RecursiveAstVisitor {
       if (element.context.exists(source)) {
         computer._addRegionForNode(node.uri, element);
       }
-    }
-  }
-
-  void _safelyVisit(AstNode node) {
-    if (node != null) {
-      node.accept(this);
     }
   }
 }

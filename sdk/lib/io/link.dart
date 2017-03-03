@@ -162,10 +162,6 @@ class _Link extends FileSystemEntity implements Link {
 
   Link get absolute => new Link(_absolutePath);
 
-  Future<FileStat> stat() => FileStat.stat(path);
-
-  FileStat statSync() => FileStat.statSync(path);
-
   Future<Link> create(String target, {bool recursive: false}) {
     if (Platform.isWindows) {
       target = _makeWindowsLinkTarget(target);
@@ -223,7 +219,7 @@ class _Link extends FileSystemEntity implements Link {
     // Atomically changing a link can be done by creating the new link, with
     // a different name, and using the rename() posix call to move it to
     // the old name atomically.
-    return delete().then((_) => create(target));
+    return delete().then<Link>((_) => create(target));
   }
 
   Future<Link> _delete({bool recursive: false}) {

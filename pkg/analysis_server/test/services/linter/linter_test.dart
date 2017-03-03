@@ -4,19 +4,19 @@
 
 library test.services.linter;
 
-import 'package:analysis_server/src/services/linter/linter.dart';
 import 'package:analyzer/analyzer.dart';
 import 'package:analyzer/source/analysis_options_provider.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:analyzer/src/lint/options_rule_validator.dart';
+import 'package:linter/src/rules.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
-
-import '../../utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(LinterRuleOptionsValidatorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(LinterRuleOptionsValidatorTest);
+  });
 }
 
 @reflectiveTest
@@ -30,6 +30,7 @@ class LinterRuleOptionsValidatorTest {
   List<AnalysisError> get errors => recorder.errors;
 
   setUp() {
+    registerLintRules();
     recorder = new RecordingErrorListener();
     reporter = new ErrorReporter(recorder, new _TestSource());
   }
@@ -74,7 +75,7 @@ linter:
         [UNDEFINED_LINT_WARNING]);
   }
 
-  validate(String source, List<AnalysisOptionsErrorCode> expected) {
+  validate(String source, List<ErrorCode> expected) {
     var options = optionsProvider.getOptionsFromString(source);
     validator.validate(reporter, options);
     expect(errors.map((AnalysisError e) => e.errorCode),

@@ -2,12 +2,14 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// OtherResources=skipping_dart2js_compilations_helper.dart
+
 /*
  * This test makes sure that the "skipping Dart2Js compilations if the output is
  * already up to date" feature does work as it should.
  * Therefore this test ensures that compilations are only skipped if the last
  * modified date of the output of a dart2js compilation is newer than
- *   - the the dart application to compile (including it's dependencies)
+ *   - the dart application to compile (including it's dependencies)
  *   - the dart2js snapshot
  * Furtheremore it ensure that a compilations is not skipped if any of the
  * necessary files could not be found (dart2js snapshots, previous dart2js
@@ -165,6 +167,9 @@ runner.Command makeCompilationCommand(String testName, FileUtils fileUtils) {
 }
 
 void main() {
+  // This script is in [sdk]/tests/standalone/io.
+  suite.TestUtils.setDartDirUri(Platform.script.resolve('../../..'));
+
   var fs_noTestJs = new FileUtils(createJs: false,
                                   createJsDeps: true,
                                   createDart: true,

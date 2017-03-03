@@ -34,7 +34,7 @@ part of dart.core;
  * For convenience and readability,
  * the DateTime class provides a constant for each day and month
  * name&mdash;for example, [AUGUST] and [FRIDAY].
- * You can use these constants to improve code readibility:
+ * You can use these constants to improve code readability:
  *
  *     DateTime berlinWallFell = new DateTime(1989, DateTime.NOVEMBER, 9);
  *     assert(berlinWallFell.weekday == DateTime.THURSDAY);
@@ -102,7 +102,7 @@ part of dart.core;
  * the [intl](http://pub.dartlang.org/packages/intl) package.
  *
  */
-class DateTime implements Comparable {
+class DateTime implements Comparable<DateTime> {
   // Weekday constants that are returned by [weekday] method:
   static const int MONDAY = 1;
   static const int TUESDAY = 2;
@@ -210,14 +210,15 @@ class DateTime implements Comparable {
    *   then optionally a two digit minutes value,
    *   then optionally a two digit seconds value, and
    *   then optionally a '.' followed by a one-to-six digit second fraction.
-   *   The minuts and seconds may be separated from the previous parts by a ':'.
+   *   The minutes and seconds may be separated from the previous parts by a
+   *   ':'.
    *   Examples: "12", "12:30:24.124", "123010.50".
    * * An optional time-zone offset part,
    *   possibly separated from the previous by a space.
    *   The time zone is either 'z' or 'Z', or it is a signed two digit hour
    *   part and an optional two digit minute part. The sign must be either
    *   "+" or "-", and can not be omitted.
-   *   The minutes may be separted from the hours by a ':'.
+   *   The minutes may be separated from the hours by a ':'.
    *   Examples: "Z", "-10", "01:30", "1130".
    *
    * This includes the output of both [toString] and [toIso8601String], which
@@ -572,7 +573,14 @@ class DateTime implements Comparable {
    * Returns a new [DateTime] instance with [duration] added to [this].
    *
    *     DateTime today = new DateTime.now();
-   *     DateTime sixtyDaysFromNow = today.add(new Duration(days: 60));
+   *     DateTime fiftyDaysFromNow = today.add(new Duration(days: 50));
+   *
+   * Notice that the duration being added is actually 50 * 24 * 60 * 60
+   * seconds. If the resulting `DateTime` has a different daylight saving offset
+   * than `this`, then the result won't have the same time-of-day as `this`, and
+   * may not even hit the calendar date 50 days later.
+   *
+   * Be careful when working with dates in local time.
    */
   external DateTime add(Duration duration);
 
@@ -580,13 +588,14 @@ class DateTime implements Comparable {
    * Returns a new [DateTime] instance with [duration] subtracted from [this].
    *
    *     DateTime today = new DateTime.now();
-   *     DateTime sixtyDaysAgo = today.subtract(new Duration(days: 30));
+   *     DateTime fiftyDaysAgo = today.subtract(new Duration(days: 50));
    *
-   * Notice that duration being subtracted is actually 30 * 24 * 60 * 60 seconds
-   * and if that crosses a daylight saving time change, the resulting `DateTime`
-   * won't have the same time of day as `today`, and may not actually hit the
-   * calendar date 30 days earlier. Be careful when working with dates in local
-   * time.
+   * Notice that the duration being subtracted is actually 50 * 24 * 60 * 60
+   * seconds. If the resulting `DateTime` has a different daylight saving offset
+   * than `this`, then the result won't have the same time-of-day as `this`, and
+   * may not even hit the calendar date 50 days earlier.
+   *
+   * Be careful when working with dates in local time.
    */
   external DateTime subtract(Duration duration);
 
@@ -664,8 +673,14 @@ class DateTime implements Comparable {
   external int get microsecondsSinceEpoch;
 
   /**
-   * The abbreviated time zone name&mdash;for example,
-   * [:"CET":] or [:"CEST":].
+   * The time zone name.
+   *
+   * This value is provided by the operating system and may be an
+   * abbreviation or a full name.
+   *
+   * In the browser or on Unix-like systems commonly returns abbreviations,
+   * such as "CET" or "CEST". On Windows returns the full name, for example
+   * "Pacific Standard Time".
    */
   external String get timeZoneName;
 

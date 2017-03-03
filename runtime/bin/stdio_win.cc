@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+#if !defined(DART_IO_DISABLED)
+
 #include "platform/globals.h"
 #if defined(TARGET_OS_WINDOWS)
 
@@ -10,65 +12,68 @@
 namespace dart {
 namespace bin {
 
-int Stdin::ReadByte() {
+bool Stdin::ReadByte(int* byte) {
   HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
   uint8_t buffer[1];
   DWORD read = 0;
-  int c = -1;
-  if (ReadFile(h, buffer, 1, &read, NULL) && (read == 1)) {
-    c = buffer[0];
+  BOOL success = ReadFile(h, buffer, 1, &read, NULL);
+  if (!success && (GetLastError() != ERROR_BROKEN_PIPE)) {
+    return false;
   }
-  return c;
+  *byte = (read == 1) ? buffer[0] : -1;
+  return true;
 }
 
 
-bool Stdin::GetEchoMode() {
+bool Stdin::GetEchoMode(bool* enabled) {
   HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
   DWORD mode;
   if (!GetConsoleMode(h, &mode)) {
     return false;
   }
-  return ((mode & ENABLE_ECHO_INPUT) != 0);
+  *enabled = ((mode & ENABLE_ECHO_INPUT) != 0);
+  return true;
 }
 
 
-void Stdin::SetEchoMode(bool enabled) {
+bool Stdin::SetEchoMode(bool enabled) {
   HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
   DWORD mode;
   if (!GetConsoleMode(h, &mode)) {
-    return;
+    return false;
   }
   if (enabled) {
     mode |= ENABLE_ECHO_INPUT;
   } else {
     mode &= ~ENABLE_ECHO_INPUT;
   }
-  SetConsoleMode(h, mode);
+  return SetConsoleMode(h, mode);
 }
 
 
-bool Stdin::GetLineMode() {
+bool Stdin::GetLineMode(bool* enabled) {
   HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
   DWORD mode;
   if (!GetConsoleMode(h, &mode)) {
     return false;
   }
-  return (mode & ENABLE_LINE_INPUT) != 0;
+  *enabled = (mode & ENABLE_LINE_INPUT) != 0;
+  return true;
 }
 
 
-void Stdin::SetLineMode(bool enabled) {
+bool Stdin::SetLineMode(bool enabled) {
   HANDLE h = GetStdHandle(STD_INPUT_HANDLE);
   DWORD mode;
   if (!GetConsoleMode(h, &mode)) {
-    return;
+    return false;
   }
   if (enabled) {
     mode |= ENABLE_LINE_INPUT;
   } else {
     mode &= ~ENABLE_LINE_INPUT;
   }
-  SetConsoleMode(h, mode);
+  return SetConsoleMode(h, mode);
 }
 
 
@@ -92,3 +97,5 @@ bool Stdout::GetTerminalSize(intptr_t fd, int size[2]) {
 }  // namespace dart
 
 #endif  // defined(TARGET_OS_WINDOWS)
+
+#endif  // !defined(DART_IO_DISABLED)

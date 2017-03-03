@@ -2,6 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// OtherResources=certificates/server_chain.pem
+// OtherResources=certificates/server_key.pem
+// OtherResources=certificates/trusted_certs.pem
+
+import "package:convert/convert.dart";
 import "package:crypto/crypto.dart";
 import "package:expect/expect.dart";
 import "package:path/path.dart";
@@ -115,9 +120,8 @@ class ProxyServer {
     authScheme = "Digest";
 
     // Calculate ha1.
-    var hasher = new MD5();
-    hasher.add("${username}:${realm}:${password}".codeUnits);
-    ha1 = CryptoUtils.bytesToHex(hasher.close());
+    var digest = md5.convert("${username}:${realm}:${password}".codeUnits);
+    ha1 = hex.encode(digest.bytes);
   }
 
   basicAuthenticationRequired(request) {
@@ -173,7 +177,7 @@ class ProxyServer {
               List<String> tokens = authorization.split(" ");
               Expect.equals("Basic", tokens[0]);
               String auth =
-                  CryptoUtils.bytesToBase64(UTF8.encode("$username:$password"));
+                  BASE64.encode(UTF8.encode("$username:$password"));
               if (auth != tokens[1]) {
                 basicAuthenticationRequired(request);
                 return;
@@ -206,19 +210,17 @@ class ProxyServer {
               }
               Expect.isNotNull(header.parameters["response"]);
 
-              var hasher = new MD5();
-              hasher.add("${request.method}:${uri}".codeUnits);
-              var ha2 = CryptoUtils.bytesToHex(hasher.close());
+              var digest = md5.convert("${request.method}:${uri}".codeUnits);
+              var ha2 = hex.encode(digest.bytes);
 
               var x;
-              hasher = new MD5();
               if (qop == null || qop == "" || qop == "none") {
-                hasher.add("$ha1:${nonce}:$ha2".codeUnits);
+                digest = md5.convert("$ha1:${nonce}:$ha2".codeUnits);
               } else {
-                hasher.add(
+                digest = md5.convert(
                     "$ha1:${nonce}:${nc}:${cnonce}:${qop}:$ha2".codeUnits);
               }
-              Expect.equals(CryptoUtils.bytesToHex(hasher.close()),
+              Expect.equals(hex.encode(digest.bytes),
                             header.parameters["response"]);
 
               // Add a bogus Proxy-Authentication-Info for testing.

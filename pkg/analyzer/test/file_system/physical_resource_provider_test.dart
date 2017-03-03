@@ -5,29 +5,33 @@
 library analyzer.test.file_system.physical_resource_provider_test;
 
 import 'dart:async';
-import 'dart:core' hide Resource;
+import 'dart:core';
 import 'dart:io' as io;
 
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:analyzer/src/generated/source_io.dart';
-import 'package:path/path.dart';
-import 'package:unittest/unittest.dart';
+import 'package:path/path.dart' as pathos;
+import 'package:test/test.dart';
+import 'package:test_reflective_loader/test_reflective_loader.dart';
 import 'package:watcher/watcher.dart';
 
-import '../reflective_tests.dart';
-import '../utils.dart';
-
 main() {
-  initializeTestEnvironment();
-  runReflectiveTests(PhysicalResourceProviderTest);
-  runReflectiveTests(FileTest);
-  runReflectiveTests(FolderTest);
+  if (!new bool.fromEnvironment('skipPhysicalResourceProviderTests')) {
+    defineReflectiveSuite(() {
+      defineReflectiveTests(PhysicalResourceProviderTest);
+      defineReflectiveTests(FileTest);
+      defineReflectiveTests(FolderTest);
+    });
+  }
 }
 
 var _isFile = new isInstanceOf<File>();
 var _isFileSystemException = new isInstanceOf<FileSystemException>();
 var _isFolder = new isInstanceOf<Folder>();
+
+String join(String part1, [String part2, String part3]) =>
+    pathos.join(part1, part2, part3);
 
 @reflectiveTest
 class FileTest extends _BaseTest {
@@ -46,6 +50,14 @@ class FileTest extends _BaseTest {
     expect(source.uriKind, UriKind.FILE_URI);
     expect(source.exists(), isTrue);
     expect(source.contents.data, 'contents');
+  }
+
+  void test_delete() {
+    new io.File(path).writeAsStringSync('contents');
+    expect(file.exists, isTrue);
+    // delete
+    file.delete();
+    expect(file.exists, isFalse);
   }
 
   void test_equals_differentPaths() {
@@ -85,6 +97,19 @@ class FileTest extends _BaseTest {
     expect(file.isOrContains('foo'), isFalse);
   }
 
+  void test_lengthSync_doesNotExist() {
+    File file = PhysicalResourceProvider.INSTANCE.getResource(path);
+    expect(() {
+      file.lengthSync;
+    }, throwsA(_isFileSystemException));
+  }
+
+  void test_lengthSync_exists() {
+    List<int> bytes = <int>[1, 2, 3, 4, 5];
+    new io.File(path).writeAsBytesSync(bytes);
+    expect(file.lengthSync, bytes.length);
+  }
+
   void test_modificationStamp_doesNotExist() {
     File file = PhysicalResourceProvider.INSTANCE.getResource(path);
     expect(() {
@@ -104,6 +129,19 @@ class FileTest extends _BaseTest {
     expect(parent.path, equals(tempPath));
   }
 
+  void test_readAsBytesSync_doesNotExist() {
+    File file = PhysicalResourceProvider.INSTANCE.getResource('/test.bin');
+    expect(() {
+      file.readAsBytesSync();
+    }, throwsA(_isFileSystemException));
+  }
+
+  void test_readAsBytesSync_exists() {
+    List<int> bytes = <int>[1, 2, 3, 4, 5];
+    new io.File(path).writeAsBytesSync(bytes);
+    expect(file.readAsBytesSync(), bytes);
+  }
+
   void test_readAsStringSync_doesNotExist() {
     File file = PhysicalResourceProvider.INSTANCE.getResource(path);
     expect(() {
@@ -117,12 +155,115 @@ class FileTest extends _BaseTest {
     expect(file.readAsStringSync(), 'abc');
   }
 
+  void test_renameSync_newDoesNotExist() {
+    String oldPath = '$tempPath/file.txt';
+    String newPath = '$tempPath/new-file.txt';
+    new io.File(oldPath).writeAsStringSync('text');
+    File file = PhysicalResourceProvider.INSTANCE.getResource(oldPath);
+    File newFile = file.renameSync(newPath);
+    expect(file.path, oldPath);
+    expect(file.exists, isFalse);
+    expect(newFile.path, newPath);
+    expect(newFile.exists, isTrue);
+    expect(newFile.readAsStringSync(), 'text');
+  }
+
+  test_renameSync_newExists_file() async {
+    String oldPath = '$tempPath/file.txt';
+    String newPath = '$tempPath/new-file.txt';
+    new io.File(oldPath).writeAsStringSync('text');
+    new io.File(newPath).writeAsStringSync('new text');
+    File file = PhysicalResourceProvider.INSTANCE.getResource(oldPath);
+    File newFile = file.renameSync(newPath);
+    expect(file.path, oldPath);
+    expect(file.exists, isFalse);
+    expect(newFile.path, newPath);
+    expect(newFile.exists, isTrue);
+    expect(newFile.readAsStringSync(), 'text');
+  }
+
+  void test_renameSync_newExists_folder() {
+    String oldPath = '$tempPath/file.txt';
+    String newPath = '$tempPath/foo';
+    new io.File(oldPath).writeAsStringSync('text');
+    new io.Directory(newPath).createSync();
+    File file = PhysicalResourceProvider.INSTANCE.getResource(oldPath);
+    expect(() {
+      file.renameSync(newPath);
+    }, throwsA(_isFileSystemException));
+    expect(file.path, oldPath);
+    expect(file.exists, isTrue);
+  }
+
+  void test_resolveSymbolicLinksSync_links() {
+    pathos.Context pathContext = PhysicalResourceProvider.INSTANCE.pathContext;
+    String pathA = pathContext.join(tempPath, 'a');
+    String pathB = pathContext.join(pathA, 'b');
+    new io.Directory(pathB).createSync(recursive: true);
+    String filePath = pathContext.join(pathB, 'test.txt');
+    io.File testFile = new io.File(filePath);
+    testFile.writeAsStringSync('test');
+
+    String pathC = pathContext.join(tempPath, 'c');
+    String pathD = pathContext.join(pathC, 'd');
+    new io.Link(pathD).createSync(pathA, recursive: true);
+
+    String pathE = pathContext.join(tempPath, 'e');
+    String pathF = pathContext.join(pathE, 'f');
+    new io.Link(pathF).createSync(pathC, recursive: true);
+
+    String linkPath =
+        pathContext.join(tempPath, 'e', 'f', 'd', 'b', 'test.txt');
+    File file = PhysicalResourceProvider.INSTANCE.getFile(linkPath);
+    expect(file.resolveSymbolicLinksSync().path,
+        testFile.resolveSymbolicLinksSync());
+  }
+
+  void test_resolveSymbolicLinksSync_noLinks() {
+    //
+    // On some platforms the path to the temp directory includes a symbolic
+    // link. We remove that from the equation before creating the File in order
+    // to show that the operation works as expected without symbolic links.
+    //
+    io.File ioFile = new io.File(path);
+    ioFile.writeAsStringSync('test');
+    file = PhysicalResourceProvider.INSTANCE
+        .getFile(ioFile.resolveSymbolicLinksSync());
+    expect(file.resolveSymbolicLinksSync(), file);
+  }
+
   void test_shortName() {
     expect(file.shortName, 'file.txt');
   }
 
   void test_toString() {
     expect(file.toString(), path);
+  }
+
+  void test_toUri() {
+    String path = '/foo/file.txt';
+    File file = PhysicalResourceProvider.INSTANCE.getFile(path);
+    expect(file.toUri(), new Uri.file(path));
+  }
+
+  void test_writeAsBytesSync() {
+    List<int> content = <int>[1, 2];
+    new io.File(path).writeAsBytesSync(content);
+    expect(file.readAsBytesSync(), content);
+    // write new bytes
+    content = <int>[10, 20];
+    file.writeAsBytesSync(content);
+    expect(file.readAsBytesSync(), content);
+  }
+
+  void test_writeAsStringSync() {
+    String content = 'ab';
+    new io.File(path).writeAsStringSync(content);
+    expect(file.readAsStringSync(), content);
+    // write new bytes
+    content = 'CD';
+    file.writeAsStringSync(content);
+    expect(file.readAsStringSync(), content);
   }
 }
 
@@ -159,6 +300,16 @@ class FolderTest extends _BaseTest {
     expect(folder.contains(path), isFalse);
   }
 
+  void test_delete() {
+    new io.File(join(path, 'myFile')).createSync();
+    var child = folder.getChild('myFile');
+    expect(child, _isFile);
+    expect(child.exists, isTrue);
+    // delete "folder"
+    folder.delete();
+    expect(child.exists, isFalse);
+  }
+
   void test_equals_differentPaths() {
     String path2 = join(tempPath, 'folder2');
     new io.Directory(path2).createSync();
@@ -189,6 +340,26 @@ class FolderTest extends _BaseTest {
     var child = folder.getChild('myFolder');
     expect(child, _isFolder);
     expect(child.exists, isTrue);
+  }
+
+  void test_getChildAssumingFile_doesNotExist() {
+    File child = folder.getChildAssumingFile('no-such-resource');
+    expect(child, isNotNull);
+    expect(child.exists, isFalse);
+  }
+
+  void test_getChildAssumingFile_file() {
+    new io.File(join(path, 'myFile')).createSync();
+    File child = folder.getChildAssumingFile('myFile');
+    expect(child, isNotNull);
+    expect(child.exists, isTrue);
+  }
+
+  void test_getChildAssumingFile_folder() {
+    new io.Directory(join(path, 'myFolder')).createSync();
+    File child = folder.getChildAssumingFile('myFolder');
+    expect(child, isNotNull);
+    expect(child.exists, isFalse);
   }
 
   void test_getChildAssumingFolder_doesNotExist() {
@@ -272,10 +443,32 @@ class FolderTest extends _BaseTest {
       parent = grandParent;
     }
   }
+
+  void test_toUri() {
+    String path = '/foo/directory';
+    Folder folder = PhysicalResourceProvider.INSTANCE.getFolder(path);
+    expect(folder.toUri(), new Uri.directory(path));
+  }
 }
 
 @reflectiveTest
 class PhysicalResourceProviderTest extends _BaseTest {
+  test_getFolder_trailingSeparator() {
+    String path = tempPath;
+    PhysicalResourceProvider provider = PhysicalResourceProvider.INSTANCE;
+    Folder folder = provider.getFolder('$path${pathos.separator}');
+    expect(folder.path, path);
+  }
+
+  test_getModificationTimes() async {
+    PhysicalResourceProvider provider = PhysicalResourceProvider.INSTANCE;
+    String path = join(tempPath, 'file1.txt');
+    new io.File(path).writeAsStringSync('');
+    Source source = provider.getFile(path).createSource();
+    List<int> times = await provider.getModificationTimes([source]);
+    expect(times, [source.modificationStamp]);
+  }
+
   void test_getStateLocation_uniqueness() {
     PhysicalResourceProvider provider = PhysicalResourceProvider.INSTANCE;
     String idOne = 'one';

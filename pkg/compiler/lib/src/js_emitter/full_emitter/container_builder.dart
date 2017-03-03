@@ -2,14 +2,27 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of dart2js.js_emitter.full_emitter;
+library dart2js.js_emitter.full_emitter.container_builder;
+
+import '../../constants/values.dart';
+import '../../elements/elements.dart'
+    show
+        Element,
+        Elements,
+        FunctionSignature,
+        MetadataAnnotation,
+        MethodElement;
+import '../../js/js.dart' as jsAst;
+import '../../js/js.dart' show js;
+import '../js_emitter.dart' hide Emitter, EmitterFactory;
+import '../model.dart';
+import 'emitter.dart';
 
 /// This class should morph into something that makes it easy to build
 /// JavaScript representations of libraries, class-sides, and instance-sides.
 /// Initially, it is just a placeholder for code that is moved from
 /// [CodeEmitterTask].
 class ContainerBuilder extends CodeEmitterHelper {
-
   void addMemberMethod(DartMethod method, ClassBuilder builder) {
     MethodElement member = method.element;
     jsAst.Name name = method.name;
@@ -31,8 +44,8 @@ class ContainerBuilder extends CodeEmitterHelper {
     emitter.interceptorEmitter.recordMangledNameOfMemberMethod(member, name);
 
     if (!needStructuredInfo) {
-      compiler.dumpInfoTask.registerElementAst(member,
-          builder.addProperty(name, code));
+      compiler.dumpInfoTask
+          .registerElementAst(member, builder.addProperty(name, code));
 
       for (ParameterStubMethod stub in method.parameterStubs) {
         assert(stub.callName == null);
@@ -87,9 +100,9 @@ class ContainerBuilder extends CodeEmitterHelper {
 
     if (onlyNeedsSuperAlias) {
       jsAst.ArrayInitializer arrayInit =
-            new jsAst.ArrayInitializer(expressions);
-          compiler.dumpInfoTask.registerElementAst(member,
-              builder.addProperty(name, arrayInit));
+          new jsAst.ArrayInitializer(expressions);
+      compiler.dumpInfoTask
+          .registerElementAst(member, builder.addProperty(name, arrayInit));
       return;
     }
 
@@ -126,18 +139,19 @@ class ContainerBuilder extends CodeEmitterHelper {
     }
 
     expressions
-        ..addAll(tearOffInfo)
-        ..add((tearOffName == null || member.isAccessor)
-              ? js("null") : js.quoteName(tearOffName))
-        ..add(js.number(requiredParameterCount))
-        ..add(js.number(optionalParameterCount))
-        ..add(memberTypeExpression == null ? js("null") : memberTypeExpression)
-        ..addAll(task.metadataCollector.reifyDefaultArguments(member));
+      ..addAll(tearOffInfo)
+      ..add((tearOffName == null || member.isAccessor)
+          ? js("null")
+          : js.quoteName(tearOffName))
+      ..add(js.number(requiredParameterCount))
+      ..add(js.number(optionalParameterCount))
+      ..add(memberTypeExpression == null ? js("null") : memberTypeExpression)
+      ..addAll(task.metadataCollector.reifyDefaultArguments(member));
 
     if (canBeReflected || canBeApplied) {
       parameters.forEachParameter((Element parameter) {
         expressions.add(task.metadataCollector.reifyName(parameter.name));
-        if (backend.mustRetainMetadata) {
+        if (backend.mirrorsData.mustRetainMetadata) {
           Iterable<jsAst.Expression> metadataIndices =
               parameter.metadata.map((MetadataAnnotation annotation) {
             ConstantValue constant =
@@ -155,24 +169,22 @@ class ContainerBuilder extends CodeEmitterHelper {
         // TODO(herhut): This registers name as a mangled name. Do we need this
         //               given that we use a different name below?
         emitter.getReflectionName(member, name);
-        reflectionName =
-            new jsAst.LiteralString(
-                '"new ${Elements.reconstructConstructorName(member)}"');
+        reflectionName = new jsAst.LiteralString(
+            '"new ${Elements.reconstructConstructorName(member)}"');
       } else {
-        reflectionName =
-            js.string(namer.privateName(member.memberName));
+        reflectionName = js.string(namer.privateName(member.memberName));
       }
       expressions
-          ..add(reflectionName)
-          ..addAll(task.metadataCollector.computeMetadata(member));
+        ..add(reflectionName)
+        ..addAll(task.metadataCollector.computeMetadata(member));
     } else if (isClosure && canBeApplied) {
       expressions.add(js.string(namer.privateName(member.memberName)));
     }
 
     jsAst.ArrayInitializer arrayInit =
-      new jsAst.ArrayInitializer(expressions.toList());
-    compiler.dumpInfoTask.registerElementAst(member,
-        builder.addProperty(name, arrayInit));
+        new jsAst.ArrayInitializer(expressions.toList());
+    compiler.dumpInfoTask
+        .registerElementAst(member, builder.addProperty(name, arrayInit));
   }
 
   void addMemberField(Field field, ClassBuilder builder) {

@@ -63,7 +63,7 @@ class RenameClassMemberRefactoringImpl extends RenameRefactoringImpl {
     if (element is MethodElement && (element as MethodElement).isOperator) {
       result.addFatalError('Cannot rename operator.');
     }
-    return new Future.value(result);
+    return new Future<RefactoringStatus>.value(result);
   }
 
   @override
@@ -164,7 +164,7 @@ class _ClassMemberValidator {
     Set<ClassElement> superClasses = getSuperClasses(elementClass);
     await _prepareReferences();
     Set<ClassElement> subClasses =
-        await getSubClasses(searchEngine, elementClass);
+        await searchEngine.searchAllSubtypes(elementClass);
     // check shadowing of class names
     if (element != null) {
       for (Element element in elements) {

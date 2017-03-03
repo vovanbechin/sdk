@@ -19,6 +19,7 @@
 # ......dartfmt
 # ......dart2js
 # ......dartanalyzer
+# ......dartdevc
 # ......pub
 # ......snapshots/
 # ........analysis_server.dart.snapshot
@@ -26,6 +27,7 @@
 # ........dartanalyzer.dart.snapshot
 # ........dartdoc.dart.snapshot
 # ........dartfmt.dart.snapshot
+# ........dartdevc.dart.snapshot
 # ........pub.dart.snapshot
 # ........utils_wrapper.dart.snapshot
 #.........resources/
@@ -42,21 +44,23 @@
 # ......dart_client.platform
 # ......dart_server.platform
 # ......dart_shared.platform
-# ......dart2dart.platform
 # ......_internal/
 #.........spec.sum
 #.........strong.sum
+#.........dev_compiler/
 # ......analysis_server/
 # ......analyzer/
 # ......async/
 # ......collection/
 # ......convert/
 # ......core/
+# ......front_end/
 # ......html/
 # ......internal/
 # ......io/
 # ......isolate/
 # ......js/
+# ......js_util/
 # ......math/
 # ......mirrors/
 # ......typed_data/
@@ -89,6 +93,12 @@ def GetOptions():
       help='Where to output the sdk')
   options.add_option("--snapshot_location",
       help='Location of the snapshots.')
+  options.add_option("--copy_libs",
+      action="store_true", default=False,
+      help='Copy dynamically linked libraries to the SDK bin directory.')
+  options.add_option("--disable_stripping",
+      action="store_true", default=False,
+      help='Do not try to strip binaries. Use when they are already stripped')
   return options.parse_args()
 
 
@@ -127,22 +137,36 @@ def CopyShellScript(src_file, dest_dir):
   Copy(src, dest)
 
 
+def CopyLibs(out_dir, bin_dir):
+  for library in ['libcrypto', 'libssl']:
+    ext = '.so'
+    if HOST_OS == 'macos':
+      ext = '.dylib'
+    elif HOST_OS == 'win32':
+      ext = '.dll'
+    src = os.path.join(out_dir, library + ext)
+    dst = os.path.join(bin_dir, library + ext)
+    if os.path.isfile(src):
+      copyfile(src, dst)
+      copymode(src, dst)
+
+
 def CopyDartScripts(home, sdk_root):
   for executable in ['dart2js_sdk', 'dartanalyzer_sdk', 'dartfmt_sdk',
-                     'pub_sdk', 'dartdoc']:
+                     'pub_sdk', 'dartdoc', 'dartdevc_sdk']:
     CopyShellScript(os.path.join(home, 'sdk', 'bin', executable),
                     os.path.join(sdk_root, 'bin'))
 
 
 def CopySnapshots(snapshots, sdk_root):
   for snapshot in ['analysis_server', 'dart2js', 'dartanalyzer', 'dartfmt',
-                   'utils_wrapper', 'pub', 'dartdoc']:
+                   'utils_wrapper', 'pub', 'dartdoc', 'dartdevc']:
     snapshot += '.dart.snapshot'
     copyfile(join(snapshots, snapshot),
              join(sdk_root, 'bin', 'snapshots', snapshot))
 
 def CopyAnalyzerSources(home, lib_dir):
-  for library in ['analyzer', 'analysis_server']:
+  for library in ['analyzer', 'analysis_server', 'front_end']:
     copytree(join(home, 'pkg', library), join(lib_dir, library),
              ignore=ignore_patterns('*.svn', 'doc', '*.py', '*.gypi', '*.sh',
                                     '.gitignore', 'packages'))
@@ -167,6 +191,11 @@ def CopyAnalysisSummaries(snapshots, lib):
   copyfile(join(snapshots, 'strong.sum'),
            join(lib, '_internal', 'strong.sum'))
 
+def CopyDevCompilerSdk(home, lib):
+  copyfile(join(home, 'pkg', 'dev_compiler', 'lib', 'sdk', 'ddc_sdk.sum'),
+           join(lib, '_internal', 'ddc_sdk.sum'))
+  copytree(join(home, 'pkg', 'dev_compiler', 'lib', 'js'),
+           join(lib, 'dev_compiler'))
 
 def Main():
   # Pull in all of the gypi files which will be munged into the sdk.
@@ -211,9 +240,9 @@ def Main():
   copyfile(dart_src_binary, dart_dest_binary)
   copymode(dart_src_binary, dart_dest_binary)
   # Strip the binaries on platforms where that is supported.
-  if HOST_OS == 'linux':
+  if HOST_OS == 'linux' and not options.disable_stripping:
     subprocess.call(['strip', dart_dest_binary])
-  elif HOST_OS == 'macos':
+  elif HOST_OS == 'macos' and not options.disable_stripping:
     subprocess.call(['strip', '-x', dart_dest_binary])
 
   #
@@ -252,7 +281,7 @@ def Main():
                   join('html', 'dart2js'), join('html', 'dartium'),
                   join('html', 'html_common'),
                   join('indexed_db', 'dart2js'), join('indexed_db', 'dartium'),
-                  'js', 'math', 'mirrors', 'profiler', 'typed_data',
+                  'js', 'js_util', 'math', 'mirrors', 'profiler', 'typed_data',
                   join('svg', 'dart2js'), join('svg', 'dartium'),
                   join('web_audio', 'dart2js'), join('web_audio', 'dartium'),
                   join('web_gl', 'dart2js'), join('web_gl', 'dartium'),
@@ -264,8 +293,7 @@ def Main():
   # Copy the platform descriptors.
   for file_name in ["dart_client.platform",
                     "dart_server.platform",
-                    "dart_shared.platform",
-                    "dart2dart.platform"]:
+                    "dart_shared.platform"]:
     copyfile(join(HOME, 'sdk', 'lib', file_name), join(LIB, file_name));
 
   # Copy libraries.dart to lib/_internal/libraries.dart for backwards
@@ -303,6 +331,10 @@ def Main():
   CopyDartdocResources(HOME, SDK_tmp)
   CopyAnalyzerSources(HOME, LIB)
   CopyAnalysisSummaries(SNAPSHOT, LIB)
+  CopyDevCompilerSdk(HOME, LIB)
+
+  if options.copy_libs:
+    CopyLibs(build_dir, BIN)
 
   # Write the 'version' file
   version = utils.GetVersion()

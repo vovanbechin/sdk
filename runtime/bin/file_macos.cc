@@ -8,12 +8,14 @@
 #include "bin/file.h"
 
 #include <copyfile.h>  // NOLINT
-#include <errno.h>  // NOLINT
-#include <fcntl.h>  // NOLINT
-#include <libgen.h>  // NOLINT
-#include <limits.h>  // NOLINT
+#include <errno.h>     // NOLINT
+#include <fcntl.h>     // NOLINT
+#include <libgen.h>    // NOLINT
+#include <limits.h>    // NOLINT
+#include <sys/mman.h>  // NOLINT
 #include <sys/stat.h>  // NOLINT
-#include <unistd.h>  // NOLINT
+#include <unistd.h>    // NOLINT
+#include <utime.h>     // NOLINT
 
 #include "bin/builtin.h"
 #include "bin/fdutils.h"
@@ -27,8 +29,8 @@ namespace bin {
 
 class FileHandle {
  public:
-  explicit FileHandle(int fd) : fd_(fd) { }
-  ~FileHandle() { }
+  explicit FileHandle(int fd) : fd_(fd) {}
+  ~FileHandle() {}
   int fd() const { return fd_; }
   void set_fd(int fd) { fd_ = fd; }
 
@@ -40,7 +42,10 @@ class FileHandle {
 
 
 File::~File() {
-  Close();
+  if (!IsClosed() && handle_->fd() != STDOUT_FILENO &&
+      handle_->fd() != STDERR_FILENO) {
+    Close();
+  }
   delete handle_;
 }
 
@@ -76,6 +81,35 @@ bool File::IsClosed() {
 }
 
 
+MappedMemory* File::Map(MapType type, int64_t position, int64_t length) {
+  ASSERT(handle_->fd() >= 0);
+  int prot = PROT_NONE;
+  switch (type) {
+    case kReadOnly:
+      prot = PROT_READ;
+      break;
+    case kReadExecute:
+      prot = PROT_READ | PROT_EXEC;
+      break;
+    default:
+      return NULL;
+  }
+  void* addr = mmap(NULL, length, prot, MAP_PRIVATE, handle_->fd(), position);
+  if (addr == MAP_FAILED) {
+    return NULL;
+  }
+  return new MappedMemory(addr, length);
+}
+
+
+void MappedMemory::Unmap() {
+  int result = munmap(address_, size_);
+  ASSERT(result == 0);
+  address_ = 0;
+  size_ = 0;
+}
+
+
 int64_t File::Read(void* buffer, int64_t num_bytes) {
   ASSERT(handle_->fd() >= 0);
   return TEMP_FAILURE_RETRY(read(handle_->fd(), buffer, num_bytes));
@@ -88,6 +122,26 @@ int64_t File::Write(const void* buffer, int64_t num_bytes) {
 }
 
 
+bool File::VPrint(const char* format, va_list args) {
+  // Measure.
+  va_list measure_args;
+  va_copy(measure_args, args);
+  intptr_t len = vsnprintf(NULL, 0, format, measure_args);
+  va_end(measure_args);
+
+  char* buffer = reinterpret_cast<char*>(malloc(len + 1));
+
+  // Print.
+  va_list print_args;
+  va_copy(print_args, args);
+  vsnprintf(buffer, len + 1, format, print_args);
+  va_end(print_args);
+
+  bool result = WriteFully(buffer, len);
+  free(buffer);
+  return result;
+}
+
 int64_t File::Position() {
   ASSERT(handle_->fd() >= 0);
   return lseek(handle_->fd(), 0, SEEK_CUR);
@@ -98,6 +152,11 @@ bool File::SetPosition(int64_t position) {
   ASSERT(handle_->fd() >= 0);
   return lseek(handle_->fd(), position, SEEK_SET) >= 0;
 }
+
+
+// There is no difference between binary and text translation modes on this
+// platform, so this operation is a no-op.
+void File::SetTranslation(DartFileTranslation translation) {}
 
 
 bool File::Truncate(int64_t length) {
@@ -121,9 +180,11 @@ bool File::Lock(File::LockType lock, int64_t start, int64_t end) {
       fl.l_type = F_UNLCK;
       break;
     case File::kLockShared:
+    case File::kLockBlockingShared:
       fl.l_type = F_RDLCK;
       break;
     case File::kLockExclusive:
+    case File::kLockBlockingExclusive:
       fl.l_type = F_WRLCK;
       break;
     default:
@@ -132,9 +193,12 @@ bool File::Lock(File::LockType lock, int64_t start, int64_t end) {
   fl.l_whence = SEEK_SET;
   fl.l_start = start;
   fl.l_len = end == -1 ? 0 : end - start;
-  // fcntl does not block, but fails if the lock cannot be acquired.
-  int rc = fcntl(handle_->fd(), F_SETLK, &fl);
-  return rc != -1;
+  int cmd = F_SETLK;
+  if ((lock == File::kLockBlockingShared) ||
+      (lock == File::kLockBlockingExclusive)) {
+    cmd = F_SETLKW;
+  }
+  return TEMP_FAILURE_RETRY(fcntl(handle_->fd(), cmd, &fl)) != -1;
 }
 
 
@@ -154,12 +218,12 @@ File* File::FileOpenW(const wchar_t* system_name, FileOpenMode mode) {
 }
 
 
-File* File::ScopedOpen(const char* name, FileOpenMode mode) {
+File* File::Open(const char* name, FileOpenMode mode) {
   // Report errors for non-regular files.
   struct stat st;
   if (NO_RETRY_EXPECTED(stat(name, &st)) == 0) {
-    // Only accept regular files and character devices.
-    if (!S_ISREG(st.st_mode) && !S_ISCHR(st.st_mode)) {
+    // Only accept regular files, character devices, and pipes.
+    if (!S_ISREG(st.st_mode) && !S_ISCHR(st.st_mode) && !S_ISFIFO(st.st_mode)) {
       errno = (S_ISDIR(st.st_mode)) ? EISDIR : ENOENT;
       return NULL;
     }
@@ -192,24 +256,16 @@ File* File::ScopedOpen(const char* name, FileOpenMode mode) {
 }
 
 
-File* File::Open(const char* path, FileOpenMode mode) {
-  // ScopedOpen doesn't actually need a scope.
-  return ScopedOpen(path, mode);
-}
-
-
 File* File::OpenStdio(int fd) {
-  if ((fd < 0) || (2 < fd)) {
-    return NULL;
-  }
-  return new File(new FileHandle(fd));
+  return ((fd < 0) || (2 < fd)) ? NULL : new File(new FileHandle(fd));
 }
 
 
 bool File::Exists(const char* name) {
   struct stat st;
   if (NO_RETRY_EXPECTED(stat(name, &st)) == 0) {
-    return S_ISREG(st.st_mode);
+    // Everything but a directory and a link is a file to Dart.
+    return !S_ISDIR(st.st_mode) && !S_ISLNK(st.st_mode);
   } else {
     return false;
   }
@@ -221,7 +277,22 @@ bool File::Create(const char* name) {
   if (fd < 0) {
     return false;
   }
-  return (close(fd) == 0);
+  // File.create returns a File, so we shouldn't be giving the illusion that the
+  // call has created a file or that a file already exists if there is already
+  // an entity at the same path that is a directory or a link.
+  bool is_file = true;
+  struct stat st;
+  if (NO_RETRY_EXPECTED(fstat(fd, &st)) == 0) {
+    if (S_ISDIR(st.st_mode)) {
+      errno = EISDIR;
+      is_file = false;
+    } else if (S_ISLNK(st.st_mode)) {
+      errno = ENOENT;
+      is_file = false;
+    }
+  }
+  FDUtils::SaveErrorAndClose(fd);
+  return is_file;
 }
 
 
@@ -231,80 +302,108 @@ bool File::CreateLink(const char* name, const char* target) {
 }
 
 
-bool File::Delete(const char* name) {
-  File::Type type = File::GetType(name, true);
-  if (type == kIsFile) {
-    return NO_RETRY_EXPECTED(unlink(name)) == 0;
-  } else if (type == kIsDirectory) {
-    errno = EISDIR;
+File::Type File::GetType(const char* pathname, bool follow_links) {
+  struct stat entry_info;
+  int stat_success;
+  if (follow_links) {
+    stat_success = NO_RETRY_EXPECTED(stat(pathname, &entry_info));
   } else {
-    errno = ENOENT;
+    stat_success = NO_RETRY_EXPECTED(lstat(pathname, &entry_info));
+  }
+  if (stat_success == -1) {
+    return File::kDoesNotExist;
+  }
+  if (S_ISDIR(entry_info.st_mode)) {
+    return File::kIsDirectory;
+  }
+  if (S_ISREG(entry_info.st_mode)) {
+    return File::kIsFile;
+  }
+  if (S_ISLNK(entry_info.st_mode)) {
+    return File::kIsLink;
+  }
+  return File::kDoesNotExist;
+}
+
+
+static bool CheckTypeAndSetErrno(const char* name,
+                                 File::Type expected,
+                                 bool follow_links) {
+  File::Type actual = File::GetType(name, follow_links);
+  if (actual == expected) {
+    return true;
+  }
+  switch (actual) {
+    case File::kIsDirectory:
+      errno = EISDIR;
+      break;
+    case File::kDoesNotExist:
+      errno = ENOENT;
+      break;
+    default:
+      errno = EINVAL;
+      break;
   }
   return false;
+}
+
+
+bool File::Delete(const char* name) {
+  return CheckTypeAndSetErrno(name, kIsFile, true) &&
+         (NO_RETRY_EXPECTED(unlink(name)) == 0);
 }
 
 
 bool File::DeleteLink(const char* name) {
-  File::Type type = File::GetType(name, false);
-  if (type == kIsLink) {
-    return NO_RETRY_EXPECTED(unlink(name)) == 0;
-  }
-  errno = EINVAL;
-  return false;
+  return CheckTypeAndSetErrno(name, kIsLink, false) &&
+         (NO_RETRY_EXPECTED(unlink(name)) == 0);
 }
 
 
 bool File::Rename(const char* old_path, const char* new_path) {
-  File::Type type = File::GetType(old_path, true);
-  if (type == kIsFile) {
-    return NO_RETRY_EXPECTED(rename(old_path, new_path)) == 0;
-  } else if (type == kIsDirectory) {
-    errno = EISDIR;
-  } else {
-    errno = ENOENT;
-  }
-  return false;
+  return CheckTypeAndSetErrno(old_path, kIsFile, true) &&
+         (NO_RETRY_EXPECTED(rename(old_path, new_path)) == 0);
 }
 
 
 bool File::RenameLink(const char* old_path, const char* new_path) {
-  File::Type type = File::GetType(old_path, false);
-  if (type == kIsLink) {
-    return NO_RETRY_EXPECTED(rename(old_path, new_path)) == 0;
-  } else if (type == kIsDirectory) {
-    errno = EISDIR;
-  } else {
-    errno = EINVAL;
-  }
-  return false;
+  return CheckTypeAndSetErrno(old_path, kIsLink, false) &&
+         (NO_RETRY_EXPECTED(rename(old_path, new_path)) == 0);
 }
 
 
 bool File::Copy(const char* old_path, const char* new_path) {
-  File::Type type = File::GetType(old_path, true);
-  if (type == kIsFile) {
-    return copyfile(old_path, new_path, NULL, COPYFILE_ALL) == 0;
-  } else if (type == kIsDirectory) {
-    errno = EISDIR;
-  } else {
-    errno = ENOENT;
+  return CheckTypeAndSetErrno(old_path, kIsFile, true) &&
+         (copyfile(old_path, new_path, NULL, COPYFILE_ALL) == 0);
+}
+
+
+static bool StatHelper(const char* name, struct stat* st) {
+  if (NO_RETRY_EXPECTED(stat(name, st)) != 0) {
+    return false;
   }
-  return false;
+  // Signal an error if it's a directory.
+  if (S_ISDIR(st->st_mode)) {
+    errno = EISDIR;
+    return false;
+  }
+  // Otherwise assume the caller knows what it's doing.
+  return true;
 }
 
 
 int64_t File::LengthFromPath(const char* name) {
   struct stat st;
-  if (NO_RETRY_EXPECTED(stat(name, &st)) == 0) {
-    return st.st_size;
+  if (!StatHelper(name, &st)) {
+    return -1;
   }
-  return -1;
+  return st.st_size;
 }
 
 
 static int64_t TimespecToMilliseconds(const struct timespec& t) {
   return static_cast<int64_t>(t.tv_sec) * 1000L +
-      static_cast<int64_t>(t.tv_nsec) / 1000000L;
+         static_cast<int64_t>(t.tv_nsec) / 1000000L;
 }
 
 
@@ -336,10 +435,49 @@ void File::Stat(const char* name, int64_t* data) {
 
 time_t File::LastModified(const char* name) {
   struct stat st;
-  if (NO_RETRY_EXPECTED(stat(name, &st)) == 0) {
-    return st.st_mtime;
+  if (!StatHelper(name, &st)) {
+    return -1;
   }
-  return -1;
+  return st.st_mtime;
+}
+
+
+time_t File::LastAccessed(const char* name) {
+  struct stat st;
+  if (!StatHelper(name, &st)) {
+    return -1;
+  }
+  return st.st_atime;
+}
+
+
+bool File::SetLastAccessed(const char* name, int64_t millis) {
+  // First get the current times.
+  struct stat st;
+  if (!StatHelper(name, &st)) {
+    return false;
+  }
+
+  // Set the new time:
+  struct utimbuf times;
+  times.actime = millis / kMillisecondsPerSecond;
+  times.modtime = st.st_mtime;
+  return utime(name, &times) == 0;
+}
+
+
+bool File::SetLastModified(const char* name, int64_t millis) {
+  // First get the current times.
+  struct stat st;
+  if (!StatHelper(name, &st)) {
+    return false;
+  }
+
+  // Set the new time:
+  struct utimbuf times;
+  times.actime = st.st_atime;
+  times.modtime = millis / kMillisecondsPerSecond;
+  return utime(name, &times) == 0;
 }
 
 
@@ -356,8 +494,8 @@ const char* File::LinkTarget(const char* pathname) {
   // target. The link might have changed before the readlink call.
   const int kBufferSize = 1024;
   char target[kBufferSize];
-  size_t target_size = TEMP_FAILURE_RETRY(
-      readlink(pathname, target, kBufferSize));
+  size_t target_size =
+      TEMP_FAILURE_RETRY(readlink(pathname, target, kBufferSize));
   if (target_size <= 0) {
     return NULL;
   }
@@ -428,30 +566,6 @@ File::StdioHandleType File::GetStdioHandleType(int fd) {
 }
 
 
-File::Type File::GetType(const char* pathname, bool follow_links) {
-  struct stat entry_info;
-  int stat_success;
-  if (follow_links) {
-    stat_success = NO_RETRY_EXPECTED(stat(pathname, &entry_info));
-  } else {
-    stat_success = NO_RETRY_EXPECTED(lstat(pathname, &entry_info));
-  }
-  if (stat_success == -1) {
-    return File::kDoesNotExist;
-  }
-  if (S_ISDIR(entry_info.st_mode)) {
-    return File::kIsDirectory;
-  }
-  if (S_ISREG(entry_info.st_mode)) {
-    return File::kIsFile;
-  }
-  if (S_ISLNK(entry_info.st_mode)) {
-    return File::kIsLink;
-  }
-  return File::kDoesNotExist;
-}
-
-
 File::Identical File::AreIdentical(const char* file_1, const char* file_2) {
   struct stat file_1_info;
   struct stat file_2_info;
@@ -460,9 +574,9 @@ File::Identical File::AreIdentical(const char* file_1, const char* file_2) {
     return File::kError;
   }
   return ((file_1_info.st_ino == file_2_info.st_ino) &&
-          (file_1_info.st_dev == file_2_info.st_dev)) ?
-      File::kIdentical :
-      File::kDifferent;
+          (file_1_info.st_dev == file_2_info.st_dev))
+             ? File::kIdentical
+             : File::kDifferent;
 }
 
 }  // namespace bin

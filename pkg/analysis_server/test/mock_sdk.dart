@@ -10,9 +10,11 @@ import 'package:analyzer/src/context/context.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/sdk.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:analyzer/src/summary/idl.dart' show PackageBundle;
+import 'package:analyzer/src/summary/summary_file_builder.dart';
 
 class MockSdk implements DartSdk {
-  static const _MockSdkLibrary LIB_CORE = const _MockSdkLibrary(
+  static const MockSdkLibrary LIB_CORE = const MockSdkLibrary(
       'dart:core',
       '/lib/core/core.dart',
       '''
@@ -22,9 +24,12 @@ import 'dart:async';
 import 'dart:_internal';
 
 class Object {
+  const Object() {}
   bool operator ==(other) => identical(this, other);
   String toString() => 'a string';
   int get hashCode => 0;
+  Type get runtimeType => null;
+  dynamic noSuchMethod(Invocation invocation) => null;
 }
 
 class Function {}
@@ -47,6 +52,7 @@ abstract class String implements Comparable<String> {
 }
 
 class bool extends Object {}
+
 abstract class num implements Comparable<num> {
   bool operator <(num other);
   bool operator <=(num other);
@@ -55,12 +61,21 @@ abstract class num implements Comparable<num> {
   num operator +(num other);
   num operator -(num other);
   num operator *(num other);
-  num operator %(num other);
   num operator /(num other);
+  int operator ^(int other);
+  int operator &(int other);
+  int operator |(int other);
+  int operator <<(int other);
+  int operator >>(int other);
+  int operator ~/(num other);
+  num operator %(num other);
+  int operator ~();
   int toInt();
+  double toDouble();
   num abs();
   int round();
 }
+
 abstract class int extends num {
   bool get isEven => false;
   int operator -();
@@ -68,7 +83,36 @@ abstract class int extends num {
                             { int radix,
                               int onError(String source) });
 }
-class double extends num {}
+
+abstract class double extends num {
+  static const double NAN = 0.0 / 0.0;
+  static const double INFINITY = 1.0 / 0.0;
+  static const double NEGATIVE_INFINITY = -INFINITY;
+  static const double MIN_POSITIVE = 5e-324;
+  static const double MAX_FINITE = 1.7976931348623157e+308;
+
+  double remainder(num other);
+  double operator +(num other);
+  double operator -(num other);
+  double operator *(num other);
+  double operator %(num other);
+  double operator /(num other);
+  int operator ~/(num other);
+  double operator -();
+  double abs();
+  double get sign;
+  int round();
+  int floor();
+  int ceil();
+  int truncate();
+  double roundToDouble();
+  double floorToDouble();
+  double ceilToDouble();
+  double truncateToDouble();
+  external static double parse(String source,
+                               [double onError(String source)]);
+}
+
 class DateTime extends Object {}
 class Null extends Object {}
 
@@ -86,14 +130,27 @@ class Iterator<E> {
 abstract class Iterable<E> {
   Iterator<E> get iterator;
   bool get isEmpty;
+  Iterable/*<R>*/ map/*<R>*/(/*=R*/ f(E e));
 }
 
-abstract class List<E> implements Iterable<E> {
-  void add(E value);
-  E operator [](int index);
-  void operator []=(int index, E value);
+class List<E> implements Iterable<E> {
+  List();
+  void add(E value) {}
+  void addAll(Iterable<E> iterable) {}
+  E operator [](int index) => null;
+  void operator []=(int index, E value) {}
   Iterator<E> get iterator => null;
-  void clear();
+  void clear() {}
+
+  bool get isEmpty => false;
+  E get first => null;
+  E get last => null;
+
+  Iterable/*<R>*/ map/*<R>*/(/*=R*/ f(E e)) => null;
+
+  /*=R*/ fold/*<R>*/(/*=R*/ initialValue,
+      /*=R*/ combine(/*=R*/ previousValue, E element)) => null;
+
 }
 
 abstract class Map<K, V> extends Object {
@@ -115,7 +172,7 @@ class Uri {
 }
 ''');
 
-  static const _MockSdkLibrary LIB_ASYNC = const _MockSdkLibrary(
+  static const MockSdkLibrary LIB_ASYNC = const MockSdkLibrary(
       'dart:async',
       '/lib/async/async.dart',
       '''
@@ -130,11 +187,13 @@ class Future<T> {
   static Future wait(List<Future> futures) => null;
 }
 
+class FutureOr<T> {}
+
 class Stream<T> {}
 abstract class StreamTransformer<S, T> {}
 ''');
 
-  static const _MockSdkLibrary LIB_COLLECTION = const _MockSdkLibrary(
+  static const MockSdkLibrary LIB_COLLECTION = const MockSdkLibrary(
       'dart:collection',
       '/lib/collection/collection.dart',
       '''
@@ -143,7 +202,7 @@ library dart.collection;
 abstract class HashMap<K, V> implements Map<K, V> {}
 ''');
 
-  static const _MockSdkLibrary LIB_CONVERT = const _MockSdkLibrary(
+  static const MockSdkLibrary LIB_CONVERT = const MockSdkLibrary(
       'dart:convert',
       '/lib/convert/convert.dart',
       '''
@@ -155,7 +214,7 @@ abstract class Converter<S, T> implements StreamTransformer {}
 class JsonDecoder extends Converter<String, Object> {}
 ''');
 
-  static const _MockSdkLibrary LIB_MATH = const _MockSdkLibrary(
+  static const MockSdkLibrary LIB_MATH = const MockSdkLibrary(
       'dart:math',
       '/lib/math/math.dart',
       '''
@@ -163,8 +222,8 @@ library dart.math;
 const double E = 2.718281828459045;
 const double PI = 3.1415926535897932;
 const double LN10 =  2.302585092994046;
-num min(num a, num b) => 0;
-num max(num a, num b) => 0;
+T min<T extends num>(T a, T b) => null;
+T max<T extends num>(T a, T b) => null;
 external double cos(num x);
 external num pow(num x, num exponent);
 external double sin(num x);
@@ -176,7 +235,7 @@ class Random {
 }
 ''');
 
-  static const _MockSdkLibrary LIB_HTML = const _MockSdkLibrary(
+  static const MockSdkLibrary LIB_HTML = const MockSdkLibrary(
       'dart:html',
       '/lib/html/dartium/html_dartium.dart',
       '''
@@ -184,7 +243,7 @@ library dart.html;
 class HtmlElement {}
 ''');
 
-  static const _MockSdkLibrary LIB_INTERNAL = const _MockSdkLibrary(
+  static const MockSdkLibrary LIB_INTERNAL = const MockSdkLibrary(
       'dart:_internal',
       '/lib/internal/internal.dart',
       '''
@@ -202,24 +261,54 @@ external void printToConsole(String line);
     LIB_INTERNAL,
   ];
 
-  final resource.MemoryResourceProvider provider =
-      new resource.MemoryResourceProvider();
+  static const String librariesContent = r'''
+const Map<String, LibraryInfo> libraries = const {
+  "async": const LibraryInfo("async/async.dart"),
+  "collection": const LibraryInfo("collection/collection.dart"),
+  "convert": const LibraryInfo("convert/convert.dart"),
+  "core": const LibraryInfo("core/core.dart"),
+  "html": const LibraryInfo("html/dartium/html_dartium.dart"),
+  "math": const LibraryInfo("math/math.dart"),
+  "_internal": const LibraryInfo("internal/internal.dart"),
+};
+''';
+
+  final resource.MemoryResourceProvider provider;
 
   /**
    * The [AnalysisContext] which is used for all of the sources.
    */
   InternalAnalysisContext _analysisContext;
 
-  MockSdk() {
-    LIBRARIES.forEach((_MockSdkLibrary library) {
-      provider.newFile(library.path, library.content);
+  /**
+   * The cached linked bundle of the SDK.
+   */
+  PackageBundle _bundle;
+
+  MockSdk(
+      {bool generateSummaryFiles: false,
+      resource.ResourceProvider resourceProvider})
+      : provider = resourceProvider ?? new resource.MemoryResourceProvider() {
+    LIBRARIES.forEach((SdkLibrary library) {
+      provider.newFile(library.path, (library as MockSdkLibrary).content);
     });
+    provider.newFile(
+        provider.convertPath(
+            '/lib/_internal/sdk_library_metadata/lib/libraries.dart'),
+        librariesContent);
+    if (generateSummaryFiles) {
+      List<int> bytes = _computeLinkedBundleBytes();
+      provider.newFileWithBytes(
+          provider.convertPath('/lib/_internal/spec.sum'), bytes);
+      provider.newFileWithBytes(
+          provider.convertPath('/lib/_internal/strong.sum'), bytes);
+    }
   }
 
   @override
   AnalysisContext get context {
     if (_analysisContext == null) {
-      _analysisContext = new SdkAnalysisContext();
+      _analysisContext = new SdkAnalysisContext(null);
       SourceFactory factory = new SourceFactory([new DartUriResolver(this)]);
       _analysisContext.sourceFactory = factory;
     }
@@ -245,28 +334,26 @@ external void printToConsole(String line);
 
   @override
   Source fromFileUri(Uri uri) {
-    String filePath = uri.path;
-    String libPath = '/lib';
-    if (!filePath.startsWith("$libPath/")) {
-      return null;
-    }
-    for (SdkLibrary library in LIBRARIES) {
-      String libraryPath = library.path;
-      if (filePath.replaceAll('\\', '/') == libraryPath) {
+    String filePath = provider.pathContext.fromUri(uri);
+    for (SdkLibrary library in sdkLibraries) {
+      String libraryPath = provider.convertPath(library.path);
+      if (filePath == libraryPath) {
         try {
-          resource.File file = provider.getResource(uri.path);
+          resource.File file = provider.getResource(filePath);
           Uri dartUri = Uri.parse(library.shortName);
           return file.createSource(dartUri);
         } catch (exception) {
           return null;
         }
       }
-      if (filePath.startsWith("$libraryPath/")) {
-        String pathInLibrary = filePath.substring(libraryPath.length + 1);
-        String path = '${library.shortName}/$pathInLibrary';
+      String libraryRootPath = provider.pathContext.dirname(libraryPath) +
+          provider.pathContext.separator;
+      if (filePath.startsWith(libraryRootPath)) {
+        String pathInLibrary = filePath.substring(libraryRootPath.length);
+        String uriStr = '${library.shortName}/$pathInLibrary';
         try {
-          resource.File file = provider.getResource(uri.path);
-          Uri dartUri = new Uri(scheme: 'dart', path: path);
+          resource.File file = provider.getResource(filePath);
+          Uri dartUri = Uri.parse(uriStr);
           return file.createSource(dartUri);
         } catch (exception) {
           return null;
@@ -274,6 +361,22 @@ external void printToConsole(String line);
       }
     }
     return null;
+  }
+
+  @override
+  PackageBundle getLinkedBundle() {
+    if (_bundle == null) {
+      resource.File summaryFile =
+          provider.getFile(provider.convertPath('/lib/_internal/spec.sum'));
+      List<int> bytes;
+      if (summaryFile.exists) {
+        bytes = summaryFile.readAsBytesSync();
+      } else {
+        bytes = _computeLinkedBundleBytes();
+      }
+      _bundle = new PackageBundle.fromBuffer(bytes);
+    }
+    return _bundle;
   }
 
   @override
@@ -307,14 +410,26 @@ external void printToConsole(String line);
     // table above.
     return null;
   }
+
+  /**
+   * Compute the bytes of the linked bundle associated with this SDK.
+   */
+  List<int> _computeLinkedBundleBytes() {
+    List<Source> librarySources = sdkLibraries
+        .map((SdkLibrary library) => mapDartUri(library.shortName))
+        .toList();
+    return new SummaryBuilder(
+            librarySources, context, context.analysisOptions.strongMode)
+        .build();
+  }
 }
 
-class _MockSdkLibrary implements SdkLibrary {
+class MockSdkLibrary implements SdkLibrary {
   final String shortName;
   final String path;
   final String content;
 
-  const _MockSdkLibrary(this.shortName, this.path, this.content);
+  const MockSdkLibrary(this.shortName, this.path, this.content);
 
   @override
   String get category => throw unimplemented;

@@ -40,9 +40,8 @@ class DartUnitOutlineComputer {
             FieldDeclaration fieldDeclaration = classMember;
             VariableDeclarationList fields = fieldDeclaration.fields;
             if (fields != null) {
-              TypeName fieldType = fields.type;
-              String fieldTypeName =
-                  fieldType != null ? fieldType.toSource() : '';
+              TypeAnnotation fieldType = fields.type;
+              String fieldTypeName = _safeToSource(fieldType);
               for (VariableDeclaration field in fields.variables) {
                 classContents.add(_newVariableOutline(fieldTypeName,
                     ElementKind.FIELD, field, fieldDeclaration.isStatic));
@@ -68,8 +67,8 @@ class DartUnitOutlineComputer {
         TopLevelVariableDeclaration fieldDeclaration = unitMember;
         VariableDeclarationList fields = fieldDeclaration.variables;
         if (fields != null) {
-          TypeName fieldType = fields.type;
-          String fieldTypeName = fieldType != null ? fieldType.toSource() : '';
+          TypeAnnotation fieldType = fields.type;
+          String fieldTypeName = _safeToSource(fieldType);
           for (VariableDeclaration field in fields.variables) {
             unitContents.add(_newVariableOutline(
                 fieldTypeName, ElementKind.TOP_LEVEL_VARIABLE, field, false));
@@ -207,7 +206,7 @@ class DartUnitOutlineComputer {
     }
     _SourceRegion sourceRegion = _getSourceRegion(constructor);
     FormalParameterList parameters = constructor.parameters;
-    String parametersStr = parameters != null ? parameters.toSource() : '';
+    String parametersStr = _safeToSource(parameters);
     Element element = new Element(
         ElementKind.CONSTRUCTOR,
         name,
@@ -252,7 +251,7 @@ class DartUnitOutlineComputer {
   }
 
   Outline _newFunctionOutline(FunctionDeclaration function, bool isStatic) {
-    TypeName returnType = function.returnType;
+    TypeAnnotation returnType = function.returnType;
     SimpleIdentifier nameNode = function.name;
     String name = nameNode.name;
     FunctionExpression functionExpression = function.functionExpression;
@@ -266,8 +265,8 @@ class DartUnitOutlineComputer {
       kind = ElementKind.FUNCTION;
     }
     _SourceRegion sourceRegion = _getSourceRegion(function);
-    String parametersStr = parameters != null ? parameters.toSource() : '';
-    String returnTypeStr = returnType != null ? returnType.toSource() : '';
+    String parametersStr = _safeToSource(parameters);
+    String returnTypeStr = _safeToSource(returnType);
     Element element = new Element(
         kind,
         name,
@@ -286,13 +285,13 @@ class DartUnitOutlineComputer {
   }
 
   Outline _newFunctionTypeAliasOutline(FunctionTypeAlias node) {
-    TypeName returnType = node.returnType;
+    TypeAnnotation returnType = node.returnType;
     SimpleIdentifier nameNode = node.name;
     String name = nameNode.name;
     _SourceRegion sourceRegion = _getSourceRegion(node);
     FormalParameterList parameters = node.parameters;
-    String parametersStr = parameters != null ? parameters.toSource() : '';
-    String returnTypeStr = returnType != null ? returnType.toSource() : '';
+    String parametersStr = _safeToSource(parameters);
+    String returnTypeStr = _safeToSource(returnType);
     Element element = new Element(
         ElementKind.FUNCTION_TYPE_ALIAS,
         name,
@@ -307,7 +306,7 @@ class DartUnitOutlineComputer {
   }
 
   Outline _newMethodOutline(MethodDeclaration method) {
-    TypeName returnType = method.returnType;
+    TypeAnnotation returnType = method.returnType;
     SimpleIdentifier nameNode = method.name;
     String name = nameNode.name;
     FormalParameterList parameters = method.parameters;
@@ -320,8 +319,8 @@ class DartUnitOutlineComputer {
       kind = ElementKind.METHOD;
     }
     _SourceRegion sourceRegion = _getSourceRegion(method);
-    String parametersStr = parameters != null ? parameters.toSource() : null;
-    String returnTypeStr = returnType != null ? returnType.toSource() : '';
+    String parametersStr = parameters?.toSource();
+    String returnTypeStr = _safeToSource(returnType);
     Element element = new Element(
         kind,
         name,
@@ -383,6 +382,9 @@ class DartUnitOutlineComputer {
     engine.Element element = declaration.element;
     return element != null && element.isDeprecated;
   }
+
+  static String _safeToSource(AstNode node) =>
+      node == null ? '' : node.toSource();
 }
 
 /**

@@ -8,9 +8,10 @@
 library compiler.api.legacy;
 
 import 'dart:async' show EventSink, Future;
-import 'null_compiler_output.dart' show NullSink;
+
 import '../compiler.dart';
 import '../compiler_new.dart';
+import 'null_compiler_output.dart' show NullSink;
 
 /// Implementation of [CompilerInput] using a [CompilerInputProvider].
 class LegacyCompilerInput implements CompilerInput {
@@ -31,22 +32,46 @@ class LegacyCompilerDiagnostics implements CompilerDiagnostics {
   LegacyCompilerDiagnostics(this._handler);
 
   @override
-  void report(var code, Uri uri, int begin, int end,
-              String message, Diagnostic kind) {
+  void report(
+      var code, Uri uri, int begin, int end, String message, Diagnostic kind) {
     _handler(uri, begin, end, message, kind);
   }
 }
 
 /// Implementation of [CompilerOutput] using an optional
 /// [CompilerOutputProvider].
+// TODO(johnniwinther): Change Pub to use the new interface and remove this.
 class LegacyCompilerOutput implements CompilerOutput {
   final CompilerOutputProvider _outputProvider;
 
   LegacyCompilerOutput([this._outputProvider]);
 
   @override
-  EventSink<String> createEventSink(String name, String extension) {
-    if (_outputProvider != null) return _outputProvider(name, extension);
-    return NullSink.outputProvider(name, extension);
+  OutputSink createOutputSink(String name, String extension, OutputType type) {
+    if (_outputProvider != null) {
+      switch (type) {
+        case OutputType.info:
+          if (extension == '') {
+            // Needed to make Pub generate the same output name.
+            extension = 'deferred_map';
+          }
+          break;
+        default:
+      }
+      return new LegacyOutputSink(_outputProvider(name, extension));
+    }
+    return NullSink.outputProvider(name, extension, type);
   }
+}
+
+class LegacyOutputSink implements OutputSink {
+  final EventSink<String> sink;
+
+  LegacyOutputSink(this.sink);
+
+  @override
+  void add(String event) => sink.add(event);
+
+  @override
+  void close() => sink.close();
 }

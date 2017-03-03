@@ -20,7 +20,7 @@ import 'dart:mirrors';
 import 'crash_library_metadata.dart'; // This would crash dart2js.
 
 // Importing dart:html to make things interesting.
-import 'dart:html';
+import 'dart:html'; /// 01: ok
 
 class MirrorPrinter {
   final StringBuffer buffer;
@@ -51,15 +51,16 @@ class MirrorPrinter {
   String stringifyInstance(InstanceMirror mirror) {
     var reflectee = mirror.reflectee;
     if (reflectee is String) return '"${reflectee}"';
-    if (reflectee is Null || reflectee is bool || reflectee is num ||
-        reflectee is List || reflectee is Map) {
+    if (reflectee is Null ||
+        reflectee is bool ||
+        reflectee is num ||
+        reflectee is List ||
+        reflectee is Map) {
       return '$reflectee';
     }
     StringBuffer buffer = new StringBuffer();
     Map<Symbol, DeclarationMirror> declarations = mirror.type.declarations;
-    buffer
-        ..write(n(mirror.type.simpleName))
-        ..write('(');
+    buffer..write(n(mirror.type.simpleName))..write('(');
     bool first = true;
     declarations.forEach((Symbol name, DeclarationMirror declaration) {
       if (declaration is! VariableMirror) return;
@@ -72,9 +73,9 @@ class MirrorPrinter {
         buffer.write(', ');
       }
       buffer
-          ..write(n(name))
-          ..write(': ')
-          ..write(stringifyInstance(mirror.getField(name)));
+        ..write(n(name))
+        ..write(': ')
+        ..write(stringifyInstance(mirror.getField(name)));
     });
     buffer.write(')');
     return buffer.toString();
@@ -168,7 +169,7 @@ class MirrorPrinter {
   writeLibrary(LibraryMirror library) {
     w('library ${n(library.simpleName)};\n\n');
     library.declarations.values
-        .where((d)=> d is! TypeMirror)
+        .where((d) => d is! TypeMirror)
         .forEach(writeDeclaration);
     w('\n');
   }
@@ -184,5 +185,5 @@ main() {
   print(MirrorPrinter.stringify(currentMirrorSystem().libraries));
   // Clear the nodes to avoid confusing the fine test framework (by "fine" I
   // mean something else) -- ahe.
-  document.body.nodes.clear();
+  document.body.nodes.clear(); /// 01: continued
 }

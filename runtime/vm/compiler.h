@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_COMPILER_H_
-#define VM_COMPILER_H_
+#ifndef RUNTIME_VM_COMPILER_H_
+#define RUNTIME_VM_COMPILER_H_
 
 #include "vm/allocation.h"
 #include "vm/growable_array.h"
@@ -27,6 +27,7 @@ class RawInstance;
 class Script;
 class SequenceNode;
 
+bool UseKernelFrontEndFor(ParsedFunction* parsed_function);
 
 class CompilationPipeline : public ZoneAllocated {
  public:
@@ -38,8 +39,8 @@ class CompilationPipeline : public ZoneAllocated {
       ParsedFunction* parsed_function,
       const ZoneGrowableArray<const ICData*>& ic_data_array,
       intptr_t osr_id) = 0;
-  virtual void FinalizeCompilation() = 0;
-  virtual ~CompilationPipeline() { }
+  virtual void FinalizeCompilation(FlowGraph* flow_graph) = 0;
+  virtual ~CompilationPipeline() {}
 };
 
 
@@ -53,13 +54,13 @@ class DartCompilationPipeline : public CompilationPipeline {
       const ZoneGrowableArray<const ICData*>& ic_data_array,
       intptr_t osr_id);
 
-  virtual void FinalizeCompilation();
+  virtual void FinalizeCompilation(FlowGraph* flow_graph);
 };
 
 
 class IrregexpCompilationPipeline : public CompilationPipeline {
  public:
-  IrregexpCompilationPipeline() : backtrack_goto_(NULL) { }
+  IrregexpCompilationPipeline() : backtrack_goto_(NULL) {}
 
   virtual void ParseFunction(ParsedFunction* parsed_function);
 
@@ -69,7 +70,7 @@ class IrregexpCompilationPipeline : public CompilationPipeline {
       const ZoneGrowableArray<const ICData*>& ic_data_array,
       intptr_t osr_id);
 
-  virtual void FinalizeCompilation();
+  virtual void FinalizeCompilation(FlowGraph* flow_graph);
 
  private:
   IndirectGotoInstr* backtrack_goto_;
@@ -81,6 +82,8 @@ class Compiler : public AllStatic {
   static const intptr_t kNoOSRDeoptId = Thread::kNoDeoptId;
 
   static bool IsBackgroundCompilation();
+  // The result for a function may change if debugging gets turned on/off.
+  static bool CanOptimizeFunction(Thread* thread, const Function& function);
 
   // Extracts top level entities from the script and populates
   // the class dictionary of the library.
@@ -98,6 +101,7 @@ class Compiler : public AllStatic {
   //
   // Returns Error::null() if there is no compilation error.
   static RawError* CompileFunction(Thread* thread, const Function& function);
+  static RawError* ParseFunction(Thread* thread, const Function& function);
 
   // Generates unoptimized code if not present, current code is unchanged.
   static RawError* EnsureUnoptimizedCode(Thread* thread,
@@ -108,10 +112,9 @@ class Compiler : public AllStatic {
   // Returns Error::null() if there is no compilation error.
   // If 'result_code' is not NULL, then the generated code is returned but
   // not installed.
-  static RawError* CompileOptimizedFunction(
-      Thread* thread,
-      const Function& function,
-      intptr_t osr_id = kNoOSRDeoptId);
+  static RawError* CompileOptimizedFunction(Thread* thread,
+                                            const Function& function,
+                                            intptr_t osr_id = kNoOSRDeoptId);
 
   // Generates code for given parsed function (without parsing it again) and
   // sets its code field.
@@ -141,12 +144,13 @@ class Compiler : public AllStatic {
   //
   // Returns Error::null() if there is no compilation error.
   static RawError* CompileAllFunctions(const Class& cls);
+  static RawError* ParseAllFunctions(const Class& cls);
 
   // Notify the compiler that background (optimized) compilation has failed
   // because the mutator thread changed the state (e.g., deoptimization,
   // deferred loading). The background compilation may retry to compile
   // the same function later.
-  static void AbortBackgroundCompilation(intptr_t deopt_id);
+  static void AbortBackgroundCompilation(intptr_t deopt_id, const char* msg);
 };
 
 
@@ -156,9 +160,19 @@ class Compiler : public AllStatic {
 // No OSR compilation in the background compiler.
 class BackgroundCompiler : public ThreadPool::Task {
  public:
+  virtual ~BackgroundCompiler();
+
   static void EnsureInit(Thread* thread);
 
-  static void Stop(BackgroundCompiler* task);
+  // Stops background compiler of the given isolate.
+  // TODO(turnidge): Give Stop and Disable more distinct names.
+  static void Stop(Isolate* isolate);
+
+  static void Disable();
+
+  static void Enable();
+
+  static bool IsDisabled();
 
   // Call to optimize a function in the background, enters the function in the
   // compilation queue.
@@ -167,6 +181,7 @@ class BackgroundCompiler : public ThreadPool::Task {
   void VisitPointers(ObjectPointerVisitor* visitor);
 
   BackgroundCompilationQueue* function_queue() const { return function_queue_; }
+  bool is_running() const { return running_; }
 
  private:
   explicit BackgroundCompiler(Isolate* isolate);
@@ -174,8 +189,8 @@ class BackgroundCompiler : public ThreadPool::Task {
   virtual void Run();
 
   Isolate* isolate_;
-  bool running_;       // While true, will try to read queue and compile.
-  bool* done_;         // True if the thread is done.
+  bool running_;            // While true, will try to read queue and compile.
+  bool* done_;              // True if the thread is done.
   Monitor* queue_monitor_;  // Controls access to the queue.
   Monitor* done_monitor_;   // Notify/wait that the thread is done.
 
@@ -186,4 +201,4 @@ class BackgroundCompiler : public ThreadPool::Task {
 
 }  // namespace dart
 
-#endif  // VM_COMPILER_H_
+#endif  // RUNTIME_VM_COMPILER_H_

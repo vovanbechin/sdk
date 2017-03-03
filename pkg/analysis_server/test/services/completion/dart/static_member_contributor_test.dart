@@ -6,15 +6,16 @@ library test.services.completion.dart.static_member;
 
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/static_member_contributor.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../../utils.dart';
 import 'completion_contributor_util.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(StaticMemberContributorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(StaticMemberContributorTest);
+    defineReflectiveTests(StaticMemberContributorTest_Driver);
+  });
 }
 
 @reflectiveTest
@@ -34,53 +35,6 @@ class StaticMemberContributorTest extends DartCompletionContributorTest {
     assertSuggestEnumConst('two', isDeprecated: true);
     assertNotSuggested('index');
     assertSuggestField('values', 'List<E>', isDeprecated: true);
-  }
-
-  test_PrefixedIdentifier_class_const() async {
-    // SimpleIdentifier PrefixedIdentifier ExpressionStatement Block
-    addSource(
-        '/testB.dart',
-        '''
-        lib B;
-        class I {
-          static const scI = 'boo';
-          X get f => new A();
-          get _g => new A();}
-        class B implements I {
-          static const int scB = 12;
-          var b; X _c;
-          X get d => new A();get _e => new A();
-          set s1(I x) {} set _s2(I x) {}
-          m(X x) {} I _n(X x) {}}
-        class X{}''');
-    addTestSource('''
-        import "/testB.dart";
-        class A extends B {
-          static const String scA = 'foo';
-          w() { }}
-        main() {A.^}''');
-    await computeSuggestions();
-    expect(replacementOffset, completionOffset);
-    expect(replacementLength, 0);
-    assertSuggestField('scA', 'String');
-    assertNotSuggested('scB');
-    assertNotSuggested('scI');
-    assertNotSuggested('b');
-    assertNotSuggested('_c');
-    assertNotSuggested('d');
-    assertNotSuggested('_e');
-    assertNotSuggested('f');
-    assertNotSuggested('_g');
-    assertNotSuggested('s1');
-    assertNotSuggested('_s2');
-    assertNotSuggested('m');
-    assertNotSuggested('_n');
-    assertNotSuggested('a');
-    assertNotSuggested('A');
-    assertNotSuggested('X');
-    assertNotSuggested('w');
-    assertNotSuggested('Object');
-    assertNotSuggested('==');
   }
 
   test_enumConst() async {
@@ -286,4 +240,57 @@ void main() {async.Future.^.w()}''');
     await computeSuggestions();
     assertSuggestMethod('wait', 'Future', 'Future<dynamic>');
   }
+
+  test_PrefixedIdentifier_class_const() async {
+    // SimpleIdentifier PrefixedIdentifier ExpressionStatement Block
+    addSource(
+        '/testB.dart',
+        '''
+        lib B;
+        class I {
+          static const scI = 'boo';
+          X get f => new A();
+          get _g => new A();}
+        class B implements I {
+          static const int scB = 12;
+          var b; X _c;
+          X get d => new A();get _e => new A();
+          set s1(I x) {} set _s2(I x) {}
+          m(X x) {} I _n(X x) {}}
+        class X{}''');
+    addTestSource('''
+        import "/testB.dart";
+        class A extends B {
+          static const String scA = 'foo';
+          w() { }}
+        main() {A.^}''');
+    await computeSuggestions();
+    expect(replacementOffset, completionOffset);
+    expect(replacementLength, 0);
+    assertSuggestField('scA', 'String');
+    assertNotSuggested('scB');
+    assertNotSuggested('scI');
+    assertNotSuggested('b');
+    assertNotSuggested('_c');
+    assertNotSuggested('d');
+    assertNotSuggested('_e');
+    assertNotSuggested('f');
+    assertNotSuggested('_g');
+    assertNotSuggested('s1');
+    assertNotSuggested('_s2');
+    assertNotSuggested('m');
+    assertNotSuggested('_n');
+    assertNotSuggested('a');
+    assertNotSuggested('A');
+    assertNotSuggested('X');
+    assertNotSuggested('w');
+    assertNotSuggested('Object');
+    assertNotSuggested('==');
+  }
+}
+
+@reflectiveTest
+class StaticMemberContributorTest_Driver extends StaticMemberContributorTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

@@ -1,6 +1,10 @@
 // Copyright (c) 2015, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
+//
+// OtherResources=certificates/server_chain.pem
+// OtherResources=certificates/server_key.pem
+// OtherResources=certificates/trusted_certs.pem
 
 import 'dart:io';
 import 'dart:convert';
@@ -113,6 +117,9 @@ void testInvalidArgumentClientConnect(List<String> protocols,
 }
 
 main() {
+  if (!SecurityContext.alpnSupported) {
+    return 0;
+  }
   final longname256 = 'p' * 256;
   final String longname255 = 'p' * 255;
   final String strangelongname255 = 'ø' + 'p' * 253;

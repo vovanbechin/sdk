@@ -9,14 +9,20 @@
 /// therefore it has implementations for both dart2js and the Dart VM. Both are
 /// under development and may not support all operations yet.
 ///
+/// To use this library in your code:
+///
+///     import 'dart:developer';
+///
 library dart.developer;
 
 import 'dart:async';
 import 'dart:convert';
+import 'dart:isolate' show Isolate, RawReceivePort, SendPort;
 
 part 'extension.dart';
 part 'profiler.dart';
 part 'timeline.dart';
+part 'service.dart';
 
 /// If [when] is true, stop the program as if a breakpoint were hit at the
 /// following statement.

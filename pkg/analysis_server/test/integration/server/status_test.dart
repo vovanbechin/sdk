@@ -2,24 +2,22 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.integration.server.status;
-
 import 'dart:async';
 
 import 'package:analysis_server/plugin/protocol/protocol.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../utils.dart';
 import '../integration_tests.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(Test);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(StatusTest);
+    defineReflectiveTests(StatusTest_Driver);
+  });
 }
 
-@reflectiveTest
-class Test extends AbstractAnalysisServerIntegrationTest {
+class AbstractStatusTest extends AbstractAnalysisServerIntegrationTest {
   test_status() {
     // After we kick off analysis, we should get one server.status message with
     // analyzing=true, and another server.status message after that with
@@ -51,4 +49,13 @@ main() {
       return analysisFinished.future;
     });
   }
+}
+
+@reflectiveTest
+class StatusTest extends AbstractStatusTest {}
+
+@reflectiveTest
+class StatusTest_Driver extends AbstractStatusTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

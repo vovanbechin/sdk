@@ -13,10 +13,12 @@ import 'package:analyzer/dart/ast/ast.dart' as engine;
 import 'package:analyzer/dart/ast/visitor.dart' as engine;
 import 'package:analyzer/dart/element/element.dart' as engine;
 import 'package:analyzer/dart/element/type.dart' as engine;
+import 'package:analyzer/error/error.dart' as engine;
+import 'package:analyzer/exception/exception.dart';
 import 'package:analyzer/source/error_processor.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart' as engine;
+import 'package:analyzer/src/error/codes.dart' as engine;
 import 'package:analyzer/src/generated/engine.dart' as engine;
-import 'package:analyzer/src/generated/error.dart' as engine;
 import 'package:analyzer/src/generated/source.dart' as engine;
 import 'package:analyzer/src/generated/utilities_dart.dart' as engine;
 
@@ -28,12 +30,13 @@ export 'package:analysis_server/plugin/protocol/protocol_dart.dart';
  * errors.
  */
 List<AnalysisError> doAnalysisError_listFromEngine(
-    engine.AnalysisContext context,
+    engine.AnalysisOptions analysisOptions,
     engine.LineInfo lineInfo,
     List<engine.AnalysisError> errors) {
   List<AnalysisError> serverErrors = <AnalysisError>[];
   for (engine.AnalysisError error in errors) {
-    ErrorProcessor processor = ErrorProcessor.getProcessor(context, error);
+    ErrorProcessor processor =
+        ErrorProcessor.getProcessor(analysisOptions, error);
     if (processor != null) {
       engine.ErrorSeverity severity = processor.severity;
       // Errors with null severity are filtered out.
@@ -50,23 +53,22 @@ List<AnalysisError> doAnalysisError_listFromEngine(
 }
 
 /**
- * Adds [edit] to the [FileEdit] for the given [element].
+ * Adds [edit] to the file containing the given [element].
  */
 void doSourceChange_addElementEdit(
     SourceChange change, engine.Element element, SourceEdit edit) {
-  engine.AnalysisContext context = element.context;
   engine.Source source = element.source;
-  doSourceChange_addSourceEdit(change, context, source, edit);
+  doSourceChange_addSourceEdit(change, source, edit);
 }
 
 /**
- * Adds [edit] to the [FileEdit] for the given [source].
+ * Adds [edit] for the given [source] to the [change].
  */
-void doSourceChange_addSourceEdit(SourceChange change,
-    engine.AnalysisContext context, engine.Source source, SourceEdit edit) {
+void doSourceChange_addSourceEdit(
+    SourceChange change, engine.Source source, SourceEdit edit,
+    {bool isNewFile: false}) {
   String file = source.fullName;
-  int fileStamp = context.getModificationStamp(source);
-  change.addEdit(file, fileStamp, edit);
+  change.addEdit(file, isNewFile ? -1 : 0, edit);
 }
 
 String getReturnTypeString(engine.Element element) {
@@ -131,28 +133,27 @@ AnalysisError newAnalysisError_fromEngine(
  * Create a Location based on an [engine.Element].
  */
 Location newLocation_fromElement(engine.Element element) {
-  engine.AnalysisContext context = element.context;
-  engine.Source source = element.source;
-  if (context == null || source == null) {
+  if (element == null || element.source == null) {
     return null;
   }
   int offset = element.nameOffset;
   int length = element.nameLength;
-  if (element is engine.CompilationUnitElement) {
+  if (element is engine.CompilationUnitElement ||
+      (element is engine.LibraryElement && offset < 0)) {
     offset = 0;
     length = 0;
   }
+  engine.CompilationUnitElement unitElement = _getUnitElement(element);
   engine.SourceRange range = new engine.SourceRange(offset, length);
-  return _locationForArgs(context, source, range);
+  return _locationForArgs(unitElement, range);
 }
 
 /**
  * Create a Location based on an [engine.SearchMatch].
  */
 Location newLocation_fromMatch(engine.SearchMatch match) {
-  engine.Element enclosingElement = match.element;
-  return _locationForArgs(
-      enclosingElement.context, enclosingElement.source, match.sourceRange);
+  engine.CompilationUnitElement unitElement = _getUnitElement(match.element);
+  return _locationForArgs(unitElement, match.sourceRange);
 }
 
 /**
@@ -162,10 +163,8 @@ Location newLocation_fromNode(engine.AstNode node) {
   engine.CompilationUnit unit =
       node.getAncestor((node) => node is engine.CompilationUnit);
   engine.CompilationUnitElement unitElement = unit.element;
-  engine.AnalysisContext context = unitElement.context;
-  engine.Source source = unitElement.source;
   engine.SourceRange range = new engine.SourceRange(node.offset, node.length);
-  return _locationForArgs(context, source, range);
+  return _locationForArgs(unitElement, range);
 }
 
 /**
@@ -173,10 +172,7 @@ Location newLocation_fromNode(engine.AstNode node) {
  */
 Location newLocation_fromUnit(
     engine.CompilationUnit unit, engine.SourceRange range) {
-  engine.CompilationUnitElement unitElement = unit.element;
-  engine.AnalysisContext context = unitElement.context;
-  engine.Source source = unitElement.source;
-  return _locationForArgs(context, source, range);
+  return _locationForArgs(unit.element, range);
 }
 
 /**
@@ -247,22 +243,40 @@ List<Element> _computePath(engine.Element element) {
   return path;
 }
 
+engine.CompilationUnitElement _getUnitElement(engine.Element element) {
+  if (element is engine.CompilationUnitElement) {
+    return element;
+  }
+  if (element?.enclosingElement is engine.LibraryElement) {
+    element = element.enclosingElement;
+  }
+  if (element is engine.LibraryElement) {
+    return element.definingCompilationUnit;
+  }
+  for (; element != null; element = element.enclosingElement) {
+    if (element is engine.CompilationUnitElement) {
+      return element;
+    }
+  }
+  return null;
+}
+
 /**
  * Creates a new [Location].
  */
-Location _locationForArgs(engine.AnalysisContext context, engine.Source source,
-    engine.SourceRange range) {
+Location _locationForArgs(
+    engine.CompilationUnitElement unitElement, engine.SourceRange range) {
   int startLine = 0;
   int startColumn = 0;
-  {
-    engine.LineInfo lineInfo = context.getLineInfo(source);
+  try {
+    engine.LineInfo lineInfo = unitElement.lineInfo;
     if (lineInfo != null) {
       engine.LineInfo_Location offsetLocation =
           lineInfo.getLocation(range.offset);
       startLine = offsetLocation.lineNumber;
       startColumn = offsetLocation.columnNumber;
     }
-  }
-  return new Location(
-      source.fullName, range.offset, range.length, startLine, startColumn);
+  } on AnalysisException {}
+  return new Location(unitElement.source.fullName, range.offset, range.length,
+      startLine, startColumn);
 }

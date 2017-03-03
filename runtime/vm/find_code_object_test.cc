@@ -13,15 +13,20 @@
 
 namespace dart {
 
-VM_TEST_CASE(FindCodeObject) {
 #if defined(TARGET_ARCH_IA32) || defined(TARGET_ARCH_X64)
-  const int kLoopCount = 50000;
+static const int kScriptSize = 512 * KB;
+static const int kLoopCount = 50000;
+#elif defined(TARGET_ARCH_DBC)
+static const int kScriptSize = 1 * MB;
+static const int kLoopCount = 60000;
 #else
-  const int kLoopCount = 25000;
+static const int kScriptSize = 512 * KB;
+static const int kLoopCount = 25000;
 #endif
-  const int kScriptSize = 512 * KB;
+static char scriptChars[kScriptSize];
+
+ISOLATE_UNIT_TEST_CASE(FindCodeObject) {
   const int kNumFunctions = 1024;
-  char scriptChars[kScriptSize];
 
   // Get access to the code index table.
   Isolate* isolate = Isolate::Current();
@@ -43,19 +48,16 @@ VM_TEST_CASE(FindCodeObject) {
   // Load up class A with 1024 functions.
   int written = OS::SNPrint(scriptChars, kScriptSize, "class A {");
   for (int i = 0; i < kNumFunctions; i++) {
-    OS::SNPrint(buffer,
-                256,
+    OS::SNPrint(buffer, 256,
                 "static foo%d([int i=1,int j=2,int k=3]){return i+j+k;}", i);
-    written += OS::SNPrint((scriptChars + written),
-                           (kScriptSize - written),
-                           "%s",
-                           buffer);
+    written += OS::SNPrint((scriptChars + written), (kScriptSize - written),
+                           "%s", buffer);
   }
   OS::SNPrint((scriptChars + written), (kScriptSize - written), "}");
   source = String::New(scriptChars);
   script = Script::New(url, source, RawScript::kScriptTag);
   EXPECT(CompilerTest::TestCompileScript(lib, script));
-  clsA = lib.LookupClass(String::Handle(Symbols::New("A")));
+  clsA = lib.LookupClass(String::Handle(Symbols::New(thread, "A")));
   EXPECT(!clsA.IsNull());
   ClassFinalizer::ProcessPendingClasses();
   for (int i = 0; i < kNumFunctions; i++) {
@@ -73,39 +75,30 @@ VM_TEST_CASE(FindCodeObject) {
   written = OS::SNPrint(scriptChars, kScriptSize, "class B {");
   // Create one large function.
   OS::SNPrint(buffer, sizeof(buffer), "static moo0([var i=1]) { ");
-  written += OS::SNPrint((scriptChars + written),
-                         (kScriptSize - written),
-                         "%s",
+  written += OS::SNPrint((scriptChars + written), (kScriptSize - written), "%s",
                          buffer);
   // Generate a large function so that the code for this function when
   // compiled will reside in a large page.
   for (int i = 0; i < kLoopCount; i++) {
     OS::SNPrint(buffer, sizeof(buffer), "i = i+i;");
-    written += OS::SNPrint((scriptChars + written),
-                           (kScriptSize - written),
-                           "%s",
-                           buffer);
+    written += OS::SNPrint((scriptChars + written), (kScriptSize - written),
+                           "%s", buffer);
   }
   OS::SNPrint(buffer, sizeof(buffer), "return i; }");
-  written += OS::SNPrint((scriptChars + written),
-                         (kScriptSize - written),
-                         "%s",
+  written += OS::SNPrint((scriptChars + written), (kScriptSize - written), "%s",
                          buffer);
   for (int i = 1; i < kNumFunctions; i++) {
-    OS::SNPrint(buffer,
-                256,
+    OS::SNPrint(buffer, 256,
                 "static moo%d([int i=1,int j=2,int k=3]){return i+j+k;}", i);
-    written += OS::SNPrint((scriptChars + written),
-                           (kScriptSize - written),
-                           "%s",
-                           buffer);
+    written += OS::SNPrint((scriptChars + written), (kScriptSize - written),
+                           "%s", buffer);
   }
   OS::SNPrint((scriptChars + written), (kScriptSize - written), "}");
   url = String::New("dart-test:FindCodeObject");
   source = String::New(scriptChars);
   script = Script::New(url, source, RawScript::kScriptTag);
   EXPECT(CompilerTest::TestCompileScript(lib, script));
-  clsB = lib.LookupClass(String::Handle(Symbols::New("B")));
+  clsB = lib.LookupClass(String::Handle(Symbols::New(thread, "B")));
   EXPECT(!clsB.IsNull());
   ClassFinalizer::ProcessPendingClasses();
   for (int i = 0; i < kNumFunctions; i++) {
@@ -128,7 +121,7 @@ VM_TEST_CASE(FindCodeObject) {
   EXPECT(!function.IsNull());
   code = function.CurrentCode();
   EXPECT(code.Size() > 16);
-  pc = code.EntryPoint() + 16;
+  pc = code.PayloadStart() + 16;
   EXPECT(Code::LookupCode(pc) == code.raw());
 
   OS::SNPrint(buffer, 256, "moo%d", 54);
@@ -137,7 +130,7 @@ VM_TEST_CASE(FindCodeObject) {
   EXPECT(!function.IsNull());
   code = function.CurrentCode();
   EXPECT(code.Size() > 16);
-  pc = code.EntryPoint() + 16;
+  pc = code.PayloadStart() + 16;
   EXPECT(Code::LookupCode(pc) == code.raw());
 
   // Lookup the large function
@@ -147,11 +140,11 @@ VM_TEST_CASE(FindCodeObject) {
   EXPECT(!function.IsNull());
   code = function.CurrentCode();
   EXPECT(code.Size() > 16);
-  pc = code.EntryPoint() + 16;
+  pc = code.PayloadStart() + 16;
   EXPECT(code.Size() > (PageSpace::kPageSizeInWords << kWordSizeLog2));
   EXPECT(Code::LookupCode(pc) == code.raw());
   EXPECT(code.Size() > (1 * MB));
-  pc = code.EntryPoint() + (1 * MB);
+  pc = code.PayloadStart() + (1 * MB);
   EXPECT(Code::LookupCode(pc) == code.raw());
 }
 

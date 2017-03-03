@@ -8,7 +8,7 @@ import 'package:expect/expect.dart';
 import 'package:async_helper/async_helper.dart';
 import 'memory_compiler.dart';
 
-const String TEST_BASIC= r"""
+const String TEST_BASIC = r"""
 library main;
 
 int a = 2;
@@ -98,13 +98,15 @@ typedef void JsonTaking(Map<String, dynamic> json);
 
 jsonTest(String program, JsonTaking testFn) async {
   var result = await runCompiler(
-      memorySourceFiles: {'main.dart': program}, options: ['--dump-info']);
+      memorySourceFiles: {'main.dart': program},
+      options: ['--out=out.js', '--dump-info']);
   var compiler = result.compiler;
   Expect.isFalse(compiler.compilationFailed);
   var dumpTask = compiler.dumpInfoTask;
 
   StringBuffer sb = new StringBuffer();
-  dumpTask.dumpInfoJson(sb);
+  dumpTask.dumpInfoJson(
+      sb, compiler.resolutionWorldBuilder.closedWorldForTesting);
   String json = sb.toString();
   Map<String, dynamic> map = JSON.decode(json);
 
@@ -141,15 +143,14 @@ runTests() async {
     }));
   });
 
-  await  jsonTest(TEST_STATICS, (map) {
+  await jsonTest(TEST_STATICS, (map) {
     var functions = map['elements']['function'].values;
     var classes = map['elements']['class'].values;
     Expect.isTrue(functions.any((fn) {
       return fn['name'] == 'does_something';
     }));
     Expect.isTrue(classes.any((cls) {
-      return cls['name'] == 'ContainsStatics' &&
-          cls['children'].length >= 1;
+      return cls['name'] == 'ContainsStatics' && cls['children'].length >= 1;
     }));
   });
 
@@ -157,12 +158,10 @@ runTests() async {
     var functions = map['elements']['function'].values;
     var classes = map['elements']['class'].values;
     Expect.isTrue(functions.any((fn) {
-      return fn['name'] == 'double' &&
-          fn['inlinedCount'] == 1;
+      return fn['name'] == 'double' && fn['inlinedCount'] == 1;
     }));
     Expect.isTrue(classes.any((cls) {
-      return cls['name'] == 'Doubler' &&
-          cls['children'].length >= 1;
+      return cls['name'] == 'Doubler' && cls['children'].length >= 1;
     }));
   });
 

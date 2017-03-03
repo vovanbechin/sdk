@@ -4,11 +4,19 @@
 
 library analyzer.source.error_processor;
 
+import 'package:analyzer/error/error.dart';
+import 'package:analyzer/src/error/codes.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
 import 'package:analyzer/src/generated/utilities_general.dart';
 import 'package:analyzer/src/task/options.dart';
 import 'package:yaml/yaml.dart';
+
+/// String identifiers mapped to associated severities.
+const Map<String, ErrorSeverity> severityMap = const {
+  'error': ErrorSeverity.ERROR,
+  'info': ErrorSeverity.INFO,
+  'warning': ErrorSeverity.WARNING
+};
 
 /// Error processor configuration derived from analysis (or embedder) options.
 class ErrorConfig {
@@ -57,13 +65,6 @@ class ErrorConfig {
   ErrorSeverity _toSeverity(String severity) => severityMap[severity];
 }
 
-/// String identifiers mapped to associated severities.
-const Map<String, ErrorSeverity> severityMap = const {
-  'error': ErrorSeverity.ERROR,
-  'info': ErrorSeverity.INFO,
-  'warning': ErrorSeverity.WARNING
-};
-
 /// Process errors by filtering or changing associated [ErrorSeverity].
 class ErrorProcessor {
   /// The code name of the associated error.
@@ -83,31 +84,30 @@ class ErrorProcessor {
   /// Create an error processor that ignores the given error by [code].
   factory ErrorProcessor.ignore(String code) => new ErrorProcessor(code);
 
+  /// The string that unique describes the processor.
+  String get description => '$code -> ${severity?.name}';
+
   /// Check if this processor applies to the given [error].
   bool appliesTo(AnalysisError error) => code == error.errorCode.name;
 
-  /// Return an error processor associated with this [context] for the given
-  /// [error], or `null` if none is found.
+  /// Return an error processor associated in the [analysisOptions] for the
+  /// given [error], or `null` if none is found.
   static ErrorProcessor getProcessor(
-      AnalysisContext context, AnalysisError error) {
-    if (context == null) {
+      AnalysisOptions analysisOptions, AnalysisError error) {
+    if (analysisOptions == null) {
       return null;
     }
 
-    // By default, the error is not processed.
-    ErrorProcessor processor;
+    // Let the user configure how specific errors are processed.
+    List<ErrorProcessor> processors = analysisOptions.errorProcessors;
 
     // Give strong mode a chance to upgrade it.
-    if (context.analysisOptions.strongMode) {
-      processor = _StrongModeTypeErrorProcessor.instance;
+    if (analysisOptions.strongMode) {
+      processors = processors.toList();
+      processors.add(_StrongModeTypeErrorProcessor.instance);
     }
-
-    // Let the user configure how specific errors are processed.
-    List<ErrorProcessor> processors =
-        context.getConfigurationData(CONFIGURED_ERROR_PROCESSORS);
-
     return processors.firstWhere((ErrorProcessor p) => p.appliesTo(error),
-        orElse: () => processor);
+        orElse: () => null);
   }
 }
 
@@ -120,10 +120,21 @@ class _StrongModeTypeErrorProcessor implements ErrorProcessor {
   String get code => throw new UnsupportedError(
       "_StrongModeTypeErrorProcessor is not specific to an error code.");
 
+  @override
+  String get description => 'allStrongWarnings -> ERROR';
+
   /// In strong mode, type warnings are upgraded to errors.
   ErrorSeverity get severity => ErrorSeverity.ERROR;
 
   /// Check if this processor applies to the given [error].
-  bool appliesTo(AnalysisError error) =>
-      error.errorCode.type == ErrorType.STATIC_TYPE_WARNING;
+  bool appliesTo(AnalysisError error) {
+    ErrorCode errorCode = error.errorCode;
+    if (errorCode is StaticTypeWarningCode) {
+      return true;
+    }
+    if (errorCode is StaticWarningCode) {
+      return errorCode.isStrongModeError;
+    }
+    return false;
+  }
 }

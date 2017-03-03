@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_SCAVENGER_H_
-#define VM_SCAVENGER_H_
+#ifndef RUNTIME_VM_SCAVENGER_H_
+#define RUNTIME_VM_SCAVENGER_H_
 
 #include "platform/assert.h"
 #include "platform/utils.h"
@@ -22,6 +22,7 @@ namespace dart {
 class Heap;
 class Isolate;
 class JSONObject;
+class ObjectSet;
 class ScavengerVisitor;
 
 // Wrapper around VirtualMemory that adds caching and handles the empty case.
@@ -70,13 +71,13 @@ class ScavengeStats {
                 SpaceUsage before,
                 SpaceUsage after,
                 intptr_t promo_candidates_in_words,
-                intptr_t promoted_in_words) :
-      start_micros_(start_micros),
-      end_micros_(end_micros),
-      before_(before),
-      after_(after),
-      promo_candidates_in_words_(promo_candidates_in_words),
-      promoted_in_words_(promoted_in_words) {}
+                intptr_t promoted_in_words)
+      : start_micros_(start_micros),
+        end_micros_(end_micros),
+        before_(before),
+        after_(after),
+        promo_candidates_in_words_(promo_candidates_in_words),
+        promoted_in_words_(promoted_in_words) {}
 
   // Of all data before scavenge, what fraction was found to be garbage?
   double GarbageFraction() const {
@@ -87,14 +88,13 @@ class ScavengeStats {
   // Fraction of promotion candidates that survived and was thereby promoted.
   // Returns zero if there were no promotion candidates.
   double PromoCandidatesSuccessFraction() const {
-    return promo_candidates_in_words_ > 0 ?
-        promoted_in_words_ / static_cast<double>(promo_candidates_in_words_) :
-        0.0;
+    return promo_candidates_in_words_ > 0
+               ? promoted_in_words_ /
+                     static_cast<double>(promo_candidates_in_words_)
+               : 0.0;
   }
 
-  int64_t DurationMicros() const {
-    return end_micros_ - start_micros_;
-  }
+  int64_t DurationMicros() const { return end_micros_ - start_micros_; }
 
  private:
   int64_t start_micros_;
@@ -117,9 +117,7 @@ class Scavenger {
   // During scavenging both the to and from spaces contain "legal" objects.
   // During a scavenge this function only returns true for addresses that will
   // be part of the surviving objects.
-  bool Contains(uword addr) const {
-    return to_->Contains(addr);
-  }
+  bool Contains(uword addr) const { return to_->Contains(addr); }
 
   RawObject* FindObject(FindObjectVisitor* visitor) const;
 
@@ -164,12 +162,8 @@ class Scavenger {
   int64_t UsedInWords() const {
     return (top_ - FirstObjectStart()) >> kWordSizeLog2;
   }
-  int64_t CapacityInWords() const {
-    return to_->size_in_words();
-  }
-  int64_t ExternalInWords() const {
-    return external_size_ >> kWordSizeLog2;
-  }
+  int64_t CapacityInWords() const { return to_->size_in_words(); }
+  int64_t ExternalInWords() const { return external_size_ >> kWordSizeLog2; }
   SpaceUsage GetCurrentUsage() const {
     SpaceUsage usage;
     usage.used_in_words = UsedInWords();
@@ -181,30 +175,21 @@ class Scavenger {
   void VisitObjects(ObjectVisitor* visitor) const;
   void VisitObjectPointers(ObjectPointerVisitor* visitor) const;
 
-  void StartEndAddress(uword* start, uword* end) const {
-    *start = to_->start();
-    *end = to_->end();
-  }
+  void AddRegionsToObjectSet(ObjectSet* set) const;
 
   void WriteProtect(bool read_only);
 
-  void AddGCTime(int64_t micros) {
-    gc_time_micros_ += micros;
-  }
+  void AddGCTime(int64_t micros) { gc_time_micros_ += micros; }
 
-  int64_t gc_time_micros() const {
-    return gc_time_micros_;
-  }
+  int64_t gc_time_micros() const { return gc_time_micros_; }
 
-  void IncrementCollections() {
-    collections_++;
-  }
+  void IncrementCollections() { collections_++; }
 
-  intptr_t collections() const {
-    return collections_;
-  }
+  intptr_t collections() const { return collections_; }
 
+#ifndef PRODUCT
   void PrintToJSONObject(JSONObject* object) const;
+#endif  // !PRODUCT
 
   void AllocateExternal(intptr_t size);
   void FreeExternal(intptr_t size);
@@ -233,6 +218,7 @@ class Scavenger {
   void IterateWeakReferences(Isolate* isolate, ScavengerVisitor* visitor);
   void IterateWeakRoots(Isolate* isolate, HandleVisitor* visitor);
   void ProcessToSpace(ScavengerVisitor* visitor);
+  void EnqueueWeakProperty(RawWeakProperty* raw_weak);
   uword ProcessWeakProperty(RawWeakProperty* raw_weak,
                             ScavengerVisitor* visitor);
   void Epilogue(Isolate* isolate, SemiSpace* from, bool invoke_api_callbacks);
@@ -264,12 +250,16 @@ class Scavenger {
   void UpdateMaxHeapCapacity();
   void UpdateMaxHeapUsage();
 
-  void ProcessWeakTables();
+  void ProcessWeakReferences();
 
   intptr_t NewSizeInWords(intptr_t old_size_in_words) const;
 
-  // Current allocation top and end. These values are being accessed directly
-  // from generated code.
+  // Accessed from generated code.
+  // ** This block of fields must come first! **
+  // For AOT cross-compilation, we rely on these members having the same offsets
+  // in SIMARM(IA32) and ARM, and the same offsets in SIMARM64(X64) and ARM64.
+  // We use only word-sized fields to avoid differences in struct packing on the
+  // different architectures. See also CheckOffsets in dart.cc.
   uword top_;
   uword end_;
 
@@ -292,6 +282,9 @@ class Scavenger {
   // Keep track whether a scavenge is currently running.
   bool scavenging_;
 
+  // Keep track of pending weak properties discovered while scagenging.
+  RawWeakProperty* delayed_weak_properties_;
+
   int64_t gc_time_micros_;
   intptr_t collections_;
   static const int kStatsHistoryCapacity = 2;
@@ -308,4 +301,4 @@ class Scavenger {
 
 }  // namespace dart
 
-#endif  // VM_SCAVENGER_H_
+#endif  // RUNTIME_VM_SCAVENGER_H_

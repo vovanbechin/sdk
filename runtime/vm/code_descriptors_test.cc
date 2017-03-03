@@ -21,7 +21,7 @@ namespace dart {
 static const TokenPosition kPos = TokenPosition::kNoSource;
 
 
-CODEGEN_TEST_GENERATE(StackmapCodegen, test) {
+CODEGEN_TEST_GENERATE(StackMapCodegen, test) {
   ParsedFunction* parsed_function =
       new ParsedFunction(Thread::Current(), test->function());
   LiteralNode* l = new LiteralNode(kPos, Smi::ZoneHandle(Smi::New(1)));
@@ -45,7 +45,7 @@ CODEGEN_TEST_GENERATE(StackmapCodegen, test) {
   if (setjmp(*jump.Set()) == 0) {
     // Build a stackmap table and some stackmap table entries.
     const intptr_t kStackSlotCount = 11;
-    StackmapTableBuilder* stackmap_table_builder = new StackmapTableBuilder();
+    StackMapTableBuilder* stackmap_table_builder = new StackMapTableBuilder();
     EXPECT(stackmap_table_builder != NULL);
 
     BitmapBuilder* stack_bitmap = new BitmapBuilder();
@@ -56,7 +56,7 @@ CODEGEN_TEST_GENERATE(StackmapCodegen, test) {
     stack_bitmap->SetLength(kStackSlotCount);
     EXPECT_EQ(kStackSlotCount, stack_bitmap->Length());
 
-    bool expectation0[kStackSlotCount] = { true };
+    bool expectation0[kStackSlotCount] = {true};
     for (intptr_t i = 0; i < kStackSlotCount; ++i) {
       EXPECT_EQ(expectation0[i], stack_bitmap->Get(i));
     }
@@ -73,7 +73,7 @@ CODEGEN_TEST_GENERATE(StackmapCodegen, test) {
     stack_bitmap->SetLength(kStackSlotCount);
     EXPECT_EQ(kStackSlotCount, stack_bitmap->Length());
 
-    bool expectation1[kStackSlotCount] = { true, false, true };
+    bool expectation1[kStackSlotCount] = {true, false, true};
     for (intptr_t i = 0; i < kStackSlotCount; ++i) {
       EXPECT_EQ(expectation1[i], stack_bitmap->Get(i));
     }
@@ -91,8 +91,7 @@ CODEGEN_TEST_GENERATE(StackmapCodegen, test) {
     stack_bitmap->SetLength(kStackSlotCount);
     EXPECT_EQ(kStackSlotCount, stack_bitmap->Length());
 
-    bool expectation2[kStackSlotCount] =
-        { true, false, true, true, true, true };
+    bool expectation2[kStackSlotCount] = {true, false, true, true, true, true};
     for (intptr_t i = 0; i < kStackSlotCount; ++i) {
       EXPECT_EQ(expectation2[i], stack_bitmap->Get(i));
     }
@@ -112,9 +111,8 @@ CODEGEN_TEST_GENERATE(StackmapCodegen, test) {
     stack_bitmap->SetLength(kStackSlotCount);
     EXPECT_EQ(kStackSlotCount, stack_bitmap->Length());
 
-    bool expectation3[kStackSlotCount] =
-        { true, false, true, true, true, true, false, false,
-          false, false, true };
+    bool expectation3[kStackSlotCount] = {
+        true, false, true, true, true, true, false, false, false, false, true};
     for (intptr_t i = 0; i < kStackSlotCount; ++i) {
       EXPECT_EQ(expectation3[i], stack_bitmap->Get(i));
     }
@@ -127,11 +125,11 @@ CODEGEN_TEST_GENERATE(StackmapCodegen, test) {
     const Code& code = Code::Handle(test->function().CurrentCode());
 
     const Array& stack_maps =
-        Array::Handle(stackmap_table_builder->FinalizeStackmaps(code));
+        Array::Handle(stackmap_table_builder->FinalizeStackMaps(code));
     code.set_stackmaps(stack_maps);
     const Array& stack_map_list = Array::Handle(code.stackmaps());
     EXPECT(!stack_map_list.IsNull());
-    Stackmap& stack_map = Stackmap::Handle();
+    StackMap& stack_map = StackMap::Handle();
     EXPECT_EQ(4, stack_map_list.Length());
 
     // Validate the first stack map entry.
@@ -167,7 +165,7 @@ CODEGEN_TEST_GENERATE(StackmapCodegen, test) {
   }
   EXPECT(retval);
 }
-CODEGEN_TEST_RUN(StackmapCodegen, Smi::New(1))
+CODEGEN_TEST_RUN(StackMapCodegen, Smi::New(1))
 
 
 static void NativeFunc(Dart_NativeArguments args) {
@@ -194,7 +192,7 @@ static Dart_NativeFunction native_resolver(Dart_Handle name,
 }
 
 
-TEST_CASE(StackmapGC) {
+TEST_CASE(StackMapGC) {
   const char* kScriptChars =
       "class A {"
       "  static void func(var i, var k) native 'NativeFunc';"
@@ -218,10 +216,10 @@ TEST_CASE(StackmapGC) {
 
   EXPECT(ClassFinalizer::ProcessPendingClasses());
   const String& name = String::Handle(String::New(TestCase::url()));
-  const Library& lib = Library::Handle(Library::LookupLibrary(name));
+  const Library& lib = Library::Handle(Library::LookupLibrary(thread, name));
   EXPECT(!lib.IsNull());
-  Class& cls = Class::Handle(
-      lib.LookupClass(String::Handle(Symbols::New("A"))));
+  Class& cls =
+      Class::Handle(lib.LookupClass(String::Handle(Symbols::New(thread, "A"))));
   EXPECT(!cls.IsNull());
 
   // Now compile the two functions 'A.foo' and 'A.moo'
@@ -239,22 +237,21 @@ TEST_CASE(StackmapGC) {
 
   // Build and setup a stackmap for the call to 'func' in 'A.foo' in order
   // to test the traversal of stack maps when a GC happens.
-  StackmapTableBuilder* stackmap_table_builder = new StackmapTableBuilder();
+  StackMapTableBuilder* stackmap_table_builder = new StackMapTableBuilder();
   EXPECT(stackmap_table_builder != NULL);
   BitmapBuilder* stack_bitmap = new BitmapBuilder();
   EXPECT(stack_bitmap != NULL);
   stack_bitmap->Set(0, false);  // var i.
-  stack_bitmap->Set(1, true);  // var s1.
+  stack_bitmap->Set(1, true);   // var s1.
   stack_bitmap->Set(2, false);  // var k.
-  stack_bitmap->Set(3, true);  // var s2.
-  stack_bitmap->Set(4, true);  // var s3.
+  stack_bitmap->Set(3, true);   // var s2.
+  stack_bitmap->Set(4, true);   // var s3.
   const Code& code = Code::Handle(function_foo.unoptimized_code());
   // Search for the pc of the call to 'func'.
   const PcDescriptors& descriptors =
       PcDescriptors::Handle(code.pc_descriptors());
   int call_count = 0;
-  PcDescriptors::Iterator iter(descriptors,
-                               RawPcDescriptors::kUnoptStaticCall);
+  PcDescriptors::Iterator iter(descriptors, RawPcDescriptors::kUnoptStaticCall);
   while (iter.MoveNext()) {
     stackmap_table_builder->AddEntry(iter.PcOffset(), stack_bitmap, 0);
     ++call_count;
@@ -263,7 +260,7 @@ TEST_CASE(StackmapGC) {
   // we did if there was exactly one call seen.
   EXPECT(call_count == 1);
   const Array& stack_maps =
-      Array::Handle(stackmap_table_builder->FinalizeStackmaps(code));
+      Array::Handle(stackmap_table_builder->FinalizeStackMaps(code));
   code.set_stackmaps(stack_maps);
 
   // Now invoke 'A.moo' and it will trigger a GC when the native function
@@ -279,22 +276,22 @@ TEST_CASE(DescriptorList_TokenPositions) {
   DescriptorList* descriptors = new DescriptorList(64);
   ASSERT(descriptors != NULL);
   const intptr_t token_positions[] = {
-    kMinInt32,
-    5,
-    13,
-    13,
-    13,
-    13,
-    31,
-    23,
-    23,
-    23,
-    33,
-    33,
-    5,
-    5,
-    TokenPosition::kMinSourcePos,
-    TokenPosition::kMaxSourcePos,
+      kMinInt32,
+      5,
+      13,
+      13,
+      13,
+      13,
+      31,
+      23,
+      23,
+      23,
+      33,
+      33,
+      5,
+      5,
+      TokenPosition::kMinSourcePos,
+      TokenPosition::kMaxSourcePos,
   };
   const intptr_t num_token_positions =
       sizeof(token_positions) / sizeof(token_positions[0]);
@@ -314,56 +311,8 @@ TEST_CASE(DescriptorList_TokenPositions) {
   intptr_t i = 0;
   while (it.MoveNext()) {
     if (token_positions[i] != it.TokenPos().value()) {
-      OS::Print("[%" Pd "]: Expected: %" Pd " != %" Pd "\n",
-                i, token_positions[i], it.TokenPos().value());
-    }
-    EXPECT(token_positions[i] == it.TokenPos().value());
-    i++;
-  }
-}
-
-
-TEST_CASE(CodeSourceMap_TokenPositions) {
-  const intptr_t token_positions[] = {
-    kMinInt32,
-    5,
-    13,
-    13,
-    13,
-    13,
-    31,
-    23,
-    23,
-    23,
-    33,
-    33,
-    5,
-    5,
-    TokenPosition::kMinSourcePos,
-    TokenPosition::kMaxSourcePos,
-  };
-  const intptr_t num_token_positions =
-      sizeof(token_positions) / sizeof(token_positions[0]);
-
-  CodeSourceMapBuilder* builder = new CodeSourceMapBuilder();
-  ASSERT(builder != NULL);
-
-  for (intptr_t i = 0; i < num_token_positions; i++) {
-    builder->AddEntry(i, TokenPosition(token_positions[i]));
-  }
-
-  const CodeSourceMap& code_Source_map =
-      CodeSourceMap::Handle(builder->Finalize());
-
-  ASSERT(!code_Source_map.IsNull());
-  CodeSourceMap::Iterator it(code_Source_map);
-
-  uintptr_t i = 0;
-  while (it.MoveNext()) {
-    EXPECT(it.PcOffset() == i);
-    if (token_positions[i] != it.TokenPos().value()) {
-      OS::Print("[%" Pd "]: Expected: %" Pd " != %" Pd "\n",
-                i, token_positions[i], it.TokenPos().value());
+      OS::Print("[%" Pd "]: Expected: %" Pd " != %" Pd "\n", i,
+                token_positions[i], it.TokenPos().value());
     }
     EXPECT(token_positions[i] == it.TokenPos().value());
     i++;

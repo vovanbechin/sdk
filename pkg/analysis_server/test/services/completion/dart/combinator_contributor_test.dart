@@ -7,15 +7,16 @@ library test.services.completion.dart.combinator;
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/combinator_contributor.dart';
+import 'package:analyzer/src/generated/source.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import '../../../utils.dart';
 import 'completion_contributor_util.dart';
-import 'package:analyzer/src/generated/source.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(CombinatorContributorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(CombinatorContributorTest);
+    defineReflectiveTests(CombinatorContributorTest_Driver);
+  });
 }
 
 @reflectiveTest
@@ -64,7 +65,9 @@ class CombinatorContributorTest extends DartCompletionContributorTest {
       class X {}''');
 
     // Assume that imported libraries have been resolved
-    context.resolveCompilationUnit2(importedLibSource, importedLibSource);
+    if (!enableNewAnalysisDriver) {
+      context.resolveCompilationUnit2(importedLibSource, importedLibSource);
+    }
 
     await computeSuggestions();
     assertSuggestClass('A',
@@ -116,7 +119,9 @@ class CombinatorContributorTest extends DartCompletionContributorTest {
       class X {}''');
 
     // Assume that imported libraries have been resolved
-    context.resolveCompilationUnit2(importedLibSource, importedLibSource);
+    if (!enableNewAnalysisDriver) {
+      context.resolveCompilationUnit2(importedLibSource, importedLibSource);
+    }
 
     await computeSuggestions();
     assertSuggestClass('A',
@@ -150,4 +155,10 @@ class CombinatorContributorTest extends DartCompletionContributorTest {
     assertSuggestTopLevelVar('PI', 'double',
         kind: CompletionSuggestionKind.IDENTIFIER);
   }
+}
+
+@reflectiveTest
+class CombinatorContributorTest_Driver extends CombinatorContributorTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

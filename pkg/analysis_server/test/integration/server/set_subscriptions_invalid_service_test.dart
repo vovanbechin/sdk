@@ -2,21 +2,20 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.integration.server.set.subscriptions.invalid.service;
-
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../utils.dart';
 import '../integration_tests.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(Test);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(SetSubscriptionsTest);
+    defineReflectiveTests(SetSubscriptionsTest_Driver);
+  });
 }
 
-@reflectiveTest
-class Test extends AbstractAnalysisServerIntegrationTest {
+class AbstractSetSubscriptionsTest
+    extends AbstractAnalysisServerIntegrationTest {
   test_setSubscriptions_invalidService() {
     // TODO(paulberry): verify that if an invalid service is specified, the
     // current subscriptions are unchanged.
@@ -28,4 +27,13 @@ class Test extends AbstractAnalysisServerIntegrationTest {
       // The expected error occurred.
     });
   }
+}
+
+@reflectiveTest
+class SetSubscriptionsTest extends AbstractSetSubscriptionsTest {}
+
+@reflectiveTest
+class SetSubscriptionsTest_Driver extends AbstractSetSubscriptionsTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

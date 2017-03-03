@@ -99,14 +99,16 @@ class CodeGenerator {
    */
   void docComment(List<dom.Node> docs, {bool removeTrailingNewLine: false}) {
     if (containsOnlyWhitespace(docs)) return;
-    if (codeGeneratorSettings.docCommentStartMarker != null) writeln(codeGeneratorSettings.docCommentStartMarker);
+    if (codeGeneratorSettings.docCommentStartMarker != null)
+      writeln(codeGeneratorSettings.docCommentStartMarker);
     int width = codeGeneratorSettings.commentLineLength;
     bool javadocStyle = codeGeneratorSettings.languageName == 'java';
     indentBy(codeGeneratorSettings.docCommentLineLeader, () {
       write(nodesToText(docs, width - _state.indent.length, javadocStyle,
           removeTrailingNewLine: removeTrailingNewLine));
     });
-    if (codeGeneratorSettings.docCommentEndMarker != null) writeln(codeGeneratorSettings.docCommentEndMarker);
+    if (codeGeneratorSettings.docCommentEndMarker != null)
+      writeln(codeGeneratorSettings.docCommentEndMarker);
   }
 
   /**
@@ -153,12 +155,12 @@ class CodeGenerator {
     });
   }
 
-  void outputHeader({bool javaStyle: false}) {
+  void outputHeader({bool javaStyle: false, String year = null}) {
     String header;
     if (codeGeneratorSettings.languageName == 'java') {
       header = '''
 /*
- * Copyright (c) 2015, the Dart project authors.
+ * Copyright (c) ${year ?? '2015'}, the Dart project authors.
  *
  * Licensed under the Eclipse Public License v1.0 (the "License"); you may not use this file except
  * in compliance with the License. You may obtain a copy of the License at
@@ -175,7 +177,7 @@ class CodeGenerator {
  */''';
     } else if (codeGeneratorSettings.languageName == 'python') {
       header = '''
-# Copyright (c) 2014, the Dart project authors.  Please see the AUTHORS file
+# Copyright (c) ${year ?? '2014'}, the Dart project authors.  Please see the AUTHORS file
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 #
@@ -185,7 +187,7 @@ class CodeGenerator {
 ''';
     } else {
       header = '''
-// Copyright (c) 2014, the Dart project authors.  Please see the AUTHORS file
+// Copyright (c) ${year ?? '2014'}, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 //
@@ -509,7 +511,8 @@ abstract class HtmlCodeGenerator {
    * Execute [callback], wrapping its output in an element with the given
    * [name] and [attributes].
    */
-  void element(String name, Map<String, String> attributes, [void callback()]) {
+  void element(String name, Map<dynamic, String> attributes,
+      [void callback()]) {
     add(makeElement(name, attributes, collectHtml(callback)));
   }
 

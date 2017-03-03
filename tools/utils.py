@@ -6,15 +6,33 @@
 # scripts.
 
 import commands
+import contextlib
 import datetime
+import glob
+import imp
 import json
 import os
 import platform
 import re
 import shutil
 import subprocess
-import tempfile
 import sys
+import tarfile
+import tempfile
+import uuid
+
+try:
+  # Not available on Windows.
+  import resource
+except:
+  pass
+
+DART_DIR = os.path.abspath(
+    os.path.normpath(os.path.join(__file__, '..', '..')))
+
+def GetBotUtils():
+  '''Dynamically load the tools/bots/bot_utils.py python module.'''
+  return imp.load_source('bot_utils', os.path.join(DART_DIR, 'tools', 'bots', 'bot_utils.py'))
 
 class Version(object):
   def __init__(self, channel, major, minor, patch, prerelease,
@@ -103,7 +121,7 @@ def GetWindowsRegistryKeyName(name):
 
 # Try to guess Visual Studio location when buiding on Windows.
 def GuessVisualStudioPath():
-  defaultPath = r"C:\Program Files (x86)\Microsoft Visual Studio 12.0\Common7" \
+  defaultPath = r"C:\Program Files (x86)\Microsoft Visual Studio 14.0\Common7" \
                 r"\IDE"
   defaultExecutable = "devenv.com"
 
@@ -148,8 +166,8 @@ def GuessVisualStudioPath():
               # Can't find value under the key - continue to the next key.
               continue
             isExpress = executable != 'devenv.com'
-            if not isExpress and subkeyName == '12.0':
-              # Stop search since if we found non-Express VS2013 version
+            if not isExpress and subkeyName == '14.0':
+              # Stop search since if we found non-Express VS2015 version
               # installed, which is preferred version.
               return installDir, executable
             else:
@@ -221,7 +239,7 @@ BUILD_MODES = {
 
 # Mapping table between OS and build output location.
 BUILD_ROOT = {
-  'win32': os.path.join('build'),
+  'win32': os.path.join('out'),
   'linux': os.path.join('out'),
   'freebsd': os.path.join('out'),
   'macos': os.path.join('xcodebuild'),
@@ -240,6 +258,10 @@ ARCH_FAMILY = {
   'simarmv5te': 'ia32',
   'simmips': 'ia32',
   'simarm64': 'ia32',
+  'simdbc': 'ia32',
+  'simdbc64': 'ia32',
+  'armsimdbc': 'arm',
+  'armsimdbc64': 'arm',
 }
 
 ARCH_GUESS = GuessArchitecture()
@@ -313,8 +335,8 @@ def GetSemanticSDKVersion(ignore_svn_revision=False):
 
   return '%s.%s.%s%s' % (version.major, version.minor, version.patch, postfix)
 
-def GetVersion():
-  return GetSemanticSDKVersion()
+def GetVersion(ignore_svn_revision=False):
+  return GetSemanticSDKVersion(ignore_svn_revision)
 
 # The editor used to produce the VERSION file put on gcs. We now produce this
 # in the bots archiving the sdk.
@@ -585,7 +607,7 @@ def CheckedInSdkPath():
     osname = osdict[system]
   except KeyError:
     print >>sys.stderr, ('WARNING: platform "%s" not supported') % (system)
-    return None;
+    return None
   tools_dir = os.path.dirname(os.path.realpath(__file__))
   return os.path.join(tools_dir,
                       'sdks',
@@ -628,6 +650,23 @@ def CheckedInSdkCheckExecutable():
   return False
 
 
+def CheckLinuxCoreDumpPattern(fatal=False):
+  core_pattern_file = '/proc/sys/kernel/core_pattern'
+  core_pattern = open(core_pattern_file).read()
+
+  expected_core_pattern = 'core.%p'
+  if core_pattern.strip() != expected_core_pattern:
+    if fatal:
+      message = ('Invalid core_pattern configuration. '
+          'The configuration of core dump handling is *not* correct for '
+          'a buildbot. The content of {0} must be "{1}" instead of "{2}".'
+          .format(core_pattern_file, expected_core_pattern, core_pattern))
+      raise Exception(message)
+    else:
+      return False
+  return True
+
+
 class TempDir(object):
   def __init__(self, prefix=''):
     self._temp_dir = None
@@ -653,6 +692,341 @@ class ChangedWorkingDirectory(object):
     print "Enter directory = ", self._old_cwd
     os.chdir(self._old_cwd)
 
+
+class UnexpectedCrash(object):
+  def __init__(self, test, pid, binary):
+    self.test = test
+    self.pid = pid
+    self.binary = binary
+
+  def __str__(self):
+    return "Crash(%s: %s %s)" % (self.test, self.binary, self.pid)
+
+class SiteConfigBotoFileDisabler(object):
+  def __init__(self):
+    self._old_aws = None
+    self._old_boto = None
+
+  def __enter__(self):
+    self._old_aws = os.environ.get('AWS_CREDENTIAL_FILE', None)
+    self._old_boto = os.environ.get('BOTO_CONFIG', None)
+
+    if self._old_aws:
+      del os.environ['AWS_CREDENTIAL_FILE']
+    if self._old_boto:
+      del os.environ['BOTO_CONFIG']
+
+  def __exit__(self, *_):
+    if self._old_aws:
+      os.environ['AWS_CREDENTIAL_FILE'] = self._old_aws
+    if self._old_boto:
+      os.environ['BOTO_CONFIG'] = self._old_boto
+
+class PosixCoredumpEnabler(object):
+  def __init__(self):
+    self._old_limits = None
+
+  def __enter__(self):
+    self._old_limits = resource.getrlimit(resource.RLIMIT_CORE)
+
+    # Bump core limits to unlimited if core_pattern is correctly configured.
+    if CheckLinuxCoreDumpPattern(fatal=False):
+      resource.setrlimit(resource.RLIMIT_CORE, (-1, -1))
+
+  def __exit__(self, *_):
+    resource.setrlimit(resource.RLIMIT_CORE, self._old_limits)
+    CheckLinuxCoreDumpPattern(fatal=True)
+
+class WindowsCoredumpEnabler(object):
+  """Configure Windows Error Reporting to store crash dumps.
+
+  The documentation can be found here:
+  https://msdn.microsoft.com/en-us/library/windows/desktop/bb787181.aspx
+  """
+
+  WINDOWS_COREDUMP_FOLDER = r'crashes'
+
+  WER_NAME = r'SOFTWARE\Microsoft\Windows\Windows Error Reporting'
+  WER_LOCALDUMPS_NAME = r'%s\LocalDumps' % WER_NAME
+  IMGEXEC_NAME = (r'SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+                  r'\Image File Execution Options\WerFault.exe')
+
+  def __init__(self):
+    # Depending on whether we're in cygwin or not we use a different import.
+    try:
+      import winreg
+    except ImportError:
+      import _winreg as winreg
+    self.winreg = winreg
+
+  def __enter__(self):
+    # We want 32 and 64 bit coredumps to land in the same coredump directory.
+    for sam in [self.winreg.KEY_WOW64_64KEY, self.winreg.KEY_WOW64_32KEY]:
+      # In case WerFault.exe was prevented from executing, we fix it here.
+      # TODO(kustermann): Remove this once https://crbug.com/691971 is fixed.
+      self._prune_existing_key(
+          self.winreg.HKEY_LOCAL_MACHINE, self.IMGEXEC_NAME, sam)
+
+      # Create (or open) the WER keys.
+      with self.winreg.CreateKeyEx(
+            self.winreg.HKEY_LOCAL_MACHINE, self.WER_NAME, 0,
+            self.winreg.KEY_ALL_ACCESS | sam) as wer:
+        with self.winreg.CreateKeyEx(
+            self.winreg.HKEY_LOCAL_MACHINE, self.WER_LOCALDUMPS_NAME, 0,
+            self.winreg.KEY_ALL_ACCESS | sam) as wer_localdumps:
+          # Prevent any modal UI dialog & disable normal windows error reporting
+          # TODO(kustermann): Remove this once https://crbug.com/691971 is fixed
+          self.winreg.SetValueEx(wer, "DontShowUI", 0, self.winreg.REG_DWORD, 1)
+          self.winreg.SetValueEx(wer, "Disabled", 0, self.winreg.REG_DWORD, 1)
+
+          coredump_folder = os.path.join(
+              os.getcwd(), WindowsCoredumpEnabler.WINDOWS_COREDUMP_FOLDER)
+
+          # Create the directory which will contain the dumps
+          if not os.path.exists(coredump_folder):
+            os.mkdir(coredump_folder)
+
+          # Do full dumps (not just mini dumps), keep max 100 dumps and specify
+          # folder.
+          self.winreg.SetValueEx(
+              wer_localdumps, "DumpType", 0, self.winreg.REG_DWORD, 2)
+          self.winreg.SetValueEx(
+              wer_localdumps, "DumpCount", 0, self.winreg.REG_DWORD, 200)
+          self.winreg.SetValueEx(
+              wer_localdumps, "DumpFolder", 0, self.winreg.REG_EXPAND_SZ,
+              coredump_folder)
+
+  def __exit__(self, *_):
+    # We remove the local dumps settings after running the tests.
+    for sam in [self.winreg.KEY_WOW64_64KEY, self.winreg.KEY_WOW64_32KEY]:
+      with self.winreg.CreateKeyEx(
+          self.winreg.HKEY_LOCAL_MACHINE, self.WER_LOCALDUMPS_NAME, 0,
+          self.winreg.KEY_ALL_ACCESS | sam) as wer_localdumps:
+        self.winreg.DeleteValue(wer_localdumps, 'DumpType')
+        self.winreg.DeleteValue(wer_localdumps, 'DumpCount')
+        self.winreg.DeleteValue(wer_localdumps, 'DumpFolder')
+
+  def _prune_existing_key(self, key, subkey, wowbit):
+    handle = None
+
+    # If the open fails, the key doesn't exist and it's fine.
+    try:
+      handle = self.winreg.OpenKey(
+          key, subkey, 0, self.winreg.KEY_READ | wowbit)
+    except OSError:
+      pass
+
+    # If the key exists then we delete it. If the deletion does not work, we
+    # let the exception through.
+    if handle:
+      handle.Close()
+      self.winreg.DeleteKeyEx(key, subkey, wowbit, 0)
+
+class BaseCoreDumpArchiver(object):
+  """This class reads coredumps file written by UnexpectedCrashDumpArchiver
+  into the current working directory and uploads all cores and binaries
+  listed in it into Cloud Storage (see tools/testing/dart/test_progress.dart).
+  """
+
+  # test.dart will write a line for each unexpected crash into this file.
+  _UNEXPECTED_CRASHES_FILE = "unexpected-crashes"
+
+  def __init__(self, search_dir):
+    self._bucket = 'dart-temp-crash-archive'
+    self._binaries_dir = os.getcwd()
+    self._search_dir = search_dir
+
+  def __enter__(self):
+    # Cleanup any stale files
+    if self._cleanup():
+      print "WARNING: Found and removed stale coredumps"
+
+  def __exit__(self, *_):
+    try:
+      crashes = self._find_unexpected_crashes()
+      if crashes:
+        # If we get a ton of crashes, only archive 10 dumps.
+        archive_crashes = crashes[:10]
+        print 'Archiving coredumps for crash (if possible):'
+        for crash in archive_crashes:
+          print '----> %s' % crash
+
+        sys.stdout.flush()
+
+        # We disable usage of the boto file installed on the bots due to an
+        # issue introduced by
+        # https://chrome-internal-review.googlesource.com/c/331136
+        with SiteConfigBotoFileDisabler():
+          self._archive(archive_crashes)
+    finally:
+      self._cleanup()
+
+  def _archive(self, crashes):
+    files = set()
+    missing = []
+    for crash in crashes:
+      files.add(crash.binary)
+      core = self._find_coredump_file(crash)
+      if core:
+        files.add(core)
+      else:
+        missing.append(crash)
+    self._upload(files)
+
+    if missing:
+      self._report_missing_crashes(missing, throw=True)
+
+  def _report_missing_crashes(self, missing, throw=True):
+    missing_as_string = ', '.join([str(c) for c in missing])
+    other_files = list(glob.glob(os.path.join(self._search_dir, '*')))
+    print >> sys.stderr, (
+        "Could not find crash dumps for '%s' in search directory '%s'.\n"
+        "Existing files which *did not* match the pattern inside the search "
+        "directory are are:\n  %s"
+        % (missing_as_string, self._search_dir, '\n  '.join(other_files)))
+    if throw:
+      raise Exception('Missing crash dumps for: %s' % missing_as_string)
+
+  def _upload(self, files):
+    bot_utils = GetBotUtils()
+    gsutil = bot_utils.GSUtil()
+    storage_path = '%s/%s/' % (self._bucket, uuid.uuid4())
+    gs_prefix = 'gs://%s' % storage_path
+    http_prefix = 'https://storage.cloud.google.com/%s' % storage_path
+
+    print '\n--- Uploading into %s (%s) ---' % (gs_prefix, http_prefix)
+    for file in files:
+      # Sanitize the name: actual cores follow 'core.%d' pattern, crashed
+      # binaries are copied next to cores and named 'binary.<binary_name>'.
+      name = os.path.basename(file)
+      (prefix, suffix) = name.split('.', 1)
+      if prefix == 'binary':
+        name = suffix
+
+      tarname = '%s.tar.gz' % name
+
+      # Compress the file.
+      tar = tarfile.open(tarname, mode='w:gz')
+      tar.add(file, arcname=name)
+      tar.close()
+
+      # Remove / from absolute path to not have // in gs path.
+      gs_url = '%s%s' % (gs_prefix, tarname)
+      http_url = '%s%s' % (http_prefix, tarname)
+
+      try:
+        gsutil.upload(tarname, gs_url)
+        print '+++ Uploaded %s (%s)' % (gs_url, http_url)
+      except Exception as error:
+        print '!!! Failed to upload %s, error: %s' % (tarname, error)
+
+      os.unlink(tarname)
+    print '--- Done ---\n'
+
+  def _find_unexpected_crashes(self):
+    """Load coredumps file. Each line has the following format:
+
+        test-name,pid,binary-file
+    """
+    try:
+      with open(BaseCoreDumpArchiver._UNEXPECTED_CRASHES_FILE) as f:
+        return [UnexpectedCrash(*ln.strip('\n').split(',')) for ln in f.readlines()]
+    except:
+      return []
+
+  def _cleanup(self):
+    found = False
+    if os.path.exists(BaseCoreDumpArchiver._UNEXPECTED_CRASHES_FILE):
+      os.unlink(BaseCoreDumpArchiver._UNEXPECTED_CRASHES_FILE)
+      found = True
+    for binary in glob.glob(os.path.join(self._binaries_dir, 'binary.*')):
+      found = True
+      os.unlink(binary)
+    return found
+
+class LinuxCoreDumpArchiver(BaseCoreDumpArchiver):
+  def __init__(self):
+    super(self.__class__, self).__init__(os.getcwd())
+
+  def _cleanup(self):
+    found = super(self.__class__, self)._cleanup()
+    for core in glob.glob(os.path.join(self._search_dir, 'core.*')):
+      found = True
+      os.unlink(core)
+    return found
+
+  def _find_coredump_file(self, crash):
+    core_filename = os.path.join(self._search_dir, 'core.%s' % crash.pid)
+    if os.path.exists(core_filename):
+      return core_filename
+
+class WindowsCoreDumpArchiver(BaseCoreDumpArchiver):
+  def __init__(self):
+    super(self.__class__, self).__init__(os.path.join(
+        os.getcwd(), WindowsCoredumpEnabler.WINDOWS_COREDUMP_FOLDER))
+
+  def _cleanup(self):
+    found = super(self.__class__, self)._cleanup()
+    for core in glob.glob(os.path.join(self._search_dir, '*')):
+      found = True
+      os.unlink(core)
+    return found
+
+  def _find_coredump_file(self, crash):
+    pattern = os.path.join(self._search_dir, '*.%s.*' % crash.pid)
+    for core_filename in glob.glob(pattern):
+      return core_filename
+
+  def _report_missing_crashes(self, missing, throw=True):
+    # Let's only print the debugging information and not throw. We'll do more
+    # validation for werfault.exe and throw afterwards.
+    super(self.__class__, self)._report_missing_crashes(missing, throw=False)
+
+    # Let's check again for the image execution options for werfault. Maybe
+    # puppet came a long during testing and reverted our change.
+    try:
+      import winreg
+    except ImportError:
+      import _winreg as winreg
+    for wowbit in [winreg.KEY_WOW64_64KEY, winreg.KEY_WOW64_32KEY]:
+      try:
+         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                             WindowsCoredumpEnabler.IMGEXEC_NAME,
+                             0,
+                             winreg.KEY_READ | wowbit) as handle:
+          raise Exception(
+              "Found werfault.exe was disabled. Probably by puppet. Too bad")
+      except OSError:
+        # If the open did not work the werfault.exe execution setting is as it
+        # should be.
+        pass
+
+    if throw:
+      missing_as_string = ', '.join([str(c) for c in missing])
+      raise Exception('Missing crash dumps for: %s' % missing_as_string)
+
+@contextlib.contextmanager
+def NooptCoreDumpArchiver():
+  yield
+
+
+def CoreDumpArchiver(args):
+  enabled = '--copy-coredumps' in args
+
+  if not enabled:
+    return NooptCoreDumpArchiver()
+
+  osname = GuessOS()
+  if osname == 'linux':
+    return contextlib.nested(PosixCoredumpEnabler(),
+                             LinuxCoreDumpArchiver())
+  elif osname == 'win32':
+    return contextlib.nested(WindowsCoredumpEnabler(),
+                             WindowsCoreDumpArchiver())
+  else:
+    # We don't have support for MacOS yet.
+    assert osname == 'macos'
+    return NooptCoreDumpArchiver()
 
 if __name__ == "__main__":
   import sys

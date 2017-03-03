@@ -62,7 +62,7 @@
  * The [HttpServer] class provides the basic functionality for
  * implementing an HTTP server.
  * For some higher-level building-blocks, we recommend that you try
- * the [http_server](https://pub.dartlang.org/packages/http_server)
+ * the [shelf](https://pub.dartlang.org/packages/shelf)
  * pub package, which contains
  * a set of high-level classes that, together with the [HttpServer] class
  * in this library, make it easier to implement HTTP servers.
@@ -120,7 +120,7 @@
  *
  * The client connects to the WebSocket using the `connect()` method
  * and a URI that uses the Web Socket protocol.
- * The the client can write to the WebSocket with the `add()` method.
+ * The client can write to the WebSocket with the `add()` method.
  * For example,
  *
  *     WebSocket.connect('ws://127.0.0.1:4040/ws').then((socket) {
@@ -190,12 +190,12 @@
  * tour](https://www.dartlang.org/docs/dart-up-and-running/ch03.html#dartio---io-for-command-line-apps).
  *
  * To learn more about I/O in Dart, refer to the [tutorial about writing
- * command-line apps](https://www.dartlang.org/docs/tutorials/io/).
+ * command-line apps](https://www.dartlang.org/docs/tutorials/cmdline/).
  */
 library dart.io;
 
 import 'dart:async';
-import 'dart:_internal';
+import 'dart:_internal' hide Symbol;
 import 'dart:collection' show HashMap,
                               HashSet,
                               Queue,
@@ -204,10 +204,11 @@ import 'dart:collection' show HashMap,
                               LinkedListEntry,
                               UnmodifiableMapView;
 import 'dart:convert';
-import 'dart:developer';
+import 'dart:developer' hide log;
 import 'dart:isolate';
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:nativewrappers';
 
 part 'bytes_builder.dart';
 part 'common.dart';

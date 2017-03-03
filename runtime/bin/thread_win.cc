@@ -103,27 +103,6 @@ ThreadId Thread::GetCurrentThreadId() {
 }
 
 
-bool Thread::Join(ThreadId id) {
-  HANDLE handle = OpenThread(SYNCHRONIZE, false, id);
-
-  // TODO(zra): OSThread::Start() closes the handle to the thread. Thus, by the
-  // time we try to join the thread, its resources may have already been
-  // reclaimed, and joining will fail. This can be avoided in a couple of ways.
-  // First, GetCurrentThreadJoinId could call OpenThread and return a handle.
-  // This is bad, because each of those handles would have to be closed.
-  // Second OSThread could be refactored to no longer be AllStatic. Then the
-  // handle could be cached in the object by the Start method.
-  if (handle == NULL) {
-    return false;
-  }
-
-  DWORD res = WaitForSingleObject(handle, INFINITE);
-  CloseHandle(handle);
-  ASSERT(res == WAIT_OBJECT_0);
-  return true;
-}
-
-
 intptr_t Thread::ThreadIdToIntPtr(ThreadId id) {
   ASSERT(sizeof(id) <= sizeof(intptr_t));
   return static_cast<intptr_t>(id);
@@ -132,38 +111,6 @@ intptr_t Thread::ThreadIdToIntPtr(ThreadId id) {
 
 bool Thread::Compare(ThreadId a, ThreadId b) {
   return (a == b);
-}
-
-
-void Thread::GetThreadCpuUsage(ThreadId thread_id, int64_t* cpu_usage) {
-  static const int64_t kTimeEpoc = 116444736000000000LL;
-  static const int64_t kTimeScaler = 10;  // 100 ns to us.
-  // Although win32 uses 64-bit integers for representing timestamps,
-  // these are packed into a FILETIME structure. The FILETIME
-  // structure is just a struct representing a 64-bit integer. The
-  // TimeStamp union allows access to both a FILETIME and an integer
-  // representation of the timestamp. The Windows timestamp is in
-  // 100-nanosecond intervals since January 1, 1601.
-  union TimeStamp {
-    FILETIME ft_;
-    int64_t t_;
-  };
-  ASSERT(cpu_usage != NULL);
-  TimeStamp created;
-  TimeStamp exited;
-  TimeStamp kernel;
-  TimeStamp user;
-  HANDLE handle = OpenThread(THREAD_QUERY_INFORMATION, false, thread_id);
-  BOOL result = GetThreadTimes(handle,
-                               &created.ft_,
-                               &exited.ft_,
-                               &kernel.ft_,
-                               &user.ft_);
-  CloseHandle(handle);
-  if (!result) {
-    FATAL1("GetThreadCpuUsage failed %d\n", GetLastError());
-  }
-  *cpu_usage = (user.t_ - kTimeEpoc) / kTimeScaler;
 }
 
 
@@ -255,10 +202,9 @@ void Monitor::Exit() {
 
 
 void MonitorWaitData::ThreadExit() {
-  if (MonitorWaitData::monitor_wait_data_key_ !=
-      Thread::kUnsetThreadLocalKey) {
+  if (MonitorWaitData::monitor_wait_data_key_ != Thread::kUnsetThreadLocalKey) {
     uword raw_wait_data =
-      Thread::GetThreadLocal(MonitorWaitData::monitor_wait_data_key_);
+        Thread::GetThreadLocal(MonitorWaitData::monitor_wait_data_key_);
     if (raw_wait_data != 0) {
       MonitorWaitData* wait_data =
           reinterpret_cast<MonitorWaitData*>(raw_wait_data);
@@ -372,7 +318,7 @@ MonitorWaitData* MonitorData::GetMonitorWaitDataForThread() {
   // Get the MonitorWaitData object containing the event for this
   // thread from thread local storage. Create it if it does not exist.
   uword raw_wait_data =
-    Thread::GetThreadLocal(MonitorWaitData::monitor_wait_data_key_);
+      Thread::GetThreadLocal(MonitorWaitData::monitor_wait_data_key_);
   MonitorWaitData* wait_data = NULL;
   if (raw_wait_data == 0) {
     HANDLE event = CreateEvent(NULL, FALSE, FALSE, NULL);

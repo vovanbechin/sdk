@@ -2,22 +2,20 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.integration.analysis.outline;
-
 import 'package:analysis_server/plugin/protocol/protocol.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../utils.dart';
 import '../integration_tests.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(Test);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(OutlineTest);
+    defineReflectiveTests(OutlineTest_Driver);
+  });
 }
 
-@reflectiveTest
-class Test extends AbstractAnalysisServerIntegrationTest {
+class AbstractOutlineTest extends AbstractAnalysisServerIntegrationTest {
   /**
    * Verify that the range of source text covered by the given outline objects
    * is connected (the end of each object in the list corresponds to the start
@@ -82,4 +80,13 @@ class Class2 {
       checkConnected(members);
     });
   }
+}
+
+@reflectiveTest
+class OutlineTest extends AbstractOutlineTest {}
+
+@reflectiveTest
+class OutlineTest_Driver extends AbstractOutlineTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

@@ -2,7 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of dart2js.js_emitter.full_emitter;
+library dart2js.js_emitter.full_emitter.class_builder;
+
+import '../../elements/entities.dart';
+import '../../js/js.dart' as jsAst;
+import '../../js/js.dart' show js;
+import '../../js_backend/js_backend.dart' show Namer;
 
 /**
  * A data structure for collecting fragments of a class definition.
@@ -15,13 +20,13 @@ class ClassBuilder {
   jsAst.Node functionType;
   List<jsAst.Node> fieldMetadata;
 
-  final Element element;
+  final Entity element;
   final Namer namer;
   final bool isForActualClass;
 
   ClassBuilder(this.element, this.namer, this.isForActualClass);
 
-  ClassBuilder.forClass(ClassElement cls, this.namer)
+  ClassBuilder.forClass(ClassEntity cls, this.namer)
       : isForActualClass = true,
         element = cls;
 
@@ -79,9 +84,8 @@ class ClassBuilder {
     List<jsAst.Property> fieldsAndProperties;
     if (emitClassDescriptor) {
       fieldsAndProperties = <jsAst.Property>[];
-      fieldsAndProperties.add(
-          new jsAst.Property(
-              js.string(namer.classDescriptorProperty), classData));
+      fieldsAndProperties.add(new jsAst.Property(
+          js.string(namer.classDescriptorProperty), classData));
       fieldsAndProperties.addAll(properties);
     } else {
       fieldsAndProperties = properties;

@@ -166,6 +166,17 @@ void testInts(Set create()) {
   }
   Expect.isTrue(twice.difference(thrice).difference(twice).isEmpty);
 
+  // Test Set.difference with non-element type.
+  Set diffSet = create()..addAll([0, 1, 2, 499, 999]);
+  Set<Object> objectSet = new Set<Object>();
+  objectSet.add("foo");
+  objectSet.add(499);
+  Set diffResult = diffSet.difference(objectSet);
+  Expect.equals(4, diffResult.length);
+  for (int value in [0, 1, 2, 999]) {
+    Expect.isTrue(diffResult.contains(value));
+  }
+
   // Test Set.addAll.
   List list = new List(10);
   for (int i = 0; i < 10; i++) {
@@ -445,6 +456,17 @@ void testCESetFrom(setFrom) {
   Expect.isTrue(set4.isEmpty);
 }
 
+class A {}
+class B {}
+class C implements A, B {}
+
+void testASetFrom(setFrom) {
+  List<B> bList= <B>[new C()];
+  // Set.from allows to cast elements.
+  Set<A> aSet = setFrom(bList);
+  Expect.isTrue(aSet.length == 1);
+}
+
 main() {
   testMain(() => new HashSet());
   testMain(() => new LinkedHashSet());
@@ -508,4 +530,9 @@ main() {
   testCESetFrom((x) => new SplayTreeSet<CE>.from(x,
                                                  customCompare(20), validKey));
   testCESetFrom((x) => new SplayTreeSet<CE>.from(x, identityCompare));
+
+  testASetFrom((x) => new Set<A>.from(x));
+  testASetFrom((x) => new HashSet<A>.from(x));
+  testASetFrom((x) => new LinkedHashSet<A>.from(x));
+  testASetFrom((x) => new SplayTreeSet<A>.from(x, identityCompare));
 }

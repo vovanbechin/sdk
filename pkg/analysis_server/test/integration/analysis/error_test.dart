@@ -2,22 +2,19 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.integration.analysis.error;
-
 import 'package:analysis_server/plugin/protocol/protocol.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../utils.dart';
 import '../integration_tests.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(AnalysisErrorIntegrationTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(AnalysisErrorIntegrationTest);
+  });
 }
 
-@reflectiveTest
-class AnalysisErrorIntegrationTest
+class AbstractAnalysisErrorIntegrationTest
     extends AbstractAnalysisServerIntegrationTest {
   test_detect_simple_error() {
     String pathname = sourcePath('test.dart');
@@ -45,7 +42,7 @@ class Test extends Object with C {
   void foo() {}
 }
 abstract class B {
-  void foo();
+  void foo() {}
 }
 abstract class C extends B {
   void bar() {
@@ -63,11 +60,11 @@ abstract class C extends B {
     expect(
         allErrorMessages,
         contains(
-            "The class 'C' cannot be used as a mixin because it extends a class other than Object"));
+            "The class 'C' can't be used as a mixin because it extends a class other than Object."));
     expect(
         allErrorMessages,
         contains(
-            "The class 'C' cannot be used as a mixin because it references 'super'"));
+            "The class 'C' can't be used as a mixin because it references 'super'."));
   }
 
   test_super_mixins_enabled() async {
@@ -79,7 +76,7 @@ class Test extends Object with C {
   void foo() {}
 }
 abstract class B {
-  void foo();
+  void foo() {}
 }
 abstract class C extends B {
   void bar() {
@@ -96,3 +93,7 @@ abstract class C extends B {
     expect(errors, isEmpty);
   }
 }
+
+@reflectiveTest
+class AnalysisErrorIntegrationTest
+    extends AbstractAnalysisErrorIntegrationTest {}

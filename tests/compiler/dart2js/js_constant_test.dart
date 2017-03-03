@@ -16,13 +16,7 @@ const String TEST_1 = r"""
   }
 """;
 
-
 main() {
-  RegExp directivePattern = new RegExp(
-      //      \1                    \2        \3
-      r'''// *(present|absent): (?:"([^"]*)"|'([^'']*)')''',
-      multiLine: true);
-
   Future check(String test) {
     Uri uri = new Uri(scheme: 'dart', path: 'test');
     var compiler = compilerFor(test, uri, expectedErrors: 0);
@@ -30,23 +24,11 @@ main() {
       var element = findElement(compiler, 'main');
       var backend = compiler.backend;
       String generated = backend.getGeneratedCode(element);
-
-      for (Match match in directivePattern.allMatches(test)) {
-        String directive = match.group(1);
-        String pattern = match.groups([2, 3]).where((s) => s != null).single;
-        if (directive == 'present') {
-          Expect.isTrue(generated.contains(pattern),
-              "Cannot find '$pattern' in:\n$generated");
-        } else {
-          assert(directive == 'absent');
-          Expect.isFalse(generated.contains(pattern),
-              "Must not find '$pattern' in:\n$generated");
-        }
-      }
+      checkerForAbsentPresent(test)(generated);
     });
   }
 
   asyncTest(() => Future.wait([
-    check(TEST_1),
-  ]));
+        check(TEST_1),
+      ]));
 }

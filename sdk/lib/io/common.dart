@@ -26,7 +26,7 @@ _exceptionFromResponse(response, String message, String path) {
   assert(_isErrorResponse(response));
   switch (response[_ERROR_RESPONSE_ERROR_TYPE]) {
     case _ILLEGAL_ARGUMENT_RESPONSE:
-      return new ArgumentError();
+      return new ArgumentError("$message: $path");
     case _OSERROR_RESPONSE:
       var err = new OSError(response[_OSERROR_RESPONSE_MESSAGE],
                             response[_OSERROR_RESPONSE_ERROR_CODE]);
@@ -90,7 +90,7 @@ class OSError {
 
 // Object for holding a buffer and an offset.
 class _BufferAndStart {
-  List buffer;
+  List<int> buffer;
   int start;
   _BufferAndStart(this.buffer, this.start);
 }
@@ -100,7 +100,7 @@ class _BufferAndStart {
 // All other lists are first copied into a Uint8List. This has the added
 // benefit that it is faster to access from the C code as well.
 _BufferAndStart _ensureFastAndSerializableByteData(
-    List buffer, int start, int end) {
+    List<int> buffer, int start, int end) {
   if (buffer is Uint8List || buffer is Int8List) {
     return new _BufferAndStart(buffer, start);
   }

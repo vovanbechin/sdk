@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_FLOW_GRAPH_COMPILER_H_
-#define VM_FLOW_GRAPH_COMPILER_H_
+#ifndef RUNTIME_VM_FLOW_GRAPH_COMPILER_H_
+#define RUNTIME_VM_FLOW_GRAPH_COMPILER_H_
 
 #include "vm/allocation.h"
 #include "vm/assembler.h"
@@ -19,9 +19,9 @@ class DeoptInfoBuilder;
 class FlowGraph;
 class FlowGraphCompiler;
 class Function;
-template <typename T> class GrowableArray;
+template <typename T>
+class GrowableArray;
 class ParsedFunction;
-
 
 class ParallelMoveResolver : public ValueObject {
  public:
@@ -121,10 +121,13 @@ class CompilerDeoptInfo : public ZoneAllocated {
         deopt_id_(deopt_id),
         reason_(reason),
         flags_(flags),
+#if defined(TARGET_ARCH_DBC)
+        lazy_deopt_with_result_(false),
+#endif
         deopt_env_(deopt_env) {
     ASSERT(deopt_env != NULL);
   }
-  virtual ~CompilerDeoptInfo() { }
+  virtual ~CompilerDeoptInfo() {}
 
   RawTypedData* CreateDeoptInfo(FlowGraphCompiler* compiler,
                                 DeoptInfoBuilder* builder,
@@ -142,6 +145,18 @@ class CompilerDeoptInfo : public ZoneAllocated {
   uint32_t flags() const { return flags_; }
   const Environment* deopt_env() const { return deopt_env_; }
 
+#if defined(TARGET_ARCH_DBC)
+  // On DBC calls return results on the stack but not all calls have a result.
+  // This needs to be taken into account when constructing lazy deoptimization
+  // environment.
+  // For calls with results we add a deopt instruction that would copy top
+  // of the stack from optimized frame to unoptimized frame effectively
+  // preserving the result of the call.
+  // For calls with no results we don't emit such instruction - because there
+  // is no result pushed by the return sequence.
+  void mark_lazy_deopt_with_result() { lazy_deopt_with_result_ = true; }
+#endif
+
  private:
   void EmitMaterializations(Environment* env, DeoptInfoBuilder* builder);
 
@@ -152,6 +167,9 @@ class CompilerDeoptInfo : public ZoneAllocated {
   const intptr_t deopt_id_;
   const ICData::DeoptReasonId reason_;
   const uint32_t flags_;
+#if defined(TARGET_ARCH_DBC)
+  bool lazy_deopt_with_result_;
+#endif
   Environment* deopt_env_;
 
   DISALLOW_COPY_AND_ASSIGN(CompilerDeoptInfo);
@@ -175,11 +193,12 @@ class CompilerDeoptInfoWithStub : public CompilerDeoptInfo {
 
   const char* Name() const {
     const char* kFormat = "Deopt stub for id %d, reason: %s";
-    const intptr_t len = OS::SNPrint(NULL, 0, kFormat,
-        deopt_id(), DeoptReasonToCString(reason())) + 1;
+    const intptr_t len = OS::SNPrint(NULL, 0, kFormat, deopt_id(),
+                                     DeoptReasonToCString(reason())) +
+                         1;
     char* chars = Thread::Current()->zone()->Alloc<char>(len);
-    OS::SNPrint(chars, len, kFormat,
-        deopt_id(), DeoptReasonToCString(reason()));
+    OS::SNPrint(chars, len, kFormat, deopt_id(),
+                DeoptReasonToCString(reason()));
     return chars;
   }
 
@@ -192,14 +211,13 @@ class CompilerDeoptInfoWithStub : public CompilerDeoptInfo {
 
 class SlowPathCode : public ZoneAllocated {
  public:
-  SlowPathCode() : entry_label_(), exit_label_() { }
-  virtual ~SlowPathCode() { }
+  SlowPathCode() : entry_label_(), exit_label_() {}
+  virtual ~SlowPathCode() {}
 
   Label* entry_label() { return &entry_label_; }
   Label* exit_label() { return &exit_label_; }
 
   void GenerateCode(FlowGraphCompiler* compiler) {
-    ASSERT(exit_label_.IsBound());
     EmitNativeCode(compiler);
     ASSERT(entry_label_.IsBound());
   }
@@ -214,44 +232,11 @@ class SlowPathCode : public ZoneAllocated {
 };
 
 
-class MegamorphicSlowPath : public SlowPathCode {
- public:
-  MegamorphicSlowPath(const ICData& ic_data,
-                      intptr_t argument_count,
-                      intptr_t deopt_id,
-                      TokenPosition token_pos,
-                      LocationSummary* locs,
-                      intptr_t try_index)
-    : SlowPathCode(),
-      ic_data_(ic_data),
-      argument_count_(argument_count),
-      deopt_id_(deopt_id),
-      token_pos_(token_pos),
-      locs_(locs),
-      try_index_(try_index) {}
-  virtual ~MegamorphicSlowPath() {}
-
- private:
-  virtual void EmitNativeCode(FlowGraphCompiler* comp);
-
-  const ICData& ic_data_;
-  intptr_t argument_count_;
-  intptr_t deopt_id_;
-  TokenPosition token_pos_;
-  LocationSummary* locs_;
-  const intptr_t try_index_;  // For try/catch ranges.
-
-  DISALLOW_COPY_AND_ASSIGN(MegamorphicSlowPath);
-};
-
-
 struct CidTarget {
   intptr_t cid;
   Function* target;
   intptr_t count;
-  CidTarget(intptr_t cid_arg,
-            Function* target_arg,
-            intptr_t count_arg)
+  CidTarget(intptr_t cid_arg, Function* target_arg, intptr_t count_arg)
       : cid(cid_arg), target(target_arg), count(count_arg) {}
 };
 
@@ -277,9 +262,7 @@ class FlowGraphCompiler : public ValueObject {
     Label* next_nonempty_label() const { return next_nonempty_label_; }
     void set_next_nonempty_label(Label* label) { next_nonempty_label_ = label; }
 
-    bool WasCompacted() const {
-      return jump_label_ != &block_label_;
-    }
+    bool WasCompacted() const { return jump_label_ != &block_label_; }
 
     // Block compaction is recursive.  Block info for already-compacted
     // blocks is marked so as to avoid cycles in the graph.
@@ -296,20 +279,18 @@ class FlowGraphCompiler : public ValueObject {
   };
 
  public:
-  FlowGraphCompiler(
-      Assembler* assembler,
-      FlowGraph* flow_graph,
-      const ParsedFunction& parsed_function,
-      bool is_optimizing,
-      const GrowableArray<const Function*>& inline_id_to_function,
-      const GrowableArray<TokenPosition>& inline_id_to_token_pos,
-      const GrowableArray<intptr_t>& caller_inline_id);
+  FlowGraphCompiler(Assembler* assembler,
+                    FlowGraph* flow_graph,
+                    const ParsedFunction& parsed_function,
+                    bool is_optimizing,
+                    const GrowableArray<const Function*>& inline_id_to_function,
+                    const GrowableArray<TokenPosition>& inline_id_to_token_pos,
+                    const GrowableArray<intptr_t>& caller_inline_id);
 
   ~FlowGraphCompiler();
 
   static bool SupportsUnboxedDoubles();
   static bool SupportsUnboxedMints();
-  static bool SupportsSinCos();
   static bool SupportsUnboxedSimd128();
   static bool SupportsHardwareDivision();
   static bool CanConvertUnboxedMintToDouble();
@@ -326,13 +307,8 @@ class FlowGraphCompiler : public ValueObject {
 
   const FlowGraph& flow_graph() const { return flow_graph_; }
 
-  DescriptorList* pc_descriptors_list() const {
-    return pc_descriptors_list_;
-  }
   BlockEntryInstr* current_block() const { return current_block_; }
-  void set_current_block(BlockEntryInstr* value) {
-    current_block_ = value;
-  }
+  void set_current_block(BlockEntryInstr* value) { current_block_ = value; }
   static bool CanOptimize();
   bool CanOptimizeFunction() const;
   bool CanOSRFunction() const;
@@ -342,9 +318,7 @@ class FlowGraphCompiler : public ValueObject {
   void ExitIntrinsicMode();
   bool intrinsic_mode() const { return intrinsic_mode_; }
 
-  Label* intrinsic_slow_path_label() {
-    return &intrinsic_slow_path_label_;
-  }
+  Label* intrinsic_slow_path_label() { return &intrinsic_slow_path_label_; }
 
   bool ForceSlowPathForStackOverflow() const;
 
@@ -367,6 +341,15 @@ class FlowGraphCompiler : public ValueObject {
   // Returns 'true' if regular code generation should be skipped.
   bool TryIntrinsify();
 
+  void GenerateAssertAssignable(TokenPosition token_pos,
+                                intptr_t deopt_id,
+                                const AbstractType& dst_type,
+                                const String& dst_name,
+                                LocationSummary* locs);
+
+// DBC emits calls very differently from all other architectures due to its
+// interpreted nature.
+#if !defined(TARGET_ARCH_DBC)
   void GenerateRuntimeCall(TokenPosition token_pos,
                            intptr_t deopt_id,
                            const RuntimeEntry& entry,
@@ -377,6 +360,11 @@ class FlowGraphCompiler : public ValueObject {
                     const StubEntry& stub_entry,
                     RawPcDescriptors::Kind kind,
                     LocationSummary* locs);
+
+  void GeneratePatchableCall(TokenPosition token_pos,
+                             const StubEntry& stub_entry,
+                             RawPcDescriptors::Kind kind,
+                             LocationSummary* locs);
 
   void GenerateDartCall(intptr_t deopt_id,
                         TokenPosition token_pos,
@@ -389,12 +377,6 @@ class FlowGraphCompiler : public ValueObject {
                               RawPcDescriptors::Kind kind,
                               LocationSummary* locs,
                               const Function& target);
-
-  void GenerateAssertAssignable(TokenPosition token_pos,
-                                intptr_t deopt_id,
-                                const AbstractType& dst_type,
-                                const String& dst_name,
-                                LocationSummary* locs);
 
   void GenerateInstanceOf(TokenPosition token_pos,
                           intptr_t deopt_id,
@@ -423,14 +405,7 @@ class FlowGraphCompiler : public ValueObject {
   void GenerateStringTypeCheck(Register kClassIdReg,
                                Label* is_instance_lbl,
                                Label* is_not_instance_lbl);
-  void GenerateListTypeCheck(Register kClassIdReg,
-                             Label* is_instance_lbl);
-
-  void EmitComment(Instruction* instr);
-
-  bool NeedsEdgeCounter(TargetEntryInstr* block);
-
-  void EmitEdgeCounter(intptr_t edge_id);
+  void GenerateListTypeCheck(Register kClassIdReg, Label* is_instance_lbl);
 
   void EmitOptimizedInstanceCall(const StubEntry& stub_entry,
                                  const ICData& ic_data,
@@ -451,17 +426,17 @@ class FlowGraphCompiler : public ValueObject {
                                    const Array& argument_names,
                                    intptr_t deopt_id,
                                    TokenPosition token_pos,
-                                   LocationSummary* locs);
+                                   LocationSummary* locs,
+                                   bool complete);
 
   // Pass a value for try-index where block is not available (e.g. slow path).
-  void EmitMegamorphicInstanceCall(
-      const ICData& ic_data,
-      intptr_t argument_count,
-      intptr_t deopt_id,
-      TokenPosition token_pos,
-      LocationSummary* locs,
-      intptr_t try_index,
-      intptr_t slow_path_argument_count = 0);
+  void EmitMegamorphicInstanceCall(const ICData& ic_data,
+                                   intptr_t argument_count,
+                                   intptr_t deopt_id,
+                                   TokenPosition token_pos,
+                                   LocationSummary* locs,
+                                   intptr_t try_index,
+                                   intptr_t slow_path_argument_count = 0);
 
   void EmitSwitchableInstanceCall(const ICData& ic_data,
                                   intptr_t argument_count,
@@ -476,7 +451,8 @@ class FlowGraphCompiler : public ValueObject {
                        Label* match_found,
                        intptr_t deopt_id,
                        TokenPosition token_index,
-                       LocationSummary* locs);
+                       LocationSummary* locs,
+                       bool complete);
 
   Condition EmitEqualityRegConstCompare(Register reg,
                                         const Object& obj,
@@ -487,7 +463,14 @@ class FlowGraphCompiler : public ValueObject {
                                       bool needs_number_check,
                                       TokenPosition token_pos);
 
+  bool NeedsEdgeCounter(TargetEntryInstr* block);
+
+  void EmitEdgeCounter(intptr_t edge_id);
+#endif  // !defined(TARGET_ARCH_DBC)
+
   void EmitTrySync(Instruction* instr, intptr_t try_index);
+
+  void EmitComment(Instruction* instr);
 
   intptr_t StackSize() const;
 
@@ -508,12 +491,19 @@ class FlowGraphCompiler : public ValueObject {
   void AddExceptionHandler(intptr_t try_index,
                            intptr_t outer_try_index,
                            intptr_t pc_offset,
+                           TokenPosition token_pos,
+                           bool is_generated,
                            const Array& handler_types,
                            bool needs_stacktrace);
-  void SetNeedsStacktrace(intptr_t try_index);
+  void SetNeedsStackTrace(intptr_t try_index);
   void AddCurrentDescriptor(RawPcDescriptors::Kind kind,
                             intptr_t deopt_id,
                             TokenPosition token_pos);
+  void AddDescriptor(RawPcDescriptors::Kind kind,
+                     intptr_t pc_offset,
+                     intptr_t deopt_id,
+                     TokenPosition token_pos,
+                     intptr_t try_index);
 
   void RecordSafepoint(LocationSummary* locs,
                        intptr_t slow_path_argument_count = 0);
@@ -522,16 +512,26 @@ class FlowGraphCompiler : public ValueObject {
                       ICData::DeoptReasonId reason,
                       uint32_t flags = 0);
 
-  void AddDeoptIndexAtCall(intptr_t deopt_id, TokenPosition token_pos);
+#if defined(TARGET_ARCH_DBC)
+  void EmitDeopt(intptr_t deopt_id,
+                 ICData::DeoptReasonId reason,
+                 uint32_t flags = 0);
+
+  // If the cid does not fit in 16 bits, then this will cause a bailout.
+  uint16_t ToEmbeddableCid(intptr_t cid, Instruction* instruction);
+#endif  // defined(TARGET_ARCH_DBC)
+
+  CompilerDeoptInfo* AddDeoptIndexAtCall(intptr_t deopt_id);
 
   void AddSlowPathCode(SlowPathCode* slow_path);
 
   void FinalizeExceptionHandlers(const Code& code);
   void FinalizePcDescriptors(const Code& code);
   RawArray* CreateDeoptInfo(Assembler* assembler);
-  void FinalizeStackmaps(const Code& code);
+  void FinalizeStackMaps(const Code& code);
   void FinalizeVarDescriptors(const Code& code);
   void FinalizeStaticCallTargetsTable(const Code& code);
+  void FinalizeCodeSourceMap(const Code& code);
 
   const Class& double_class() const { return double_class_; }
   const Class& mint_class() const { return mint_class_; }
@@ -574,6 +574,9 @@ class FlowGraphCompiler : public ValueObject {
                                          const Array& arguments_descriptor,
                                          intptr_t num_args_tested);
 
+  static const ICData& TrySpecializeICDataByReceiverCid(const ICData& ic_data,
+                                                        intptr_t cid);
+
   const ZoneGrowableArray<const ICData*>& deopt_id_to_ic_data() const {
     return *deopt_id_to_ic_data_;
   }
@@ -584,31 +587,30 @@ class FlowGraphCompiler : public ValueObject {
 
   void AddStubCallTarget(const Code& code);
 
-  const Array& inlined_code_intervals() const {
-    return inlined_code_intervals_;
-  }
-
-  RawArray* edge_counters_array() const {
-    return edge_counters_array_.raw();
-  }
+  RawArray* edge_counters_array() const { return edge_counters_array_.raw(); }
 
   RawArray* InliningIdToFunction() const;
-  RawArray* InliningIdToTokenPos() const;
-  RawArray* CallerInliningIdMap() const;
-
-  CodeSourceMapBuilder* code_source_map_builder() {
-    if (code_source_map_builder_ == NULL) {
-      code_source_map_builder_ = new CodeSourceMapBuilder();
-    }
-    ASSERT(code_source_map_builder_ != NULL);
-    return code_source_map_builder_;
-  }
 
   void BeginCodeSourceRange();
-  bool EndCodeSourceRange(TokenPosition token_pos);
+  void EndCodeSourceRange(TokenPosition token_pos);
+
+#if defined(TARGET_ARCH_DBC)
+  enum CallResult {
+    kHasResult,
+    kNoResult,
+  };
+  void RecordAfterCallHelper(TokenPosition token_pos,
+                             intptr_t deopt_id,
+                             intptr_t argument_count,
+                             CallResult result,
+                             LocationSummary* locs);
+  void RecordAfterCall(Instruction* instr, CallResult result);
+#endif
 
  private:
   friend class CheckStackOverflowSlowPath;  // For pending_deoptimization_env_.
+
+  static bool ShouldInlineSmiStringHashCode(const ICData& ic_data);
 
   void EmitFrameEntry();
 
@@ -635,6 +637,9 @@ class FlowGraphCompiler : public ValueObject {
                                  LocationSummary* locs,
                                  const ICData& ic_data);
 
+// DBC handles type tests differently from all other architectures due
+// to its interpreted nature.
+#if !defined(TARGET_ARCH_DBC)
   // Type checking helper methods.
   void CheckClassIds(Register class_id_reg,
                      const GrowableArray<intptr_t>& class_ids,
@@ -682,12 +687,10 @@ class FlowGraphCompiler : public ValueObject {
                                                    Label* is_instance_lbl,
                                                    Label* is_not_instance_lbl);
 
-  // Returns true if checking against this type is a direct class id comparison.
-  bool TypeCheckAsClassEquality(const AbstractType& type);
-
   void GenerateBoolToJump(Register bool_reg, Label* is_true, Label* is_false);
 
   void CopyParameters();
+#endif  // !defined(TARGET_ARCH_DBC)
 
   void GenerateInlinedGetter(intptr_t offset);
   void GenerateInlinedSetter(intptr_t offset);
@@ -713,14 +716,17 @@ class FlowGraphCompiler : public ValueObject {
 
   intptr_t GetOptimizationThreshold() const;
 
-  StackmapTableBuilder* stackmap_table_builder() {
+  StackMapTableBuilder* stackmap_table_builder() {
     if (stackmap_table_builder_ == NULL) {
-      stackmap_table_builder_ = new StackmapTableBuilder();
+      stackmap_table_builder_ = new StackMapTableBuilder();
     }
     return stackmap_table_builder_;
   }
 
-#if defined(DEBUG)
+// TODO(vegorov) re-enable frame state tracking on DBC. It is
+// currently disabled because it relies on LocationSummaries and
+// we don't use them during unoptimized compilation on DBC.
+#if defined(DEBUG) && !defined(TARGET_ARCH_DBC)
   void FrameStateUpdateWith(Instruction* instr);
   void FrameStatePush(Definition* defn);
   void FrameStatePop(intptr_t count);
@@ -763,9 +769,8 @@ class FlowGraphCompiler : public ValueObject {
   BlockEntryInstr* current_block_;
   ExceptionHandlerList* exception_handlers_list_;
   DescriptorList* pc_descriptors_list_;
-  StackmapTableBuilder* stackmap_table_builder_;
+  StackMapTableBuilder* stackmap_table_builder_;
   CodeSourceMapBuilder* code_source_map_builder_;
-  intptr_t saved_code_size_;
   GrowableArray<BlockInfo*> block_info_;
   GrowableArray<CompilerDeoptInfo*> deopt_infos_;
   GrowableArray<SlowPathCode*> slow_path_code_;
@@ -795,20 +800,13 @@ class FlowGraphCompiler : public ValueObject {
   // In future AddDeoptStub should be moved out of the instruction template.
   Environment* pending_deoptimization_env_;
 
-  intptr_t lazy_deopt_pc_offset_;
-
   ZoneGrowableArray<const ICData*>* deopt_id_to_ic_data_;
 
   Array& edge_counters_array_;
-
-  Array& inlined_code_intervals_;
-  const GrowableArray<const Function*>& inline_id_to_function_;
-  const GrowableArray<TokenPosition>& inline_id_to_token_pos_;
-  const GrowableArray<intptr_t>& caller_inline_id_;
 
   DISALLOW_COPY_AND_ASSIGN(FlowGraphCompiler);
 };
 
 }  // namespace dart
 
-#endif  // VM_FLOW_GRAPH_COMPILER_H_
+#endif  // RUNTIME_VM_FLOW_GRAPH_COMPILER_H_

@@ -14,13 +14,33 @@ namespace dart {
 namespace bin {
 
 Builtin::builtin_lib_props Builtin::builtin_libraries_[] = {
-  /* { url_, source_, patch_url_, patch_source_, has_natives_ } */
-  { DartUtils::kBuiltinLibURL, _builtin_source_paths_, NULL, NULL, true },
-  { DartUtils::kIOLibURL, io_source_paths_,
-    DartUtils::kIOLibPatchURL, io_patch_paths_, true },
-};
+    /* { url_, source_, patch_url_, patch_source_, has_natives_ } */
+    {DartUtils::kBuiltinLibURL, _builtin_source_paths_, NULL, NULL, true},
+    {DartUtils::kIOLibURL, io_source_paths_, DartUtils::kIOLibPatchURL,
+     io_patch_paths_, true},
+
+#if defined(DART_NO_SNAPSHOT)
+    // Only include these libraries in the dart_bootstrap case for now.
+    {"dart:html", html_source_paths_, NULL, NULL, true},
+    {"dart:html_common", html_common_source_paths_, NULL, NULL, true},
+    {"dart:js", js_source_paths_, NULL, NULL, true},
+    {"dart:js_util", js_util_source_paths_, NULL, NULL, true},
+    {"dart:_blink", _blink_source_paths_, NULL, NULL, true},
+    {"dart:indexed_db", indexed_db_source_paths_, NULL, NULL, true},
+    {"cached_patches.dart", cached_patches_source_paths_, NULL, NULL, true},
+    {"dart:web_gl", web_gl_source_paths_, NULL, NULL, true},
+    {"metadata.dart", metadata_source_paths_, NULL, NULL, true},
+    {"dart:web_sql", web_sql_source_paths_, NULL, NULL, true},
+    {"dart:svg", svg_source_paths_, NULL, NULL, true},
+    {"dart:web_audio", web_audio_source_paths_, NULL, NULL, true},
+#endif  // defined(DART_NO_SNAPSHOT)
+
+    // End marker.
+    {NULL, NULL, NULL, NULL, false}};
 
 Dart_Port Builtin::load_port_ = ILLEGAL_PORT;
+const int Builtin::num_libs_ =
+    sizeof(Builtin::builtin_libraries_) / sizeof(Builtin::builtin_lib_props);
 
 // Patch all the specified patch files in the array 'patch_files' into the
 // library specified in 'library'.
@@ -48,9 +68,8 @@ static void LoadPatchFiles(Dart_Handle library,
 
 
 Dart_Handle Builtin::Source(BuiltinLibraryId id) {
-  ASSERT((sizeof(builtin_libraries_) / sizeof(builtin_lib_props)) ==
-         kInvalidLibrary);
-  ASSERT(id >= kBuiltinLibrary && id < kInvalidLibrary);
+  ASSERT(static_cast<int>(id) >= 0);
+  ASSERT(static_cast<int>(id) < num_libs_);
 
   // Try to read the source using the path specified for the uri.
   const char* uri = builtin_libraries_[id].url_;
@@ -60,9 +79,8 @@ Dart_Handle Builtin::Source(BuiltinLibraryId id) {
 
 
 Dart_Handle Builtin::PartSource(BuiltinLibraryId id, const char* part_uri) {
-  ASSERT((sizeof(builtin_libraries_) / sizeof(builtin_lib_props)) ==
-         kInvalidLibrary);
-  ASSERT(id >= kBuiltinLibrary && id < kInvalidLibrary);
+  ASSERT(static_cast<int>(id) >= 0);
+  ASSERT(static_cast<int>(id) < num_libs_);
 
   // Try to read the source using the path specified for the uri.
   const char** source_paths = builtin_libraries_[id].source_paths_;
@@ -81,8 +99,8 @@ Dart_Handle Builtin::GetSource(const char** source_paths, const char* uri) {
       if (!Dart_IsString(src)) {
         // In case reading the file caused an error, use the sources directly.
         const char* source = source_paths[i + 2];
-        src = Dart_NewStringFromUTF8(
-            reinterpret_cast<const uint8_t*>(source), strlen(source));
+        src = Dart_NewStringFromUTF8(reinterpret_cast<const uint8_t*>(source),
+                                     strlen(source));
       }
       return src;
     }
@@ -92,12 +110,25 @@ Dart_Handle Builtin::GetSource(const char** source_paths, const char* uri) {
 
 
 void Builtin::SetNativeResolver(BuiltinLibraryId id) {
-  UNREACHABLE();
+  ASSERT(static_cast<int>(id) >= 0);
+  ASSERT(static_cast<int>(id) < num_libs_);
+
+  if (builtin_libraries_[id].has_natives_) {
+    Dart_Handle url = DartUtils::NewString(builtin_libraries_[id].url_);
+    Dart_Handle library = Dart_LookupLibrary(url);
+    ASSERT(!Dart_IsError(library));
+    // Setup the native resolver for built in library functions.
+    DART_CHECK_VALID(
+        Dart_SetNativeResolver(library, NativeLookup, NativeSymbol));
+  }
 }
 
 
 Dart_Handle Builtin::LoadLibrary(Dart_Handle url, BuiltinLibraryId id) {
-  Dart_Handle library = Dart_LoadLibrary(url, Source(id), 0, 0);
+  ASSERT(static_cast<int>(id) >= 0);
+  ASSERT(static_cast<int>(id) < num_libs_);
+
+  Dart_Handle library = Dart_LoadLibrary(url, Dart_Null(), Source(id), 0, 0);
   if (!Dart_IsError(library) && (builtin_libraries_[id].has_natives_)) {
     // Setup the native resolver for built in library functions.
     DART_CHECK_VALID(
@@ -105,18 +136,31 @@ Dart_Handle Builtin::LoadLibrary(Dart_Handle url, BuiltinLibraryId id) {
   }
   if (builtin_libraries_[id].patch_url_ != NULL) {
     ASSERT(builtin_libraries_[id].patch_paths_ != NULL);
-    LoadPatchFiles(library,
-                   builtin_libraries_[id].patch_url_,
+    LoadPatchFiles(library, builtin_libraries_[id].patch_url_,
                    builtin_libraries_[id].patch_paths_);
   }
   return library;
 }
 
 
+Builtin::BuiltinLibraryId Builtin::FindId(const char* url_string) {
+  int id = 0;
+  while (true) {
+    if (builtin_libraries_[id].url_ == NULL) {
+      return kInvalidLibrary;
+    }
+    if (strcmp(url_string, builtin_libraries_[id].url_) == 0) {
+      return static_cast<BuiltinLibraryId>(id);
+    }
+    id++;
+  }
+}
+
+
 Dart_Handle Builtin::LoadAndCheckLibrary(BuiltinLibraryId id) {
-  ASSERT((sizeof(builtin_libraries_) / sizeof(builtin_lib_props)) ==
-         kInvalidLibrary);
-  ASSERT(id >= kBuiltinLibrary && id < kInvalidLibrary);
+  ASSERT(static_cast<int>(id) >= 0);
+  ASSERT(static_cast<int>(id) < num_libs_);
+
   Dart_Handle url = DartUtils::NewString(builtin_libraries_[id].url_);
   Dart_Handle library = Dart_LookupLibrary(url);
   if (Dart_IsError(library)) {

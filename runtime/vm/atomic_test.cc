@@ -10,7 +10,7 @@
 
 namespace dart {
 
-UNIT_TEST_CASE(FetchAndIncrement) {
+VM_UNIT_TEST_CASE(FetchAndIncrement) {
   uintptr_t v = 42;
   EXPECT_EQ(static_cast<uintptr_t>(42),
             AtomicOperations::FetchAndIncrement(&v));
@@ -18,7 +18,7 @@ UNIT_TEST_CASE(FetchAndIncrement) {
 }
 
 
-UNIT_TEST_CASE(FetchAndDecrement) {
+VM_UNIT_TEST_CASE(FetchAndDecrement) {
   uintptr_t v = 42;
   EXPECT_EQ(static_cast<uintptr_t>(42),
             AtomicOperations::FetchAndDecrement(&v));
@@ -26,21 +26,37 @@ UNIT_TEST_CASE(FetchAndDecrement) {
 }
 
 
-UNIT_TEST_CASE(IncrementBy) {
+VM_UNIT_TEST_CASE(FetchAndIncrementSigned) {
+  intptr_t v = -42;
+  EXPECT_EQ(static_cast<intptr_t>(-42),
+            AtomicOperations::FetchAndIncrement(&v));
+  EXPECT_EQ(static_cast<intptr_t>(-41), v);
+}
+
+
+VM_UNIT_TEST_CASE(FetchAndDecrementSigned) {
+  intptr_t v = -42;
+  EXPECT_EQ(static_cast<intptr_t>(-42),
+            AtomicOperations::FetchAndDecrement(&v));
+  EXPECT_EQ(static_cast<intptr_t>(-43), v);
+}
+
+
+VM_UNIT_TEST_CASE(IncrementBy) {
   intptr_t v = 42;
   AtomicOperations::IncrementBy(&v, 100);
   EXPECT_EQ(static_cast<intptr_t>(142), v);
 }
 
 
-UNIT_TEST_CASE(DecrementBy) {
+VM_UNIT_TEST_CASE(DecrementBy) {
   intptr_t v = 42;
   AtomicOperations::DecrementBy(&v, 41);
   EXPECT_EQ(static_cast<intptr_t>(1), v);
 }
 
 
-UNIT_TEST_CASE(LoadRelaxed) {
+VM_UNIT_TEST_CASE(LoadRelaxed) {
   uword v = 42;
   EXPECT_EQ(static_cast<uword>(42), AtomicOperations::LoadRelaxed(&v));
 }
@@ -49,8 +65,8 @@ UNIT_TEST_CASE(LoadRelaxed) {
 TEST_CASE(CompareAndSwapWord) {
   uword old_value = 42;
   uword new_value = 100;
-  uword result = AtomicOperations::CompareAndSwapWord(
-      &old_value, old_value, new_value);
+  uword result =
+      AtomicOperations::CompareAndSwapWord(&old_value, old_value, new_value);
   EXPECT_EQ(static_cast<uword>(42), result);
 }
 
@@ -58,8 +74,8 @@ TEST_CASE(CompareAndSwapWord) {
 TEST_CASE(CompareAndSwapUint32) {
   uint32_t old_value = 42;
   uint32_t new_value = 100;
-  uint32_t result = AtomicOperations::CompareAndSwapUint32(
-      &old_value, old_value, new_value);
+  uint32_t result =
+      AtomicOperations::CompareAndSwapUint32(&old_value, old_value, new_value);
   EXPECT_EQ(static_cast<uint32_t>(42), result);
 }
 

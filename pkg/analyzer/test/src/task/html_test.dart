@@ -10,17 +10,17 @@ import 'package:analyzer/task/general.dart';
 import 'package:analyzer/task/html.dart';
 import 'package:analyzer/task/model.dart';
 import 'package:html/dom.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
+import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import '../../reflective_tests.dart';
-import '../../utils.dart';
 import '../context/abstract_context.dart';
 
 main() {
-  initializeTestEnvironment();
-  runReflectiveTests(DartScriptsTaskTest);
-  runReflectiveTests(HtmlErrorsTaskTest);
-  runReflectiveTests(ParseHtmlTaskTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(DartScriptsTaskTest);
+    defineReflectiveTests(HtmlErrorsTaskTest);
+    defineReflectiveTests(ParseHtmlTaskTest);
+  });
 }
 
 isInstanceOf isDartScriptsTask = new isInstanceOf<DartScriptsTask>();
@@ -265,7 +265,12 @@ class ParseHtmlTaskTest extends AbstractContextTest {
     Source source = newSource('/test.html');
     Map<String, TaskInput> inputs = ParseHtmlTask.buildInputs(source);
     expect(inputs, isNotNull);
-    expect(inputs.keys, unorderedEquals([ParseHtmlTask.CONTENT_INPUT_NAME]));
+    expect(
+        inputs.keys,
+        unorderedEquals([
+          ParseHtmlTask.CONTENT_INPUT_NAME,
+          ParseHtmlTask.MODIFICATION_TIME_INPUT
+        ]));
   }
 
   test_constructor() {

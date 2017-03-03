@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-// SharedOptions=--enable-enum
-
 import 'package:expect/expect.dart';
 
 enum Enum1 { _ }
@@ -22,7 +20,7 @@ main() {
   Expect.equals('Enum2.A', Enum2.A.toString());
   Expect.equals(0, Enum2.A.index);
   Expect.listEquals([Enum2.A], Enum2.values);
-  Expect.identical(const [Enum2.A], Enum2.values);
+  Expect.identical(const <Enum2>[Enum2.A], Enum2.values);
   Enum2.values.forEach(test2);
 
   Expect.equals('Enum3.B', Enum3.B.toString());

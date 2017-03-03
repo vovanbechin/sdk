@@ -4,17 +4,23 @@
 
 [ $compiler == dart2analyzer ]
 
+generic_methods_generic_function_parameter_test: CompileTimeError # Issue 28515
+generic_local_functions_test: CompileTimeError # Issue 28515
+
+regress_26668_test: Fail # Issue 26678
+regress_27617_test/1: MissingCompileTimeError
+
 # Runtime negative test. No static errors or warnings.
 closure_call_wrong_argument_count_negative_test: skip
+
+# No longer support the old use of typedef to define a mixin
+mixin_illegal_syntax_test/00: Crash
 
 deep_nesting1_negative_test: Crash # Issue 25558
 deep_nesting2_negative_test: Crash # Issue 25558
 
 enum_syntax_test/05: Fail # 21649
 enum_syntax_test/06: Fail # 21649
-
-tearoff_basic_test: Skip # Tear-off not supported
-tearoff_constructor_basic_test: Skip # Tear-off not supported
 
 regress_17382_test: Skip # don't care about the static warning.
 regress_23408_test: Skip # don't care about the static warning.
@@ -42,8 +48,9 @@ multiline_newline_test/06: MissingCompileTimeError # Issue 23888
 
 const_for_in_variable_test/01: MissingCompileTimeError # Issue 25161
 
-# Unsupported configuration specific imports.
-config_import_test: CompileTimeError # Issue 24579
+generic_function_typedef_test: Crash # Issue 27969
+generic_function_typedef2_test: Crash # Issue 27969
+function_type/function_type*: Crash # Issue 27969
 
 # Please add new failing tests before this line.
 # Section below is for invalid tests.
@@ -69,9 +76,6 @@ implicit_this_test/none: fail # Issue 11575
 interface_test/none: fail # Issue 11575
 syntax_test/none: fail # Issue 11575
 
-# test issue 11576
-bad_constructor_test/none: fail # Issue 11576
-
 # test issue 11577, has return type for []=
 cascade_test/none: fail # Issue 11577
 
@@ -85,9 +89,6 @@ malbounded_redirecting_factory2_test/none: fail # Issue 11578
 
 # test issue 11579, assignment, no setter
 getter_no_setter_test/none: fail
-
-# test issue 11584, positional arguments cannot be used for named parameters
-compile_time_constant_e_test: fail # Test Issue 11584
 
 # test issue 11585, static warning, not negative test
 constructor3_negative_test: fail
@@ -127,9 +128,6 @@ unresolved_top_level_var_negative_test: fail # Issue 12163
 # test issue 12191, ambiguous import is always warning now
 prefix3_negative_test: fail # Issue 12191
 
-# test issue 12289, assignment in assert statement
-type_error_test: fail # Issue 12289
-
 # test issue 12381, It is compile-time error to invoke not existing function
 issue11724_test: fail # Issue 12381
 
@@ -162,9 +160,6 @@ regress_22438_test: fail # test issue 14079, it is not error, but warning to use
 # test issue 14228
 black_listed_test/none: fail # test issue 14228, warnings are required but not expected
 
-# test issue 14410, "typedef C = " is now really illegal syntax
-mixin_illegal_syntax_test/none: fail
-
 # test issue 14736, It is a static warning if a class C declares an instance method named n and has a setter named n=.
 setter4_test: StaticWarning
 
@@ -188,7 +183,6 @@ factory_redirection_test/none: StaticWarning # Issue 18230
 # The following tests are currently assumed to be failing because the test is wrong.
 #
 application_negative_test: CompileTimeError # Test Issue 14528
-bad_constructor_test/05: CompileTimeError # Test Issue 5337
 bad_initializer1_negative_test: CompileTimeError # Test Issue 14529
 bad_named_constructor_negative_test: CompileTimeError # Test Issue 18693
 body_less_constructor_wrong_arg_negative_test: CompileTimeError # Test Issue 18695
@@ -298,7 +292,6 @@ method_override5_test: StaticWarning
 method_override6_test: StaticWarning
 method_override_test: StaticWarning
 mixin_illegal_static_access_test: StaticWarning
-mixin_illegal_syntax_test/13: CompileTimeError
 mixin_type_parameters_mixin_extends_test: StaticWarning
 mixin_type_parameters_mixin_test: StaticWarning
 mixin_type_parameters_super_extends_test: StaticWarning
@@ -362,7 +355,6 @@ parameter_initializer1_negative_test: CompileTimeError
 parameter_initializer2_negative_test: CompileTimeError
 parameter_initializer3_negative_test: CompileTimeError
 parameter_initializer4_negative_test: CompileTimeError
-parameter_initializer5_negative_test: CompileTimeError
 parameter_initializer6_negative_test: CompileTimeError
 parser_quirks_test: StaticWarning
 part2_test: StaticWarning
@@ -416,7 +408,6 @@ switch1_negative_test: CompileTimeError
 switch3_negative_test: CompileTimeError
 switch4_negative_test: CompileTimeError
 switch5_negative_test: CompileTimeError
-switch6_test: StaticWarning
 switch7_negative_test: CompileTimeError
 switch_fallthru_test: StaticWarning
 test_negative_test: CompileTimeError
@@ -494,23 +485,6 @@ mixin_supertype_subclass4_test/03: MissingStaticWarning # Issue 25614
 mixin_supertype_subclass4_test/04: MissingStaticWarning # Issue 25614
 mixin_supertype_subclass4_test/05: MissingStaticWarning # Issue 25614
 
-mixin_of_mixin_test/01: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/02: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/04: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/05: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/06: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/08: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/09: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/10: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/12: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/13: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/15: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/16: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/17: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/19: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/20: MissingStaticWarning # Issue 25605
-mixin_of_mixin_test/21: MissingStaticWarning # Issue 25605
-
 accessor_conflict_export2_test: StaticWarning # Issue 25624
 accessor_conflict_export_test: StaticWarning # Issue 25624
 accessor_conflict_import2_test: StaticWarning # Issue 25624
@@ -521,7 +495,13 @@ accessor_conflict_import_test: StaticWarning # Issue 25624
 for_in3_test: StaticWarning, OK # Test should have warning by design.
 for_in_side_effects_test: StaticWarning, OK # Test uses custom class that does not implement Iterable in for-in.
 
-# Experimental feature: Syntactic support for generic methods.
-generic_functions_test: CompileTimeError # Issue 25868
-generic_methods_test: CompileTimeError # Issue 25868
-generic_sends_test: CompileTimeError # Issue 25868
+# Experimental feature: Use initializing formals in initializers and constructor body.
+initializing_formal_type_test: StaticWarning # Issue 26658
+
+regress_27572_test: StaticWarning # Warning about undefined method expected.
+
+[ $compiler == dart2analyzer && $builder_tag == strong ]
+*: Skip # Issue 28649
+
+[ $compiler == dart2analyzer && $system != windows ]
+bad_raw_string_test/03: MissingCompileTimeError # Issue 28664

@@ -4,35 +4,42 @@
 
 library dart2js.js_emitter.startup_emitter;
 
-import 'package:js_runtime/shared/embedded_names.dart' show
-    JsBuiltin,
-    METADATA,
-    STATIC_FUNCTION_NAME_TO_CLOSURE,
-    TYPES;
+import 'package:js_runtime/shared/embedded_names.dart'
+    show JsBuiltin, METADATA, STATIC_FUNCTION_NAME_TO_CLOSURE, TYPES;
 
 import '../../common.dart';
-import '../../compiler.dart' show
-    Compiler;
-import '../../constants/values.dart' show
-    ConstantValue;
-import '../../elements/elements.dart' show
-    ClassElement,
-    Element,
-    FieldElement,
-    FunctionElement;
+import '../../compiler.dart' show Compiler;
+import '../../constants/values.dart' show ConstantValue;
+import '../../deferred_load.dart' show OutputUnit;
+import '../../elements/elements.dart'
+    show ClassElement, Element, FieldElement, MethodElement;
 import '../../js/js.dart' as js;
-import '../../js_backend/js_backend.dart' show
-    JavaScriptBackend,
-    Namer;
-
-import '../js_emitter.dart' show
-    NativeEmitter;
-import '../js_emitter.dart' as emitterTask show
-    Emitter;
-import '../program_builder/program_builder.dart' show ProgramBuilder;
+import '../../js_backend/js_backend.dart' show JavaScriptBackend, Namer;
+import '../../world.dart' show ClosedWorld;
+import '../js_emitter.dart' show CodeEmitterTask, NativeEmitter;
+import '../js_emitter.dart' as emitterTask show Emitter, EmitterFactory;
 import '../model.dart';
-
+import '../program_builder/program_builder.dart' show ProgramBuilder;
 import 'model_emitter.dart';
+
+class EmitterFactory implements emitterTask.EmitterFactory {
+  final bool generateSourceMap;
+
+  EmitterFactory({this.generateSourceMap});
+
+  @override
+  String get patchVersion => "startup";
+
+  @override
+  bool get supportsReflection => false;
+
+  @override
+  Emitter createEmitter(
+      CodeEmitterTask task, Namer namer, ClosedWorld closedWorld) {
+    return new Emitter(
+        task.compiler, namer, task.nativeEmitter, generateSourceMap);
+  }
+}
 
 class Emitter implements emitterTask.Emitter {
   final Compiler _compiler;
@@ -51,16 +58,10 @@ class Emitter implements emitterTask.Emitter {
   DiagnosticReporter get reporter => _compiler.reporter;
 
   @override
-  String get patchVersion => "startup";
-
-  @override
   int emitProgram(ProgramBuilder programBuilder) {
     Program program = programBuilder.buildProgram();
     return _emitter.emitProgram(program);
   }
-
-  @override
-  bool get supportsReflection => false;
 
   @override
   bool isConstantInlinedOrAlreadyEmitted(ConstantValue constant) {
@@ -97,12 +98,12 @@ class Emitter implements emitterTask.Emitter {
 
   @override
   js.Expression isolateLazyInitializerAccess(FieldElement element) {
-    return js.js('#.#', [namer.globalObjectFor(element),
-    namer.lazyInitializerName(element)]);
+    return js.js('#.#',
+        [namer.globalObjectFor(element), namer.lazyInitializerName(element)]);
   }
 
   @override
-  js.Expression isolateStaticClosureAccess(FunctionElement element) {
+  js.Expression isolateStaticClosureAccess(MethodElement element) {
     return _emitter.generateStaticClosureAccess(element);
   }
 
@@ -112,7 +113,7 @@ class Emitter implements emitterTask.Emitter {
   }
 
   @override
-  js.PropertyAccess staticFunctionAccess(FunctionElement element) {
+  js.PropertyAccess staticFunctionAccess(MethodElement element) {
     return _globalPropertyAccess(element);
   }
 
@@ -122,8 +123,8 @@ class Emitter implements emitterTask.Emitter {
   }
 
   @override
-  js.PropertyAccess prototypeAccess(ClassElement element,
-                                    bool hasBeenInstantiated) {
+  js.PropertyAccess prototypeAccess(
+      ClassElement element, bool hasBeenInstantiated) {
     js.Expression constructor =
         hasBeenInstantiated ? constructorAccess(element) : typeAccess(element);
     return js.js('#.prototype', constructor);
@@ -145,8 +146,8 @@ class Emitter implements emitterTask.Emitter {
 
     switch (builtin) {
       case JsBuiltin.dartObjectConstructor:
-        return js.js.expressionTemplateYielding(
-            typeAccess(_compiler.coreClasses.objectClass));
+        ClassElement objectClass = _compiler.commonElements.objectClass;
+        return js.js.expressionTemplateYielding(typeAccess(objectClass));
 
       case JsBuiltin.isCheckPropertyToJsConstructorName:
         int isPrefixLength = namer.operatorIsPrefix.length;
@@ -165,8 +166,8 @@ class Emitter implements emitterTask.Emitter {
         return _backend.rtiEncoder.templateForCreateFunctionType;
 
       case JsBuiltin.isSubtype:
-      // TODO(floitsch): move this closer to where is-check properties are
-      // built.
+        // TODO(floitsch): move this closer to where is-check properties are
+        // built.
         String isPrefix = namer.operatorIsPrefix;
         return js.js.expressionTemplateFor("('$isPrefix' + #) in #.prototype");
 
@@ -179,8 +180,7 @@ class Emitter implements emitterTask.Emitter {
         return js.js.expressionTemplateFor("$metadataAccess[#]");
 
       case JsBuiltin.getType:
-        String typesAccess =
-            _emitter.generateEmbeddedGlobalAccessString(TYPES);
+        String typesAccess = _emitter.generateEmbeddedGlobalAccessString(TYPES);
         return js.js.expressionTemplateFor("$typesAccess[#]");
 
       case JsBuiltin.createDartClosureFromNameOfStaticFunction:
@@ -189,13 +189,16 @@ class Emitter implements emitterTask.Emitter {
         return js.js.expressionTemplateFor("$functionAccess(#)");
 
       default:
-        reporter.internalError(NO_LOCATION_SPANNABLE,
-            "Unhandled Builtin: $builtin");
+        reporter.internalError(
+            NO_LOCATION_SPANNABLE, "Unhandled Builtin: $builtin");
         return null;
     }
   }
 
   @override
-  void invalidateCaches() {
+  int generatedSize(OutputUnit unit) {
+    Fragment key = _emitter.outputBuffers.keys
+        .firstWhere((Fragment fragment) => fragment.outputUnit == unit);
+    return _emitter.outputBuffers[key].length;
   }
 }

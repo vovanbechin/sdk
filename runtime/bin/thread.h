@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef BIN_THREAD_H_
-#define BIN_THREAD_H_
+#ifndef RUNTIME_BIN_THREAD_H_
+#define RUNTIME_BIN_THREAD_H_
 
 #include "platform/globals.h"
 
@@ -18,6 +18,8 @@ class Monitor;
 // Declare the OS-specific types ahead of defining the generic classes.
 #if defined(TARGET_OS_ANDROID)
 #include "bin/thread_android.h"
+#elif defined(TARGET_OS_FUCHSIA)
+#include "bin/thread_fuchsia.h"
 #elif defined(TARGET_OS_LINUX)
 #include "bin/thread_linux.h"
 #elif defined(TARGET_OS_MACOS)
@@ -36,7 +38,7 @@ class Thread {
   static const ThreadLocalKey kUnsetThreadLocalKey;
   static const ThreadId kInvalidThreadId;
 
-  typedef void (*ThreadStartFunction) (uword parameter);
+  typedef void (*ThreadStartFunction)(uword parameter);
 
   // Start a thread running the specified function. Returns 0 if the
   // thread started successfuly and a system specific error code if
@@ -51,10 +53,8 @@ class Thread {
   static void SetThreadLocal(ThreadLocalKey key, uword value);
   static intptr_t GetMaxStackSize();
   static ThreadId GetCurrentThreadId();
-  static bool Join(ThreadId id);
   static intptr_t ThreadIdToIntPtr(ThreadId id);
   static bool Compare(ThreadId a, ThreadId b);
-  static void GetThreadCpuUsage(ThreadId thread_id, int64_t* cpu_usage);
 
   static void InitOnce();
 
@@ -82,10 +82,7 @@ class Mutex {
 
 class Monitor {
  public:
-  enum WaitResult {
-    kNotified,
-    kTimedOut
-  };
+  enum WaitResult { kNotified, kTimedOut };
 
   static const int64_t kNoTimeout = 0;
 
@@ -113,4 +110,4 @@ class Monitor {
 }  // namespace dart
 
 
-#endif  // BIN_THREAD_H_
+#endif  // RUNTIME_BIN_THREAD_H_

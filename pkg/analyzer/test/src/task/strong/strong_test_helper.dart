@@ -6,112 +6,28 @@
 // package:dev_compiler's tests
 library analyzer.test.src.task.strong.strong_test_helper;
 
+import 'dart:async';
+
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/standard_resolution_map.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/error/error.dart';
+import 'package:analyzer/error/listener.dart';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/file_system/memory_file_system.dart';
+import 'package:analyzer/source/error_processor.dart';
+import 'package:analyzer/src/dart/analysis/byte_store.dart';
+import 'package:analyzer/src/dart/analysis/driver.dart';
+import 'package:analyzer/src/dart/analysis/file_state.dart';
 import 'package:analyzer/src/dart/ast/token.dart';
+import 'package:analyzer/src/error/codes.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
 import 'package:analyzer/src/generated/source.dart';
-import 'package:logging/logging.dart';
 import 'package:source_span/source_span.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 
 import '../../context/mock_sdk.dart';
-
-MemoryResourceProvider files;
-bool _checkCalled;
-
-/// Adds a file to check. The file should contain:
-///
-///   * all expected failures are listed in the source code using comments
-///     immediately in front of the AST node that should contain the error.
-///
-///   * errors are formatted as a token `level:Type`, where `level` is the
-///     logging level were the error would be reported at, and `Type` is the
-///     concrete subclass of [StaticInfo] that denotes the error.
-///
-/// For example to check that an assignment produces a type error, you can
-/// create a file like:
-///
-///     addFile('''
-///       String x = /*severe:STATIC_TYPE_ERROR*/3;
-///     ''');
-///     check();
-///
-/// For a single file, you may also use [checkFile].
-void addFile(String content, {String name: '/main.dart'}) {
-  name = name.replaceFirst('^package:', '/packages/');
-  files.newFile(name, content);
-}
-
-/// Run the checker on a program, staring from '/main.dart', and verifies that
-/// errors/warnings/hints match the expected value.
-///
-/// See [addFile] for more information about how to encode expectations in
-/// the file text.
-///
-/// Returns the main resolved library. This can be used for further checks.
-CompilationUnit check() {
-  _checkCalled = true;
-
-  expect(files.getFile('/main.dart').exists, true,
-      reason: '`/main.dart` is missing');
-
-  var uriResolver = new _TestUriResolver(files);
-  // Enable task model strong mode
-  var context = AnalysisEngine.instance.createAnalysisContext();
-  context.analysisOptions.strongMode = true;
-  (context.analysisOptions as AnalysisOptionsImpl).strongModeHints = true;
-  context.sourceFactory =
-      new SourceFactory([new DartUriResolver(new MockSdk()), uriResolver]);
-
-  // Run the checker on /main.dart.
-  Source mainSource = uriResolver.resolveAbsolute(new Uri.file('/main.dart'));
-  var initialLibrary = context.resolveCompilationUnit2(mainSource, mainSource);
-
-  var collector = new _ErrorCollector();
-
-  // Extract expectations from the comments in the test files, and
-  // check that all errors we emit are included in the expected map.
-  var allLibraries = _reachableLibraries(initialLibrary.element.library);
-  for (var lib in allLibraries) {
-    for (var unit in lib.units) {
-      var errors = <AnalysisError>[];
-      collector.errors = errors;
-
-      var source = unit.source;
-      if (source.uri.scheme == 'dart') continue;
-
-      var librarySource = context.getLibrariesContaining(source).single;
-      var resolved = context.resolveCompilationUnit2(source, librarySource);
-
-      errors.addAll(context.computeErrors(source).where((e) =>
-          // TODO(jmesserly): these are usually intentional dynamic calls.
-          e.errorCode.name != 'UNDEFINED_METHOD' &&
-          // We don't care about any of these:
-          e.errorCode != HintCode.UNNECESSARY_CAST &&
-          e.errorCode != HintCode.UNUSED_ELEMENT &&
-          e.errorCode != HintCode.UNUSED_FIELD &&
-          e.errorCode != HintCode.UNUSED_IMPORT &&
-          e.errorCode != HintCode.UNUSED_LOCAL_VARIABLE &&
-          e.errorCode != TodoCode.TODO));
-      _expectErrors(resolved, errors);
-    }
-  }
-
-  return initialLibrary;
-}
-
-/// Adds a file using [addFile] and calls [check].
-///
-/// Also returns the resolved compilation unit.
-CompilationUnit checkFile(String content) {
-  addFile(content);
-  return check();
-}
 
 SourceSpanWithContext _createSpanHelper(
     LineInfo lineInfo, int start, Source source, String content,
@@ -149,50 +65,14 @@ String _errorCodeName(ErrorCode errorCode) {
   }
 }
 
-void initStrongModeTests() {
-  setUp(() {
-    AnalysisEngine.instance.processRequiredPlugins();
-    files = new MemoryResourceProvider();
-    _checkCalled = false;
-  });
-
-  tearDown(() {
-    // This is a sanity check, in case only addFile is called.
-    expect(_checkCalled, true, reason: 'must call check() method in test case');
-    files = null;
-  });
+ErrorSeverity _errorSeverity(
+    AnalysisOptions analysisOptions, AnalysisError error) {
+  return ErrorProcessor.getProcessor(analysisOptions, error)?.severity ??
+      error.errorCode.errorSeverity;
 }
 
-SourceLocation _locationForOffset(LineInfo lineInfo, Uri uri, int offset) {
-  var loc = lineInfo.getLocation(offset);
-  return new SourceLocation(offset,
-      sourceUrl: uri, line: loc.lineNumber - 1, column: loc.columnNumber - 1);
-}
-
-/// Returns all libraries transitively imported or exported from [start].
-List<LibraryElement> _reachableLibraries(LibraryElement start) {
-  var results = <LibraryElement>[];
-  var seen = new Set();
-  void find(LibraryElement lib) {
-    if (seen.contains(lib)) return;
-    seen.add(lib);
-    results.add(lib);
-    lib.importedLibraries.forEach(find);
-    lib.exportedLibraries.forEach(find);
-  }
-  find(start);
-  return results;
-}
-
-Level _actualErrorLevel(AnalysisError actual) {
-  return const <ErrorSeverity, Level>{
-    ErrorSeverity.ERROR: Level.SEVERE,
-    ErrorSeverity.WARNING: Level.WARNING,
-    ErrorSeverity.INFO: Level.INFO
-  }[actual.errorCode.errorSeverity];
-}
-
-void _expectErrors(CompilationUnit unit, List<AnalysisError> actualErrors) {
+void _expectErrors(AnalysisOptions analysisOptions, CompilationUnit unit,
+    List<AnalysisError> actualErrors) {
   var expectedErrors = _findExpectedErrors(unit.beginToken);
 
   // Sort both lists: by offset, then level, then name.
@@ -200,7 +80,8 @@ void _expectErrors(CompilationUnit unit, List<AnalysisError> actualErrors) {
     int delta = x.offset.compareTo(y.offset);
     if (delta != 0) return delta;
 
-    delta = x.errorCode.errorSeverity.compareTo(y.errorCode.errorSeverity);
+    delta = _errorSeverity(analysisOptions, x)
+        .compareTo(_errorSeverity(analysisOptions, y));
     if (delta != 0) return delta;
 
     return _errorCodeName(x.errorCode).compareTo(_errorCodeName(y.errorCode));
@@ -209,7 +90,7 @@ void _expectErrors(CompilationUnit unit, List<AnalysisError> actualErrors) {
     int delta = x.offset.compareTo(y.offset);
     if (delta != 0) return delta;
 
-    delta = x.level.compareTo(y.level);
+    delta = x.severity.compareTo(y.severity);
     if (delta != 0) return delta;
 
     return x.typeName.compareTo(y.typeName);
@@ -222,7 +103,7 @@ void _expectErrors(CompilationUnit unit, List<AnalysisError> actualErrors) {
   for (var expected in expectedErrors) {
     AnalysisError actual = expected._removeMatchingActual(actualErrors);
     if (actual != null) {
-      if (_actualErrorLevel(actual) != expected.level ||
+      if (_errorSeverity(analysisOptions, actual) != expected.severity ||
           _errorCodeName(actual.errorCode) != expected.typeName) {
         different[expected] = actual;
       }
@@ -235,14 +116,14 @@ void _expectErrors(CompilationUnit unit, List<AnalysisError> actualErrors) {
   List<AnalysisError> unexpected = actualErrors;
 
   if (unreported.isNotEmpty || unexpected.isNotEmpty || different.isNotEmpty) {
-    _reportFailure(unit, unreported, unexpected, different);
+    _reportFailure(analysisOptions, unit, unreported, unexpected, different);
   }
 }
 
 List<_ErrorExpectation> _findExpectedErrors(Token beginToken) {
   var expectedErrors = <_ErrorExpectation>[];
 
-  // Collect expectations like "severe:STATIC_TYPE_ERROR" from comment tokens.
+  // Collect expectations like "error:STATIC_TYPE_ERROR" from comment tokens.
   for (Token t = beginToken; t.type != TokenType.EOF; t = t.next) {
     for (CommentToken c = t.precedingComments; c != null; c = c.next) {
       if (c.type == TokenType.MULTI_LINE_COMMENT) {
@@ -267,22 +148,45 @@ List<_ErrorExpectation> _findExpectedErrors(Token beginToken) {
   return expectedErrors;
 }
 
+SourceLocation _locationForOffset(LineInfo lineInfo, Uri uri, int offset) {
+  var loc = lineInfo.getLocation(offset);
+  return new SourceLocation(offset,
+      sourceUrl: uri, line: loc.lineNumber - 1, column: loc.columnNumber - 1);
+}
+
+/// Returns all libraries transitively imported or exported from [start].
+Set<LibraryElement> _reachableLibraries(LibraryElement start) {
+  Set<LibraryElement> results = new Set<LibraryElement>();
+
+  void find(LibraryElement library) {
+    if (results.add(library)) {
+      library.importedLibraries.forEach(find);
+      library.exportedLibraries.forEach(find);
+    }
+  }
+
+  find(start);
+  return results;
+}
+
 void _reportFailure(
+    AnalysisOptions analysisOptions,
     CompilationUnit unit,
     List<_ErrorExpectation> unreported,
     List<AnalysisError> unexpected,
     Map<_ErrorExpectation, AnalysisError> different) {
   // Get the source code. This reads the data again, but it's safe because
   // all tests use memory file system.
-  var sourceCode = unit.element.source.contents.data;
+  var sourceCode =
+      resolutionMap.elementDeclaredByCompilationUnit(unit).source.contents.data;
 
   String formatActualError(AnalysisError error) {
     int offset = error.offset;
     int length = error.length;
-    var span = _createSpanHelper(
-        unit.lineInfo, offset, unit.element.source, sourceCode,
+    var span = _createSpanHelper(unit.lineInfo, offset,
+        resolutionMap.elementDeclaredByCompilationUnit(unit).source, sourceCode,
         end: offset + length);
-    var levelName = _actualErrorLevel(error).name.toLowerCase();
+    var levelName = _errorSeverity(analysisOptions, error).displayName;
     return '@$offset $levelName:${_errorCodeName(error.errorCode)}\n' +
         span.message(error.message);
   }
@@ -290,9 +194,12 @@ void _reportFailure(
   String formatExpectedError(_ErrorExpectation error) {
     int offset = error.offset;
     var span = _createSpanHelper(
-        unit.lineInfo, offset, unit.element.source, sourceCode);
-    var levelName = error.level.toString().toLowerCase();
-    return '@$offset $levelName:${error.typeName}\n' + span.message('');
+        unit.lineInfo,
+        offset,
+        resolutionMap.elementDeclaredByCompilationUnit(unit).source,
+        sourceCode);
+    var severity = error.severity.displayName;
+    return '@$offset $severity:${error.typeName}\n' + span.message('');
   }
 
   var message = new StringBuffer();
@@ -317,16 +224,180 @@ void _reportFailure(
   fail('Checker errors do not match expected errors:\n\n$message');
 }
 
+class AbstractStrongTest {
+  MemoryResourceProvider _resourceProvider = new MemoryResourceProvider();
+  bool _checkCalled = false;
+
+  AnalysisContext _context = null;
+  AnalysisDriver _driver = null;
+
+  bool get enableNewAnalysisDriver => false;
+
+  /// Adds a file to check. The file should contain:
+  ///
+  ///   * all expected failures are listed in the source code using comments
+  ///     immediately in front of the AST node that should contain the error.
+  ///
+  ///   * errors are formatted as a token `severity:ErrorCode`, where
+  ///     `severity` is the ErrorSeverity the error would be reported at, and
+  ///     `ErrorCode` is the error code's name.
+  ///
+  /// For example to check that an assignment produces a type error, you can
+  /// create a file like:
+  ///
+  ///     addFile('''
+  ///       String x = /*error:STATIC_TYPE_ERROR*/3;
+  ///     ''');
+  ///     check();
+  ///
+  /// For a single file, you may also use [checkFile].
+  void addFile(String content, {String name: '/main.dart'}) {
+    name = name.replaceFirst('^package:', '/packages/');
+    _resourceProvider.newFile(_resourceProvider.convertPath(name), content);
+  }
+
+  /// Run the checker on a program, staring from '/main.dart', and verifies that
+  /// errors/warnings/hints match the expected value.
+  ///
+  /// See [addFile] for more information about how to encode expectations in
+  /// the file text.
+  ///
+  /// Returns the main resolved library. This can be used for further checks.
+  Future<CompilationUnit> check(
+      {bool implicitCasts: true,
+      bool implicitDynamic: true,
+      List<String> nonnullableTypes:
+          AnalysisOptionsImpl.NONNULLABLE_TYPES}) async {
+    _checkCalled = true;
+
+    File mainFile =
+        _resourceProvider.getFile(_resourceProvider.convertPath('/main.dart'));
+    expect(mainFile.exists, true, reason: '`/main.dart` is missing');
+
+    AnalysisOptionsImpl analysisOptions = new AnalysisOptionsImpl();
+    analysisOptions.strongMode = true;
+    analysisOptions.strongModeHints = true;
+    analysisOptions.implicitCasts = implicitCasts;
+    analysisOptions.implicitDynamic = implicitDynamic;
+    analysisOptions.nonnullableTypes = nonnullableTypes;
+
+    var mockSdk = new MockSdk(resourceProvider: _resourceProvider);
+    mockSdk.context.analysisOptions = analysisOptions;
+
+    SourceFactory sourceFactory;
+    {
+      var uriResolver = new _TestUriResolver(_resourceProvider);
+      sourceFactory =
+          new SourceFactory([new DartUriResolver(mockSdk), uriResolver]);
+    }
+
+    CompilationUnit mainUnit;
+    if (enableNewAnalysisDriver) {
+      StringBuffer logBuffer = new StringBuffer();
+      FileContentOverlay fileContentOverlay = new FileContentOverlay();
+      PerformanceLog log = new PerformanceLog(logBuffer);
+      AnalysisDriverScheduler scheduler = new AnalysisDriverScheduler(log);
+      _driver = new AnalysisDriver(
+          scheduler,
+          log,
+          _resourceProvider,
+          new MemoryByteStore(),
+          fileContentOverlay,
+          'test',
+          sourceFactory,
+          analysisOptions);
+      scheduler.start();
+
+      mainUnit = (await _driver.getResult(mainFile.path)).unit;
+    } else {
+      _context = AnalysisEngine.instance.createAnalysisContext();
+      _context.analysisOptions = analysisOptions;
+      _context.sourceFactory = sourceFactory;
+
+      // Run the checker on /main.dart.
+      Source mainSource = sourceFactory.forUri2(mainFile.toUri());
+      mainUnit = _context.resolveCompilationUnit2(mainSource, mainSource);
+    }
+
+    var collector = new _ErrorCollector(analysisOptions);
+
+    // Extract expectations from the comments in the test files, and
+    // check that all errors we emit are included in the expected map.
+    LibraryElement mainLibrary =
+        resolutionMap.elementDeclaredByCompilationUnit(mainUnit).library;
+    Set<LibraryElement> allLibraries = _reachableLibraries(mainLibrary);
+    for (LibraryElement library in allLibraries) {
+      for (CompilationUnitElement unit in library.units) {
+        var errors = <AnalysisError>[];
+        collector.errors = errors;
+
+        var source = unit.source;
+        if (source.uri.scheme == 'dart') {
+          continue;
+        }
+
+        var analysisResult = await _resolve(source);
+
+        errors.addAll(analysisResult.errors.where((e) =>
+            // TODO(jmesserly): these are usually intentional dynamic calls.
+            e.errorCode.name != 'UNDEFINED_METHOD' &&
+            // We don't care about any of these:
+            e.errorCode != HintCode.UNUSED_ELEMENT &&
+            e.errorCode != HintCode.UNUSED_FIELD &&
+            e.errorCode != HintCode.UNUSED_IMPORT &&
+            e.errorCode != HintCode.UNUSED_LOCAL_VARIABLE &&
+            e.errorCode != TodoCode.TODO));
+        _expectErrors(analysisOptions, analysisResult.unit, errors);
+      }
+    }
+
+    return mainUnit;
+  }
+
+  /// Adds a file using [addFile] and calls [check].
+  ///
+  /// Also returns the resolved compilation unit.
+  Future<CompilationUnit> checkFile(String content) async {
+    addFile(content);
+    return check();
+  }
+
+  void setUp() {
+    AnalysisEngine.instance.processRequiredPlugins();
+  }
+
+  void tearDown() {
+    // This is a sanity check, in case only addFile is called.
+    expect(_checkCalled, true, reason: 'must call check() method in test case');
+    _context?.dispose();
+    _driver?.dispose();
+    AnalysisEngine.instance.clearCaches();
+  }
+
+  Future<_TestAnalysisResult> _resolve(Source source) async {
+    if (enableNewAnalysisDriver) {
+      var result = await _driver.getResult(source.fullName);
+      return new _TestAnalysisResult(source, result.unit, result.errors);
+    } else {
+      List<Source> libraries = _context.getLibrariesContaining(source);
+      var unit = _context.resolveCompilationUnit2(source, libraries.single);
+      var errors = _context.computeErrors(source);
+      return new _TestAnalysisResult(source, unit, errors);
+    }
+  }
+}
+
 class _ErrorCollector implements AnalysisErrorListener {
+  final AnalysisOptions analysisOptions;
   List<AnalysisError> errors;
   final bool hints;
 
-  _ErrorCollector({this.hints: true});
+  _ErrorCollector(this.analysisOptions, {this.hints: true});
 
   void onError(AnalysisError error) {
     // Unless DDC hints are requested, filter them out.
     var HINT = ErrorSeverity.INFO.ordinal;
-    if (hints || error.errorCode.errorSeverity.ordinal > HINT) {
+    if (hints || _errorSeverity(analysisOptions, error).ordinal > HINT) {
       errors.add(error);
     }
   }
@@ -335,13 +406,12 @@ class _ErrorCollector implements AnalysisErrorListener {
 /// Describes an expected message that should be produced by the checker.
 class _ErrorExpectation {
   final int offset;
-  final Level level;
+  final ErrorSeverity severity;
   final String typeName;
 
-  _ErrorExpectation(this.offset, this.level, this.typeName);
+  _ErrorExpectation(this.offset, this.severity, this.typeName);
 
-  String toString() =>
-      '@$offset ${level.toString().toLowerCase()}: [$typeName]';
+  String toString() => '@$offset ${severity.displayName}: [$typeName]';
 
   AnalysisError _removeMatchingActual(List<AnalysisError> actualErrors) {
     for (var actual in actualErrors) {
@@ -372,14 +442,21 @@ class _ErrorExpectation {
     var name = tokens[0].toUpperCase();
     var typeName = tokens[1];
 
-    var level =
-        Level.LEVELS.firstWhere((l) => l.name == name, orElse: () => null);
+    var level = ErrorSeverity.values
+        .firstWhere((l) => l.name == name, orElse: () => null);
     expect(level, isNotNull,
-        reason: 'invalid level in error descriptor: `${tokens[0]}`');
+        reason: 'invalid severity in error descriptor: `${tokens[0]}`');
     expect(typeName, isNotNull,
         reason: 'invalid type in error descriptor: ${tokens[1]}');
     return new _ErrorExpectation(offset, level, typeName);
   }
+}
+
+class _TestAnalysisResult {
+  final Source source;
+  final CompilationUnit unit;
+  final List<AnalysisError> errors;
+  _TestAnalysisResult(this.source, this.unit, this.errors);
 }
 
 class _TestUriResolver extends ResourceUriResolver {
@@ -391,7 +468,8 @@ class _TestUriResolver extends ResourceUriResolver {
   @override
   Source resolveAbsolute(Uri uri, [Uri actualUri]) {
     if (uri.scheme == 'package') {
-      return (provider.getResource('/packages/' + uri.path) as File)
+      return (provider.getResource(
+              provider.convertPath('/packages/' + uri.path)) as File)
           .createSource(uri);
     }
     return super.resolveAbsolute(uri, actualUri);

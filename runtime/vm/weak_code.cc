@@ -32,13 +32,13 @@ void WeakCodeReferences::Register(const Code& value) {
     }
   }
 
-  const WeakProperty& weak_property = WeakProperty::Handle(
-      WeakProperty::New(Heap::kOld));
+  const WeakProperty& weak_property =
+      WeakProperty::Handle(WeakProperty::New(Heap::kOld));
   weak_property.set_key(value);
 
   intptr_t length = array_.IsNull() ? 0 : array_.Length();
-  const Array& new_array = Array::Handle(
-      Array::Grow(array_, length + 1, Heap::kOld));
+  const Array& new_array =
+      Array::Handle(Array::Grow(array_, length + 1, Heap::kOld));
   new_array.SetAt(length, weak_property);
   UpdateArrayTo(new_array);
 }
@@ -61,7 +61,6 @@ bool WeakCodeReferences::IsOptimizedCode(const Array& dependent_code,
 
 
 void WeakCodeReferences::DisableCode() {
-  IncrementInvalidationGen();
   const Array& code_objects = Array::Handle(array_.raw());
   if (code_objects.IsNull()) {
     return;
@@ -77,7 +76,7 @@ void WeakCodeReferences::DisableCode() {
       code = frame->LookupDartCode();
       if (IsOptimizedCode(code_objects, code)) {
         ReportDeoptimization(code);
-        DeoptimizeAt(code, frame->pc());
+        DeoptimizeAt(code, frame);
       }
       frame = iterator.NextFrame();
     }
@@ -113,6 +112,7 @@ void WeakCodeReferences::DisableCode() {
       function.SwitchToUnoptimizedCode();
     } else if (function.unoptimized_code() == code.raw()) {
       ReportSwitchingCode(code);
+      function.set_was_compiled(false);
       function.ClearICDataArray();
       // Remove the code object from the function. The next time the
       // function is invoked, it will be compiled again.

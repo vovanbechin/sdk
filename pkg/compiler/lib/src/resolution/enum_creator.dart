@@ -5,16 +5,13 @@
 library dart2js.resolution.enum_creator;
 
 import '../common.dart';
-import '../core_types.dart' show
-    CoreTypes;
-import '../dart_types.dart';
+import '../core_types.dart' show CommonElements;
+import '../elements/resolution_types.dart';
 import '../elements/elements.dart';
 import '../elements/modelx.dart';
-import '../tokens/keyword.dart' show
-    Keyword;
-import '../tokens/precedence.dart';
-import '../tokens/precedence_constants.dart' as Precedence;
-import '../tokens/token.dart';
+import 'package:front_end/src/fasta/scanner.dart';
+import 'package:front_end/src/fasta/scanner/precedence.dart';
+import 'package:front_end/src/fasta/scanner/precedence.dart' as Precedence;
 import '../tree/tree.dart';
 import '../util/util.dart';
 
@@ -24,9 +21,8 @@ class AstBuilder {
 
   AstBuilder(this.charOffset);
 
-  Modifiers modifiers({bool isConst: false,
-                       bool isFinal: false,
-                       bool isStatic: false}) {
+  Modifiers modifiers(
+      {bool isConst: false, bool isFinal: false, bool isStatic: false}) {
     List identifiers = [];
     int flags = 0;
     if (isConst) {
@@ -42,8 +38,7 @@ class AstBuilder {
       flags |= Modifiers.FLAG_STATIC;
     }
     return new Modifiers.withFlags(
-        new NodeList(null, linkedList(identifiers), null, ''),
-        flags);
+        new NodeList(null, linkedList(identifiers), null, ''), flags);
   }
 
   Token keywordToken(String text) {
@@ -78,32 +73,27 @@ class AstBuilder {
 
   NodeList argumentList(List<Node> nodes) {
     return new NodeList(symbolToken(Precedence.OPEN_PAREN_INFO),
-                        linkedList(nodes),
-                        symbolToken(Precedence.CLOSE_PAREN_INFO),
-                        ',');
+        linkedList(nodes), symbolToken(Precedence.CLOSE_PAREN_INFO), ',');
   }
 
   Return returnStatement(Expression expression) {
-    return new Return(
-        keywordToken('return'),
-        symbolToken(Precedence.SEMICOLON_INFO),
-        expression);
+    return new Return(keywordToken('return'),
+        symbolToken(Precedence.SEMICOLON_INFO), expression);
   }
 
-  FunctionExpression functionExpression(Modifiers modifiers,
-                                        String name,
-                                        NodeList argumentList,
-                                        Statement body,
-                                        [TypeAnnotation returnType]) {
+  FunctionExpression functionExpression(Modifiers modifiers, String name,
+      NodeList typeVariables, NodeList argumentList, Statement body,
+      [TypeAnnotation returnType]) {
     return new FunctionExpression(
         identifier(name),
+        typeVariables,
         argumentList,
         body,
         returnType,
         modifiers,
         null, // Initializer.
         null, // get/set.
-        null  // Async modifier.
+        null // Async modifier.
         );
   }
 
@@ -116,27 +106,29 @@ class AstBuilder {
   }
 
   LiteralString literalString(String text,
-                              {String prefix: '"',
-                                String suffix: '"'}) {
-    return new LiteralString(stringToken('$prefix$text$suffix'),
-                             new DartString.literal(text));
+      {String prefix: '"', String suffix: '"'}) {
+    return new LiteralString(
+        stringToken('$prefix$text$suffix'), new DartString.literal(text));
   }
 
   LiteralList listLiteral(List<Node> elements, {bool isConst: false}) {
     return new LiteralList(
         null,
-        new NodeList(symbolToken(Precedence.OPEN_SQUARE_BRACKET_INFO),
-                     linkedList(elements),
-                     symbolToken(Precedence.CLOSE_SQUARE_BRACKET_INFO),
-                     ','),
+        new NodeList(
+            symbolToken(Precedence.OPEN_SQUARE_BRACKET_INFO),
+            linkedList(elements),
+            symbolToken(Precedence.CLOSE_SQUARE_BRACKET_INFO),
+            ','),
         isConst ? keywordToken('const') : null);
   }
 
   Node createDefinition(Identifier name, Expression initializer) {
     if (initializer == null) return name;
-    return new SendSet(null, name,
+    return new SendSet(
+        null,
+        name,
         new Operator(symbolToken(Precedence.EQ_INFO)),
-            new NodeList.singleton(initializer));
+        new NodeList.singleton(initializer));
   }
 
   VariableDefinitions initializingFormal(String fieldName) {
@@ -148,9 +140,8 @@ class AstBuilder {
             new Send(identifier('this'), identifier(fieldName))));
   }
 
-  NewExpression newExpression(String typeName,
-                              NodeList arguments,
-                              {bool isConst: false}) {
+  NewExpression newExpression(String typeName, NodeList arguments,
+      {bool isConst: false}) {
     return new NewExpression(keywordToken(isConst ? 'const' : 'new'),
         new Send(null, identifier(typeName), arguments));
   }
@@ -160,9 +151,8 @@ class AstBuilder {
   }
 
   Send indexGet(Expression receiver, Expression index) {
-    return new Send(receiver,
-                    new Operator(symbolToken(Precedence.INDEX_INFO)),
-                    new NodeList.singleton(index));
+    return new Send(receiver, new Operator(symbolToken(Precedence.INDEX_INFO)),
+        new NodeList.singleton(index));
   }
 
   LiteralMapEntry mapLiteralEntry(Expression key, Expression value) {
@@ -172,32 +162,58 @@ class AstBuilder {
   LiteralMap mapLiteral(List<LiteralMapEntry> entries, {bool isConst: false}) {
     return new LiteralMap(
         null, // Type arguments.
-        new NodeList(symbolToken(Precedence.OPEN_CURLY_BRACKET_INFO),
-                     linkedList(entries),
-                     symbolToken(Precedence.CLOSE_CURLY_BRACKET_INFO),
-                     ','),
+        new NodeList(
+            symbolToken(Precedence.OPEN_CURLY_BRACKET_INFO),
+            linkedList(entries),
+            symbolToken(Precedence.CLOSE_CURLY_BRACKET_INFO),
+            ','),
         isConst ? keywordToken('const') : null);
   }
 }
 
+/// This class generates the model for an enum class.
+///
+/// For instance
+///
+///     enum A { b, c, }
+///
+/// is modelled as
+///
+///     class A {
+///       final int index;
+///       final String _name;
+///
+///       const A(this.index);
+///
+///       String toString() {
+///         return _name;
+///       }
+///
+///       static const A b = const A(0, "A.b");
+///       static const A c = const A(1, "A.v");
+///
+///       static const List<A> values = const <A>[b, c];
+///     }
+///
 // TODO(johnniwinther): Avoid creating synthesized ASTs for enums when SSA is
 // removed.
 class EnumCreator {
   final DiagnosticReporter reporter;
-  final CoreTypes coreTypes;
+  final CommonElements commonElements;
   final EnumClassElementX enumClass;
 
-  EnumCreator(this.reporter, this.coreTypes, this.enumClass);
+  EnumCreator(this.reporter, this.commonElements, this.enumClass);
 
   void createMembers() {
     Enum node = enumClass.node;
-    InterfaceType enumType = enumClass.thisType;
+    ResolutionInterfaceType enumType = enumClass.thisType;
     AstBuilder builder = new AstBuilder(enumClass.position.charOffset);
 
-    InterfaceType intType = coreTypes.intType;
-    InterfaceType stringType = coreTypes.stringType;
+    ResolutionInterfaceType intType = commonElements.intType;
+    ResolutionInterfaceType stringType = commonElements.stringType;
 
-    EnumFieldElementX addInstanceMember(String name, InterfaceType type) {
+    EnumFieldElementX addInstanceMember(
+        String name, ResolutionInterfaceType type) {
       Identifier identifier = builder.identifier(name);
       VariableList variableList =
           new VariableList(builder.modifiers(isFinal: true));
@@ -209,63 +225,61 @@ class EnumCreator {
     }
 
     EnumFieldElementX indexVariable = addInstanceMember('index', intType);
+    EnumFieldElementX nameVariable = addInstanceMember('_name', stringType);
 
     VariableDefinitions indexDefinition = builder.initializingFormal('index');
+    VariableDefinitions nameDefinition = builder.initializingFormal('_name');
 
     FunctionExpression constructorNode = builder.functionExpression(
         builder.modifiers(isConst: true),
         enumClass.name,
-        builder.argumentList([indexDefinition]),
+        null, // typeVariables
+        builder.argumentList([indexDefinition, nameDefinition]),
         builder.emptyStatement());
 
     EnumConstructorElementX constructor = new EnumConstructorElementX(
-        enumClass,
-        builder.modifiers(isConst: true),
-        constructorNode);
+        enumClass, builder.modifiers(isConst: true), constructorNode);
 
-    EnumFormalElementX indexFormal = new EnumFormalElementX(
-        constructor,
-        indexDefinition,
-        builder.identifier('index'),
-        indexVariable);
+    EnumFormalElementX indexFormal = new EnumFormalElementX(constructor,
+        indexDefinition, builder.identifier('index'), indexVariable);
+
+    EnumFormalElementX nameFormal = new EnumFormalElementX(
+        constructor, nameDefinition, builder.identifier('_name'), nameVariable);
 
     FunctionSignatureX constructorSignature = new FunctionSignatureX(
-        requiredParameters: [indexFormal],
-        requiredParameterCount: 1,
-        type: new FunctionType(constructor, const VoidType(),
-            <DartType>[intType]));
+        requiredParameters: [indexFormal, nameFormal],
+        requiredParameterCount: 2,
+        type: new ResolutionFunctionType(
+            constructor,
+            const ResolutionDynamicType(),
+            <ResolutionDartType>[intType, stringType]));
     constructor.functionSignature = constructorSignature;
     enumClass.addMember(constructor, reporter);
 
-    List<FieldElement> enumValues = <FieldElement>[];
-    VariableList variableList =
-        new VariableList(builder.modifiers(isStatic: true, isConst: true));
-    variableList.type = enumType;
+    List<EnumConstantElement> enumValues = <EnumConstantElement>[];
     int index = 0;
     List<Node> valueReferences = <Node>[];
-    List<LiteralMapEntry> mapEntries = <LiteralMapEntry>[];
-    for (Link<Node> link = node.names.nodes;
-         !link.isEmpty;
-         link = link.tail) {
+    for (Link<Node> link = node.names.nodes; !link.isEmpty; link = link.tail) {
       Identifier name = link.head;
       AstBuilder valueBuilder = new AstBuilder(name.token.charOffset);
+      VariableList variableList = new VariableList(
+          valueBuilder.modifiers(isStatic: true, isConst: true));
+      variableList.type = enumType;
 
       // Add reference for the `values` field.
       valueReferences.add(valueBuilder.reference(name));
 
-      // Add map entry for `toString` implementation.
-      mapEntries.add(valueBuilder.mapLiteralEntry(
-            valueBuilder.literalInt(index),
-            valueBuilder.literalString('${enumClass.name}.${name.source}')));
-
       Expression initializer = valueBuilder.newExpression(
           enumClass.name,
-          valueBuilder.argumentList([valueBuilder.literalInt(index)]),
+          valueBuilder.argumentList([
+            valueBuilder.literalInt(index),
+            valueBuilder.literalString('${enumClass.name}.${name.source}')
+          ]),
           isConst: true);
       SendSet definition = valueBuilder.createDefinition(name, initializer);
 
-      EnumFieldElementX field = new EnumFieldElementX(
-          name, enumClass, variableList, definition, initializer);
+      EnumConstantElementX field = new EnumConstantElementX(
+          name, enumClass, variableList, definition, initializer, index);
       enumValues.add(field);
       enumClass.addMember(field, reporter);
       index++;
@@ -273,38 +287,33 @@ class EnumCreator {
 
     VariableList valuesVariableList =
         new VariableList(builder.modifiers(isStatic: true, isConst: true));
-    valuesVariableList.type = coreTypes.listType(enumType);
+    ResolutionInterfaceType valuesType = commonElements.listType(enumType);
+    valuesVariableList.type = valuesType;
 
     Identifier valuesIdentifier = builder.identifier('values');
-    // TODO(johnniwinther): Add type argument.
-    Expression initializer = builder.listLiteral(
-        valueReferences, isConst: true);
+    // TODO(28340): Add type argument.
+    Expression initializer =
+        builder.listLiteral(valueReferences, isConst: true);
 
     Node definition = builder.createDefinition(valuesIdentifier, initializer);
 
-    EnumFieldElementX valuesVariable = new EnumFieldElementX(
-        valuesIdentifier, enumClass, valuesVariableList,
-        definition, initializer);
+    EnumFieldElementX valuesVariable = new EnumFieldElementX(valuesIdentifier,
+        enumClass, valuesVariableList, definition, initializer);
 
     enumClass.addMember(valuesVariable, reporter);
 
-    // TODO(johnniwinther): Support return type. Note `String` might be prefixed
-    // or not imported within the current library.
     FunctionExpression toStringNode = builder.functionExpression(
         Modifiers.EMPTY,
         'toString',
+        null, // typeVariables
         builder.argumentList([]),
-        builder.returnStatement(
-              builder.indexGet(
-                  builder.mapLiteral(mapEntries, isConst: true),
-                  builder.reference(builder.identifier('index')))
-            )
-        );
+        builder
+            .returnStatement(builder.reference(builder.identifier('_name'))));
 
-    EnumMethodElementX toString = new EnumMethodElementX('toString',
-        enumClass, Modifiers.EMPTY, toStringNode);
+    EnumMethodElementX toString = new EnumMethodElementX(
+        'toString', enumClass, Modifiers.EMPTY, toStringNode);
     FunctionSignatureX toStringSignature = new FunctionSignatureX(
-        type: new FunctionType(toString, stringType));
+        type: new ResolutionFunctionType(toString, stringType));
     toString.functionSignature = toStringSignature;
     enumClass.addMember(toString, reporter);
 

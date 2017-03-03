@@ -15,39 +15,37 @@
 
 namespace dart {
 
-VM_TEST_CASE(CompileScript) {
+ISOLATE_UNIT_TEST_CASE(CompileScript) {
   const char* kScriptChars =
       "class A {\n"
       "  static foo() { return 42; }\n"
       "}\n";
   String& url = String::Handle(String::New("dart-test:CompileScript"));
   String& source = String::Handle(String::New(kScriptChars));
-  Script& script = Script::Handle(Script::New(url,
-                                              source,
-                                              RawScript::kScriptTag));
+  Script& script =
+      Script::Handle(Script::New(url, source, RawScript::kScriptTag));
   Library& lib = Library::Handle(Library::CoreLibrary());
   EXPECT(CompilerTest::TestCompileScript(lib, script));
 }
 
 
-VM_TEST_CASE(CompileFunction) {
+ISOLATE_UNIT_TEST_CASE(CompileFunction) {
   const char* kScriptChars =
-            "class A {\n"
-            "  static foo() { return 42; }\n"
-            "  static moo() {\n"
-            "    // A.foo();\n"
-            "  }\n"
-            "}\n";
+      "class A {\n"
+      "  static foo() { return 42; }\n"
+      "  static moo() {\n"
+      "    // A.foo();\n"
+      "  }\n"
+      "}\n";
   String& url = String::Handle(String::New("dart-test:CompileFunction"));
   String& source = String::Handle(String::New(kScriptChars));
-  Script& script = Script::Handle(Script::New(url,
-                                              source,
-                                              RawScript::kScriptTag));
+  Script& script =
+      Script::Handle(Script::New(url, source, RawScript::kScriptTag));
   Library& lib = Library::Handle(Library::CoreLibrary());
   EXPECT(CompilerTest::TestCompileScript(lib, script));
   EXPECT(ClassFinalizer::ProcessPendingClasses());
-  Class& cls = Class::Handle(
-      lib.LookupClass(String::Handle(Symbols::New("A"))));
+  Class& cls =
+      Class::Handle(lib.LookupClass(String::Handle(Symbols::New(thread, "A"))));
   EXPECT(!cls.IsNull());
   String& function_foo_name = String::Handle(String::New("foo"));
   Function& function_foo =
@@ -71,23 +69,22 @@ VM_TEST_CASE(CompileFunction) {
 }
 
 
-VM_TEST_CASE(CompileFunctionOnHelperThread) {
+ISOLATE_UNIT_TEST_CASE(CompileFunctionOnHelperThread) {
   // Create a simple function and compile it without optimization.
   const char* kScriptChars =
-            "class A {\n"
-            "  static foo() { return 42; }\n"
-            "}\n";
+      "class A {\n"
+      "  static foo() { return 42; }\n"
+      "}\n";
   String& url =
       String::Handle(String::New("dart-test:CompileFunctionOnHelperThread"));
   String& source = String::Handle(String::New(kScriptChars));
-  Script& script = Script::Handle(Script::New(url,
-                                              source,
-                                              RawScript::kScriptTag));
+  Script& script =
+      Script::Handle(Script::New(url, source, RawScript::kScriptTag));
   Library& lib = Library::Handle(Library::CoreLibrary());
   EXPECT(CompilerTest::TestCompileScript(lib, script));
   EXPECT(ClassFinalizer::ProcessPendingClasses());
-  Class& cls = Class::Handle(
-      lib.LookupClass(String::Handle(Symbols::New("A"))));
+  Class& cls =
+      Class::Handle(lib.LookupClass(String::Handle(Symbols::New(thread, "A"))));
   EXPECT(!cls.IsNull());
   String& function_foo_name = String::Handle(String::New("foo"));
   Function& func =
@@ -105,23 +102,26 @@ VM_TEST_CASE(CompileFunctionOnHelperThread) {
   ASSERT(isolate->background_compiler() != NULL);
   isolate->background_compiler()->CompileOptimized(func);
   Monitor* m = new Monitor();
-  MonitorLocker ml(m);
-  while (!func.HasOptimizedCode()) {
-    ml.WaitWithSafepointCheck(thread, 1);
+  {
+    MonitorLocker ml(m);
+    while (!func.HasOptimizedCode()) {
+      ml.WaitWithSafepointCheck(thread, 1);
+    }
   }
-  BackgroundCompiler::Stop(isolate->background_compiler());
+  delete m;
+  BackgroundCompiler::Stop(isolate);
 }
 
 
 TEST_CASE(RegenerateAllocStubs) {
   const char* kScriptChars =
-            "class A {\n"
-            "}\n"
-            "unOpt() => new A(); \n"
-            "optIt() => new A(); \n"
-            "A main() {\n"
-            "  return unOpt();\n"
-            "}\n";
+      "class A {\n"
+      "}\n"
+      "unOpt() => new A(); \n"
+      "optIt() => new A(); \n"
+      "A main() {\n"
+      "  return unOpt();\n"
+      "}\n";
 
   Dart_Handle lib = TestCase::LoadTestScript(kScriptChars, NULL);
   Dart_Handle result = Dart_Invoke(lib, NewString("main"), 0, NULL);
@@ -129,12 +129,12 @@ TEST_CASE(RegenerateAllocStubs) {
   RawLibrary* raw_library = Library::RawCast(Api::UnwrapHandle(lib));
   Library& lib_handle = Library::ZoneHandle(raw_library);
   Class& cls = Class::Handle(
-      lib_handle.LookupClass(String::Handle(Symbols::New("A"))));
+      lib_handle.LookupClass(String::Handle(Symbols::New(thread, "A"))));
   EXPECT(!cls.IsNull());
 
   Zone* zone = thread->zone();
-  const Code& stub = Code::Handle(zone,
-                                  StubCode::GetAllocationStubForClass(cls));
+  const Code& stub =
+      Code::Handle(zone, StubCode::GetAllocationStubForClass(cls));
   Class& owner = Class::Handle();
   owner ^= stub.owner();
   owner.DisableAllocationStub();
@@ -163,7 +163,7 @@ TEST_CASE(EvalExpression) {
 
   Dart_Handle lib = TestCase::LoadTestScript(kScriptChars, NULL);
   Dart_Handle obj_handle =
-      Dart_Invoke(lib, Dart_NewStringFromCString("makeObj"), 0,  NULL);
+      Dart_Invoke(lib, Dart_NewStringFromCString("makeObj"), 0, NULL);
   EXPECT(!Dart_IsNull(obj_handle));
   EXPECT(!Dart_IsError(obj_handle));
   TransitionNativeToVM transition(thread);
@@ -174,9 +174,9 @@ TEST_CASE(EvalExpression) {
   String& expr_text = String::Handle();
   expr_text = String::New("apa + ' ${calc(10)}' + dot");
   Object& val = Object::Handle();
-  val = Instance::Cast(obj).Evaluate(expr_text,
-                                     Array::empty_array(),
-                                     Array::empty_array());
+  const Class& receiver_cls = Class::Handle(obj.clazz());
+  val = Instance::Cast(obj).Evaluate(
+      receiver_cls, expr_text, Array::empty_array(), Array::empty_array());
   EXPECT(!val.IsNull());
   EXPECT(!val.IsError());
   EXPECT(val.IsString());
@@ -184,11 +184,11 @@ TEST_CASE(EvalExpression) {
 }
 
 
-VM_TEST_CASE(EvalExpressionWithLazyCompile) {
+ISOLATE_UNIT_TEST_CASE(EvalExpressionWithLazyCompile) {
   Library& lib = Library::Handle(Library::CoreLibrary());
 
-  const String& expression = String::Handle(String::New(
-      "(){ return (){ return (){ return 3 + 4; }(); }(); }()"));
+  const String& expression = String::Handle(
+      String::New("(){ return (){ return (){ return 3 + 4; }(); }(); }()"));
   Object& val = Object::Handle();
   val = lib.Evaluate(expression, Array::empty_array(), Array::empty_array());
 
@@ -199,7 +199,7 @@ VM_TEST_CASE(EvalExpressionWithLazyCompile) {
 }
 
 
-VM_TEST_CASE(EvalExpressionExhaustCIDs) {
+ISOLATE_UNIT_TEST_CASE(EvalExpressionExhaustCIDs) {
   Library& lib = Library::Handle(Library::CoreLibrary());
 
   const String& expression = String::Handle(String::New("3 + 4"));

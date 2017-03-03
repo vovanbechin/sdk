@@ -431,8 +431,7 @@ class _CustomHashMap<K, V> extends _HashMap<K, V> {
   String toString() => Maps.mapToString(this);
 }
 
-class _HashMapKeyIterable<E> extends Iterable<E>
-                             implements EfficientLength {
+class _HashMapKeyIterable<E> extends EfficientLengthIterable<E> {
   final _map;
   _HashMapKeyIterable(this._map);
 
@@ -664,8 +663,7 @@ class _Es6LinkedIdentityHashMap<K, V>
   String toString() => Maps.mapToString(this);
 }
 
-class _Es6MapIterable<E> extends Iterable<E>
-                         implements EfficientLength {
+class _Es6MapIterable<E> extends EfficientLengthIterable<E> {
   final _map;
   final bool _isKeys;
 
@@ -839,7 +837,7 @@ class _HashSet<E> extends _HashSetBase<E> implements HashSet<E> {
 
   // When iterating over the hash set, it is very convenient to have a
   // list of all the elements. We cache that on the instance and clear
-  // the the cache whenever the set changes. This is also used to
+  // the cache whenever the set changes. This is also used to
   // guard against concurrent modifications.
   List _elements;
 

@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef PLATFORM_GLOBALS_H_
-#define PLATFORM_GLOBALS_H_
+#ifndef RUNTIME_PLATFORM_GLOBALS_H_
+#define RUNTIME_PLATFORM_GLOBALS_H_
 
 // __STDC_FORMAT_MACROS has to be defined before including <inttypes.h> to
 // enable platform independent printf format specifiers.
@@ -102,6 +102,9 @@
 // the value defined in TargetConditionals.h
 #define TARGET_OS_MACOS 1
 #if TARGET_OS_IPHONE
+// Test for this #define by saying '#if TARGET_OS_IOS' rather than the usual
+// '#if defined(TARGET_OS_IOS)'. TARGET_OS_IOS is defined to be 0 in
+// XCode >= 7.0. See Issue #24453.
 #define TARGET_OS_IOS 1
 #endif
 
@@ -110,7 +113,10 @@
 // Windows, both 32- and 64-bit, regardless of the check for _WIN32.
 #define TARGET_OS_WINDOWS 1
 
-#else
+#elif defined(__Fuchsia__)
+#define TARGET_OS_FUCHSIA
+
+#elif !defined(TARGET_OS_FUCHSIA)
 #error Automatic target os detection failed.
 #endif
 
@@ -122,16 +128,29 @@
 
 #if defined(PRODUCT)
 #define NOT_IN_PRODUCT(code)
-#define DEBUG_ONLY(code)
 #else  // defined(PRODUCT)
 #define NOT_IN_PRODUCT(code) code
+#endif  // defined(PRODUCT)
+
 #if defined(DEBUG)
 #define DEBUG_ONLY(code) code
 #else  // defined(DEBUG)
 #define DEBUG_ONLY(code)
 #endif  // defined(DEBUG)
-#endif  // defined(PRODUCT)
 
+#if defined(DART_PRECOMPILED_RUNTIME) && defined(DART_PRECOMPILER)
+#error DART_PRECOMPILED_RUNTIME and DART_PRECOMPILER are mutually exclusive
+#endif  // defined(DART_PRECOMPILED_RUNTIME) && defined(DART_PRECOMPILER)
+
+#if defined(DART_PRECOMPILED_RUNTIME) && defined(DART_NOSNAPSHOT)
+#error DART_PRECOMPILED_RUNTIME and DART_NOSNAPSHOT are mutually exclusive
+#endif  // defined(DART_PRECOMPILED_RUNTIME) && defined(DART_NOSNAPSHOT)
+
+#if defined(DART_PRECOMPILED_RUNTIME)
+#define NOT_IN_PRECOMPILED(code)
+#else
+#define NOT_IN_PRECOMPILED(code) code
+#endif  // defined(DART_PRECOMPILED_RUNTIME)
 
 namespace dart {
 
@@ -180,9 +199,7 @@ struct simd128_value_t {
     v[0] = double_storage[0];
     v[1] = double_storage[1];
   }
-  void writeTo(simd128_value_t* v) {
-    *v = *this;
-  }
+  void writeTo(simd128_value_t* v) { *v = *this; }
 };
 
 // Processor architecture detection.  For more info on what's defined, see:
@@ -213,18 +230,17 @@ typedef simd128_value_t fpu_register_t;
 typedef struct {
   union {
     uint32_t u;
-    float    f;
+    float f;
   } data_[4];
 } simd_value_t;
 typedef simd_value_t fpu_register_t;
-#define simd_value_safe_load(addr)                                             \
-  (*reinterpret_cast<simd_value_t *>(addr))
+#define simd_value_safe_load(addr) (*reinterpret_cast<simd_value_t*>(addr))
 #define simd_value_safe_store(addr, value)                                     \
   do {                                                                         \
-    reinterpret_cast<simd_value_t *>(addr)->data_[0] = value.data_[0];         \
-    reinterpret_cast<simd_value_t *>(addr)->data_[1] = value.data_[1];         \
-    reinterpret_cast<simd_value_t *>(addr)->data_[2] = value.data_[2];         \
-    reinterpret_cast<simd_value_t *>(addr)->data_[3] = value.data_[3];         \
+    reinterpret_cast<simd_value_t*>(addr)->data_[0] = value.data_[0];          \
+    reinterpret_cast<simd_value_t*>(addr)->data_[1] = value.data_[1];          \
+    reinterpret_cast<simd_value_t*>(addr)->data_[2] = value.data_[2];          \
+    reinterpret_cast<simd_value_t*>(addr)->data_[3] = value.data_[3];          \
   } while (0)
 
 #elif defined(__MIPSEL__)
@@ -232,6 +248,9 @@ typedef simd_value_t fpu_register_t;
 #define ARCH_IS_32_BIT 1
 #define kFpuRegisterSize 8
 typedef double fpu_register_t;
+#elif defined(__MIPSEB__)
+#error Big-endian MIPS is not supported by Dart. Try passing -EL to your      \
+ compiler.
 #elif defined(__aarch64__)
 #define HOST_ARCH_ARM64 1
 #define ARCH_IS_64_BIT 1
@@ -250,6 +269,15 @@ typedef simd128_value_t fpu_register_t;
 #define DART_FORCE_INLINE __forceinline
 #elif __GNUC__
 #define DART_FORCE_INLINE inline __attribute__((always_inline))
+#else
+#error Automatic compiler detection failed.
+#endif
+
+// DART_NOINLINE tells compiler to never inline a particular function.
+#ifdef _MSC_VER
+#define DART_NOINLINE __declspec(noinline)
+#elif __GNUC__
+#define DART_NOINLINE __attribute__((noinline))
 #else
 #error Automatic compiler detection failed.
 #endif
@@ -274,11 +302,20 @@ typedef simd128_value_t fpu_register_t;
 #error Automatic compiler detection failed.
 #endif
 
+#ifdef _MSC_VER
+#define DART_PRETTY_FUNCTION __FUNCSIG__
+#elif __GNUC__
+#define DART_PRETTY_FUNCTION __PRETTY_FUNCTION__
+#else
+#error Automatic compiler detection failed.
+#endif
+
 #if !defined(TARGET_ARCH_MIPS)
 #if !defined(TARGET_ARCH_ARM)
 #if !defined(TARGET_ARCH_X64)
 #if !defined(TARGET_ARCH_IA32)
 #if !defined(TARGET_ARCH_ARM64)
+#if !defined(TARGET_ARCH_DBC)
 // No target architecture specified pick the one matching the host architecture.
 #if defined(HOST_ARCH_MIPS)
 #define TARGET_ARCH_MIPS 1
@@ -298,17 +335,16 @@ typedef simd128_value_t fpu_register_t;
 #endif
 #endif
 #endif
+#endif
 
 // Verify that host and target architectures match, we cannot
 // have a 64 bit Dart VM generating 32 bit code or vice-versa.
-#if defined(TARGET_ARCH_X64) ||                                                \
-    defined(TARGET_ARCH_ARM64)
+#if defined(TARGET_ARCH_X64) || defined(TARGET_ARCH_ARM64)
 #if !defined(ARCH_IS_64_BIT)
 #error Mismatched Host/Target architectures.
 #endif
-#elif defined(TARGET_ARCH_IA32) ||                                             \
-      defined(TARGET_ARCH_ARM) ||                                              \
-      defined(TARGET_ARCH_MIPS)
+#elif defined(TARGET_ARCH_IA32) || defined(TARGET_ARCH_ARM) ||                 \
+    defined(TARGET_ARCH_MIPS)
 #if !defined(ARCH_IS_32_BIT)
 #error Mismatched Host/Target architectures.
 #endif
@@ -316,9 +352,9 @@ typedef simd128_value_t fpu_register_t;
 
 // Determine whether we will be using the simulator.
 #if defined(TARGET_ARCH_IA32)
-  // No simulator used.
+// No simulator used.
 #elif defined(TARGET_ARCH_X64)
-  // No simulator used.
+// No simulator used.
 #elif defined(TARGET_ARCH_ARM)
 #if !defined(HOST_ARCH_ARM)
 #define USING_SIMULATOR 1
@@ -334,9 +370,31 @@ typedef simd128_value_t fpu_register_t;
 #define USING_SIMULATOR 1
 #endif
 
+#elif defined(TARGET_ARCH_DBC)
+#define USING_SIMULATOR 1
+
 #else
 #error Unknown architecture.
 #endif
+
+// Disable background threads by default on armv5te. The relevant
+// implementations are uniprocessors.
+#if !defined(TARGET_ARCH_ARM_5TE)
+#define ARCH_IS_MULTI_CORE 1
+#endif
+
+
+#if defined(TARGET_ARCH_ARM)
+#if defined(TARGET_ABI_IOS) && defined(TARGET_ABI_EABI)
+#error Both TARGET_ABI_IOS and TARGET_ABI_EABI defined.
+#elif !defined(TARGET_ABI_IOS) && !defined(TARGET_ABI_EABI)
+#if defined(TARGET_OS_MAC)
+#define TARGET_ABI_IOS 1
+#else
+#define TARGET_ABI_EABI 1
+#endif
+#endif
+#endif  // TARGET_ARCH_ARM
 
 
 // Short form printf format specifiers
@@ -373,7 +431,7 @@ typedef simd128_value_t fpu_register_t;
 // Usage: instead of writing 0x1234567890123456ULL
 //      write DART_2PART_UINT64_C(0x12345678,90123456);
 #define DART_2PART_UINT64_C(a, b)                                              \
-                 (((static_cast<uint64_t>(a) << 32) + 0x##b##u))
+  (((static_cast<uint64_t>(a) << 32) + 0x##b##u))
 
 // Integer constants.
 const int32_t kMinInt32 = 0x80000000;
@@ -401,11 +459,12 @@ typedef uint32_t classid_t;
 // Byte sizes.
 const int kWordSize = sizeof(word);
 const int kDoubleSize = sizeof(double);  // NOLINT
-const int kFloatSize = sizeof(float);  // NOLINT
+const int kFloatSize = sizeof(float);    // NOLINT
 const int kQuadSize = 4 * kFloatSize;
 const int kSimd128Size = sizeof(simd128_value_t);  // NOLINT
-const int kInt32Size = sizeof(int32_t);  // NOLINT
-const int kInt16Size = sizeof(int16_t);  // NOLINT
+const int kInt64Size = sizeof(int64_t);            // NOLINT
+const int kInt32Size = sizeof(int32_t);            // NOLINT
+const int kInt16Size = sizeof(int16_t);            // NOLINT
 #ifdef ARCH_IS_32_BIT
 const int kWordSizeLog2 = 2;
 const uword kUwordMax = kMaxUint32;
@@ -454,13 +513,13 @@ const intptr_t kIntptrMax = ~kIntptrMin;
 // Time constants.
 const int kMillisecondsPerSecond = 1000;
 const int kMicrosecondsPerMillisecond = 1000;
-const int kMicrosecondsPerSecond = (kMicrosecondsPerMillisecond *
-                                    kMillisecondsPerSecond);
+const int kMicrosecondsPerSecond =
+    (kMicrosecondsPerMillisecond * kMillisecondsPerSecond);
 const int kNanosecondsPerMicrosecond = 1000;
-const int kNanosecondsPerMillisecond = (kNanosecondsPerMicrosecond *
-                                        kMicrosecondsPerMillisecond);
-const int kNanosecondsPerSecond = (kNanosecondsPerMicrosecond *
-                                   kMicrosecondsPerSecond);
+const int kNanosecondsPerMillisecond =
+    (kNanosecondsPerMicrosecond * kMicrosecondsPerMillisecond);
+const int kNanosecondsPerSecond =
+    (kNanosecondsPerMicrosecond * kMicrosecondsPerSecond);
 
 // Helpers to scale micro second times to human understandable values.
 inline double MicrosecondsToSeconds(int64_t micros) {
@@ -474,7 +533,7 @@ inline double MicrosecondsToMilliseconds(int64_t micros) {
 // This should be used in the private: declarations for a class.
 #if !defined(DISALLOW_COPY_AND_ASSIGN)
 #define DISALLOW_COPY_AND_ASSIGN(TypeName)                                     \
-private:                                                                       \
+ private:                                                                      \
   TypeName(const TypeName&);                                                   \
   void operator=(const TypeName&)
 #endif  // !defined(DISALLOW_COPY_AND_ASSIGN)
@@ -486,7 +545,7 @@ private:                                                                       \
 // containing only static methods.
 #if !defined(DISALLOW_IMPLICIT_CONSTRUCTORS)
 #define DISALLOW_IMPLICIT_CONSTRUCTORS(TypeName)                               \
-private:                                                                       \
+ private:                                                                      \
   TypeName();                                                                  \
   DISALLOW_COPY_AND_ASSIGN(TypeName)
 #endif  // !defined(DISALLOW_IMPLICIT_CONSTRUCTORS)
@@ -497,19 +556,20 @@ private:                                                                       \
 // platform/assert.h.
 #if !defined(DISALLOW_ALLOCATION)
 #define DISALLOW_ALLOCATION()                                                  \
-public:                                                                        \
+ public:                                                                       \
   void operator delete(void* pointer) {                                        \
     fprintf(stderr, "unreachable code\n");                                     \
     abort();                                                                   \
   }                                                                            \
-private:                                                                       \
+                                                                               \
+ private:                                                                      \
   void* operator new(size_t size);
 #endif  // !defined(DISALLOW_ALLOCATION)
 
 // The USE(x) template is used to silence C++ compiler warnings issued
 // for unused variables.
 template <typename T>
-static inline void USE(T) { }
+static inline void USE(T) {}
 
 
 // Use implicit_cast as a safe version of static_cast or const_cast
@@ -529,15 +589,15 @@ static inline void USE(T) { }
 // implicit_cast would have been part of the C++ standard library,
 // but the proposal was submitted too late.  It will probably make
 // its way into the language in the future.
-template<typename To, typename From>
-inline To implicit_cast(From const &f) {
+template <typename To, typename From>
+inline To implicit_cast(From const& f) {
   return f;
 }
 
 
 // Use like this: down_cast<T*>(foo);
-template<typename To, typename From>  // use like this: down_cast<T*>(foo);
-inline To down_cast(From* f) {  // so we only accept pointers
+template <typename To, typename From>  // use like this: down_cast<T*>(foo);
+inline To down_cast(From* f) {         // so we only accept pointers
   // Ensures that To is a sub-type of From *.  This test is here only
   // for compile-time type checking, and has no overhead in an
   // optimized build at run-time, as it will be optimized away completely.
@@ -591,12 +651,11 @@ inline D bit_cast(const S& source) {
 // optimizations of GCC 4.4. Basically, GCC mindlessly relies on
 // obscure details in the C++ standard that make reinterpret_cast
 // virtually useless.
-template<class D, class S>
+template <class D, class S>
 inline D bit_copy(const S& source) {
   D destination;
   // This use of memcpy is safe: source and destination cannot overlap.
-  memcpy(&destination,
-         reinterpret_cast<const void*>(&source),
+  memcpy(&destination, reinterpret_cast<const void*>(&source),
          sizeof(destination));
   return destination;
 }
@@ -635,7 +694,7 @@ static inline T ReadUnaligned(const T* ptr) {
 // N.B.: As the GCC manual states, "[s]ince non-static C++ methods
 // have an implicit 'this' argument, the arguments of such methods
 // should be counted from two, not one."
-#define PRINTF_ATTRIBUTE(string_index, first_to_check) \
+#define PRINTF_ATTRIBUTE(string_index, first_to_check)                         \
   __attribute__((__format__(__printf__, string_index, first_to_check)))
 #else
 #define PRINTF_ATTRIBUTE(string_index, first_to_check)
@@ -647,6 +706,14 @@ static inline T ReadUnaligned(const T* ptr) {
 #define STDERR_FILENO 2
 #endif
 
+// For checking deterministic graph generation, we can store instruction
+// tag in the ICData and check it when recreating the flow graph in
+// optimizing compiler. Enable it for other modes (product, release) if needed
+// for debugging.
+#if defined(DEBUG)
+#define TAG_IC_DATA
+#endif
+
 }  // namespace dart
 
-#endif  // PLATFORM_GLOBALS_H_
+#endif  // RUNTIME_PLATFORM_GLOBALS_H_

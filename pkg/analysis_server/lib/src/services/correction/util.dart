@@ -17,7 +17,6 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
-import 'package:analyzer/src/dart/ast/token.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
 import 'package:analyzer/src/dart/scanner/reader.dart';
 import 'package:analyzer/src/dart/scanner/scanner.dart';
@@ -30,42 +29,100 @@ import 'package:path/path.dart';
  * Adds edits to the given [change] that ensure that all the [libraries] are
  * imported into the given [targetLibrary].
  */
-void addLibraryImports(SourceChange change, LibraryElement targetLibrary,
-    Set<LibraryElement> libraries) {
-  CompilationUnitElement libUnitElement = targetLibrary.definingCompilationUnit;
-  CompilationUnit libUnit = getParsedUnit(libUnitElement);
-  // prepare new import location
-  int offset = 0;
-  String prefix;
-  String suffix;
-  {
-    // if no directives
-    prefix = '';
-    CorrectionUtils libraryUtils = new CorrectionUtils(libUnit);
-    String eol = libraryUtils.endOfLine;
-    suffix = eol;
-    // after last directive in library
-    for (Directive directive in libUnit.directives) {
-      if (directive is LibraryDirective || directive is ImportDirective) {
-        offset = directive.end;
-        prefix = eol;
-        suffix = '';
-      }
-    }
-    // if still at the beginning of the file, skip shebang and line comments
-    if (offset == 0) {
-      CorrectionUtils_InsertDesc desc = libraryUtils.getInsertDescTop();
-      offset = desc.offset;
-      prefix = desc.prefix;
-      suffix = desc.suffix + eol;
+void addLibraryImports(
+    SourceChange change, LibraryElement targetLibrary, Set<Source> libraries) {
+  CorrectionUtils libUtils;
+  try {
+    CompilationUnitElement unitElement = targetLibrary.definingCompilationUnit;
+    CompilationUnit unitAst = getParsedUnit(unitElement);
+    libUtils = new CorrectionUtils(unitAst);
+  } catch (e) {
+    throw new CancelCorrectionException(exception: e);
+  }
+  String eol = libUtils.endOfLine;
+  // Prepare information about existing imports.
+  LibraryDirective libraryDirective;
+  List<_ImportDirectiveInfo> importDirectives = <_ImportDirectiveInfo>[];
+  for (Directive directive in libUtils.unit.directives) {
+    if (directive is LibraryDirective) {
+      libraryDirective = directive;
+    } else if (directive is ImportDirective) {
+      importDirectives.add(new _ImportDirectiveInfo(
+          directive.uriContent, directive.offset, directive.end));
     }
   }
-  // insert imports
-  for (LibraryElement library in libraries) {
-    String importPath = getLibrarySourceUri(targetLibrary, library.source);
-    String importCode = "${prefix}import '$importPath';$suffix";
-    doSourceChange_addElementEdit(
-        change, targetLibrary, new SourceEdit(offset, 0, importCode));
+
+  // Prepare all URIs to import.
+  List<String> uriList = libraries
+      .map((library) => getLibrarySourceUri(targetLibrary, library))
+      .toList();
+  uriList.sort((a, b) => a.compareTo(b));
+
+  // Insert imports: between existing imports.
+  if (importDirectives.isNotEmpty) {
+    bool isFirstPackage = true;
+    for (String importUri in uriList) {
+      bool inserted = false;
+      bool isPackage = importUri.startsWith('package:');
+      bool isAfterDart = false;
+      for (_ImportDirectiveInfo existingImport in importDirectives) {
+        if (existingImport.uri.startsWith('dart:')) {
+          isAfterDart = true;
+        }
+        if (existingImport.uri.startsWith('package:')) {
+          isFirstPackage = false;
+        }
+        if (importUri.compareTo(existingImport.uri) < 0) {
+          String importCode = "import '$importUri';$eol";
+          doSourceChange_addElementEdit(change, targetLibrary,
+              new SourceEdit(existingImport.offset, 0, importCode));
+          inserted = true;
+          break;
+        }
+      }
+      if (!inserted) {
+        String importCode = "${eol}import '$importUri';";
+        if (isPackage && isFirstPackage && isAfterDart) {
+          importCode = eol + importCode;
+        }
+        doSourceChange_addElementEdit(change, targetLibrary,
+            new SourceEdit(importDirectives.last.end, 0, importCode));
+      }
+      if (isPackage) {
+        isFirstPackage = false;
+      }
+    }
+    return;
+  }
+
+  // Insert imports: after the library directive.
+  if (libraryDirective != null) {
+    String prefix = eol + eol;
+    for (String importUri in uriList) {
+      String importCode = "${prefix}import '$importUri';";
+      prefix = eol;
+      doSourceChange_addElementEdit(change, targetLibrary,
+          new SourceEdit(libraryDirective.end, 0, importCode));
+    }
+    return;
+  }
+
+  // If still at the beginning of the file, skip shebang and line comments.
+  {
+    CorrectionUtils_InsertDesc desc = libUtils.getInsertDescTop();
+    int offset = desc.offset;
+    for (int i = 0; i < uriList.length; i++) {
+      String importUri = uriList[i];
+      String importCode = "import '$importUri';$eol";
+      if (i == 0) {
+        importCode = desc.prefix + importCode;
+      }
+      if (i == uriList.length - 1) {
+        importCode = importCode + desc.suffix;
+      }
+      doSourceChange_addElementEdit(
+          change, targetLibrary, new SourceEdit(offset, 0, importCode));
+    }
   }
 }
 
@@ -98,25 +155,6 @@ Expression climbPropertyAccess(AstNode node) {
     }
     return node;
   }
-}
-
-/**
- * Attempts to convert the given absolute path into an absolute URI, such as
- * "dart" or "package" URI.
- *
- * [context] - the [AnalysisContext] to work in.
- * [path] - the absolute path, not `null`.
- *
- * Returns the absolute (non-file) URI or `null`.
- */
-String findNonFileUri(AnalysisContext context, String path) {
-  Source fileSource =
-      new NonExistingSource(path, toUri(path), UriKind.FILE_URI);
-  Uri uri = context.sourceFactory.restoreUri(fileSource);
-  if (uri == null || uri.scheme == 'file') {
-    return null;
-  }
-  return uri.toString();
 }
 
 /**
@@ -310,7 +348,7 @@ Map<String, Element> getImportNamespace(ImportElement imp) {
  * Computes the best URI to import [what] into [from].
  */
 String getLibrarySourceUri(LibraryElement from, Source what) {
-  String whatFile = what.fullName;
+  String whatPath = what.fullName;
   // check if an absolute URI (such as 'dart:' or 'package:')
   Uri whatUri = what.uri;
   String whatUriScheme = whatUri.scheme;
@@ -319,7 +357,7 @@ String getLibrarySourceUri(LibraryElement from, Source what) {
   }
   // compute a relative URI
   String fromFolder = dirname(from.source.fullName);
-  String relativeFile = relative(whatFile, from: fromFolder);
+  String relativeFile = relative(whatPath, from: fromFolder);
   return split(relativeFile).join('/');
 }
 
@@ -611,6 +649,28 @@ Expression stepUpNamedExpression(Expression expression) {
   return expression;
 }
 
+/**
+ * This exception is thrown to cancel the current correction operation,
+ * such as quick assist or quick fix because an inconsistency was detected.
+ * These inconsistencies may happen as a part of normal workflow, e.g. because
+ * a resource was deleted, or an analysis result was invalidated.
+ */
+class CancelCorrectionException {
+  final Object exception;
+  CancelCorrectionException({this.exception});
+}
+
+/**
+ * Describes the location for a newly created [ClassMember].
+ */
+class ClassMemberLocation {
+  final String prefix;
+  final int offset;
+  final String suffix;
+
+  ClassMemberLocation(this.prefix, this.offset, this.suffix);
+}
+
 class CorrectionUtils {
   final CompilationUnit unit;
 
@@ -620,14 +680,20 @@ class CorrectionUtils {
    */
   ClassElement targetClassElement;
 
+  ExecutableElement targetExecutableElement;
+
   LibraryElement _library;
   String _buffer;
   String _endOfLine;
 
   CorrectionUtils(this.unit) {
     CompilationUnitElement unitElement = unit.element;
+    AnalysisContext context = unitElement.context;
+    if (context == null) {
+      throw new CancelCorrectionException();
+    }
     this._library = unitElement.library;
-    this._buffer = unitElement.context.getContents(unitElement.source).data;
+    this._buffer = context.getContents(unitElement.source).data;
   }
 
   /**
@@ -682,7 +748,7 @@ class CorrectionUtils {
    * if can not be resolved, should be treated as the `dynamic` type.
    */
   String getExpressionTypeSource(
-      Expression expression, Set<LibraryElement> librariesToImport) {
+      Expression expression, Set<Source> librariesToImport) {
     if (expression == null) {
       return null;
     }
@@ -971,7 +1037,7 @@ class CorrectionUtils {
    * @return the source for the parameter with the given type and name.
    */
   String getParameterSource(
-      DartType type, String name, Set<LibraryElement> librariesToImport) {
+      DartType type, String name, Set<Source> librariesToImport) {
     // no type
     if (type == null || type.isDynamic) {
       return name;
@@ -1038,7 +1104,7 @@ class CorrectionUtils {
    * Fills [librariesToImport] with [LibraryElement]s whose elements are
    * used by the generated source, but not imported.
    */
-  String getTypeSource(DartType type, Set<LibraryElement> librariesToImport,
+  String getTypeSource(DartType type, Set<Source> librariesToImport,
       {StringBuffer parametersBuffer}) {
     StringBuffer sb = new StringBuffer();
     // type parameter
@@ -1063,8 +1129,8 @@ class CorrectionUtils {
       parametersBuffer.write(')');
       return getTypeSource(type.returnType, librariesToImport);
     }
-    // BottomType
-    if (type.isBottom) {
+    // <Bottom>, Null
+    if (type.isBottom || type.isDartCoreNull) {
       return 'dynamic';
     }
     // prepare element
@@ -1090,7 +1156,7 @@ class CorrectionUtils {
           sb.write(".");
         }
       } else {
-        librariesToImport.add(library);
+        librariesToImport.add(library.source);
       }
     }
     // append simple name
@@ -1162,6 +1228,15 @@ class CorrectionUtils {
       _invertCondition0(expression)._source;
 
   /**
+   * Return `true` if the given [classDeclaration] has open '{' and close '}'
+   * at the same line, e.g. `class X {}`.
+   */
+  bool isClassWithEmptyBody(ClassDeclaration classDeclaration) {
+    return getLineThis(classDeclaration.leftBracket.offset) ==
+        getLineThis(classDeclaration.rightBracket.offset);
+  }
+
+  /**
    * @return <code>true</code> if selection range contains only whitespace or comments
    */
   bool isJustWhitespaceOrComment(SourceRange range) {
@@ -1172,6 +1247,67 @@ class CorrectionUtils {
     }
     // may be comment
     return TokenUtils.getTokens(trimmedText).isEmpty;
+  }
+
+  ClassMemberLocation prepareNewClassMemberLocation(
+      ClassDeclaration classDeclaration,
+      bool shouldSkip(ClassMember existingMember)) {
+    String indent = getIndent(1);
+    // Find the last target member.
+    ClassMember targetMember = null;
+    List<ClassMember> members = classDeclaration.members;
+    for (ClassMember member in members) {
+      if (shouldSkip(member)) {
+        targetMember = member;
+      } else {
+        break;
+      }
+    }
+    // After the last target member.
+    if (targetMember != null) {
+      return new ClassMemberLocation(
+          endOfLine + endOfLine + indent, targetMember.end, '');
+    }
+    // At the beginning of the class.
+    String suffix = members.isNotEmpty || isClassWithEmptyBody(classDeclaration)
+        ? endOfLine
+        : '';
+    return new ClassMemberLocation(
+        endOfLine + indent, classDeclaration.leftBracket.end, suffix);
+  }
+
+  ClassMemberLocation prepareNewConstructorLocation(
+      ClassDeclaration classDeclaration) {
+    return prepareNewClassMemberLocation(
+        classDeclaration,
+        (member) =>
+            member is FieldDeclaration || member is ConstructorDeclaration);
+  }
+
+  ClassMemberLocation prepareNewFieldLocation(
+      ClassDeclaration classDeclaration) {
+    return prepareNewClassMemberLocation(
+        classDeclaration, (member) => member is FieldDeclaration);
+  }
+
+  ClassMemberLocation prepareNewGetterLocation(
+      ClassDeclaration classDeclaration) {
+    return prepareNewClassMemberLocation(
+        classDeclaration,
+        (member) =>
+            member is FieldDeclaration ||
+            member is ConstructorDeclaration ||
+            member is MethodDeclaration && member.isGetter);
+  }
+
+  ClassMemberLocation prepareNewMethodLocation(
+      ClassDeclaration classDeclaration) {
+    return prepareNewClassMemberLocation(
+        classDeclaration,
+        (member) =>
+            member is FieldDeclaration ||
+            member is ConstructorDeclaration ||
+            member is MethodDeclaration);
   }
 
   /**
@@ -1285,18 +1421,15 @@ class CorrectionUtils {
    */
   _InvertedCondition _invertCondition0(Expression expression) {
     if (expression is BooleanLiteral) {
-      BooleanLiteral literal = expression;
-      if (literal.value) {
+      if (expression.value) {
         return _InvertedCondition._simple("false");
       } else {
         return _InvertedCondition._simple("true");
       }
-    }
-    if (expression is BinaryExpression) {
-      BinaryExpression binary = expression;
-      TokenType operator = binary.operator.type;
-      Expression le = binary.leftOperand;
-      Expression re = binary.rightOperand;
+    } else if (expression is BinaryExpression) {
+      TokenType operator = expression.operator.type;
+      Expression le = expression.leftOperand;
+      Expression re = expression.rightOperand;
       _InvertedCondition ls = _invertCondition0(le);
       _InvertedCondition rs = _invertCondition0(re);
       if (operator == TokenType.LT) {
@@ -1325,37 +1458,22 @@ class CorrectionUtils {
         return _InvertedCondition._binary(
             TokenType.AMPERSAND_AMPERSAND.precedence, ls, " && ", rs);
       }
-    }
-    if (expression is IsExpression) {
-      IsExpression isExpression = expression;
-      String expressionSource = getNodeText(isExpression.expression);
-      String typeSource = getNodeText(isExpression.type);
-      if (isExpression.notOperator == null) {
+    } else if (expression is IsExpression) {
+      String expressionSource = getNodeText(expression.expression);
+      String typeSource = getNodeText(expression.type);
+      if (expression.notOperator == null) {
         return _InvertedCondition._simple("$expressionSource is! $typeSource");
       } else {
         return _InvertedCondition._simple("$expressionSource is $typeSource");
       }
-    }
-    if (expression is PrefixExpression) {
-      PrefixExpression prefixExpression = expression;
-      TokenType operator = prefixExpression.operator.type;
+    } else if (expression is PrefixExpression) {
+      TokenType operator = expression.operator.type;
       if (operator == TokenType.BANG) {
-        Expression operand = prefixExpression.operand;
-        while (operand is ParenthesizedExpression) {
-          ParenthesizedExpression pe = operand as ParenthesizedExpression;
-          operand = pe.expression;
-        }
+        Expression operand = expression.operand.unParenthesized;
         return _InvertedCondition._simple(getNodeText(operand));
       }
-    }
-    if (expression is ParenthesizedExpression) {
-      ParenthesizedExpression pe = expression;
-      Expression innerExpression = pe.expression;
-      while (innerExpression is ParenthesizedExpression) {
-        innerExpression =
-            (innerExpression as ParenthesizedExpression).expression;
-      }
-      return _invertCondition0(innerExpression);
+    } else if (expression is ParenthesizedExpression) {
+      return _invertCondition0(expression.unParenthesized);
     }
     DartType type = expression.bestType;
     if (type.displayName == "bool") {
@@ -1365,13 +1483,15 @@ class CorrectionUtils {
   }
 
   /**
-   * Checks if [type] is visible at [targetOffset].
+   * Checks if [type] is visible in [targetExecutableElement] or
+   * [targetClassElement].
    */
   bool _isTypeVisible(DartType type) {
     if (type is TypeParameterType) {
       TypeParameterElement parameterElement = type.element;
       Element parameterClassElement = parameterElement.enclosingElement;
-      return identical(parameterClassElement, targetClassElement);
+      return identical(parameterClassElement, targetExecutableElement) ||
+          identical(parameterClassElement, targetClassElement);
     }
     return true;
   }
@@ -1413,16 +1533,13 @@ class CorrectionUtils_InsertDesc {
  */
 class TokenUtils {
   /**
-   * @return the first [KeywordToken] with given [Keyword], may be <code>null</code> if
-   *         not found.
+   * Return the first token in the list of [tokens] representing the given
+   * [keyword], or `null` if there is no such token.
    */
-  static KeywordToken findKeywordToken(List<Token> tokens, Keyword keyword) {
+  static Token findKeywordToken(List<Token> tokens, Keyword keyword) {
     for (Token token in tokens) {
-      if (token is KeywordToken) {
-        KeywordToken keywordToken = token;
-        if (keywordToken.keyword == keyword) {
-          return keywordToken;
-        }
+      if (token.keyword == keyword) {
+        return token;
       }
     }
     return null;
@@ -1486,6 +1603,14 @@ class _CollectReferencedUnprefixedNames extends RecursiveAstVisitor {
         parent is PrefixedIdentifier && parent.identifier == node ||
         parent is PropertyAccess && parent.target == node;
   }
+}
+
+class _ImportDirectiveInfo {
+  final String uri;
+  final int offset;
+  final int end;
+
+  _ImportDirectiveInfo(this.uri, this.offset, this.end);
 }
 
 /**

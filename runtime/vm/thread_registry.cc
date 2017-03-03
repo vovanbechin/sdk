@@ -5,6 +5,7 @@
 #include "vm/thread_registry.h"
 
 #include "vm/isolate.h"
+#include "vm/json_stream.h"
 #include "vm/lockers.h"
 
 namespace dart {
@@ -56,7 +57,6 @@ void ThreadRegistry::ReturnThreadLocked(bool is_mutator, Thread* thread) {
   // Remove thread from the active list for the isolate.
   RemoveFromActiveListLocked(thread);
   if (!is_mutator) {
-    ASSERT(thread->api_top_scope() == NULL);
     ReturnToFreelistLocked(thread);
   }
 }
@@ -65,21 +65,19 @@ void ThreadRegistry::ReturnThreadLocked(bool is_mutator, Thread* thread) {
 void ThreadRegistry::VisitObjectPointers(ObjectPointerVisitor* visitor,
                                          bool validate_frames) {
   MonitorLocker ml(threads_lock());
+  bool mutator_thread_visited = false;
   Thread* thread = active_list_;
   while (thread != NULL) {
-    if (thread->zone() != NULL) {
-      thread->zone()->VisitObjectPointers(visitor);
-    }
-    thread->VisitObjectPointers(visitor);
-    // Iterate over all the stack frames and visit objects on the stack.
-    StackFrameIterator frames_iterator(thread->top_exit_frame_info(),
-                                       validate_frames);
-    StackFrame* frame = frames_iterator.NextFrame();
-    while (frame != NULL) {
-      frame->VisitObjectPointers(visitor);
-      frame = frames_iterator.NextFrame();
+    thread->VisitObjectPointers(visitor, validate_frames);
+    if (mutator_thread_ == thread) {
+      mutator_thread_visited = true;
     }
     thread = thread->next_;
+  }
+  // Visit mutator thread even if it is not in the active list because of
+  // api handles.
+  if (!mutator_thread_visited && (mutator_thread_ != NULL)) {
+    mutator_thread_->VisitObjectPointers(visitor, validate_frames);
   }
 }
 
@@ -91,6 +89,43 @@ void ThreadRegistry::PrepareForGC() {
     thread->PrepareForGC();
     thread = thread->next_;
   }
+}
+
+
+#ifndef PRODUCT
+void ThreadRegistry::PrintJSON(JSONStream* stream) const {
+  MonitorLocker ml(threads_lock());
+  JSONArray threads(stream);
+  Thread* current = active_list_;
+  while (current != NULL) {
+    threads.AddValue(current);
+    current = current->next_;
+  }
+}
+#endif
+
+
+intptr_t ThreadRegistry::CountZoneHandles() const {
+  MonitorLocker ml(threads_lock());
+  intptr_t count = 0;
+  Thread* current = active_list_;
+  while (current != NULL) {
+    count += current->CountZoneHandles();
+    current = current->next_;
+  }
+  return count;
+}
+
+
+intptr_t ThreadRegistry::CountScopedHandles() const {
+  MonitorLocker ml(threads_lock());
+  intptr_t count = 0;
+  Thread* current = active_list_;
+  while (current != NULL) {
+    count += current->CountScopedHandles();
+    current = current->next_;
+  }
+  return count;
 }
 
 
@@ -134,6 +169,7 @@ Thread* ThreadRegistry::GetFromFreelistLocked(Isolate* isolate) {
   }
   return thread;
 }
+
 
 void ThreadRegistry::ReturnToFreelistLocked(Thread* thread) {
   ASSERT(thread != NULL);

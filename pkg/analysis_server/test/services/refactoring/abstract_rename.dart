@@ -9,7 +9,7 @@ import 'package:analysis_server/src/services/correction/namespace.dart';
 import 'package:analysis_server/src/services/refactoring/refactoring.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 
 import 'abstract_refactoring.dart';
 
@@ -57,7 +57,7 @@ class RenameRefactoringTest extends RefactoringTest {
    * Fails if no [RenameRefactoring] can be created.
    */
   void createRenameRefactoringForElement(Element element) {
-    refactoring = new RenameRefactoring(searchEngine, element);
+    refactoring = new RenameRefactoring(searchEngine, astProvider, element);
     expect(refactoring, isNotNull, reason: "No refactoring for '$element'.");
   }
 

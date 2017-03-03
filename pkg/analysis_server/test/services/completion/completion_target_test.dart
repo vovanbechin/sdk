@@ -7,15 +7,15 @@ library test.services.completion.target;
 import 'package:analysis_server/src/provisional/completion/dart/completion_target.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
 import '../../abstract_context.dart';
-import '../../utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(CompletionTargetTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(CompletionTargetTest);
+  });
 }
 
 @reflectiveTest
@@ -45,6 +45,7 @@ class CompletionTargetTest extends AbstractContextTest {
           reason: 'containingNode');
       expect(target.argIndex, argIndex, reason: 'argIndex');
     }
+
     // Assert with parsed unit
     assertCommon();
     CompilationUnit unit =
@@ -61,10 +62,22 @@ class CompletionTargetTest extends AbstractContextTest {
     assertTarget(')', '()', argIndex: 0);
   }
 
+  test_ArgumentList_InstanceCreationExpression2() {
+    // ArgumentList  InstanceCreationExpression  Block
+    addTestSource('main() {new Foo(a,^)}');
+    assertTarget(')', '(a)', argIndex: 1);
+  }
+
   test_ArgumentList_InstanceCreationExpression_functionArg2() {
     // ArgumentList  InstanceCreationExpression  Block
     addTestSource('main() {new B(^)} class B{B(f()){}}');
     assertTarget(')', '()', argIndex: 0, isFunctionalArgument: true);
+  }
+
+  test_ArgumentList_InstanceCreationExpression_functionArg3() {
+    // ArgumentList  InstanceCreationExpression  Block
+    addTestSource('main() {new B(1, f: ^)} class B{B(int i, {f()}){}}');
+    assertTarget('', 'f: ', argIndex: 1, isFunctionalArgument: true);
   }
 
   test_ArgumentList_MethodInvocation() {
@@ -85,10 +98,16 @@ class CompletionTargetTest extends AbstractContextTest {
     assertTarget('n', '(n)', argIndex: 0);
   }
 
+  test_ArgumentList_MethodInvocation3a() {
+    // ArgumentList  MethodInvocation  Block
+    addTestSource('main() {foo((n)^)}');
+    assertTarget(')', '((n))', argIndex: 0);
+  }
+
   test_ArgumentList_MethodInvocation4() {
     // ArgumentList  MethodInvocation  Block
     addTestSource('main() {foo(n,^)}');
-    assertTarget('', '(n, )', argIndex: 1);
+    assertTarget(')', '(n)', argIndex: 1);
   }
 
   test_ArgumentList_MethodInvocation_functionArg() {
@@ -101,6 +120,18 @@ class CompletionTargetTest extends AbstractContextTest {
     // ArgumentList  MethodInvocation  Block
     addTestSource('main() {new B().boo(^)} class B{boo(f()){}}');
     assertTarget(')', '()', argIndex: 0, isFunctionalArgument: true);
+  }
+
+  test_ArgumentList_MethodInvocation_functionArg3() {
+    // ArgumentList  MethodInvocation  Block
+    addTestSource('main() {foo(f: ^)} foo({f()}) {}');
+    assertTarget('', 'f: ', argIndex: 0, isFunctionalArgument: true);
+  }
+
+  test_ArgumentList_MethodInvocation_functionArg4() {
+    // ArgumentList  MethodInvocation  Block
+    addTestSource('main() {new B().boo(f: ^)} class B{boo({f()}){}}');
+    assertTarget('', 'f: ', argIndex: 0, isFunctionalArgument: true);
   }
 
   test_AsExpression_identifier() {

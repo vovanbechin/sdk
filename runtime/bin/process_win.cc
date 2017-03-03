@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+#if !defined(DART_IO_DISABLED)
+
 #include "platform/globals.h"
 #if defined(TARGET_OS_WINDOWS)
 
@@ -25,6 +27,9 @@ namespace bin {
 static const int kReadHandle = 0;
 static const int kWriteHandle = 1;
 
+int Process::global_exit_code_ = 0;
+Mutex* Process::global_exit_code_mutex_ = new Mutex();
+Process::ExitHook Process::exit_hook_ = NULL;
 
 // ProcessInfo is used to map a process id to the process handle,
 // wait handle for registered exit code event and the pipe used to
@@ -40,7 +45,7 @@ class ProcessInfo {
       : process_id_(process_id),
         process_handle_(process_handle),
         wait_handle_(wait_handle),
-        exit_pipe_(exit_pipe) { }
+        exit_pipe_(exit_pipe) {}
 
   ~ProcessInfo() {
     BOOL success = CloseHandle(process_handle_);
@@ -89,12 +94,8 @@ class ProcessInfoList {
     MutexLocker locker(mutex_);
     HANDLE wait_handle = INVALID_HANDLE_VALUE;
     BOOL success = RegisterWaitForSingleObject(
-        &wait_handle,
-        handle,
-        &ExitCodeCallback,
-        reinterpret_cast<void*>(pid),
-        INFINITE,
-        WT_EXECUTEONLYONCE);
+        &wait_handle, handle, &ExitCodeCallback, reinterpret_cast<void*>(pid),
+        INFINITE, WT_EXECUTEONLYONCE);
     if (!success) {
       FATAL("Failed to register exit code wait operation.");
     }
@@ -172,7 +173,7 @@ class ProcessInfoList {
       exit_code = abs(exit_code);
       negative = 1;
     }
-    int message[2] = { exit_code, negative };
+    int message[2] = {exit_code, negative};
     DWORD written;
     ok = WriteFile(exit_pipe, message, sizeof(message), &written, NULL);
     // If the process has been closed, the read end of the exit
@@ -205,11 +206,7 @@ Mutex* ProcessInfoList::mutex_ = new Mutex();
 
 
 // Types of pipes to create.
-enum NamedPipeType {
-  kInheritRead,
-  kInheritWrite,
-  kInheritNone
-};
+enum NamedPipeType { kInheritRead, kInheritWrite, kInheritNone };
 
 
 // Create a pipe for communicating with a new process. The handles array
@@ -228,13 +225,12 @@ static bool CreateProcessPipe(HANDLE handles[2],
 
   if (type == kInheritRead) {
     handles[kWriteHandle] =
-        CreateNamedPipeW(pipe_name,
-                         PIPE_ACCESS_OUTBOUND | FILE_FLAG_OVERLAPPED,
+        CreateNamedPipeW(pipe_name, PIPE_ACCESS_OUTBOUND | FILE_FLAG_OVERLAPPED,
                          PIPE_TYPE_BYTE | PIPE_WAIT,
-                         1,             // Number of pipes
-                         1024,          // Out buffer size
-                         1024,          // In buffer size
-                         0,             // Timeout in ms
+                         1,     // Number of pipes
+                         1024,  // Out buffer size
+                         1024,  // In buffer size
+                         0,     // Timeout in ms
                          NULL);
 
     if (handles[kWriteHandle] == INVALID_HANDLE_VALUE) {
@@ -243,13 +239,8 @@ static bool CreateProcessPipe(HANDLE handles[2],
     }
 
     handles[kReadHandle] =
-        CreateFileW(pipe_name,
-                    GENERIC_READ,
-                    0,
-                    &inherit_handle,
-                    OPEN_EXISTING,
-                    FILE_READ_ATTRIBUTES | FILE_FLAG_OVERLAPPED,
-                    NULL);
+        CreateFileW(pipe_name, GENERIC_READ, 0, &inherit_handle, OPEN_EXISTING,
+                    FILE_READ_ATTRIBUTES | FILE_FLAG_OVERLAPPED, NULL);
     if (handles[kReadHandle] == INVALID_HANDLE_VALUE) {
       Log::PrintErr("CreateFile failed %d\n", GetLastError());
       return false;
@@ -257,13 +248,12 @@ static bool CreateProcessPipe(HANDLE handles[2],
   } else {
     ASSERT((type == kInheritWrite) || (type == kInheritNone));
     handles[kReadHandle] =
-        CreateNamedPipeW(pipe_name,
-                         PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
+        CreateNamedPipeW(pipe_name, PIPE_ACCESS_INBOUND | FILE_FLAG_OVERLAPPED,
                          PIPE_TYPE_BYTE | PIPE_WAIT,
-                         1,             // Number of pipes
-                         1024,          // Out buffer size
-                         1024,          // In buffer size
-                         0,             // Timeout in ms
+                         1,     // Number of pipes
+                         1024,  // Out buffer size
+                         1024,  // In buffer size
+                         0,     // Timeout in ms
                          NULL);
 
     if (handles[kReadHandle] == INVALID_HANDLE_VALUE) {
@@ -271,14 +261,10 @@ static bool CreateProcessPipe(HANDLE handles[2],
       return false;
     }
 
-    handles[kWriteHandle] =
-        CreateFileW(pipe_name,
-                    GENERIC_WRITE,
-                    0,
-                    (type == kInheritWrite) ? &inherit_handle : NULL,
-                    OPEN_EXISTING,
-                    FILE_WRITE_ATTRIBUTES | FILE_FLAG_OVERLAPPED,
-                    NULL);
+    handles[kWriteHandle] = CreateFileW(
+        pipe_name, GENERIC_WRITE, 0,
+        (type == kInheritWrite) ? &inherit_handle : NULL, OPEN_EXISTING,
+        FILE_WRITE_ATTRIBUTES | FILE_FLAG_OVERLAPPED, NULL);
     if (handles[kWriteHandle] == INVALID_HANDLE_VALUE) {
       Log::PrintErr("CreateFile failed %d\n", GetLastError());
       return false;
@@ -327,13 +313,8 @@ static HANDLE OpenNul() {
   inherit_handle.nLength = sizeof(SECURITY_ATTRIBUTES);
   inherit_handle.bInheritHandle = TRUE;
   inherit_handle.lpSecurityDescriptor = NULL;
-  HANDLE nul = CreateFile(L"NUL",
-                          GENERIC_READ | GENERIC_WRITE,
-                          0,
-                          &inherit_handle,
-                          OPEN_EXISTING,
-                          0,
-                          NULL);
+  HANDLE nul = CreateFile(L"NUL", GENERIC_READ | GENERIC_WRITE, 0,
+                          &inherit_handle, OPEN_EXISTING, 0, NULL);
   if (nul == INVALID_HANDLE_VALUE) {
     Log::PrintErr("CloseHandle failed %d\n", GetLastError());
   }
@@ -341,15 +322,20 @@ static HANDLE OpenNul() {
 }
 
 
-typedef BOOL (WINAPI *InitProcThreadAttrListFn)(
-    LPPROC_THREAD_ATTRIBUTE_LIST, DWORD, DWORD, PSIZE_T);
+typedef BOOL(WINAPI* InitProcThreadAttrListFn)(LPPROC_THREAD_ATTRIBUTE_LIST,
+                                               DWORD,
+                                               DWORD,
+                                               PSIZE_T);
 
-typedef BOOL (WINAPI *UpdateProcThreadAttrFn)(
-    LPPROC_THREAD_ATTRIBUTE_LIST, DWORD, DWORD_PTR,
-    PVOID, SIZE_T, PVOID, PSIZE_T);
+typedef BOOL(WINAPI* UpdateProcThreadAttrFn)(LPPROC_THREAD_ATTRIBUTE_LIST,
+                                             DWORD,
+                                             DWORD_PTR,
+                                             PVOID,
+                                             SIZE_T,
+                                             PVOID,
+                                             PSIZE_T);
 
-typedef VOID (WINAPI *DeleteProcThreadAttrListFn)(
-     LPPROC_THREAD_ATTRIBUTE_LIST);
+typedef VOID(WINAPI* DeleteProcThreadAttrListFn)(LPPROC_THREAD_ATTRIBUTE_LIST);
 
 
 static InitProcThreadAttrListFn init_proc_thread_attr_list = NULL;
@@ -380,7 +366,7 @@ static bool EnsureInitialized() {
 
 
 const int kMaxPipeNameSize = 80;
-template<int Count>
+template <int Count>
 static int GenerateNames(wchar_t pipe_names[Count][kMaxPipeNameSize]) {
   UUID uuid;
   RPC_STATUS status = UuidCreateSequential(&uuid);
@@ -394,9 +380,8 @@ static int GenerateNames(wchar_t pipe_names[Count][kMaxPipeNameSize]) {
   }
   for (int i = 0; i < Count; i++) {
     static const wchar_t* prefix = L"\\\\.\\Pipe\\dart";
-    _snwprintf(pipe_names[i],
-               kMaxPipeNameSize,
-               L"%s_%s_%d", prefix, uuid_string, i + 1);
+    _snwprintf(pipe_names[i], kMaxPipeNameSize, L"%s_%s_%d", prefix,
+               uuid_string, i + 1);
   }
   status = RpcStringFreeW(&uuid_string);
   if (status != RPC_S_OK) {
@@ -445,7 +430,7 @@ class ProcessStarter {
     system_arguments = reinterpret_cast<wchar_t**>(
         Dart_ScopeAllocate(arguments_length * sizeof(*system_arguments)));
     for (int i = 0; i < arguments_length; i++) {
-       system_arguments[i] = StringUtilsWin::Utf8ToWide(arguments[i]);
+      system_arguments[i] = StringUtilsWin::Utf8ToWide(arguments[i]);
     }
 
     // Compute command-line length.
@@ -457,8 +442,8 @@ class ProcessStarter {
     command_line_length += arguments_length + 1;
 
     // Put together command-line string.
-    command_line_ = reinterpret_cast<wchar_t*>(Dart_ScopeAllocate(
-        command_line_length * sizeof(*command_line_)));
+    command_line_ = reinterpret_cast<wchar_t*>(
+        Dart_ScopeAllocate(command_line_length * sizeof(*command_line_)));
     int len = 0;
     int remaining = command_line_length;
     int written =
@@ -467,8 +452,8 @@ class ProcessStarter {
     remaining -= written;
     ASSERT(remaining >= 0);
     for (int i = 0; i < arguments_length; i++) {
-      written = _snwprintf(
-          command_line_ + len, remaining, L" %s", system_arguments[i]);
+      written = _snwprintf(command_line_ + len, remaining, L" %s",
+                           system_arguments[i]);
       len += written;
       remaining -= written;
       ASSERT(remaining >= 0);
@@ -491,15 +476,13 @@ class ProcessStarter {
       for (intptr_t i = 0; i < environment_length; i++) {
         block_size += wcslen(system_environment[i]) + 1;
       }
-      environment_block_ = reinterpret_cast<wchar_t*>(Dart_ScopeAllocate(
-          block_size * sizeof(*environment_block_)));
+      environment_block_ = reinterpret_cast<wchar_t*>(
+          Dart_ScopeAllocate(block_size * sizeof(*environment_block_)));
       intptr_t block_index = 0;
       for (intptr_t i = 0; i < environment_length; i++) {
         intptr_t len = wcslen(system_environment[i]);
-        intptr_t result = _snwprintf(environment_block_ + block_index,
-                                     len,
-                                     L"%s",
-                                     system_environment[i]);
+        intptr_t result = _snwprintf(environment_block_ + block_index, len,
+                                     L"%s", system_environment[i]);
         ASSERT(result == len);
         block_index += len;
         environment_block_[block_index++] = '\0';
@@ -560,17 +543,13 @@ class ProcessStarter {
         return CleanupAndReturnError();
       }
       static const int kNumInheritedHandles = 3;
-      HANDLE inherited_handles[kNumInheritedHandles] =
-          { stdin_handles_[kReadHandle],
-            stdout_handles_[kWriteHandle],
-            stderr_handles_[kWriteHandle] };
-      if (!update_proc_thread_attr(attribute_list_,
-                                   0,
-                                   PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
-                                   inherited_handles,
-                                   kNumInheritedHandles * sizeof(HANDLE),
-                                   NULL,
-                                   NULL)) {
+      HANDLE inherited_handles[kNumInheritedHandles] = {
+          stdin_handles_[kReadHandle], stdout_handles_[kWriteHandle],
+          stderr_handles_[kWriteHandle]};
+      if (!update_proc_thread_attr(
+              attribute_list_, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST,
+              inherited_handles, kNumInheritedHandles * sizeof(HANDLE), NULL,
+              NULL)) {
         return CleanupAndReturnError();
       }
       startup_info.lpAttributeList = attribute_list_;
@@ -585,16 +564,14 @@ class ProcessStarter {
     if (mode_ != kNormal) {
       creation_flags |= DETACHED_PROCESS;
     }
-    BOOL result = CreateProcessW(NULL,   // ApplicationName
-                                 command_line_,
-                                 NULL,   // ProcessAttributes
-                                 NULL,   // ThreadAttributes
-                                 TRUE,   // InheritHandles
-                                 creation_flags,
-                                 environment_block_,
-                                 system_working_directory_,
-                                 reinterpret_cast<STARTUPINFOW*>(&startup_info),
-                                 &process_info);
+    BOOL result = CreateProcessW(
+        NULL,  // ApplicationName
+        command_line_,
+        NULL,  // ProcessAttributes
+        NULL,  // ThreadAttributes
+        TRUE,  // InheritHandles
+        creation_flags, environment_block_, system_working_directory_,
+        reinterpret_cast<STARTUPINFOW*>(&startup_info), &process_info);
 
     if (result == 0) {
       return CleanupAndReturnError();
@@ -677,8 +654,8 @@ class ProcessStarter {
 
   int CleanupAndReturnError() {
     int error_code = SetOsErrorMessage(os_error_message_);
-    CloseProcessPipes(
-        stdin_handles_, stdout_handles_, stderr_handles_, exit_handles_);
+    CloseProcessPipes(stdin_handles_, stdout_handles_, stderr_handles_,
+                      exit_handles_);
     return error_code;
   }
 
@@ -722,64 +699,53 @@ int Process::Start(const char* path,
                    intptr_t* id,
                    intptr_t* exit_handler,
                    char** os_error_message) {
-  ProcessStarter starter(path,
-                         arguments,
-                         arguments_length,
-                         working_directory,
-                         environment,
-                         environment_length,
-                         mode,
-                         in,
-                         out,
-                         err,
-                         id,
-                         exit_handler,
-                         os_error_message);
+  ProcessStarter starter(path, arguments, arguments_length, working_directory,
+                         environment, environment_length, mode, in, out, err,
+                         id, exit_handler, os_error_message);
   return starter.Start();
 }
 
 
-class BufferList: public BufferListBase {
+class BufferList : public BufferListBase {
  public:
-  BufferList() : read_pending_(true) { }
+  BufferList() : read_pending_(true) {}
 
   // Indicate that data has been read into the buffer provided to
   // overlapped read.
   void DataIsRead(intptr_t size) {
     ASSERT(read_pending_ == true);
-    data_size_ += size;
-    free_size_ -= size;
-    ASSERT(free_size_ >= 0);
+    set_data_size(data_size() + size);
+    set_free_size(free_size() - size);
+    ASSERT(free_size() >= 0);
     read_pending_ = false;
   }
 
   // The access to the read buffer for overlapped read.
-  void GetReadBuffer(uint8_t** buffer, intptr_t* size) {
+  bool GetReadBuffer(uint8_t** buffer, intptr_t* size) {
     ASSERT(!read_pending_);
-    if (free_size_ == 0) {
-      Allocate();
+    if (free_size() == 0) {
+      if (!Allocate()) {
+        return false;
+      }
     }
-    ASSERT(free_size_ > 0);
-    ASSERT(free_size_ <= kBufferSize);
+    ASSERT(free_size() > 0);
+    ASSERT(free_size() <= kBufferSize);
     *buffer = FreeSpaceAddress();
-    *size = free_size_;
+    *size = free_size();
     read_pending_ = true;
+    return true;
   }
 
-  intptr_t GetDataSize() {
-    return data_size_;
-  }
+  intptr_t GetDataSize() { return data_size(); }
 
   uint8_t* GetFirstDataBuffer() {
-    ASSERT(head_ != NULL);
-    ASSERT(head_ == tail_);
-    ASSERT(data_size_ <= kBufferSize);
-    return head_->data_;
+    ASSERT(head() != NULL);
+    ASSERT(head() == tail());
+    ASSERT(data_size() <= kBufferSize);
+    return head()->data();
   }
 
-  void FreeDataBuffer() {
-    Free();
-  }
+  void FreeDataBuffer() { Free(); }
 
  private:
   bool read_pending_;
@@ -798,9 +764,7 @@ class OverlappedHandle {
     ClearOverlapped();
   }
 
-  bool HasEvent(HANDLE event) {
-    return (event_ == event);
-  }
+  bool HasEvent(HANDLE event) { return (event_ == event); }
 
   bool Read() {
     // Get the data read as a result of a completed overlapped operation.
@@ -815,7 +779,9 @@ class OverlappedHandle {
       ClearOverlapped();
       uint8_t* buffer;
       intptr_t buffer_size;
-      buffer_.GetReadBuffer(&buffer, &buffer_size);
+      if (!buffer_.GetReadBuffer(&buffer, &buffer_size)) {
+        return false;
+      }
       BOOL ok = ReadFile(handle_, buffer, buffer_size, NULL, &overlapped_);
       if (!ok) {
         return (GetLastError() == ERROR_IO_PENDING);
@@ -824,21 +790,17 @@ class OverlappedHandle {
     }
   }
 
-  Dart_Handle GetData() {
-    return buffer_.GetData();
-  }
+  Dart_Handle GetData() { return buffer_.GetData(); }
 
-  intptr_t GetDataSize() {
-    return buffer_.GetDataSize();
-  }
+  intptr_t GetDataSize() { return buffer_.GetDataSize(); }
 
-  uint8_t* GetFirstDataBuffer() {
-    return buffer_.GetFirstDataBuffer();
-  }
+  uint8_t* GetFirstDataBuffer() { return buffer_.GetFirstDataBuffer(); }
 
-  void FreeDataBuffer() {
-    return buffer_.FreeDataBuffer();
-  }
+  void FreeDataBuffer() { return buffer_.FreeDataBuffer(); }
+
+#if defined(DEBUG)
+  bool IsEmpty() const { return buffer_.IsEmpty(); }
+#endif
 
   void Close() {
     CloseHandle(handle_);
@@ -929,6 +891,8 @@ bool Process::Wait(intptr_t pid,
   // All handles closed and all data read.
   result->set_stdout_data(oh[0].GetData());
   result->set_stderr_data(oh[1].GetData());
+  DEBUG_ASSERT(oh[0].IsEmpty());
+  DEBUG_ASSERT(oh[1].IsEmpty());
 
   // Calculate the exit code.
   ASSERT(oh[2].GetDataSize() == 8);
@@ -951,10 +915,8 @@ bool Process::Kill(intptr_t id, int signal) {
   HANDLE wait_handle;
   HANDLE exit_pipe;
   // First check the process info list for the process to get a handle to it.
-  bool success = ProcessInfoList::LookupProcess(id,
-                                                &process_handle,
-                                                &wait_handle,
-                                                &exit_pipe);
+  bool success = ProcessInfoList::LookupProcess(id, &process_handle,
+                                                &wait_handle, &exit_pipe);
   // For detached processes we don't have the process registered in the
   // process info list. Try to look it up through the OS.
   if (!success) {
@@ -1006,8 +968,10 @@ BOOL WINAPI SignalHandler(DWORD signal) {
 
 intptr_t GetWinSignal(intptr_t signal) {
   switch (signal) {
-    case kSighup: return CTRL_CLOSE_EVENT;
-    case kSigint: return CTRL_C_EVENT;
+    case kSighup:
+      return CTRL_CLOSE_EVENT;
+    case kSigint:
+      return CTRL_C_EVENT;
     default:
       return -1;
   }
@@ -1082,3 +1046,5 @@ void Process::ClearSignalHandler(intptr_t signal) {
 }  // namespace dart
 
 #endif  // defined(TARGET_OS_WINDOWS)
+
+#endif  // !defined(DART_IO_DISABLED)

@@ -6,6 +6,7 @@
 // allow inlining of empty functions and from main.
 
 import 'package:async_helper/async_helper.dart';
+import 'package:compiler/compiler_new.dart';
 import 'package:compiler/src/compiler.dart';
 import 'package:expect/expect.dart';
 import 'memory_compiler.dart';
@@ -14,8 +15,7 @@ void main() {
   asyncTest(() async {
     OutputCollector collector = new OutputCollector();
     CompilationResult result = await runCompiler(
-      memorySourceFiles: MEMORY_SOURCE_FILES,
-      outputProvider: collector);
+        memorySourceFiles: MEMORY_SOURCE_FILES, outputProvider: collector);
     Compiler compiler = result.compiler;
 
     lookupLibrary(name) {
@@ -35,9 +35,11 @@ void main() {
     // Test that we actually got differnt output units.
     Expect.notEquals(ou_lib1.name, ou_lib3.name);
 
-    String mainOutput = collector.getOutput("", "js");
-    String lib1Output = collector.getOutput("out_${ou_lib1.name}", "part.js");
-    String lib3Output = collector.getOutput("out_${ou_lib3.name}", "part.js");
+    String mainOutput = collector.getOutput("", OutputType.js);
+    String lib1Output =
+        collector.getOutput("out_${ou_lib1.name}", OutputType.jsPart);
+    String lib3Output =
+        collector.getOutput("out_${ou_lib3.name}", OutputType.jsPart);
 
     RegExp re1 = new RegExp(r"inlined as empty");
     RegExp re2 = new RegExp(r"inlined from main");
@@ -63,7 +65,8 @@ void main() {
 
 // Make sure that empty functions are inlined and that functions from
 // main also are inlined (assuming normal heuristics).
-const Map MEMORY_SOURCE_FILES = const {"main.dart": """
+const Map MEMORY_SOURCE_FILES = const {
+  "main.dart": """
 import "dart:async";
 
 import 'lib1.dart' deferred as lib1;
@@ -81,7 +84,8 @@ void main() {
     });
   });
 }
-""", "lib1.dart": """
+""",
+  "lib1.dart": """
 import "main.dart" as main;
 import "lib3.dart" as lib3;
 
@@ -93,12 +97,15 @@ test() {
   print(main.inlineFromMain("should be inlined"));
   print(lib3.sameContextInline("should be inlined"));
 }
-""", "lib2.dart": """
+""",
+  "lib2.dart": """
 import "lib3.dart" as lib3;
 
 test() {
   print(lib3.sameContextInline("should be inlined"));
 }
-""", "lib3.dart": """
+""",
+  "lib3.dart": """
 sameContextInline(x) => "inline same context" + x;
-"""};
+"""
+};

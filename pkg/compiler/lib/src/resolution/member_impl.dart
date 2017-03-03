@@ -7,13 +7,12 @@ part of dart2js.resolution.compute_members;
 class DeclaredMember implements Member {
   final Name name;
   final Element element;
-  final InterfaceType declarer;
-  final DartType type;
-  final FunctionType functionType;
+  final ResolutionInterfaceType declarer;
+  final ResolutionDartType type;
+  final ResolutionFunctionType functionType;
 
-  DeclaredMember(this.name, this.element,
-                 this.declarer,
-                 this.type, this.functionType);
+  DeclaredMember(
+      this.name, this.element, this.declarer, this.type, this.functionType);
 
   bool get isStatic => !element.isInstanceMember;
 
@@ -37,7 +36,7 @@ class DeclaredMember implements Member {
   ///   class C<U> extends B<U> {}
   /// The member `T m()` is declared in `A<T>` and inherited from `A<S>` into
   /// `B` as `S m()`, and further from `B<U>` into `C` as `U m()`.
-  DeclaredMember inheritFrom(InterfaceType instance) {
+  DeclaredMember inheritFrom(ResolutionInterfaceType instance) {
     // If the member is declared in a non-generic class its type cannot change
     // as a result of inheritance.
     if (!declarer.isGeneric) return this;
@@ -45,7 +44,7 @@ class DeclaredMember implements Member {
     return _newInheritedMember(instance);
   }
 
-  InheritedMember _newInheritedMember(InterfaceType instance) {
+  InheritedMember _newInheritedMember(ResolutionInterfaceType instance) {
     return new InheritedMember(this, instance);
   }
 
@@ -55,8 +54,7 @@ class DeclaredMember implements Member {
 
   bool operator ==(other) {
     if (other is! Member) return false;
-    return element == other.element &&
-           isSetter == other.isSetter;
+    return element == other.element && isSetter == other.isSetter;
   }
 
   String toString() {
@@ -65,7 +63,7 @@ class DeclaredMember implements Member {
     return sb.toString();
   }
 
-  void printOn(StringBuffer sb, DartType type) {
+  void printOn(StringBuffer sb, ResolutionDartType type) {
     if (isStatic) {
       sb.write('static ');
     }
@@ -91,15 +89,18 @@ class DeclaredMember implements Member {
 class DeclaredAbstractMember extends DeclaredMember {
   final DeclaredMember implementation;
 
-  DeclaredAbstractMember(Name name, Element element,
-                         InterfaceType declarer,
-                         DartType type, FunctionType functionType,
-                         this.implementation)
+  DeclaredAbstractMember(
+      Name name,
+      Element element,
+      ResolutionInterfaceType declarer,
+      ResolutionDartType type,
+      ResolutionFunctionType functionType,
+      this.implementation)
       : super(name, element, declarer, type, functionType);
 
   bool get isAbstract => true;
 
-  InheritedMember _newInheritedMember(InterfaceType instance) {
+  InheritedMember _newInheritedMember(ResolutionInterfaceType instance) {
     return new InheritedAbstractMember(this, instance,
         implementation != null ? implementation.inheritFrom(instance) : null);
   }
@@ -107,10 +108,10 @@ class DeclaredAbstractMember extends DeclaredMember {
 
 class InheritedMember implements DeclaredMember {
   final DeclaredMember declaration;
-  final InterfaceType instance;
+  final ResolutionInterfaceType instance;
 
-  InheritedMember(DeclaredMember this.declaration,
-                  InterfaceType this.instance) {
+  InheritedMember(
+      DeclaredMember this.declaration, ResolutionInterfaceType this.instance) {
     assert(instance.isGeneric);
     assert(!declaration.isStatic);
   }
@@ -119,7 +120,7 @@ class InheritedMember implements DeclaredMember {
 
   Name get name => declaration.name;
 
-  InterfaceType get declarer => instance;
+  ResolutionInterfaceType get declarer => instance;
 
   bool get isStatic => false;
 
@@ -135,26 +136,30 @@ class InheritedMember implements DeclaredMember {
 
   Member get implementation => this;
 
-  DartType get type => declaration.type.substByContext(instance);
+  ResolutionDartType get type => declaration.type.substByContext(instance);
 
-  FunctionType get functionType {
+  ResolutionFunctionType get functionType {
     return declaration.functionType.substByContext(instance);
   }
 
-  DeclaredMember inheritFrom(InterfaceType newInstance) {
-    assert(() {
+  DeclaredMember inheritFrom(ResolutionInterfaceType newInstance) {
+    assert(invariant(declaration.element, () {
       // Assert that if [instance] contains type variables, then these are
       // defined in the declaration of [newInstance] and will therefore be
       // substituted into the context of [newInstance] in the created member.
       ClassElement contextClass = Types.getClassContext(instance);
       return contextClass == null || contextClass == newInstance.element;
-    });
+    }, message: () {
+      return "Context mismatch: Context class "
+          "${Types.getClassContext(instance)} from $instance does match "
+          "the new instance $newInstance.";
+    }));
     return _newInheritedMember(newInstance);
   }
 
-  InheritedMember _newInheritedMember(InterfaceType newInstance) {
-    return new InheritedMember(declaration,
-                               instance.substByContext(newInstance));
+  InheritedMember _newInheritedMember(ResolutionInterfaceType newInstance) {
+    return new InheritedMember(
+        declaration, instance.substByContext(newInstance));
   }
 
   Iterable<Member> get declarations => <Member>[this];
@@ -163,18 +168,17 @@ class InheritedMember implements DeclaredMember {
 
   bool operator ==(other) {
     if (other is! InheritedMember) return false;
-    return declaration == other.declaration &&
-           instance == other.instance;
+    return declaration == other.declaration && instance == other.instance;
   }
 
-  void printOn(StringBuffer sb, DartType type) {
+  void printOn(StringBuffer sb, ResolutionDartType type) {
     declaration.printOn(sb, type);
     sb.write(' inherited from $instance');
   }
 
   String toString() {
     StringBuffer sb = new StringBuffer();
-    printOn(sb, instance);
+    printOn(sb, type);
     return sb.toString();
   }
 }
@@ -183,21 +187,20 @@ class InheritedAbstractMember extends InheritedMember {
   final DeclaredMember implementation;
 
   InheritedAbstractMember(DeclaredMember declaration,
-                          InterfaceType instance,
-                          this.implementation)
+      ResolutionInterfaceType instance, this.implementation)
       : super(declaration, instance);
 
   bool get isAbstract => true;
 
-  InheritedMember _newInheritedMember(InterfaceType newInstance) {
+  InheritedMember _newInheritedMember(ResolutionInterfaceType newInstance) {
     return new InheritedAbstractMember(
         declaration,
         instance.substByContext(newInstance),
         implementation != null
-            ? implementation.inheritFrom(newInstance) : null);
+            ? implementation.inheritFrom(newInstance)
+            : null);
   }
 }
-
 
 abstract class AbstractSyntheticMember implements MemberSignature {
   final Setlet<Member> inheritedMembers;
@@ -211,14 +214,11 @@ abstract class AbstractSyntheticMember implements MemberSignature {
   Name get name => member.name;
 }
 
-
 class SyntheticMember extends AbstractSyntheticMember {
-  final DartType type;
-  final FunctionType functionType;
+  final ResolutionDartType type;
+  final ResolutionFunctionType functionType;
 
-  SyntheticMember(Setlet<Member> inheritedMembers,
-                  this.type,
-                  this.functionType)
+  SyntheticMember(Setlet<Member> inheritedMembers, this.type, this.functionType)
       : super(inheritedMembers);
 
   bool get isSetter => member.isSetter;
@@ -230,15 +230,15 @@ class SyntheticMember extends AbstractSyntheticMember {
   bool get isMalformed => false;
 
   String toString() => '${type.getStringAsDeclared('$name')} synthesized '
-                       'from ${inheritedMembers}';
+      'from ${inheritedMembers}';
 }
 
 class ErroneousMember extends AbstractSyntheticMember {
   ErroneousMember(Setlet<Member> inheritedMembers) : super(inheritedMembers);
 
-  DartType get type => functionType;
+  ResolutionDartType get type => functionType;
 
-  FunctionType get functionType {
+  ResolutionFunctionType get functionType {
     throw new UnsupportedError('Erroneous members have no type.');
   }
 
@@ -251,6 +251,5 @@ class ErroneousMember extends AbstractSyntheticMember {
   bool get isMalformed => true;
 
   String toString() => "erroneous member '$name' synthesized "
-                       "from ${inheritedMembers}";
+      "from ${inheritedMembers}";
 }
-

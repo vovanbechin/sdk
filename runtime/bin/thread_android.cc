@@ -8,7 +8,7 @@
 #include "bin/thread.h"
 #include "bin/thread_android.h"
 
-#include <errno.h>  // NOLINT
+#include <errno.h>     // NOLINT
 #include <sys/time.h>  // NOLINT
 
 #include "platform/assert.h"
@@ -17,29 +17,29 @@
 namespace dart {
 namespace bin {
 
-#define VALIDATE_PTHREAD_RESULT(result) \
-  if (result != 0) { \
-    const int kBufferSize = 1024; \
-    char error_message[kBufferSize]; \
-    Utils::StrError(result, error_message, kBufferSize); \
-    FATAL2("pthread error: %d (%s)", result, error_message); \
+#define VALIDATE_PTHREAD_RESULT(result)                                        \
+  if (result != 0) {                                                           \
+    const int kBufferSize = 1024;                                              \
+    char error_message[kBufferSize];                                           \
+    Utils::StrError(result, error_message, kBufferSize);                       \
+    FATAL2("pthread error: %d (%s)", result, error_message);                   \
   }
 
 
 #ifdef DEBUG
-#define RETURN_ON_PTHREAD_FAILURE(result) \
-  if (result != 0) { \
-    const int kBufferSize = 1024; \
-    char error_message[kBufferSize]; \
-    Utils::StrError(result, error_message, kBufferSize); \
-    fprintf(stderr, "%s:%d: pthread error: %d (%s)\n", \
-            __FILE__, __LINE__, result, error_message); \
-    return result; \
+#define RETURN_ON_PTHREAD_FAILURE(result)                                      \
+  if (result != 0) {                                                           \
+    const int kBufferSize = 1024;                                              \
+    char error_message[kBufferSize];                                           \
+    Utils::StrError(result, error_message, kBufferSize);                       \
+    fprintf(stderr, "%s:%d: pthread error: %d (%s)\n", __FILE__, __LINE__,     \
+            result, error_message);                                            \
+    return result;                                                             \
   }
 #else
-#define RETURN_ON_PTHREAD_FAILURE(result) \
-  if (result != 0) { \
-    return result; \
+#define RETURN_ON_PTHREAD_FAILURE(result)                                      \
+  if (result != 0) {                                                           \
+    return result;                                                             \
   }
 #endif
 
@@ -61,8 +61,7 @@ static void ComputeTimeSpecMicros(struct timespec* ts, int64_t micros) {
 
 class ThreadStartData {
  public:
-  ThreadStartData(Thread::ThreadStartFunction function,
-                  uword parameter)
+  ThreadStartData(Thread::ThreadStartFunction function, uword parameter)
       : function_(function), parameter_(parameter) {}
 
   Thread::ThreadStartFunction function() const { return function_; }
@@ -155,11 +154,6 @@ ThreadId Thread::GetCurrentThreadId() {
 }
 
 
-bool Thread::Join(ThreadId id) {
-  return false;
-}
-
-
 intptr_t Thread::ThreadIdToIntPtr(ThreadId id) {
   ASSERT(sizeof(id) == sizeof(intptr_t));
   return static_cast<intptr_t>(id);
@@ -168,17 +162,6 @@ intptr_t Thread::ThreadIdToIntPtr(ThreadId id) {
 
 bool Thread::Compare(ThreadId a, ThreadId b) {
   return (a == b);
-}
-
-
-void Thread::GetThreadCpuUsage(ThreadId thread_id, int64_t* cpu_usage) {
-  ASSERT(thread_id == GetCurrentThreadId());
-  ASSERT(cpu_usage != NULL);
-  struct timespec ts;
-  int r = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
-  ASSERT(r == 0);
-  *cpu_usage = (ts.tv_sec * kNanosecondsPerSecond + ts.tv_nsec) /
-               kNanosecondsPerMicrosecond;
 }
 
 

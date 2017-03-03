@@ -4,15 +4,16 @@
 
 library analyzer.test.source.error_processor;
 
+import 'package:analyzer/error/error.dart';
 import 'package:analyzer/source/analysis_options_provider.dart';
 import 'package:analyzer/source/error_processor.dart';
 import 'package:analyzer/src/context/context.dart';
+import 'package:analyzer/src/error/codes.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
 import 'package:analyzer/src/task/options.dart';
 import 'package:plugin/manager.dart';
 import 'package:plugin/plugin.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 import 'package:yaml/src/yaml_node.dart';
 
 import '../generated/test_support.dart';
@@ -36,6 +37,11 @@ main() {
 
   AnalysisError use_of_void_result =
       new AnalysisError(new TestSource(), 0, 1, HintCode.USE_OF_VOID_RESULT, [
+    ['x']
+  ]);
+
+  AnalysisError non_bool_operand = new AnalysisError(
+      new TestSource(), 0, 1, StaticTypeWarningCode.NON_BOOL_OPERAND, [
     ['x']
   ]);
 
@@ -66,7 +72,15 @@ analyzer:
 analyzer:
   strong-mode: true
 ''');
-      expect(getProcessor(invalid_assignment).severity, ErrorSeverity.ERROR);
+      expect(getProcessor(non_bool_operand).severity, ErrorSeverity.ERROR);
+    });
+
+    test('does not upgrade other warnings to errors in strong mode', () {
+      configureOptions('''
+analyzer:
+  strong-mode: true
+''');
+      expect(getProcessor(unused_local_variable), isNull);
     });
   });
 
@@ -82,7 +96,8 @@ analyzer:
     group('processing', () {
       test('yaml map', () {
         var options = optionsProvider.getOptionsFromString(config);
-        var errorConfig = new ErrorConfig(options['analyzer']['errors']);
+        var errorConfig =
+            new ErrorConfig((options['analyzer'] as YamlMap)['errors']);
         expect(errorConfig.processors, hasLength(2));
 
         // ignore
@@ -138,17 +153,15 @@ ErrorProcessor processor;
 void configureOptions(String options) {
   Map<String, YamlNode> optionMap =
       optionsProvider.getOptionsFromString(options);
-  configureContextOptions(context, optionMap);
+  applyToAnalysisOptions(context.analysisOptions, optionMap);
 }
 
 ErrorProcessor getProcessor(AnalysisError error) =>
-    ErrorProcessor.getProcessor(context, error);
+    ErrorProcessor.getProcessor(context.analysisOptions, error);
 
 void oneTimeSetup() {
   List<Plugin> plugins = <Plugin>[];
   plugins.addAll(AnalysisEngine.instance.requiredPlugins);
-  plugins.add(AnalysisEngine.instance.commandLinePlugin);
-  plugins.add(AnalysisEngine.instance.optionsPlugin);
   ExtensionManager manager = new ExtensionManager();
   manager.processPlugins(plugins);
 }

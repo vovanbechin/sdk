@@ -2,8 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef BIN_FILE_SYSTEM_WATCHER_H_
-#define BIN_FILE_SYSTEM_WATCHER_H_
+#ifndef RUNTIME_BIN_FILE_SYSTEM_WATCHER_H_
+#define RUNTIME_BIN_FILE_SYSTEM_WATCHER_H_
+
+#if defined(DART_IO_DISABLED)
+#error "file_system_watcher.h can only be included on builds with IO enabled"
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -53,5 +57,4 @@ class FileSystemWatcher {
 }  // namespace bin
 }  // namespace dart
 
-#endif  // BIN_FILE_SYSTEM_WATCHER_H_
-
+#endif  // RUNTIME_BIN_FILE_SYSTEM_WATCHER_H_

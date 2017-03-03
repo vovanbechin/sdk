@@ -4,12 +4,12 @@
 
 library dart2js.constant_system;
 
-import '../dart_types.dart';
-import '../compiler.dart' show
-    Compiler;
+import '../common/backend_api.dart' show BackendClasses;
+import '../core_types.dart' show CommonElements;
+import '../elements/resolution_types.dart' show DartTypes;
+import '../elements/types.dart';
 import '../resolution/operators.dart';
-import '../tree/tree.dart' show
-    DartString;
+import '../tree/dartstring.dart' show DartString;
 import 'values.dart';
 
 abstract class Operation {
@@ -50,12 +50,14 @@ abstract class ConstantSystem {
   BinaryOperation get multiply;
   UnaryOperation get negate;
   UnaryOperation get not;
+  BinaryOperation get remainder;
   BinaryOperation get shiftLeft;
   BinaryOperation get shiftRight;
   BinaryOperation get subtract;
   BinaryOperation get truncatingDivide;
 
   BinaryOperation get codeUnitAt;
+  UnaryOperation get round;
 
   const ConstantSystem();
 
@@ -64,16 +66,17 @@ abstract class ConstantSystem {
   ConstantValue createString(DartString string);
   ConstantValue createBool(bool value);
   ConstantValue createNull();
-  ConstantValue createList(InterfaceType type,
-                           List<ConstantValue> values);
-  // TODO(johnniwinther): Remove the need for [compiler].
-  ConstantValue createMap(Compiler compiler,
-                          InterfaceType type,
-                          List<ConstantValue> keys,
-                          List<ConstantValue> values);
-  // TODO(johnniwinther): Remove the need for [compiler].
-  ConstantValue createType(Compiler compiler,
-                           DartType type);
+  ConstantValue createList(InterfaceType type, List<ConstantValue> values);
+  ConstantValue createMap(
+      CommonElements commonElements,
+      BackendClasses backendClasses,
+      InterfaceType type,
+      List<ConstantValue> keys,
+      List<ConstantValue> values);
+  ConstantValue createType(CommonElements commonElements,
+      BackendClasses backendClasses, DartType type);
+  ConstantValue createSymbol(CommonElements commonElements,
+      BackendClasses backendClasses, String text);
 
   // We need to special case the subtype check for JavaScript constant
   // system because an int is a double at runtime.
@@ -92,35 +95,59 @@ abstract class ConstantSystem {
 
   UnaryOperation lookupUnary(UnaryOperator operator) {
     switch (operator.kind) {
-      case UnaryOperatorKind.COMPLEMENT: return bitNot;
-      case UnaryOperatorKind.NEGATE: return negate;
-      case UnaryOperatorKind.NOT: return not;
-      default:  return null;
+      case UnaryOperatorKind.COMPLEMENT:
+        return bitNot;
+      case UnaryOperatorKind.NEGATE:
+        return negate;
+      case UnaryOperatorKind.NOT:
+        return not;
+      default:
+        return null;
     }
   }
 
   BinaryOperation lookupBinary(BinaryOperator operator) {
     switch (operator.kind) {
-      case BinaryOperatorKind.ADD:   return add;
-      case BinaryOperatorKind.SUB:   return subtract;
-      case BinaryOperatorKind.MUL:   return multiply;
-      case BinaryOperatorKind.DIV:   return divide;
-      case BinaryOperatorKind.MOD:   return modulo;
-      case BinaryOperatorKind.IDIV:  return truncatingDivide;
-      case BinaryOperatorKind.OR:   return bitOr;
-      case BinaryOperatorKind.AND:   return bitAnd;
-      case BinaryOperatorKind.XOR:   return bitXor;
-      case BinaryOperatorKind.LOGICAL_OR:  return booleanOr;
-      case BinaryOperatorKind.LOGICAL_AND:  return booleanAnd;
-      case BinaryOperatorKind.SHL:  return shiftLeft;
-      case BinaryOperatorKind.SHR:  return shiftRight;
-      case BinaryOperatorKind.LT:   return less;
-      case BinaryOperatorKind.LTEQ:  return lessEqual;
-      case BinaryOperatorKind.GT:   return greater;
-      case BinaryOperatorKind.GTEQ:  return greaterEqual;
-      case BinaryOperatorKind.EQ:  return equal;
-      case BinaryOperatorKind.IF_NULL: return ifNull;
-      default:    return null;
+      case BinaryOperatorKind.ADD:
+        return add;
+      case BinaryOperatorKind.SUB:
+        return subtract;
+      case BinaryOperatorKind.MUL:
+        return multiply;
+      case BinaryOperatorKind.DIV:
+        return divide;
+      case BinaryOperatorKind.MOD:
+        return modulo;
+      case BinaryOperatorKind.IDIV:
+        return truncatingDivide;
+      case BinaryOperatorKind.OR:
+        return bitOr;
+      case BinaryOperatorKind.AND:
+        return bitAnd;
+      case BinaryOperatorKind.XOR:
+        return bitXor;
+      case BinaryOperatorKind.LOGICAL_OR:
+        return booleanOr;
+      case BinaryOperatorKind.LOGICAL_AND:
+        return booleanAnd;
+      case BinaryOperatorKind.SHL:
+        return shiftLeft;
+      case BinaryOperatorKind.SHR:
+        return shiftRight;
+      case BinaryOperatorKind.LT:
+        return less;
+      case BinaryOperatorKind.LTEQ:
+        return lessEqual;
+      case BinaryOperatorKind.GT:
+        return greater;
+      case BinaryOperatorKind.GTEQ:
+        return greaterEqual;
+      case BinaryOperatorKind.EQ:
+        return equal;
+      case BinaryOperatorKind.IF_NULL:
+        return ifNull;
+      default:
+        return null;
     }
   }
 }

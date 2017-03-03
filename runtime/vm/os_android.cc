@@ -7,16 +7,16 @@
 
 #include "vm/os.h"
 
-#include <android/log.h>  // NOLINT
-#include <endian.h>  // NOLINT
-#include <errno.h>  // NOLINT
-#include <limits.h>  // NOLINT
-#include <malloc.h>  // NOLINT
-#include <time.h>  // NOLINT
+#include <android/log.h>   // NOLINT
+#include <endian.h>        // NOLINT
+#include <errno.h>         // NOLINT
+#include <limits.h>        // NOLINT
+#include <malloc.h>        // NOLINT
+#include <time.h>          // NOLINT
 #include <sys/resource.h>  // NOLINT
-#include <sys/time.h>  // NOLINT
-#include <sys/types.h>  // NOLINT
-#include <unistd.h>  // NOLINT
+#include <sys/time.h>      // NOLINT
+#include <sys/types.h>     // NOLINT
+#include <unistd.h>        // NOLINT
 
 #include "platform/utils.h"
 #include "vm/code_observers.h"
@@ -31,13 +31,15 @@ namespace dart {
 
 #ifndef PRODUCT
 
-DEFINE_FLAG(bool, generate_perf_events_symbols, false,
-    "Generate events symbols for profiling with perf");
+DEFINE_FLAG(bool,
+            generate_perf_events_symbols,
+            false,
+            "Generate events symbols for profiling with perf");
 
 class PerfCodeObserver : public CodeObserver {
  public:
   PerfCodeObserver() : out_file_(NULL) {
-    Dart_FileOpenCallback file_open = Isolate::file_open_callback();
+    Dart_FileOpenCallback file_open = Dart::file_open_callback();
     if (file_open == NULL) {
       return;
     }
@@ -48,7 +50,7 @@ class PerfCodeObserver : public CodeObserver {
   }
 
   ~PerfCodeObserver() {
-    Dart_FileCloseCallback file_close = Isolate::file_close_callback();
+    Dart_FileCloseCallback file_close = Dart::file_close_callback();
     if ((file_close == NULL) || (out_file_ == NULL)) {
       return;
     }
@@ -64,13 +66,14 @@ class PerfCodeObserver : public CodeObserver {
                       uword prologue_offset,
                       uword size,
                       bool optimized) {
-    Dart_FileWriteCallback file_write = Isolate::file_write_callback();
+    Dart_FileWriteCallback file_write = Dart::file_write_callback();
     if ((file_write == NULL) || (out_file_ == NULL)) {
       return;
     }
     const char* marker = optimized ? "*" : "";
-    char* buffer = OS::SCreate(Thread::Current()->zone(),
-        "%" Px " %" Px " %s%s\n", base, size, marker, name);
+    char* buffer =
+        OS::SCreate(Thread::Current()->zone(), "%" Px " %" Px " %s%s\n", base,
+                    size, marker, name);
     (*file_write)(buffer, strlen(buffer), out_file_);
   }
 
@@ -168,30 +171,26 @@ int64_t OS::GetCurrentMonotonicMicros() {
 }
 
 
-void* OS::AlignedAllocate(intptr_t size, intptr_t alignment) {
-  const int kMinimumAlignment = 16;
-  ASSERT(Utils::IsPowerOfTwo(alignment));
-  ASSERT(alignment >= kMinimumAlignment);
-  void* p = memalign(alignment, size);
-  if (p == NULL) {
+int64_t OS::GetCurrentThreadCPUMicros() {
+  struct timespec ts;
+  if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts) != 0) {
     UNREACHABLE();
+    return -1;
   }
-  return p;
-}
-
-
-void OS::AlignedFree(void* ptr) {
-  free(ptr);
+  int64_t result = ts.tv_sec;
+  result *= kMicrosecondsPerSecond;
+  result += (ts.tv_nsec / kNanosecondsPerMicrosecond);
+  return result;
 }
 
 
 // TODO(5411554):  May need to hoist these architecture dependent code
 // into a architecture specific file e.g: os_ia32_linux.cc
 intptr_t OS::ActivationFrameAlignment() {
-#if defined(TARGET_ARCH_IA32) || defined(TARGET_ARCH_X64) || \
+#if defined(TARGET_ARCH_IA32) || defined(TARGET_ARCH_X64) ||                   \
     defined(TARGET_ARCH_ARM64)
   const int kMinimumAlignment = 16;
-#elif defined(TARGET_ARCH_ARM)
+#elif defined(TARGET_ARCH_ARM) || defined(TARGET_ARCH_DBC)
   const int kMinimumAlignment = 8;
 #else
 #error Unsupported architecture.
@@ -207,10 +206,10 @@ intptr_t OS::ActivationFrameAlignment() {
 
 
 intptr_t OS::PreferredCodeAlignment() {
-#if defined(TARGET_ARCH_IA32) || defined(TARGET_ARCH_X64) || \
-    defined(TARGET_ARCH_ARM64)
-  const int kMinimumAlignment = 16;
-#elif defined(TARGET_ARCH_ARM)
+#if defined(TARGET_ARCH_IA32) || defined(TARGET_ARCH_X64) ||                   \
+    defined(TARGET_ARCH_ARM64) || defined(TARGET_ARCH_DBC)
+  const int kMinimumAlignment = 32;
+#elif defined(TARGET_ARCH_ARM) || defined(TARGET_ARCH_MIPS)
   const int kMinimumAlignment = 16;
 #else
 #error Unsupported architecture.
@@ -233,6 +232,15 @@ bool OS::AllowStackFrameIteratorFromAnotherThread() {
 
 int OS::NumberOfAvailableProcessors() {
   return sysconf(_SC_NPROCESSORS_ONLN);
+}
+
+
+uintptr_t OS::MaxRSS() {
+  struct rusage usage;
+  usage.ru_maxrss = 0;
+  int r = getrusage(RUSAGE_SELF, &usage);
+  ASSERT(r == 0);
+  return usage.ru_maxrss * KB;
 }
 
 
@@ -268,8 +276,19 @@ void OS::DebugBreak() {
 }
 
 
+uintptr_t DART_NOINLINE OS::GetProgramCounter() {
+  return reinterpret_cast<uintptr_t>(
+      __builtin_extract_return_addr(__builtin_return_address(0)));
+}
+
+
 char* OS::StrNDup(const char* s, intptr_t n) {
   return strndup(s, n);
+}
+
+
+intptr_t OS::StrNLen(const char* s, intptr_t n) {
+  return strnlen(s, n);
 }
 
 
@@ -378,8 +397,7 @@ bool OS::StringToInt64(const char* str, int64_t* value) {
   if (str[0] == '-') {
     i = 1;
   }
-  if ((str[i] == '0') &&
-      (str[i + 1] == 'x' || str[i + 1] == 'X') &&
+  if ((str[i] == '0') && (str[i + 1] == 'x' || str[i + 1] == 'X') &&
       (str[i + 2] != '\0')) {
     base = 16;
   }
@@ -418,8 +436,7 @@ void OS::InitOnce() {
 }
 
 
-void OS::Shutdown() {
-}
+void OS::Shutdown() {}
 
 
 void OS::Abort() {

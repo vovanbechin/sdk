@@ -15,6 +15,7 @@
         'utils/dartdoc/dartdoc.gyp:dartdoc',
         'utils/analysis_server/analysis_server.gyp:analysis_server',
         'utils/dartanalyzer/dartanalyzer.gyp:dartanalyzer',
+        'utils/dartdevc/dartdevc.gyp:dartdevc',
       ],
       'actions': [
         {
@@ -22,22 +23,22 @@
           'inputs': [
             # Xcode can only handle a certain amount of files in one list
             # (also depending on the length of the path from where you run).
-            '<!@(["python", "tools/list_files.py",'
-                '"dart$",'
+            '<!@(["python", "tools/list_files.py", "relative", "dart$",'
                 '"sdk/lib"])',
-            'sdk/lib/dart2dart.platform',
             'sdk/lib/dart_client.platform',
             'sdk/lib/dart_server.platform',
             'sdk/lib/dart_shared.platform',
-            '<!@(["python", "tools/list_files.py", "", '
+            '<!@(["python", "tools/list_files.py", "relative", "", '
                 '"sdk/lib/_internal/js_runtime/lib/preambles"])',
-            '<!@(["python", "tools/list_files.py", "", "sdk/bin"])',
+            '<!@(["python", "tools/list_files.py", "relative",  "", '
+                '"sdk/bin"])',
             'tools/create_sdk.py',
             '<(PRODUCT_DIR)/<(EXECUTABLE_PREFIX)dart<(EXECUTABLE_SUFFIX)',
             '<(SHARED_INTERMEDIATE_DIR)/dart2js.dart.snapshot',
             '<(SHARED_INTERMEDIATE_DIR)/utils_wrapper.dart.snapshot',
             '<(SHARED_INTERMEDIATE_DIR)/pub.dart.snapshot',
             '<(SHARED_INTERMEDIATE_DIR)/dartanalyzer.dart.snapshot',
+            '<(SHARED_INTERMEDIATE_DIR)/dartdevc.dart.snapshot',
             '<(SHARED_INTERMEDIATE_DIR)/dartfmt.dart.snapshot',
             '<(SHARED_INTERMEDIATE_DIR)/analysis_server.dart.snapshot',
             '<(SHARED_INTERMEDIATE_DIR)/dartdoc.dart.snapshot',

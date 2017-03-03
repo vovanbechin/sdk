@@ -41,6 +41,8 @@
  */
 library analyzer.tool.summary.idl;
 
+import 'package:analyzer/dart/element/element.dart';
+
 import 'base.dart' as base;
 import 'base.dart' show Id, TopLevel;
 import 'format.dart' as generated;
@@ -49,8 +51,292 @@ import 'format.dart' as generated;
  * Annotation describing information which is not part of Dart semantics; in
  * other words, if this information (or any information it refers to) changes,
  * static analysis and runtime behavior of the library are unaffected.
+ *
+ * Information that has purely local effect (in other words, it does not affect
+ * the API of the code being analyzed) is also marked as `informative`.
  */
 const informative = null;
+
+/**
+ * Information about the context of an exception in analysis driver.
+ */
+@TopLevel('ADEC')
+abstract class AnalysisDriverExceptionContext extends base.SummaryClass {
+  factory AnalysisDriverExceptionContext.fromBuffer(List<int> buffer) =>
+      generated.readAnalysisDriverExceptionContext(buffer);
+
+  /**
+   * The exception string.
+   */
+  @Id(1)
+  String get exception;
+
+  /**
+   * The state of files when the exception happened.
+   */
+  @Id(3)
+  List<AnalysisDriverExceptionFile> get files;
+
+  /**
+   * The path of the file being analyzed when the exception happened.
+   */
+  @Id(0)
+  String get path;
+
+  /**
+   * The exception stack trace string.
+   */
+  @Id(2)
+  String get stackTrace;
+}
+
+/**
+ * Information about a single file in [AnalysisDriverExceptionContext].
+ */
+abstract class AnalysisDriverExceptionFile extends base.SummaryClass {
+  /**
+   * The content of the file.
+   */
+  @Id(1)
+  String get content;
+
+  /**
+   * The path of the file.
+   */
+  @Id(0)
+  String get path;
+}
+
+/**
+ * Information about a resolved unit.
+ */
+@TopLevel('ADRU')
+abstract class AnalysisDriverResolvedUnit extends base.SummaryClass {
+  factory AnalysisDriverResolvedUnit.fromBuffer(List<int> buffer) =>
+      generated.readAnalysisDriverResolvedUnit(buffer);
+
+  /**
+   * The full list of analysis errors, both syntactic and semantic.
+   */
+  @Id(0)
+  List<AnalysisDriverUnitError> get errors;
+
+  /**
+   * The index of the unit.
+   */
+  @Id(1)
+  AnalysisDriverUnitIndex get index;
+}
+
+/**
+ * Information about an error in a resolved unit.
+ */
+abstract class AnalysisDriverUnitError extends base.SummaryClass {
+  /**
+   * The optional correction hint for the error.
+   */
+  @Id(4)
+  String get correction;
+
+  /**
+   * The length of the error in the file.
+   */
+  @Id(1)
+  int get length;
+
+  /**
+   * The message of the error.
+   */
+  @Id(3)
+  String get message;
+
+  /**
+   * The offset from the beginning of the file.
+   */
+  @Id(0)
+  int get offset;
+
+  /**
+   * The unique name of the error code.
+   */
+  @Id(2)
+  String get uniqueName;
+}
+
+/**
+ * Information about a resolved unit.
+ */
+@TopLevel('ADUI')
+abstract class AnalysisDriverUnitIndex extends base.SummaryClass {
+  factory AnalysisDriverUnitIndex.fromBuffer(List<int> buffer) =>
+      generated.readAnalysisDriverUnitIndex(buffer);
+
+  /**
+   * Each item of this list corresponds to a unique referenced element.  It is
+   * the kind of the synthetic element.
+   */
+  @Id(4)
+  List<IndexSyntheticElementKind> get elementKinds;
+
+  /**
+   * Each item of this list corresponds to a unique referenced element.  It is
+   * the identifier of the class member element name, or `null` if the element
+   * is a top-level element.  The list is sorted in ascending order, so that the
+   * client can quickly check whether an element is referenced in this index.
+   */
+  @Id(7)
+  List<int> get elementNameClassMemberIds;
+
+  /**
+   * Each item of this list corresponds to a unique referenced element.  It is
+   * the identifier of the named parameter name, or `null` if the element is not
+   * a named parameter.  The list is sorted in ascending order, so that the
+   * client can quickly check whether an element is referenced in this index.
+   */
+  @Id(8)
+  List<int> get elementNameParameterIds;
+
+  /**
+   * Each item of this list corresponds to a unique referenced element.  It is
+   * the identifier of the top-level element name, or `null` if the element is
+   * the unit.  The list is sorted in ascending order, so that the client can
+   * quickly check whether an element is referenced in this index.
+   */
+  @Id(6)
+  List<int> get elementNameUnitMemberIds;
+
+  /**
+   * Each item of this list corresponds to a unique referenced element.  It is
+   * the index into [unitLibraryUris] and [unitUnitUris] for the library
+   * specific unit where the element is declared.
+   */
+  @Id(5)
+  List<int> get elementUnits;
+
+  /**
+   * Identifier of the null string in [strings].
+   */
+  @Id(1)
+  int get nullStringId;
+
+  /**
+   * List of unique element strings used in this index.  The list is sorted in
+   * ascending order, so that the client can quickly check the presence of a
+   * string in this index.
+   */
+  @Id(0)
+  List<String> get strings;
+
+  /**
+   * Each item of this list corresponds to the library URI of a unique library
+   * specific unit referenced in the index.  It is an index into [strings] list.
+   */
+  @Id(2)
+  List<int> get unitLibraryUris;
+
+  /**
+   * Each item of this list corresponds to the unit URI of a unique library
+   * specific unit referenced in the index.  It is an index into [strings] list.
+   */
+  @Id(3)
+  List<int> get unitUnitUris;
+
+  /**
+   * Each item of this list is the `true` if the corresponding element usage
+   * is qualified with some prefix.
+   */
+  @Id(13)
+  List<bool> get usedElementIsQualifiedFlags;
+
+  /**
+   * Each item of this list is the kind of the element usage.
+   */
+  @Id(10)
+  List<IndexRelationKind> get usedElementKinds;
+
+  /**
+   * Each item of this list is the length of the element usage.
+   */
+  @Id(12)
+  List<int> get usedElementLengths;
+
+  /**
+   * Each item of this list is the offset of the element usage relative to the
+   * beginning of the file.
+   */
+  @Id(11)
+  List<int> get usedElementOffsets;
+
+  /**
+   * Each item of this list is the index into [elementUnits],
+   * [elementNameUnitMemberIds], [elementNameClassMemberIds] and
+   * [elementNameParameterIds].  The list is sorted in ascending order, so
+   * that the client can quickly find element references in this index.
+   */
+  @Id(9)
+  List<int> get usedElements;
+
+  /**
+   * Each item of this list is the `true` if the corresponding name usage
+   * is qualified with some prefix.
+   */
+  @Id(17)
+  List<bool> get usedNameIsQualifiedFlags;
+
+  /**
+   * Each item of this list is the kind of the name usage.
+   */
+  @Id(15)
+  List<IndexRelationKind> get usedNameKinds;
+
+  /**
+   * Each item of this list is the offset of the name usage relative to the
+   * beginning of the file.
+   */
+  @Id(16)
+  List<int> get usedNameOffsets;
+
+  /**
+   * Each item of this list is the index into [strings] for a used name.  The
+   * list is sorted in ascending order, so that the client can quickly find
+   * whether a name is used in this index.
+   */
+  @Id(14)
+  List<int> get usedNames;
+}
+
+/**
+ * Information about an unlinked unit.
+ */
+@TopLevel('ADUU')
+abstract class AnalysisDriverUnlinkedUnit extends base.SummaryClass {
+  factory AnalysisDriverUnlinkedUnit.fromBuffer(List<int> buffer) =>
+      generated.readAnalysisDriverUnlinkedUnit(buffer);
+
+  /**
+   * List of class member names defined by the unit.
+   */
+  @Id(3)
+  List<String> get definedClassMemberNames;
+
+  /**
+   * List of top-level names defined by the unit.
+   */
+  @Id(2)
+  List<String> get definedTopLevelNames;
+
+  /**
+   * List of external names referenced by the unit.
+   */
+  @Id(0)
+  List<String> get referencedNames;
+
+  /**
+   * Unlinked information for the unit.
+   */
+  @Id(1)
+  UnlinkedUnit get unit;
+}
 
 /**
  * Information about an element code range.
@@ -158,8 +444,7 @@ abstract class EntityRef extends base.SummaryClass {
 
   /**
    * If this is an instantiation of a generic type or generic executable, the
-   * type arguments used to instantiate it.  Trailing type arguments of type
-   * `dynamic` are omitted.
+   * type arguments used to instantiate it (if any).
    */
   @Id(1)
   List<EntityRef> get typeArguments;
@@ -265,6 +550,11 @@ enum IndexSyntheticElementKind {
   constructor,
 
   /**
+   * The synthetic field element.
+   */
+  field,
+
+  /**
    * The synthetic getter of a property introducing element.
    */
   getter,
@@ -292,7 +582,12 @@ enum IndexSyntheticElementKind {
   /**
    * The synthetic `values` getter of an enum.
    */
-  enumValues
+  enumValues,
+
+  /**
+   * The containing unit itself.
+   */
+  unit
 }
 
 /**
@@ -301,18 +596,14 @@ enum IndexSyntheticElementKind {
  */
 abstract class LinkedDependency extends base.SummaryClass {
   /**
-   * URI for the compilation units listed in the library's `part` declarations.
-   * These URIs are relative to the importing library.
+   * Absolute URI for the compilation units listed in the library's `part`
+   * declarations, empty string for invalid URI.
    */
   @Id(1)
   List<String> get parts;
 
   /**
-   * The relative URI of the dependent library.  This URI is relative to the
-   * importing library, even if there are intervening `export` declarations.
-   * So, for example, if `a.dart` imports `b/c.dart` and `b/c.dart` exports
-   * `d/e.dart`, the URI listed for `a.dart`'s dependency on `e.dart` will be
-   * `b/d/e.dart`.
+   * The absolute URI of the dependent library, e.g. `package:foo/bar.dart`.
    */
   @Id(0)
   String get uri;
@@ -381,6 +672,13 @@ abstract class LinkedLibrary extends base.SummaryClass {
   List<LinkedDependency> get dependencies;
 
   /**
+   * For each export in [UnlinkedUnit.exports], an index into [dependencies]
+   * of the library being exported.
+   */
+  @Id(6)
+  List<int> get exportDependencies;
+
+  /**
    * Information about entities in the export namespace of the library that are
    * not in the public namespace of the library (that is, entities that are
    * brought into the namespace via `export` directives).
@@ -389,6 +687,14 @@ abstract class LinkedLibrary extends base.SummaryClass {
    */
   @Id(4)
   List<LinkedExportName> get exportNames;
+
+  /**
+   * Indicates whether this library was summarized in "fallback mode".  If
+   * true, all other fields in the data structure have their default values.
+   */
+  @deprecated
+  @Id(5)
+  bool get fallbackMode;
 
   /**
    * For each import in [UnlinkedUnit.imports], an index into [dependencies]
@@ -501,6 +807,14 @@ abstract class LinkedUnit extends base.SummaryClass {
   List<int> get constCycles;
 
   /**
+   * List of slot ids (referring to [UnlinkedParam.inheritsCovariantSlot])
+   * corresponding to parameters that inherit `@covariant` behavior from a base
+   * class.
+   */
+  @Id(3)
+  List<int> get parametersInheritingCovariant;
+
+  /**
    * Information about the resolution of references within the compilation
    * unit.  Each element of [UnlinkedUnit.references] has a corresponding
    * element in this list (at the same index).  If this list has additional
@@ -526,6 +840,21 @@ abstract class LinkedUnit extends base.SummaryClass {
 abstract class PackageBundle extends base.SummaryClass {
   factory PackageBundle.fromBuffer(List<int> buffer) =>
       generated.readPackageBundle(buffer);
+
+  /**
+   * MD5 hash of the non-informative fields of the [PackageBundle] (not
+   * including this one).  This can be used to identify when the API of a
+   * package may have changed.
+   */
+  @Id(7)
+  String get apiSignature;
+
+  /**
+   * Information about the packages this package depends on, if known.
+   */
+  @Id(8)
+  @informative
+  List<PackageDependencyInfo> get dependencies;
 
   /**
    * Linked libraries.
@@ -559,6 +888,7 @@ abstract class PackageBundle extends base.SummaryClass {
    * is encoded as a hexadecimal string using lower case letters.
    */
   @Id(4)
+  @informative
   List<String> get unlinkedUnitHashes;
 
   /**
@@ -572,6 +902,51 @@ abstract class PackageBundle extends base.SummaryClass {
    */
   @Id(3)
   List<String> get unlinkedUnitUris;
+}
+
+/**
+ * Information about a single dependency of a summary package.
+ */
+abstract class PackageDependencyInfo extends base.SummaryClass {
+  /**
+   * API signature of this dependency.
+   */
+  @Id(0)
+  String get apiSignature;
+
+  /**
+   * If this dependency summarizes any files whose URI takes the form
+   * "package:<package_name>/...", a list of all such package names, sorted
+   * lexicographically.  Otherwise empty.
+   */
+  @Id(2)
+  List<String> get includedPackageNames;
+
+  /**
+   * Indicates whether this dependency summarizes any files whose URI takes the
+   * form "dart:...".
+   */
+  @Id(4)
+  bool get includesDartUris;
+
+  /**
+   * Indicates whether this dependency summarizes any files whose URI takes the
+   * form "file:...".
+   */
+  @Id(3)
+  bool get includesFileUris;
+
+  /**
+   * Relative path to the summary file for this dependency.  This is intended as
+   * a hint to help the analysis server locate summaries of dependencies.  We
+   * don't specify precisely what this path is relative to, but we expect it to
+   * be relative to a directory the analysis server can find (e.g. for projects
+   * built using Bazel, it would be relative to the "bazel-bin" directory).
+   *
+   * Absent if the path is not known.
+   */
+  @Id(1)
+  String get summaryPath;
 }
 
 /**
@@ -591,12 +966,32 @@ abstract class PackageIndex extends base.SummaryClass {
 
   /**
    * Each item of this list corresponds to a unique referenced element.  It is
-   * the offset of the element name relative to the beginning of the file.  The
-   * list is sorted in ascending order, so that the client can quickly check
-   * whether an element is referenced in this [PackageIndex].
+   * the identifier of the class member element name, or `null` if the element is
+   * a top-level element.  The list is sorted in ascending order, so that the
+   * client can quickly check whether an element is referenced in this
+   * [PackageIndex].
+   */
+  @Id(7)
+  List<int> get elementNameClassMemberIds;
+
+  /**
+   * Each item of this list corresponds to a unique referenced element.  It is
+   * the identifier of the named parameter name, or `null` if the element is not
+   * a named parameter.  The list is sorted in ascending order, so that the
+   * client can quickly check whether an element is referenced in this
+   * [PackageIndex].
+   */
+  @Id(8)
+  List<int> get elementNameParameterIds;
+
+  /**
+   * Each item of this list corresponds to a unique referenced element.  It is
+   * the identifier of the top-level element name, or `null` if the element is
+   * the unit.  The list is sorted in ascending order, so that the client can
+   * quickly check whether an element is referenced in this [PackageIndex].
    */
   @Id(1)
-  List<int> get elementOffsets;
+  List<int> get elementNameUnitMemberIds;
 
   /**
    * Each item of this list corresponds to a unique referenced element.  It is
@@ -663,11 +1058,6 @@ enum ReferenceKind {
    * The entity is a method.
    */
   method,
-
-  /**
-   * The `length` property access.
-   */
-  length,
 
   /**
    * The entity is a typedef.
@@ -773,6 +1163,13 @@ abstract class UnitIndex extends base.SummaryClass {
   List<int> get usedElements;
 
   /**
+   * Each item of this list is the `true` if the corresponding name usage
+   * is qualified with some prefix.
+   */
+  @Id(12)
+  List<bool> get usedNameIsQualifiedFlags;
+
+  /**
    * Each item of this list is the kind of the name usage.
    */
   @Id(10)
@@ -792,13 +1189,6 @@ abstract class UnitIndex extends base.SummaryClass {
    */
   @Id(8)
   List<int> get usedNames;
-
-  /**
-   * Each item of this list is the `true` if the corresponding name usage
-   * is qualified with some prefix.
-   */
-  @Id(12)
-  List<bool> get usedNameIsQualifiedFlags;
 }
 
 /**
@@ -809,11 +1199,12 @@ abstract class UnlinkedClass extends base.SummaryClass {
    * Annotations for this class.
    */
   @Id(5)
-  List<UnlinkedConst> get annotations;
+  List<UnlinkedExpr> get annotations;
 
   /**
    * Code range of the class.
    */
+  @informative
   @Id(13)
   CodeRange get codeRange;
 
@@ -931,16 +1322,531 @@ abstract class UnlinkedCombinator extends base.SummaryClass {
 }
 
 /**
- * Unlinked summary information about a compile-time constant expression, or a
- * potentially constant expression.
+ * Unlinked summary information about a single import or export configuration.
+ */
+abstract class UnlinkedConfiguration extends base.SummaryClass {
+  /**
+   * The name of the declared variable whose value is being used in the
+   * condition.
+   */
+  @Id(0)
+  String get name;
+
+  /**
+   * The URI of the implementation library to be used if the condition is true.
+   */
+  @Id(2)
+  String get uri;
+
+  /**
+   * The value to which the value of the declared variable will be compared,
+   * or `true` if the condition does not include an equality test.
+   */
+  @Id(1)
+  String get value;
+}
+
+/**
+ * Unlinked summary information about a constructor initializer.
+ */
+abstract class UnlinkedConstructorInitializer extends base.SummaryClass {
+  /**
+   * If there are `m` [arguments] and `n` [argumentNames], then each argument
+   * from [arguments] with index `i` such that `n + i - m >= 0`, should be used
+   * with the name at `n + i - m`.
+   */
+  @Id(4)
+  List<String> get argumentNames;
+
+  /**
+   * If [kind] is `thisInvocation` or `superInvocation`, the arguments of the
+   * invocation.  Otherwise empty.
+   */
+  @Id(3)
+  List<UnlinkedExpr> get arguments;
+
+  /**
+   * If [kind] is `field`, the expression of the field initializer.
+   * Otherwise `null`.
+   */
+  @Id(1)
+  UnlinkedExpr get expression;
+
+  /**
+   * The kind of the constructor initializer (field, redirect, super).
+   */
+  @Id(2)
+  UnlinkedConstructorInitializerKind get kind;
+
+  /**
+   * If [kind] is `field`, the name of the field declared in the class.  If
+   * [kind] is `thisInvocation`, the name of the constructor, declared in this
+   * class, to redirect to.  If [kind] is `superInvocation`, the name of the
+   * constructor, declared in the superclass, to invoke.
+   */
+  @Id(0)
+  String get name;
+}
+
+/**
+ * Enum used to indicate the kind of an constructor initializer.
+ */
+enum UnlinkedConstructorInitializerKind {
+  /**
+   * Initialization of a field.
+   */
+  field,
+
+  /**
+   * Invocation of a constructor in the same class.
+   */
+  thisInvocation,
+
+  /**
+   * Invocation of a superclass' constructor.
+   */
+  superInvocation,
+
+  /**
+   * Invocation of `assert`.
+   */
+  assertInvocation
+}
+
+/**
+ * Unlinked summary information about a documentation comment.
+ */
+abstract class UnlinkedDocumentationComment extends base.SummaryClass {
+  /**
+   * Length of the documentation comment (prior to replacing '\r\n' with '\n').
+   */
+  @Id(0)
+  @deprecated
+  int get length;
+
+  /**
+   * Offset of the beginning of the documentation comment relative to the
+   * beginning of the file.
+   */
+  @Id(2)
+  @deprecated
+  int get offset;
+
+  /**
+   * Text of the documentation comment, with '\r\n' replaced by '\n'.
+   *
+   * References appearing within the doc comment in square brackets are not
+   * specially encoded.
+   */
+  @Id(1)
+  String get text;
+}
+
+/**
+ * Unlinked summary information about an enum declaration.
+ */
+abstract class UnlinkedEnum extends base.SummaryClass {
+  /**
+   * Annotations for this enum.
+   */
+  @Id(4)
+  List<UnlinkedExpr> get annotations;
+
+  /**
+   * Code range of the enum.
+   */
+  @informative
+  @Id(5)
+  CodeRange get codeRange;
+
+  /**
+   * Documentation comment for the enum, or `null` if there is no documentation
+   * comment.
+   */
+  @informative
+  @Id(3)
+  UnlinkedDocumentationComment get documentationComment;
+
+  /**
+   * Name of the enum type.
+   */
+  @Id(0)
+  String get name;
+
+  /**
+   * Offset of the enum name relative to the beginning of the file.
+   */
+  @informative
+  @Id(1)
+  int get nameOffset;
+
+  /**
+   * Values listed in the enum declaration, in declaration order.
+   */
+  @Id(2)
+  List<UnlinkedEnumValue> get values;
+}
+
+/**
+ * Unlinked summary information about a single enumerated value in an enum
+ * declaration.
+ */
+abstract class UnlinkedEnumValue extends base.SummaryClass {
+  /**
+   * Documentation comment for the enum value, or `null` if there is no
+   * documentation comment.
+   */
+  @informative
+  @Id(2)
+  UnlinkedDocumentationComment get documentationComment;
+
+  /**
+   * Name of the enumerated value.
+   */
+  @Id(0)
+  String get name;
+
+  /**
+   * Offset of the enum value name relative to the beginning of the file.
+   */
+  @informative
+  @Id(1)
+  int get nameOffset;
+}
+
+/**
+ * Unlinked summary information about a function, method, getter, or setter
+ * declaration.
+ */
+abstract class UnlinkedExecutable extends base.SummaryClass {
+  /**
+   * Annotations for this executable.
+   */
+  @Id(6)
+  List<UnlinkedExpr> get annotations;
+
+  /**
+   * If this executable's function body is declared using `=>`, the expression
+   * to the right of the `=>`.  May be omitted if neither type inference nor
+   * constant evaluation depends on the function body.
+   */
+  @Id(29)
+  UnlinkedExpr get bodyExpr;
+
+  /**
+   * Code range of the executable.
+   */
+  @informative
+  @Id(26)
+  CodeRange get codeRange;
+
+  /**
+   * If a constant [UnlinkedExecutableKind.constructor], the constructor
+   * initializers.  Otherwise empty.
+   */
+  @Id(14)
+  List<UnlinkedConstructorInitializer> get constantInitializers;
+
+  /**
+   * If [kind] is [UnlinkedExecutableKind.constructor] and [isConst] is `true`,
+   * a nonzero slot id which is unique within this compilation unit.  If this id
+   * is found in [LinkedUnit.constCycles], then this constructor is part of a
+   * cycle.
+   *
+   * Otherwise, zero.
+   */
+  @Id(25)
+  int get constCycleSlot;
+
+  /**
+   * Documentation comment for the executable, or `null` if there is no
+   * documentation comment.
+   */
+  @informative
+  @Id(7)
+  UnlinkedDocumentationComment get documentationComment;
+
+  /**
+   * If this executable's return type is inferable, nonzero slot id
+   * identifying which entry in [LinkedUnit.types] contains the inferred
+   * return type.  If there is no matching entry in [LinkedUnit.types], then
+   * no return type was inferred for this variable, so its static type is
+   * `dynamic`.
+   */
+  @Id(5)
+  int get inferredReturnTypeSlot;
+
+  /**
+   * Indicates whether the executable is declared using the `abstract` keyword.
+   */
+  @Id(10)
+  bool get isAbstract;
+
+  /**
+   * Indicates whether the executable has body marked as being asynchronous.
+   */
+  @informative
+  @Id(27)
+  bool get isAsynchronous;
+
+  /**
+   * Indicates whether the executable is declared using the `const` keyword.
+   */
+  @Id(12)
+  bool get isConst;
+
+  /**
+   * Indicates whether the executable is declared using the `external` keyword.
+   */
+  @Id(11)
+  bool get isExternal;
+
+  /**
+   * Indicates whether the executable is declared using the `factory` keyword.
+   */
+  @Id(8)
+  bool get isFactory;
+
+  /**
+   * Indicates whether the executable has body marked as being a generator.
+   */
+  @informative
+  @Id(28)
+  bool get isGenerator;
+
+  /**
+   * Indicates whether the executable is a redirected constructor.
+   */
+  @Id(13)
+  bool get isRedirectedConstructor;
+
+  /**
+   * Indicates whether the executable is declared using the `static` keyword.
+   *
+   * Note that for top level executables, this flag is false, since they are
+   * not declared using the `static` keyword (even though they are considered
+   * static for semantic purposes).
+   */
+  @Id(9)
+  bool get isStatic;
+
+  /**
+   * The kind of the executable (function/method, getter, setter, or
+   * constructor).
+   */
+  @Id(4)
+  UnlinkedExecutableKind get kind;
+
+  /**
+   * The list of local functions.
+   */
+  @Id(18)
+  List<UnlinkedExecutable> get localFunctions;
+
+  /**
+   * The list of local labels.
+   */
+  @informative
+  @Id(22)
+  List<UnlinkedLabel> get localLabels;
+
+  /**
+   * The list of local variables.
+   */
+  @informative
+  @Id(19)
+  List<UnlinkedVariable> get localVariables;
+
+  /**
+   * Name of the executable.  For setters, this includes the trailing "=".  For
+   * named constructors, this excludes the class name and excludes the ".".
+   * For unnamed constructors, this is the empty string.
+   */
+  @Id(1)
+  String get name;
+
+  /**
+   * If [kind] is [UnlinkedExecutableKind.constructor] and [name] is not empty,
+   * the offset of the end of the constructor name.  Otherwise zero.
+   */
+  @informative
+  @Id(23)
+  int get nameEnd;
+
+  /**
+   * Offset of the executable name relative to the beginning of the file.  For
+   * named constructors, this excludes the class name and excludes the ".".
+   * For unnamed constructors, this is the offset of the class name (i.e. the
+   * offset of the second "C" in "class C { C(); }").
+   */
+  @informative
+  @Id(0)
+  int get nameOffset;
+
+  /**
+   * Parameters of the executable, if any.  Note that getters have no
+   * parameters (hence this will be the empty list), and setters have a single
+   * parameter.
+   */
+  @Id(2)
+  List<UnlinkedParam> get parameters;
+
+  /**
+   * If [kind] is [UnlinkedExecutableKind.constructor] and [name] is not empty,
+   * the offset of the period before the constructor name.  Otherwise zero.
+   */
+  @informative
+  @Id(24)
+  int get periodOffset;
+
+  /**
+   * If [isRedirectedConstructor] and [isFactory] are both `true`, the
+   * constructor to which this constructor redirects; otherwise empty.
+   */
+  @Id(15)
+  EntityRef get redirectedConstructor;
+
+  /**
+   * If [isRedirectedConstructor] is `true` and [isFactory] is `false`, the
+   * name of the constructor that this constructor redirects to; otherwise
+   * empty.
+   */
+  @Id(17)
+  String get redirectedConstructorName;
+
+  /**
+   * Declared return type of the executable.  Absent if the executable is a
+   * constructor or the return type is implicit.  Absent for executables
+   * associated with variable initializers and closures, since these
+   * executables may have return types that are not accessible via direct
+   * imports.
+   */
+  @Id(3)
+  EntityRef get returnType;
+
+  /**
+   * Type parameters of the executable, if any.  Empty if support for generic
+   * method syntax is disabled.
+   */
+  @Id(16)
+  List<UnlinkedTypeParam> get typeParameters;
+
+  /**
+   * If a local function, the length of the visible range; zero otherwise.
+   */
+  @informative
+  @Id(20)
+  int get visibleLength;
+
+  /**
+   * If a local function, the beginning of the visible range; zero otherwise.
+   */
+  @informative
+  @Id(21)
+  int get visibleOffset;
+}
+
+/**
+ * Enum used to indicate the kind of an executable.
+ */
+enum UnlinkedExecutableKind {
+  /**
+   * Executable is a function or method.
+   */
+  functionOrMethod,
+
+  /**
+   * Executable is a getter.
+   */
+  getter,
+
+  /**
+   * Executable is a setter.
+   */
+  setter,
+
+  /**
+   * Executable is a constructor.
+   */
+  constructor
+}
+
+/**
+ * Unlinked summary information about an export declaration (stored outside
+ * [UnlinkedPublicNamespace]).
+ */
+abstract class UnlinkedExportNonPublic extends base.SummaryClass {
+  /**
+   * Annotations for this export directive.
+   */
+  @Id(3)
+  List<UnlinkedExpr> get annotations;
+
+  /**
+   * Offset of the "export" keyword.
+   */
+  @informative
+  @Id(0)
+  int get offset;
+
+  /**
+   * End of the URI string (including quotes) relative to the beginning of the
+   * file.
+   */
+  @informative
+  @Id(1)
+  int get uriEnd;
+
+  /**
+   * Offset of the URI string (including quotes) relative to the beginning of
+   * the file.
+   */
+  @informative
+  @Id(2)
+  int get uriOffset;
+}
+
+/**
+ * Unlinked summary information about an export declaration (stored inside
+ * [UnlinkedPublicNamespace]).
+ */
+abstract class UnlinkedExportPublic extends base.SummaryClass {
+  /**
+   * Combinators contained in this export declaration.
+   */
+  @Id(1)
+  List<UnlinkedCombinator> get combinators;
+
+  /**
+   * Configurations used to control which library will actually be loaded at
+   * run-time.
+   */
+  @Id(2)
+  List<UnlinkedConfiguration> get configurations;
+
+  /**
+   * URI used in the source code to reference the exported library.
+   */
+  @Id(0)
+  String get uri;
+}
+
+/**
+ * Unlinked summary information about an expression.
  *
- * Constant expressions are represented using a simple stack-based language
+ * Expressions are represented using a simple stack-based language
  * where [operations] is a sequence of operations to execute starting with an
  * empty stack.  Once all operations have been executed, the stack should
  * contain a single value which is the value of the constant.  Note that some
  * operations consume additional data from the other fields of this class.
  */
-abstract class UnlinkedConst extends base.SummaryClass {
+abstract class UnlinkedExpr extends base.SummaryClass {
+  /**
+   * Sequence of operators used by assignment operations.
+   */
+  @Id(6)
+  List<UnlinkedExprAssignOperator> get assignmentOperators;
+
   /**
    * Sequence of 64-bit doubles consumed by the operation `pushDouble`.
    */
@@ -956,18 +1862,18 @@ abstract class UnlinkedConst extends base.SummaryClass {
   List<int> get ints;
 
   /**
-   * Indicates whether the expression is not a valid potentially constant
+   * Indicates whether the expression is a valid potentially constant
    * expression.
    */
   @Id(5)
-  bool get isInvalid;
+  bool get isValidConst;
 
   /**
    * Sequence of operations to execute (starting with an empty stack) to form
    * the constant value.
    */
   @Id(0)
-  List<UnlinkedConstOperation> get operations;
+  List<UnlinkedExprOperation> get operations;
 
   /**
    * Sequence of language constructs consumed by the operations
@@ -987,13 +1893,107 @@ abstract class UnlinkedConst extends base.SummaryClass {
 }
 
 /**
+ * Enum representing the various kinds of assignment operations combined
+ * with:
+ *    [UnlinkedExprOperation.assignToRef],
+ *    [UnlinkedExprOperation.assignToProperty],
+ *    [UnlinkedExprOperation.assignToIndex].
+ */
+enum UnlinkedExprAssignOperator {
+  /**
+   * Perform simple assignment `target = operand`.
+   */
+  assign,
+
+  /**
+   * Perform `target ??= operand`.
+   */
+  ifNull,
+
+  /**
+   * Perform `target *= operand`.
+   */
+  multiply,
+
+  /**
+   * Perform `target /= operand`.
+   */
+  divide,
+
+  /**
+   * Perform `target ~/= operand`.
+   */
+  floorDivide,
+
+  /**
+   * Perform `target %= operand`.
+   */
+  modulo,
+
+  /**
+   * Perform `target += operand`.
+   */
+  plus,
+
+  /**
+   * Perform `target -= operand`.
+   */
+  minus,
+
+  /**
+   * Perform `target <<= operand`.
+   */
+  shiftLeft,
+
+  /**
+   * Perform `target >>= operand`.
+   */
+  shiftRight,
+
+  /**
+   * Perform `target &= operand`.
+   */
+  bitAnd,
+
+  /**
+   * Perform `target ^= operand`.
+   */
+  bitXor,
+
+  /**
+   * Perform `target |= operand`.
+   */
+  bitOr,
+
+  /**
+   * Perform `++target`.
+   */
+  prefixIncrement,
+
+  /**
+   * Perform `--target`.
+   */
+  prefixDecrement,
+
+  /**
+   * Perform `target++`.
+   */
+  postfixIncrement,
+
+  /**
+   * Perform `target++`.
+   */
+  postfixDecrement,
+}
+
+/**
  * Enum representing the various kinds of operations which may be performed to
- * produce a constant value.  These options are assumed to execute in the
+ * in an expression.  These options are assumed to execute in the
  * context of a stack which is initially empty.
  */
-enum UnlinkedConstOperation {
+enum UnlinkedExprOperation {
   /**
-   * Push the next value from [UnlinkedConst.ints] (a 32-bit unsigned integer)
+   * Push the next value from [UnlinkedExpr.ints] (a 32-bit unsigned integer)
    * onto the stack.
    *
    * Note that Dart supports integers larger than 32 bits; these are
@@ -1002,15 +2002,15 @@ enum UnlinkedConstOperation {
   pushInt,
 
   /**
-   * Get the number of components from [UnlinkedConst.ints], then do this number
+   * Get the number of components from [UnlinkedExpr.ints], then do this number
    * of times the following operations: multiple the current value by 2^32, "or"
-   * it with the next value in [UnlinkedConst.ints]. The initial value is zero.
+   * it with the next value in [UnlinkedExpr.ints]. The initial value is zero.
    * Push the result into the stack.
    */
   pushLongInt,
 
   /**
-   * Push the next value from [UnlinkedConst.doubles] (a double precision
+   * Push the next value from [UnlinkedExpr.doubles] (a double precision
    * floating point value) onto the stack.
    */
   pushDouble,
@@ -1026,13 +2026,13 @@ enum UnlinkedConstOperation {
   pushFalse,
 
   /**
-   * Push the next value from [UnlinkedConst.strings] onto the stack.
+   * Push the next value from [UnlinkedExpr.strings] onto the stack.
    */
   pushString,
 
   /**
    * Pop the top n values from the stack (where n is obtained from
-   * [UnlinkedConst.ints]), convert them to strings (if they aren't already),
+   * [UnlinkedExpr.ints]), convert them to strings (if they aren't already),
    * concatenate them into a single string, and push it back onto the stack.
    *
    * This operation is used to represent constants whose value is a literal
@@ -1041,7 +2041,7 @@ enum UnlinkedConstOperation {
   concatenate,
 
   /**
-   * Get the next value from [UnlinkedConst.strings], convert it to a symbol,
+   * Get the next value from [UnlinkedExpr.strings], convert it to a symbol,
    * and push it onto the stack.
    */
   makeSymbol,
@@ -1052,15 +2052,15 @@ enum UnlinkedConstOperation {
   pushNull,
 
   /**
-   * Push the value of the constant constructor parameter with
-   * the name obtained from [UnlinkedConst.strings].
+   * Push the value of the function parameter with the name obtained from
+   * [UnlinkedExpr.strings].
    */
-  pushConstructorParameter,
+  pushParameter,
 
   /**
    * Evaluate a (potentially qualified) identifier expression and push the
    * resulting value onto the stack.  The identifier to be evaluated is
-   * obtained from [UnlinkedConst.references].
+   * obtained from [UnlinkedExpr.references].
    *
    * This operation is used to represent the following kinds of constants
    * (which are indistinguishable from an unresolved AST alone):
@@ -1075,14 +2075,21 @@ enum UnlinkedConstOperation {
   pushReference,
 
   /**
+   * Pop the top value from the stack, extract the value of the property with
+   * the name obtained from [UnlinkedExpr.strings], and push the result back
+   * onto the stack.
+   */
+  extractProperty,
+
+  /**
    * Pop the top `n` values from the stack (where `n` is obtained from
-   * [UnlinkedConst.ints]) into a list (filled from the end) and take the next
-   * `n` values from [UnlinkedConst.strings] and use the lists of names and
+   * [UnlinkedExpr.ints]) into a list (filled from the end) and take the next
+   * `n` values from [UnlinkedExpr.strings] and use the lists of names and
    * values to create named arguments.  Then pop the top `m` values from the
-   * stack (where `m` is obtained from [UnlinkedConst.ints]) into a list (filled
+   * stack (where `m` is obtained from [UnlinkedExpr.ints]) into a list (filled
    * from the end) and use them as positional arguments.  Use the lists of
    * positional and names arguments to invoke a constant constructor obtained
-   * from [UnlinkedConst.references], and push the resulting value back onto the
+   * from [UnlinkedExpr.references], and push the resulting value back onto the
    * stack.
    *
    * Note that for an invocation of the form `const a.b(...)` (where no type
@@ -1096,14 +2103,14 @@ enum UnlinkedConstOperation {
 
   /**
    * Pop the top n values from the stack (where n is obtained from
-   * [UnlinkedConst.ints]), place them in a [List], and push the result back
+   * [UnlinkedExpr.ints]), place them in a [List], and push the result back
    * onto the stack.  The type parameter for the [List] is implicitly `dynamic`.
    */
   makeUntypedList,
 
   /**
    * Pop the top 2*n values from the stack (where n is obtained from
-   * [UnlinkedConst.ints]), interpret them as key/value pairs, place them in a
+   * [UnlinkedExpr.ints]), interpret them as key/value pairs, place them in a
    * [Map], and push the result back onto the stack.  The two type parameters
    * for the [Map] are implicitly `dynamic`.
    */
@@ -1111,25 +2118,19 @@ enum UnlinkedConstOperation {
 
   /**
    * Pop the top n values from the stack (where n is obtained from
-   * [UnlinkedConst.ints]), place them in a [List], and push the result back
+   * [UnlinkedExpr.ints]), place them in a [List], and push the result back
    * onto the stack.  The type parameter for the [List] is obtained from
-   * [UnlinkedConst.references].
+   * [UnlinkedExpr.references].
    */
   makeTypedList,
 
   /**
    * Pop the top 2*n values from the stack (where n is obtained from
-   * [UnlinkedConst.ints]), interpret them as key/value pairs, place them in a
+   * [UnlinkedExpr.ints]), interpret them as key/value pairs, place them in a
    * [Map], and push the result back onto the stack.  The two type parameters for
-   * the [Map] are obtained from [UnlinkedConst.references].
+   * the [Map] are obtained from [UnlinkedExpr.references].
    */
   makeTypedMap,
-
-  /**
-   * Pop the top 2 values from the stack, pass them to the predefined Dart
-   * function `identical`, and push the result back onto the stack.
-   */
-  identical,
 
   /**
    * Pop the top 2 values from the stack, evaluate `v1 == v2`, and push the
@@ -1270,445 +2271,186 @@ enum UnlinkedConstOperation {
   conditional,
 
   /**
-   * Pop the top value from the stack, evaluate `v.length`, and push the result
-   * back onto the stack.
-   */
-  length,
-}
-
-/**
- * Unlinked summary information about a constructor initializer.
- */
-abstract class UnlinkedConstructorInitializer extends base.SummaryClass {
-  /**
-   * If [kind] is `thisInvocation` or `superInvocation`, the arguments of the
-   * invocation.  Otherwise empty.
-   */
-  @Id(3)
-  List<UnlinkedConst> get arguments;
-
-  /**
-   * If [kind] is `field`, the expression of the field initializer.
-   * Otherwise `null`.
-   */
-  @Id(1)
-  UnlinkedConst get expression;
-
-  /**
-   * The kind of the constructor initializer (field, redirect, super).
-   */
-  @Id(2)
-  UnlinkedConstructorInitializerKind get kind;
-
-  /**
-   * If [kind] is `field`, the name of the field declared in the class.  If
-   * [kind] is `thisInvocation`, the name of the constructor, declared in this
-   * class, to redirect to.  If [kind] is `superInvocation`, the name of the
-   * constructor, declared in the superclass, to invoke.
-   */
-  @Id(0)
-  String get name;
-}
-
-/**
- * Enum used to indicate the kind of an constructor initializer.
- */
-enum UnlinkedConstructorInitializerKind {
-  /**
-   * Initialization of a field.
-   */
-  field,
-
-  /**
-   * Invocation of a constructor in the same class.
-   */
-  thisInvocation,
-
-  /**
-   * Invocation of a superclass' constructor.
-   */
-  superInvocation
-}
-
-/**
- * Unlinked summary information about a documentation comment.
- */
-abstract class UnlinkedDocumentationComment extends base.SummaryClass {
-  /**
-   * Length of the documentation comment (prior to replacing '\r\n' with '\n').
-   */
-  @Id(0)
-  int get length;
-
-  /**
-   * Offset of the beginning of the documentation comment relative to the
-   * beginning of the file.
-   */
-  @Id(2)
-  int get offset;
-
-  /**
-   * Text of the documentation comment, with '\r\n' replaced by '\n'.
+   * Pop from the stack `value` and get the next `target` reference from
+   * [UnlinkedExpr.references] - a top-level variable (prefixed or not), an
+   * assignable field of a class (prefixed or not), or a sequence of getters
+   * ending with an assignable property `a.b.b.c.d.e`.  In general `a.b` cannot
+   * not be distinguished between: `a` is a prefix and `b` is a top-level
+   * variable; or `a` is an object and `b` is the name of a property.  Perform
+   * `reference op= value` where `op` is the next assignment operator from
+   * [UnlinkedExpr.assignmentOperators].  Push `value` back into the stack.
    *
-   * References appearing within the doc comment in square brackets are not
-   * specially encoded.
+   * If the assignment operator is a prefix/postfix increment/decrement, then
+   * `value` is not present in the stack, so it should not be popped and the
+   * corresponding value of the `target` after/before update is pushed into the
+   * stack instead.
    */
-  @Id(1)
-  String get text;
-}
-
-/**
- * Unlinked summary information about an enum declaration.
- */
-abstract class UnlinkedEnum extends base.SummaryClass {
-  /**
-   * Annotations for this enum.
-   */
-  @Id(4)
-  List<UnlinkedConst> get annotations;
+  assignToRef,
 
   /**
-   * Code range of the enum.
-   */
-  @Id(5)
-  CodeRange get codeRange;
-
-  /**
-   * Documentation comment for the enum, or `null` if there is no documentation
-   * comment.
-   */
-  @informative
-  @Id(3)
-  UnlinkedDocumentationComment get documentationComment;
-
-  /**
-   * Name of the enum type.
-   */
-  @Id(0)
-  String get name;
-
-  /**
-   * Offset of the enum name relative to the beginning of the file.
-   */
-  @informative
-  @Id(1)
-  int get nameOffset;
-
-  /**
-   * Values listed in the enum declaration, in declaration order.
-   */
-  @Id(2)
-  List<UnlinkedEnumValue> get values;
-}
-
-/**
- * Unlinked summary information about a single enumerated value in an enum
- * declaration.
- */
-abstract class UnlinkedEnumValue extends base.SummaryClass {
-  /**
-   * Documentation comment for the enum value, or `null` if there is no
-   * documentation comment.
-   */
-  @informative
-  @Id(2)
-  UnlinkedDocumentationComment get documentationComment;
-
-  /**
-   * Name of the enumerated value.
-   */
-  @Id(0)
-  String get name;
-
-  /**
-   * Offset of the enum value name relative to the beginning of the file.
-   */
-  @informative
-  @Id(1)
-  int get nameOffset;
-}
-
-/**
- * Unlinked summary information about a function, method, getter, or setter
- * declaration.
- */
-abstract class UnlinkedExecutable extends base.SummaryClass {
-  /**
-   * Annotations for this executable.
-   */
-  @Id(6)
-  List<UnlinkedConst> get annotations;
-
-  /**
-   * Code range of the executable.
-   */
-  @Id(26)
-  CodeRange get codeRange;
-
-  /**
-   * If a constant [UnlinkedExecutableKind.constructor], the constructor
-   * initializers.  Otherwise empty.
-   */
-  @Id(14)
-  List<UnlinkedConstructorInitializer> get constantInitializers;
-
-  /**
-   * If [kind] is [UnlinkedExecutableKind.constructor] and [isConst] is `true`,
-   * a nonzero slot id which is unique within this compilation unit.  If this id
-   * is found in [LinkedUnit.constCycles], then this constructor is part of a
-   * cycle.
+   * Pop from the stack `target` and `value`.  Get the name of the property from
+   * `UnlinkedConst.strings` and assign the `value` to the named property of the
+   * `target`.  This operation is used when we know that the `target` is an
+   * object reference expression, e.g. `new Foo().a.b.c` or `a.b[0].c.d`.
+   * Perform `target.property op= value` where `op` is the next assignment
+   * operator from [UnlinkedExpr.assignmentOperators].  Push `value` back into
+   * the stack.
    *
-   * Otherwise, zero.
+   * If the assignment operator is a prefix/postfix increment/decrement, then
+   * `value` is not present in the stack, so it should not be popped and the
+   * corresponding value of the `target` after/before update is pushed into the
+   * stack instead.
    */
-  @Id(25)
-  int get constCycleSlot;
+  assignToProperty,
 
   /**
-   * Documentation comment for the executable, or `null` if there is no
-   * documentation comment.
-   */
-  @informative
-  @Id(7)
-  UnlinkedDocumentationComment get documentationComment;
-
-  /**
-   * If this executable's return type is inferable, nonzero slot id
-   * identifying which entry in [LinkedUnit.types] contains the inferred
-   * return type.  If there is no matching entry in [LinkedUnit.types], then
-   * no return type was inferred for this variable, so its static type is
-   * `dynamic`.
-   */
-  @Id(5)
-  int get inferredReturnTypeSlot;
-
-  /**
-   * Indicates whether the executable is declared using the `abstract` keyword.
-   */
-  @Id(10)
-  bool get isAbstract;
-
-  /**
-   * Indicates whether the executable is declared using the `const` keyword.
-   */
-  @Id(12)
-  bool get isConst;
-
-  /**
-   * Indicates whether the executable is declared using the `external` keyword.
-   */
-  @Id(11)
-  bool get isExternal;
-
-  /**
-   * Indicates whether the executable is declared using the `factory` keyword.
-   */
-  @Id(8)
-  bool get isFactory;
-
-  /**
-   * Indicates whether the executable is a redirected constructor.
-   */
-  @Id(13)
-  bool get isRedirectedConstructor;
-
-  /**
-   * Indicates whether the executable is declared using the `static` keyword.
+   * Pop from the stack `index`, `target` and `value`.  Perform
+   * `target[index] op= value`  where `op` is the next assignment operator from
+   * [UnlinkedExpr.assignmentOperators].  Push `value` back into the stack.
    *
-   * Note that for top level executables, this flag is false, since they are
-   * not declared using the `static` keyword (even though they are considered
-   * static for semantic purposes).
+   * If the assignment operator is a prefix/postfix increment/decrement, then
+   * `value` is not present in the stack, so it should not be popped and the
+   * corresponding value of the `target` after/before update is pushed into the
+   * stack instead.
    */
-  @Id(9)
-  bool get isStatic;
+  assignToIndex,
 
   /**
-   * The kind of the executable (function/method, getter, setter, or
-   * constructor).
+   * Pop from the stack `index` and `target`.  Push into the stack the result
+   * of evaluation of `target[index]`.
    */
-  @Id(4)
-  UnlinkedExecutableKind get kind;
+  extractIndex,
 
   /**
-   * The list of local functions.
+   * Pop the top `n` values from the stack (where `n` is obtained from
+   * [UnlinkedExpr.ints]) into a list (filled from the end) and take the next
+   * `n` values from [UnlinkedExpr.strings] and use the lists of names and
+   * values to create named arguments.  Then pop the top `m` values from the
+   * stack (where `m` is obtained from [UnlinkedExpr.ints]) into a list (filled
+   * from the end) and use them as positional arguments.  Use the lists of
+   * positional and names arguments to invoke a method (or a function) with
+   * the reference from [UnlinkedExpr.references].  If `k` is nonzero (where
+   * `k` is obtained from [UnlinkedExpr.ints]), obtain `k` type arguments from
+   * [UnlinkedExpr.references] and use them as generic type arguments for the
+   * aforementioned method or function.  Push the result of the invocation onto
+   * the stack.
+   *
+   * In general `a.b` cannot not be distinguished between: `a` is a prefix and
+   * `b` is a top-level function; or `a` is an object and `b` is the name of a
+   * method.  This operation should be used for a sequence of identifiers
+   * `a.b.b.c.d.e` ending with an invokable result.
    */
-  @Id(18)
-  List<UnlinkedExecutable> get localFunctions;
+  invokeMethodRef,
 
   /**
-   * The list of local labels.
+   * Pop the top `n` values from the stack (where `n` is obtained from
+   * [UnlinkedExpr.ints]) into a list (filled from the end) and take the next
+   * `n` values from [UnlinkedExpr.strings] and use the lists of names and
+   * values to create named arguments.  Then pop the top `m` values from the
+   * stack (where `m` is obtained from [UnlinkedExpr.ints]) into a list (filled
+   * from the end) and use them as positional arguments.  Use the lists of
+   * positional and names arguments to invoke the method with the name from
+   * [UnlinkedExpr.strings] of the target popped from the stack.  If `k` is
+   * nonzero (where `k` is obtained from [UnlinkedExpr.ints]), obtain `k` type
+   * arguments from [UnlinkedExpr.references] and use them as generic type
+   * arguments for the aforementioned method.  Push the result of the
+   * invocation onto the stack.
+   *
+   * This operation should be used for invocation of a method invocation
+   * where `target` is known to be an object instance.
    */
-  @Id(22)
-  List<UnlinkedLabel> get localLabels;
+  invokeMethod,
 
   /**
-   * The list of local variables.
+   * Begin a new cascade section.  Duplicate the top value of the stack.
    */
-  @Id(19)
-  List<UnlinkedVariable> get localVariables;
+  cascadeSectionBegin,
 
   /**
-   * Name of the executable.  For setters, this includes the trailing "=".  For
-   * named constructors, this excludes the class name and excludes the ".".
-   * For unnamed constructors, this is the empty string.
+   * End a new cascade section.  Pop the top value from the stack and throw it
+   * away.
    */
-  @Id(1)
-  String get name;
+  cascadeSectionEnd,
 
   /**
-   * If [kind] is [UnlinkedExecutableKind.constructor] and [name] is not empty,
-   * the offset of the end of the constructor name.  Otherwise zero.
+   * Pop the top value from the stack and cast it to the type with reference
+   * from [UnlinkedExpr.references], push the result into the stack.
    */
-  @informative
-  @Id(23)
-  int get nameEnd;
+  typeCast,
 
   /**
-   * Offset of the executable name relative to the beginning of the file.  For
-   * named constructors, this excludes the class name and excludes the ".".
-   * For unnamed constructors, this is the offset of the class name (i.e. the
-   * offset of the second "C" in "class C { C(); }").
+   * Pop the top value from the stack and check whether it is a subclass of the
+   * type with reference from [UnlinkedExpr.references], push the result into
+   * the stack.
    */
-  @informative
-  @Id(0)
-  int get nameOffset;
+  typeCheck,
 
   /**
-   * Parameters of the executable, if any.  Note that getters have no
-   * parameters (hence this will be the empty list), and setters have a single
-   * parameter.
+   * Pop the top value from the stack and raise an exception with this value.
    */
-  @Id(2)
-  List<UnlinkedParam> get parameters;
+  throwException,
 
   /**
-   * If [kind] is [UnlinkedExecutableKind.constructor] and [name] is not empty,
-   * the offset of the period before the constructor name.  Otherwise zero.
+   * Obtain two values `n` and `m` from [UnlinkedExpr.ints].  Then, starting at
+   * the executable element for the expression being evaluated, if n > 0, pop to
+   * the nth enclosing function element.  Then, push the mth local function of
+   * that element onto the stack.
    */
-  @informative
-  @Id(24)
-  int get periodOffset;
+  pushLocalFunctionReference,
 
   /**
-   * If [isRedirectedConstructor] and [isFactory] are both `true`, the
-   * constructor to which this constructor redirects; otherwise empty.
+   * Pop the top two values from the stack.  If the first value is non-null,
+   * keep it and discard the second.  Otherwise, keep the second and discard the
+   * first.
    */
-  @Id(15)
-  EntityRef get redirectedConstructor;
+  ifNull,
 
   /**
-   * If [isRedirectedConstructor] is `true` and [isFactory] is `false`, the
-   * name of the constructor that this constructor redirects to; otherwise
-   * empty.
+   * Pop the top value from the stack.  Treat it as a Future and await its
+   * completion.  Then push the awaited value onto the stack.
    */
-  @Id(17)
-  String get redirectedConstructorName;
+  await,
 
   /**
-   * Declared return type of the executable.  Absent if the executable is a
-   * constructor or the return type is implicit.  Absent for executables
-   * associated with variable initializers and closures, since these
-   * executables may have return types that are not accessible via direct
-   * imports.
+   * Push an abstract value onto the stack. Abstract values mark the presence of
+   * a value, but whose details are not included.
+   *
+   * This is not used by the summary generators today, but it will be used to
+   * experiment with prunning the initializer expression tree, so only
+   * information that is necessary gets included in the output summary file.
    */
-  @Id(3)
-  EntityRef get returnType;
+  pushUntypedAbstract,
 
   /**
-   * Type parameters of the executable, if any.  Empty if support for generic
-   * method syntax is disabled.
+   * Get the next type reference from [UnlinkedExpr.references] and push an
+   * abstract value onto the stack that has that type.
+   *
+   * Like [pushUntypedAbstract], this is also not used by the summary generators
+   * today. The plan is to experiment with prunning the initializer expression
+   * tree, and include just enough type information to perform strong-mode type
+   * inference, but not all the details of how this type was obtained.
    */
-  @Id(16)
-  List<UnlinkedTypeParam> get typeParameters;
+  pushTypedAbstract,
 
   /**
-   * If a local function, the length of the visible range; zero otherwise.
+   * Push an error onto the stack.
+   *
+   * Like [pushUntypedAbstract], this is not used by summary generators today.
+   * This will be used to experiment with prunning the const expression tree. If
+   * a constant has an error, we can omit the subexpression containing the error
+   * and only include a marker that an error was detected.
    */
-  @Id(20)
-  int get visibleLength;
+  pushError,
 
   /**
-   * If a local function, the beginning of the visible range; zero otherwise.
+   * Push `this` expression onto the stack.
    */
-  @Id(21)
-  int get visibleOffset;
-}
-
-/**
- * Enum used to indicate the kind of an executable.
- */
-enum UnlinkedExecutableKind {
-  /**
-   * Executable is a function or method.
-   */
-  functionOrMethod,
+  pushThis,
 
   /**
-   * Executable is a getter.
+   * Push `super` expression onto the stack.
    */
-  getter,
-
-  /**
-   * Executable is a setter.
-   */
-  setter,
-
-  /**
-   * Executable is a constructor.
-   */
-  constructor
-}
-
-/**
- * Unlinked summary information about an export declaration (stored outside
- * [UnlinkedPublicNamespace]).
- */
-abstract class UnlinkedExportNonPublic extends base.SummaryClass {
-  /**
-   * Annotations for this export directive.
-   */
-  @Id(3)
-  List<UnlinkedConst> get annotations;
-
-  /**
-   * Offset of the "export" keyword.
-   */
-  @informative
-  @Id(0)
-  int get offset;
-
-  /**
-   * End of the URI string (including quotes) relative to the beginning of the
-   * file.
-   */
-  @informative
-  @Id(1)
-  int get uriEnd;
-
-  /**
-   * Offset of the URI string (including quotes) relative to the beginning of
-   * the file.
-   */
-  @informative
-  @Id(2)
-  int get uriOffset;
-}
-
-/**
- * Unlinked summary information about an export declaration (stored inside
- * [UnlinkedPublicNamespace]).
- */
-abstract class UnlinkedExportPublic extends base.SummaryClass {
-  /**
-   * Combinators contained in this import declaration.
-   */
-  @Id(1)
-  List<UnlinkedCombinator> get combinators;
-
-  /**
-   * URI used in the source code to reference the exported library.
-   */
-  @Id(0)
-  String get uri;
+  pushSuper,
 }
 
 /**
@@ -1719,13 +2461,20 @@ abstract class UnlinkedImport extends base.SummaryClass {
    * Annotations for this import declaration.
    */
   @Id(8)
-  List<UnlinkedConst> get annotations;
+  List<UnlinkedExpr> get annotations;
 
   /**
    * Combinators contained in this import declaration.
    */
   @Id(4)
   List<UnlinkedCombinator> get combinators;
+
+  /**
+   * Configurations used to control which library will actually be loaded at
+   * run-time.
+   */
+  @Id(10)
+  List<UnlinkedConfiguration> get configurations;
 
   /**
    * Indicates whether the import declaration uses the `deferred` keyword.
@@ -1826,21 +2575,14 @@ abstract class UnlinkedParam extends base.SummaryClass {
    * Annotations for this parameter.
    */
   @Id(9)
-  List<UnlinkedConst> get annotations;
+  List<UnlinkedExpr> get annotations;
 
   /**
    * Code range of the parameter.
    */
-  @Id(14)
-  CodeRange get codeRange;
-
-  /**
-   * If the parameter has a default value, the constant expression in the
-   * default value.  Note that the presence of this expression does not mean
-   * that it is a valid, check [UnlinkedConst.isInvalid].
-   */
+  @informative
   @Id(7)
-  UnlinkedConst get defaultValue;
+  CodeRange get codeRange;
 
   /**
    * If the parameter has a default value, the source text of the constant
@@ -1865,11 +2607,34 @@ abstract class UnlinkedParam extends base.SummaryClass {
   int get inferredTypeSlot;
 
   /**
+   * If this is a parameter of an instance method, a nonzero slot id which is
+   * unique within this compilation unit.  If this id is found in
+   * [LinkedUnit.parametersInheritingCovariant], then this parameter inherits
+   * `@covariant` behavior from a base class.
+   *
+   * Otherwise, zero.
+   */
+  @Id(14)
+  int get inheritsCovariantSlot;
+
+  /**
    * The synthetic initializer function of the parameter.  Absent if the variable
    * does not have an initializer.
    */
   @Id(12)
   UnlinkedExecutable get initializer;
+
+  /**
+   * Indicates whether this parameter is explicitly marked as being covariant.
+   */
+  @Id(15)
+  bool get isExplicitlyCovariant;
+
+  /**
+   * Indicates whether the parameter is declared using the `final` keyword.
+   */
+  @Id(16)
+  bool get isFinal;
 
   /**
    * Indicates whether this is a function-typed parameter.
@@ -1920,12 +2685,14 @@ abstract class UnlinkedParam extends base.SummaryClass {
   /**
    * The length of the visible range.
    */
+  @informative
   @Id(10)
   int get visibleLength;
 
   /**
    * The beginning of the visible range.
    */
+  @informative
   @Id(11)
   int get visibleOffset;
 }
@@ -1958,7 +2725,7 @@ abstract class UnlinkedPart extends base.SummaryClass {
    * Annotations for this part declaration.
    */
   @Id(2)
-  List<UnlinkedConst> get annotations;
+  List<UnlinkedExpr> get annotations;
 
   /**
    * End of the URI string (including quotes) relative to the beginning of the
@@ -1994,8 +2761,8 @@ abstract class UnlinkedPublicName extends base.SummaryClass {
 
   /**
    * If this [UnlinkedPublicName] is a class, the list of members which can be
-   * referenced from constants or factory redirects - static constant fields,
-   * static methods, and constructors.  Otherwise empty.
+   * referenced statically - static fields, static methods, and constructors.
+   * Otherwise empty.
    *
    * Unnamed constructors are not included since they do not constitute a
    * separate name added to any namespace.
@@ -2082,11 +2849,12 @@ abstract class UnlinkedTypedef extends base.SummaryClass {
    * Annotations for this typedef.
    */
   @Id(4)
-  List<UnlinkedConst> get annotations;
+  List<UnlinkedExpr> get annotations;
 
   /**
    * Code range of the typedef.
    */
+  @informative
   @Id(7)
   CodeRange get codeRange;
 
@@ -2138,7 +2906,7 @@ abstract class UnlinkedTypeParam extends base.SummaryClass {
    * Annotations for this type parameter.
    */
   @Id(3)
-  List<UnlinkedConst> get annotations;
+  List<UnlinkedExpr> get annotations;
 
   /**
    * Bound of the type parameter, if a bound is explicitly declared.  Otherwise
@@ -2150,6 +2918,7 @@ abstract class UnlinkedTypeParam extends base.SummaryClass {
   /**
    * Code range of the type parameter.
    */
+  @informative
   @Id(4)
   CodeRange get codeRange;
 
@@ -2176,6 +2945,14 @@ abstract class UnlinkedUnit extends base.SummaryClass {
       generated.readUnlinkedUnit(buffer);
 
   /**
+   * MD5 hash of the non-informative fields of the [UnlinkedUnit] (not
+   * including this one) as 16 unsigned 8-bit integer values.  This can be used
+   * to identify when the API of a unit may have changed.
+   */
+  @Id(19)
+  List<int> get apiSignature;
+
+  /**
    * Classes declared in the compilation unit.
    */
   @Id(2)
@@ -2184,6 +2961,7 @@ abstract class UnlinkedUnit extends base.SummaryClass {
   /**
    * Code range of the unit.
    */
+  @informative
   @Id(15)
   CodeRange get codeRange;
 
@@ -2207,17 +2985,34 @@ abstract class UnlinkedUnit extends base.SummaryClass {
   List<UnlinkedExportNonPublic> get exports;
 
   /**
+   * If this compilation unit was summarized in fallback mode, the path where
+   * the compilation unit may be found on disk.  Otherwise empty.
+   *
+   * When this field is non-empty, all other fields in the data structure have
+   * their default values.
+   */
+  @deprecated
+  @Id(16)
+  String get fallbackModePath;
+
+  /**
    * Import declarations in the compilation unit.
    */
   @Id(5)
   List<UnlinkedImport> get imports;
 
   /**
+   * Indicates whether the unit contains a "part of" declaration.
+   */
+  @Id(18)
+  bool get isPartOf;
+
+  /**
    * Annotations for the library declaration, or the empty list if there is no
    * library declaration.
    */
   @Id(14)
-  List<UnlinkedConst> get libraryAnnotations;
+  List<UnlinkedExpr> get libraryAnnotations;
 
   /**
    * Documentation comment for the library, or `null` if there is no
@@ -2248,6 +3043,13 @@ abstract class UnlinkedUnit extends base.SummaryClass {
   @informative
   @Id(8)
   int get libraryNameOffset;
+
+  /**
+   * Offsets of the first character of each line in the source code.
+   */
+  @informative
+  @Id(17)
+  List<int> get lineStarts;
 
   /**
    * Part declarations in the compilation unit.
@@ -2293,21 +3095,14 @@ abstract class UnlinkedVariable extends base.SummaryClass {
    * Annotations for this variable.
    */
   @Id(8)
-  List<UnlinkedConst> get annotations;
+  List<UnlinkedExpr> get annotations;
 
   /**
    * Code range of the variable.
    */
-  @Id(14)
-  CodeRange get codeRange;
-
-  /**
-   * If [isConst] is true, and the variable has an initializer, the constant
-   * expression in the initializer.  Note that the presence of this expression
-   * does not mean that it is a valid, check [UnlinkedConst.isInvalid].
-   */
+  @informative
   @Id(5)
-  UnlinkedConst get constExpr;
+  CodeRange get codeRange;
 
   /**
    * Documentation comment for the variable, or `null` if there is no
@@ -2338,6 +3133,13 @@ abstract class UnlinkedVariable extends base.SummaryClass {
    */
   @Id(6)
   bool get isConst;
+
+  /**
+   * Indicates whether this variable is declared using the `covariant` keyword.
+   * This should be false for everything except instance fields.
+   */
+  @Id(14)
+  bool get isCovariant;
 
   /**
    * Indicates whether the variable is declared using the `final` keyword.
@@ -2388,12 +3190,14 @@ abstract class UnlinkedVariable extends base.SummaryClass {
   /**
    * If a local variable, the length of the visible range; zero otherwise.
    */
+  @informative
   @Id(11)
   int get visibleLength;
 
   /**
    * If a local variable, the beginning of the visible range; zero otherwise.
    */
+  @informative
   @Id(12)
   int get visibleOffset;
 }

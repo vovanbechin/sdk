@@ -4,20 +4,21 @@
 
 library analyzer_cli.test.driver;
 
+import 'dart:async';
 import 'dart:io';
 
-import 'package:analyzer/plugin/options.dart';
+import 'package:analyzer/error/error.dart';
 import 'package:analyzer/source/analysis_options_provider.dart';
 import 'package:analyzer/source/error_processor.dart';
+import 'package:analyzer/src/error/codes.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/services/lint.dart';
 import 'package:analyzer_cli/src/driver.dart';
 import 'package:analyzer_cli/src/options.dart';
+import 'package:cli_util/cli_util.dart' show getSdkDir;
 import 'package:path/path.dart' as path;
-import 'package:plugin/plugin.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 import 'package:yaml/src/yaml_node.dart';
 
 import 'utils.dart';
@@ -50,154 +51,188 @@ main() {
 
   tearDown(() => _tearDown());
 
-  initializeTestEnvironment();
-
   group('Driver', () {
     group('options', () {
-      test('custom processor', () {
-        Driver driver = new Driver();
-        TestProcessor processor = new TestProcessor();
-        driver.userDefinedPlugins = [new TestPlugin(processor)];
-        driver.start([
-          '--options',
-          path.join(testDirectory, 'data/test_options.yaml'),
-          path.join(testDirectory, 'data/test_file.dart')
-        ]);
-        expect(processor.options['test_plugin'], isNotNull);
-        expect(processor.exception, isNull);
+      test('todos', () async {
+        await drive('data/file_with_todo.dart');
+        expect(outSink.toString().contains('[info]'), isFalse);
       });
     });
 
     group('exit codes', () {
-      test('fatal hints', () {
-        drive('data/file_with_hint.dart', args: ['--fatal-hints']);
+      test('fatal hints', () async {
+        await drive('data/file_with_hint.dart', args: ['--fatal-hints']);
         expect(exitCode, 3);
       });
 
-      test('not fatal hints', () {
-        drive('data/file_with_hint.dart');
+      test('not fatal hints', () async {
+        await drive('data/file_with_hint.dart');
         expect(exitCode, 0);
       });
 
-      test('fatal errors', () {
-        drive('data/file_with_error.dart');
+      test('fatal errors', () async {
+        await drive('data/file_with_error.dart');
         expect(exitCode, 3);
       });
 
-      test('not fatal warnings', () {
-        drive('data/file_with_warning.dart');
+      test('not fatal warnings', () async {
+        await drive('data/file_with_warning.dart');
         expect(exitCode, 0);
       });
 
-      test('fatal warnings', () {
-        drive('data/file_with_warning.dart', args: ['--fatal-warnings']);
+      test('fatal warnings', () async {
+        await drive('data/file_with_warning.dart', args: ['--fatal-warnings']);
         expect(exitCode, 3);
       });
 
-      test('missing options file', () {
-        drive('data/test_file.dart', options: 'data/NO_OPTIONS_HERE');
+      test('missing options file', () async {
+        await drive('data/test_file.dart', options: 'data/NO_OPTIONS_HERE');
         expect(exitCode, 3);
       });
 
-      test('missing dart file', () {
-        drive('data/NO_DART_FILE_HERE.dart');
+      test('missing dart file', () async {
+        await drive('data/NO_DART_FILE_HERE.dart');
         expect(exitCode, 3);
       });
 
-      test('part file', () {
-        drive('data/library_and_parts/part2.dart');
+      test('part file', () async {
+        await drive('data/library_and_parts/part2.dart');
         expect(exitCode, 3);
       });
 
-      test('non-dangling part file', () {
+      test('non-dangling part file', () async {
         Driver driver = new Driver();
-        driver.start([
+        await driver.start([
           path.join(testDirectory, 'data/library_and_parts/lib.dart'),
           path.join(testDirectory, 'data/library_and_parts/part1.dart')
         ]);
         expect(exitCode, 0);
       });
 
-      test('extra part file', () {
+      test('extra part file', () async {
         Driver driver = new Driver();
-        driver.start([
+        await driver.start([
           path.join(testDirectory, 'data/library_and_parts/lib.dart'),
           path.join(testDirectory, 'data/library_and_parts/part1.dart'),
           path.join(testDirectory, 'data/library_and_parts/part2.dart')
         ]);
         expect(exitCode, 3);
       });
+
+      test('bazel workspace relative path', () async {
+        // Copy to temp dir so that existing analysis options
+        // in the test directory hierarchy do not interfere
+        await withTempDirAsync((String tempDirPath) async {
+          String dartSdkPath = path.absolute(getSdkDir(<String>[]).path);
+          await recursiveCopy(
+              new Directory(path.join(testDirectory, 'data', 'bazel')),
+              tempDirPath);
+          Directory origWorkingDir = Directory.current;
+          try {
+            Directory.current = path.join(tempDirPath, 'proj');
+            Driver driver = new Driver();
+            try {
+              await driver.start([
+                path.join('lib', 'file.dart'),
+                '--dart-sdk',
+                dartSdkPath,
+              ]);
+            } catch (e) {
+              print('=== debug info ===');
+              print('dartSdkPath: $dartSdkPath');
+              print('stderr:\n${errorSink.toString()}');
+              rethrow;
+            }
+            expect(errorSink.toString(), isEmpty);
+            expect(outSink.toString(), contains('No issues found'));
+            expect(exitCode, 0);
+          } finally {
+            Directory.current = origWorkingDir;
+          }
+        });
+      });
     });
 
     group('linter', () {
-      group('lints in options', () {
-        // Shared lint command.
-        var runLinter = () => drive('data/linter_project/test_file.dart',
-            options: 'data/linter_project/.analysis_options',
-            args: ['--lints']);
+      void createTests(String designator, String optionsFileName) {
+        group('lints in options - $designator', () {
+          // Shared lint command.
+          Future<Null> runLinter() async {
+            return await drive('data/linter_project/test_file.dart',
+                options: 'data/linter_project/$optionsFileName',
+                args: ['--lints']);
+          }
 
-        test('gets analysis options', () {
-          runLinter();
+          test('gets analysis options', () async {
+            await runLinter();
 
-          /// Lints should be enabled.
-          expect(driver.context.analysisOptions.lint, isTrue);
+            /// Lints should be enabled.
+            expect(driver.context.analysisOptions.lint, isTrue);
 
-          /// The .analysis_options file only specifies 'camel_case_types'.
-          var lintNames = getLints(driver.context).map((r) => r.name);
-          expect(lintNames, orderedEquals(['camel_case_types']));
+            /// The analysis options file only specifies 'camel_case_types'.
+            var lintNames = getLints(driver.context).map((r) => r.name);
+            expect(lintNames, orderedEquals(['camel_case_types']));
+          });
+
+          test('generates lints', () async {
+            await runLinter();
+            expect(outSink.toString(),
+                contains('[lint] Name types using UpperCamelCase'));
+          });
         });
 
-        test('generates lints', () {
-          runLinter();
-          expect(outSink.toString(),
-              contains('[lint] Name types using UpperCamelCase.'));
-        });
-      });
+        group('default lints - $designator', () {
+          // Shared lint command.
+          Future<Null> runLinter() async {
+            return await drive('data/linter_project/test_file.dart',
+                options: 'data/linter_project/$optionsFileName',
+                args: ['--lints']);
+          }
 
-      group('default lints', () {
-        // Shared lint command.
-        var runLinter = () => drive('data/linter_project/test_file.dart',
-            options: 'data/linter_project/.analysis_options',
-            args: ['--lints']);
+          test('gets default lints', () async {
+            await runLinter();
 
-        test('gets default lints', () {
-          runLinter();
+            /// Lints should be enabled.
+            expect(driver.context.analysisOptions.lint, isTrue);
 
-          /// Lints should be enabled.
-          expect(driver.context.analysisOptions.lint, isTrue);
+            /// Default list should include camel_case_types.
+            var lintNames = getLints(driver.context).map((r) => r.name);
+            expect(lintNames, contains('camel_case_types'));
+          });
 
-          /// Default list should include camel_case_types.
-          var lintNames = getLints(driver.context).map((r) => r.name);
-          expect(lintNames, contains('camel_case_types'));
-        });
-
-        test('generates lints', () {
-          runLinter();
-          expect(outSink.toString(),
-              contains('[lint] Name types using UpperCamelCase.'));
-        });
-      });
-
-      group('no `--lints` flag (none in options)', () {
-        // Shared lint command.
-        var runLinter = () => drive('data/no_lints_project/test_file.dart',
-            options: 'data/no_lints_project/.analysis_options');
-
-        test('lints disabled', () {
-          runLinter();
-          expect(driver.context.analysisOptions.lint, isFalse);
+          test('generates lints', () async {
+            await runLinter();
+            expect(outSink.toString(),
+                contains('[lint] Name types using UpperCamelCase'));
+          });
         });
 
-        test('no registered lints', () {
-          runLinter();
-          expect(getLints(driver.context), isEmpty);
-        });
+        group('no `--lints` flag (none in options) - $designator', () {
+          // Shared lint command.
+          Future<Null> runLinter() async {
+            return await drive('data/no_lints_project/test_file.dart',
+                options: 'data/no_lints_project/$optionsFileName');
+          }
 
-        test('no generated warnings', () {
-          runLinter();
-          expect(outSink.toString(), contains('No issues found'));
+          test('lints disabled', () async {
+            await runLinter();
+            expect(driver.context.analysisOptions.lint, isFalse);
+          });
+
+          test('no registered lints', () async {
+            await runLinter();
+            expect(getLints(driver.context), isEmpty);
+          });
+
+          test('no generated warnings', () async {
+            await runLinter();
+            expect(outSink.toString(), contains('No issues found'));
+          });
         });
-      });
+      }
+
+      createTests('old', AnalysisEngine.ANALYSIS_OPTIONS_FILE);
+      createTests('new', AnalysisEngine.ANALYSIS_OPTIONS_YAML_FILE);
     });
 
     test('containsLintRuleEntry', () {
@@ -226,65 +261,159 @@ linter:
     });
 
     group('options processing', () {
-      group('basic config', () {
-        // Shared driver command.
-        var doDrive = () => drive('data/options_tests_project/test_file.dart',
-            options: 'data/options_tests_project/.analysis_options');
+      void createTests(String designator, String optionsFileName) {
+        group('basic config - $designator', () {
+          // Shared driver command.
+          Future<Null> doDrive() async {
+            await drive('data/options_tests_project/test_file.dart',
+                options: 'data/options_tests_project/$optionsFileName');
+          }
 
-        test('filters', () {
-          doDrive();
-          expect(processors, hasLength(3));
+          test('filters', () async {
+            await doDrive();
+            expect(processors, hasLength(3));
 
-          // unused_local_variable: ignore
-          var unused_local_variable = new AnalysisError(
-              new TestSource(), 0, 1, HintCode.UNUSED_LOCAL_VARIABLE, [
-            ['x']
-          ]);
-          expect(processorFor(unused_local_variable).severity, isNull);
+            // unused_local_variable: ignore
+            var unused_local_variable = new AnalysisError(
+                new TestSource(), 0, 1, HintCode.UNUSED_LOCAL_VARIABLE, [
+              ['x']
+            ]);
+            expect(processorFor(unused_local_variable).severity, isNull);
 
-          // missing_return: error
-          var missing_return = new AnalysisError(
-              new TestSource(), 0, 1, HintCode.MISSING_RETURN, [
-            ['x']
-          ]);
-          expect(processorFor(missing_return).severity, ErrorSeverity.ERROR);
-          expect(
-              outSink.toString(),
-              contains(
-                  "[error] This function declares a return type of 'int'"));
-          expect(outSink.toString(),
-              contains("1 error and 1 warning found."));
+            // missing_return: error
+            var missing_return = new AnalysisError(
+                new TestSource(), 0, 1, HintCode.MISSING_RETURN, [
+              ['x']
+            ]);
+            expect(processorFor(missing_return).severity, ErrorSeverity.ERROR);
+            expect(
+                outSink.toString(),
+                contains(
+                    "[error] This function declares a return type of 'int'"));
+            expect(
+                outSink.toString(), contains("1 error and 1 warning found."));
+          });
+
+          test('language', () async {
+            await doDrive();
+            expect(driver.context.analysisOptions.enableSuperMixins, isTrue);
+          });
+
+          test('strongMode', () async {
+            await doDrive();
+            expect(driver.context.analysisOptions.strongMode, isTrue);
+            //https://github.com/dart-lang/sdk/issues/26129
+            AnalysisContext sdkContext =
+                driver.context.sourceFactory.dartSdk.context;
+            expect(sdkContext.analysisOptions.strongMode, isTrue);
+          });
         });
 
-        test('language', () {
-          doDrive();
-          expect(driver.context.analysisOptions.enableSuperMixins, isTrue);
+        group('with flags - $designator', () {
+          // Shared driver command.
+          Future<Null> doDrive() async {
+            await drive('data/options_tests_project/test_file.dart',
+                args: ['--fatal-warnings'],
+                options: 'data/options_tests_project/$optionsFileName');
+          }
+
+          test('override fatal warning', () async {
+            await doDrive();
+            // missing_return: error
+            var undefined_function = new AnalysisError(new TestSource(), 0, 1,
+                StaticTypeWarningCode.UNDEFINED_FUNCTION, [
+              ['x']
+            ]);
+            expect(processorFor(undefined_function).severity,
+                ErrorSeverity.WARNING);
+            // Should not be made fatal by `--fatal-warnings`.
+            expect(outSink.toString(),
+                contains("[warning] The function 'baz' isn't defined"));
+            expect(
+                outSink.toString(), contains("1 error and 1 warning found."));
+          });
         });
+      }
+
+      createTests('old', AnalysisEngine.ANALYSIS_OPTIONS_FILE);
+      createTests('new', AnalysisEngine.ANALYSIS_OPTIONS_YAML_FILE);
+
+      test('include directive', () async {
+        String testDir = path.join(
+            testDirectory, 'data', 'options_include_directive_tests_project');
+        await drive(
+          path.join(testDir, 'lib', 'test_file.dart'),
+          args: [
+            '--fatal-warnings',
+            '--packages',
+            path.join(testDir, '_packages'),
+          ],
+          options: path.join(testDir, '.analysis_options'),
+        );
+        expect(exitCode, 3);
+        expect(outSink.toString(),
+            contains('but doesn\'t end with a return statement'));
+        expect(outSink.toString(), contains('isn\'t defined'));
+        expect(outSink.toString(), contains('Avoid empty else statements'));
       });
 
-      group('with flags', () {
-        // Shared driver command.
-        var doDrive = () => drive('data/options_tests_project/test_file.dart',
-            args: ['--fatal-warnings'],
-            options: 'data/options_tests_project/.analysis_options');
-
-        test('override fatal warning', () {
-          doDrive();
-          // missing_return: error
-          var undefined_function = new AnalysisError(new TestSource(), 0, 1,
-              StaticTypeWarningCode.UNDEFINED_FUNCTION, [
-            ['x']
-          ]);
-          expect(
-              processorFor(undefined_function).severity, ErrorSeverity.WARNING);
-          // Should not be made fatal by `--fatal-warnings`.
-          expect(outSink.toString(),
-              contains("[warning] The function 'baz' is not defined"));
-          expect(outSink.toString(),
-              contains("1 error and 1 warning found."));
-        });
+      test('test strong SDK', () async {
+        String testDir = path.join(testDirectory, 'data', 'strong_sdk');
+        await drive(path.join(testDir, 'main.dart'), args: ['--strong']);
+        expect(driver.context.analysisOptions.strongMode, isTrue);
+        expect(outSink.toString(), contains('No issues found'));
+        expect(exitCode, 0);
       });
     });
+
+    void createTests(String designator, String optionsFileName) {
+      group('build-mode - $designator', () {
+        // Shared driver command.
+        Future<Null> doDrive(String filePath,
+            {List<String> additionalArgs: const []}) async {
+          await drive('file:///test_file.dart|$filePath',
+              args: [
+                '--dart-sdk',
+                findSdkDirForSummaries(),
+                '--build-mode',
+                '--format=machine'
+              ]..addAll(additionalArgs),
+              options: 'data/options_tests_project/$optionsFileName');
+        }
+
+        test('no stats', () async {
+          await doDrive(path.join('data', 'test_file.dart'));
+          // Should not print stat summary.
+          expect(outSink.toString(), isEmpty);
+          expect(errorSink.toString(), isEmpty);
+          expect(exitCode, 0);
+        });
+
+        test(
+            'Fails if file not found, even when --build-suppress-exit-code is given',
+            () async {
+          await doDrive(path.join('data', 'non_existent_file.dart'),
+              additionalArgs: ['--build-suppress-exit-code']);
+          expect(exitCode, isNot(0));
+        });
+
+        test('Fails if there are errors', () async {
+          await doDrive(path.join('data', 'file_with_error.dart'));
+          expect(exitCode, isNot(0));
+        });
+
+        test(
+            'Succeeds if there are errors, when --build-suppress-exit-code is given',
+            () async {
+          await doDrive(path.join('data', 'file_with_error.dart'),
+              additionalArgs: ['--build-suppress-exit-code']);
+          expect(exitCode, 0);
+        });
+      });
+    }
+
+    createTests('old', AnalysisEngine.ANALYSIS_OPTIONS_FILE);
+    createTests('new', AnalysisEngine.ANALYSIS_OPTIONS_YAML_FILE);
 
 //TODO(pq): fix to be bot-friendly (sdk#25258).
 //    group('in temp directory', () {
@@ -348,8 +477,6 @@ linter:
 //      });
 //    });
   });
-
-
 }
 
 const emptyOptionsFile = 'data/empty_options.yaml';
@@ -358,62 +485,82 @@ const emptyOptionsFile = 'data/empty_options.yaml';
 Driver driver;
 
 List<ErrorProcessor> get processors =>
-    driver.context.getConfigurationData(CONFIGURED_ERROR_PROCESSORS);
+    driver.context.analysisOptions.errorProcessors;
 
-ErrorProcessor processorFor(AnalysisError error) =>
-    processors.firstWhere((p) => p.appliesTo(error));
+/// Convert a file specification from a relative path to an absolute path.
+/// Handles the case where the file specification is of the form "$uri|$path".
+String adjustFileSpec(String fileSpec) {
+  int uriPrefixLength = fileSpec.indexOf('|') + 1;
+  String uriPrefix = fileSpec.substring(0, uriPrefixLength);
+  String relativePath = fileSpec.substring(uriPrefixLength);
+  return '$uriPrefix${path.join(testDirectory, relativePath)}';
+}
 
 /// Start a driver for the given [source], optionally providing additional
 /// [args] and an [options] file path.  The value of [options] defaults to
 /// an empty options file to avoid unwanted configuration from an otherwise
 /// discovered options file.
-void drive(String source,
-    {String options: emptyOptionsFile, List<String> args: const <String>[]}) {
+Future<Null> drive(String source,
+    {String options: emptyOptionsFile,
+    List<String> args: const <String>[]}) async {
   driver = new Driver();
   var cmd = [
     '--options',
     path.join(testDirectory, options),
-    path.join(testDirectory, source)
+    adjustFileSpec(source)
   ]..addAll(args);
-  driver.start(cmd);
+  await driver.start(cmd);
+}
+
+/// Try to find a appropriate directory to pass to "--dart-sdk" that will
+/// allow summaries to be found.
+String findSdkDirForSummaries() {
+  Set<String> triedDirectories = new Set<String>();
+  bool isSuitable(String sdkDir) {
+    triedDirectories.add(sdkDir);
+    return new File(path.join(sdkDir, 'lib', '_internal', 'spec.sum'))
+        .existsSync();
+  }
+
+  // Usually the sdk directory is the parent of the parent of the "dart"
+  // executable.
+  Directory executableParent = new File(Platform.executable).parent;
+  Directory executableGrandparent = executableParent.parent;
+  if (isSuitable(executableGrandparent.path)) {
+    return executableGrandparent.path;
+  }
+  // During buildbot execution, the sdk directory is simply the parent of the
+  // "dart" executable.
+  if (isSuitable(executableParent.path)) {
+    return executableParent.path;
+  }
+  // If neither of those are suitable, assume we are running locally within the
+  // SDK project (e.g. within an IDE).  Find the build output directory and
+  // search all built configurations.
+  Directory sdkRootDir =
+      new File(Platform.script.toFilePath()).parent.parent.parent.parent;
+  for (String outDirName in ['out', 'xcodebuild']) {
+    Directory outDir = new Directory(path.join(sdkRootDir.path, outDirName));
+    if (outDir.existsSync()) {
+      for (FileSystemEntity subdir in outDir.listSync()) {
+        if (subdir is Directory) {
+          String candidateSdkDir = path.join(subdir.path, 'dart-sdk');
+          if (isSuitable(candidateSdkDir)) {
+            return candidateSdkDir;
+          }
+        }
+      }
+    }
+  }
+  throw new Exception('Could not find an SDK directory containing summaries.'
+      '  Tried: ${triedDirectories.toList()}');
 }
 
 Map<String, YamlNode> parseOptions(String src) =>
     new AnalysisOptionsProvider().getOptionsFromString(src);
 
-class TestPlugin extends Plugin {
-  TestProcessor processor;
-  TestPlugin(this.processor);
-
-  @override
-  String get uniqueIdentifier => 'test_plugin.core';
-
-  @override
-  void registerExtensionPoints(RegisterExtensionPoint register) {
-    // None
-  }
-
-  @override
-  void registerExtensions(RegisterExtension register) {
-    register(OPTIONS_PROCESSOR_EXTENSION_POINT_ID, processor);
-  }
-}
-
-class TestProcessor extends OptionsProcessor {
-  Map<String, YamlNode> options;
-  Exception exception;
-
-  @override
-  void onError(Exception exception) {
-    this.exception = exception;
-  }
-
-  @override
-  void optionsProcessed(
-      AnalysisContext context, Map<String, YamlNode> options) {
-    this.options = options;
-  }
-}
+ErrorProcessor processorFor(AnalysisError error) =>
+    processors.firstWhere((p) => p.appliesTo(error));
 
 class TestSource implements Source {
   TestSource();

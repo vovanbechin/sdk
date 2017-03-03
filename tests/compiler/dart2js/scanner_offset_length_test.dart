@@ -3,12 +3,10 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import "package:expect/expect.dart";
-import 'package:compiler/src/scanner/string_scanner.dart';
-import 'package:compiler/src/tokens/token.dart';
-import 'package:compiler/src/tokens/token_constants.dart';
+import 'package:front_end/src/fasta/scanner.dart';
 
 Token scan(String text) =>
-    new StringScanner.fromString(text, includeComments: true).tokenize();
+    new StringScanner(text, includeComments: true).tokenize();
 
 check(String text) {
   Token token = scan(text);
@@ -21,14 +19,16 @@ check(String text) {
     Expect.isTrue(start < text.length,
         'start=$start < text.length=${text.length}: $text');
 
-    Expect.isTrue(end <= text.length,
-        'end=$end <= text.length=${text.length}: $text');
+    Expect.isTrue(
+        end <= text.length, 'end=$end <= text.length=${text.length}: $text');
 
     Expect.isTrue(start <= end, 'start=$end <= end=$end: $text');
 
     var substring = text.substring(start, end);
 
-    Expect.stringEquals(token.value, substring,
+    Expect.stringEquals(
+        token.value,
+        substring,
         'token.value=${token.value} == '
         'text.substring(start,end)=${substring}: $text');
 
@@ -39,12 +39,12 @@ check(String text) {
 }
 
 main() {
-    check('foo'); // identifier
-    check('\'\''); // empty string
-    check('\'foo\''); // simple string
-    check('\'\$foo\''); // interpolation, identifier
-    check('\'\${foo}\''); // interpolation, expression
+  check('foo'); // identifier
+  check('\'\''); // empty string
+  check('\'foo\''); // simple string
+  check('\'\$foo\''); // interpolation, identifier
+  check('\'\${foo}\''); // interpolation, expression
 
-    check('//'); // single line comment
-    check('/**/'); // multi line comment
+  check('//'); // single line comment
+  check('/**/'); // multi line comment
 }

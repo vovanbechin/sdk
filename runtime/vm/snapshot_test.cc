@@ -7,18 +7,18 @@
 #include "include/dart_tools_api.h"
 #include "platform/assert.h"
 #include "vm/class_finalizer.h"
+#include "vm/clustered_snapshot.h"
 #include "vm/dart_api_impl.h"
 #include "vm/dart_api_message.h"
 #include "vm/dart_api_state.h"
 #include "vm/flags.h"
+#include "vm/malloc_hooks.h"
 #include "vm/snapshot.h"
 #include "vm/symbols.h"
 #include "vm/unicode.h"
 #include "vm/unit_test.h"
 
 namespace dart {
-
-DECLARE_FLAG(bool, concurrent_sweep);
 
 // Check if serialized and deserialized objects are equal.
 static bool Equals(const Object& expected, const Object& actual) {
@@ -51,17 +51,27 @@ static bool Equals(const Object& expected, const Object& actual) {
 }
 
 
-static uint8_t* malloc_allocator(
-    uint8_t* ptr, intptr_t old_size, intptr_t new_size) {
+static uint8_t* malloc_allocator(uint8_t* ptr,
+                                 intptr_t old_size,
+                                 intptr_t new_size) {
   return reinterpret_cast<uint8_t*>(realloc(ptr, new_size));
 }
 
 
-static uint8_t* zone_allocator(
-    uint8_t* ptr, intptr_t old_size, intptr_t new_size) {
+static void malloc_deallocator(uint8_t* ptr) {
+  free(ptr);
+}
+
+
+static uint8_t* zone_allocator(uint8_t* ptr,
+                               intptr_t old_size,
+                               intptr_t new_size) {
   Zone* zone = Thread::Current()->zone();
   return zone->Realloc<uint8_t>(ptr, old_size, new_size);
 }
+
+
+static void zone_deallocator(uint8_t* ptr) {}
 
 
 // Compare two Dart_CObject object graphs rooted in first and
@@ -138,6 +148,8 @@ static void CheckEncodeDecodeMessage(Dart_CObject* root) {
 
   // Check that the two messages are the same.
   CompareDartCObjects(root, new_root);
+
+  free(buffer);
 }
 
 
@@ -146,6 +158,7 @@ static void ExpectEncodeFail(Dart_CObject* root) {
   ApiMessageWriter writer(&buffer, &malloc_allocator);
   const bool result = writer.WriteCMessage(root);
   EXPECT_EQ(false, result);
+  free(buffer);
 }
 
 
@@ -155,7 +168,7 @@ TEST_CASE(SerializeNull) {
   // Write snapshot with object content.
   const Object& null_object = Object::Handle();
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(null_object);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -180,7 +193,7 @@ TEST_CASE(SerializeSmi1) {
   // Write snapshot with object content.
   const Smi& smi = Smi::Handle(Smi::New(124));
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(smi);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -206,7 +219,7 @@ TEST_CASE(SerializeSmi2) {
   // Write snapshot with object content.
   const Smi& smi = Smi::Handle(Smi::New(-1));
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(smi);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -229,7 +242,7 @@ TEST_CASE(SerializeSmi2) {
 Dart_CObject* SerializeAndDeserializeMint(const Mint& mint) {
   // Write snapshot with object content.
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(mint);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -259,10 +272,10 @@ void CheckMint(int64_t value) {
   Mint& mint = Mint::Handle();
   mint ^= Integer::New(value);
   Dart_CObject* mint_cobject = SerializeAndDeserializeMint(mint);
-  // On 64-bit platforms mints always require 64-bits as the smi range
-  // here covers most of the 64-bit range. On 32-bit platforms the smi
-  // range covers most of the 32-bit range and values outside that
-  // range are also represented as mints.
+// On 64-bit platforms mints always require 64-bits as the smi range
+// here covers most of the 64-bit range. On 32-bit platforms the smi
+// range covers most of the 32-bit range and values outside that
+// range are also represented as mints.
 #if defined(ARCH_IS_64_BIT)
   EXPECT_EQ(Dart_CObject_kInt64, mint_cobject->type);
   EXPECT_EQ(value, mint_cobject->value.as_int64);
@@ -304,7 +317,7 @@ TEST_CASE(SerializeDouble) {
   // Write snapshot with object content.
   const Double& dbl = Double::Handle(Double::New(101.29));
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(dbl);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -330,7 +343,7 @@ TEST_CASE(SerializeTrue) {
   // Write snapshot with true object.
   const Bool& bl = Bool::True();
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(bl);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -358,7 +371,7 @@ TEST_CASE(SerializeFalse) {
   // Write snapshot with false object.
   const Bool& bl = Bool::False();
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(bl);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -378,16 +391,11 @@ TEST_CASE(SerializeFalse) {
 }
 
 
-static uword allocator(intptr_t size) {
-  return reinterpret_cast<uword>(malloc(size));
-}
-
-
 TEST_CASE(SerializeCapability) {
   // Write snapshot with object content.
   const Capability& capability = Capability::Handle(Capability::New(12345));
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(capability);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -417,7 +425,7 @@ TEST_CASE(SerializeBigint) {
   Bigint& bigint = Bigint::Handle();
   bigint ^= Integer::NewCanonical(str);
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(bigint);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -426,7 +434,8 @@ TEST_CASE(SerializeBigint) {
   Bigint& obj = Bigint::Handle();
   obj ^= reader.ReadObject();
 
-  EXPECT_STREQ(bigint.ToHexCString(allocator), obj.ToHexCString(allocator));
+  Zone* zone = Thread::Current()->zone();
+  EXPECT_STREQ(bigint.ToHexCString(zone), obj.ToHexCString(zone));
 
   // Read object back from the snapshot into a C structure.
   ApiNativeScope scope;
@@ -444,7 +453,7 @@ TEST_CASE(SerializeBigint) {
 Dart_CObject* SerializeAndDeserializeBigint(const Bigint& bigint) {
   // Write snapshot with object content.
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(bigint);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -456,11 +465,9 @@ Dart_CObject* SerializeAndDeserializeBigint(const Bigint& bigint) {
     MessageSnapshotReader reader(buffer, buffer_len, thread);
     Bigint& serialized_bigint = Bigint::Handle();
     serialized_bigint ^= reader.ReadObject();
-    const char* str1 = bigint.ToHexCString(allocator);
-    const char* str2 = serialized_bigint.ToHexCString(allocator);
+    const char* str1 = bigint.ToHexCString(thread->zone());
+    const char* str2 = serialized_bigint.ToHexCString(thread->zone());
     EXPECT_STREQ(str1, str2);
-    free(const_cast<char*>(str1));
-    free(const_cast<char*>(str2));
   }
 
   // Read object back from the snapshot into a C structure.
@@ -499,7 +506,7 @@ TEST_CASE(SerializeBigint2) {
 TEST_CASE(SerializeSingletons) {
   // Write snapshot with object content.
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &malloc_allocator, true);
+  MessageWriter writer(&buffer, &malloc_allocator, &malloc_deallocator, true);
   writer.WriteObject(Object::class_class());
   writer.WriteObject(Object::type_arguments_class());
   writer.WriteObject(Object::function_class());
@@ -541,7 +548,7 @@ static void TestString(const char* cstr) {
   // Write snapshot with object content.
   String& str = String::Handle(String::New(cstr));
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(str);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -564,12 +571,13 @@ static void TestString(const char* cstr) {
 TEST_CASE(SerializeString) {
   TestString("This string shall be serialized");
   TestString("æøå");  // This file is UTF-8 encoded.
-  const char* data = "\x01"
-                     "\x7F"
-                     "\xC2\x80"       // U+0080
-                     "\xDF\xBF"       // U+07FF
-                     "\xE0\xA0\x80"   // U+0800
-                     "\xEF\xBF\xBF";  // U+FFFF
+  const char* data =
+      "\x01"
+      "\x7F"
+      "\xC2\x80"       // U+0080
+      "\xDF\xBF"       // U+07FF
+      "\xE0\xA0\x80"   // U+0800
+      "\xEF\xBF\xBF";  // U+FFFF
 
   TestString(data);
   // TODO(sgjesse): Add tests with non-BMP characters.
@@ -586,7 +594,7 @@ TEST_CASE(SerializeArray) {
     array.SetAt(i, smi);
   }
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(array);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -623,7 +631,7 @@ TEST_CASE(FailSerializeLargeArray) {
 TEST_CASE(FailSerializeLargeNestedArray) {
   Dart_CObject parent;
   Dart_CObject child;
-  Dart_CObject* values[1] = { &child };
+  Dart_CObject* values[1] = {&child};
 
   parent.type = Dart_CObject_kArray;
   parent.value.as_array.length = 1;
@@ -668,7 +676,7 @@ TEST_CASE(SerializeEmptyArray) {
   const int kArrayLength = 0;
   Array& array = Array::Handle(Array::New(kArrayLength));
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(array);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -698,7 +706,7 @@ TEST_CASE(SerializeByteArray) {
     typed_data.SetUint8(i, i);
   }
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(typed_data);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -732,7 +740,7 @@ TEST_CASE(SerializeByteArray) {
       array.Set##darttype((i * scale), i);                                     \
     }                                                                          \
     uint8_t* buffer;                                                           \
-    MessageWriter writer(&buffer, &zone_allocator, true);                      \
+    MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);   \
     writer.WriteMessage(array);                                                \
     intptr_t buffer_len = writer.BytesWritten();                               \
     MessageSnapshotReader reader(buffer, buffer_len, thread);                  \
@@ -740,7 +748,7 @@ TEST_CASE(SerializeByteArray) {
     serialized_array ^= reader.ReadObject();                                   \
     for (int i = 0; i < kArrayLength; i++) {                                   \
       EXPECT_EQ(static_cast<ctype>(i),                                         \
-                serialized_array.Get##darttype(i*scale));                      \
+                serialized_array.Get##darttype(i* scale));                     \
     }                                                                          \
   }
 
@@ -748,14 +756,14 @@ TEST_CASE(SerializeByteArray) {
 #define TEST_EXTERNAL_TYPED_ARRAY(darttype, ctype)                             \
   {                                                                            \
     StackZone zone(thread);                                                    \
-    ctype data[] = { 0, 11, 22, 33, 44, 55, 66, 77 };                          \
+    ctype data[] = {0, 11, 22, 33, 44, 55, 66, 77};                            \
     intptr_t length = ARRAY_SIZE(data);                                        \
     ExternalTypedData& array = ExternalTypedData::Handle(                      \
         ExternalTypedData::New(kExternalTypedData##darttype##ArrayCid,         \
                                reinterpret_cast<uint8_t*>(data), length));     \
     intptr_t scale = array.ElementSizeInBytes();                               \
     uint8_t* buffer;                                                           \
-    MessageWriter writer(&buffer, &zone_allocator, true);                      \
+    MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);   \
     writer.WriteMessage(array);                                                \
     intptr_t buffer_len = writer.BytesWritten();                               \
     MessageSnapshotReader reader(buffer, buffer_len, thread);                  \
@@ -763,7 +771,7 @@ TEST_CASE(SerializeByteArray) {
     serialized_array ^= reader.ReadObject();                                   \
     for (int i = 0; i < length; i++) {                                         \
       EXPECT_EQ(static_cast<ctype>(data[i]),                                   \
-                serialized_array.Get##darttype(i*scale));                      \
+                serialized_array.Get##darttype(i* scale));                     \
     }                                                                          \
   }
 
@@ -802,7 +810,7 @@ TEST_CASE(SerializeEmptyByteArray) {
   TypedData& typed_data = TypedData::Handle(
       TypedData::New(kTypedDataUint8ArrayCid, kTypedDataLength));
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteMessage(typed_data);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -828,26 +836,22 @@ class TestSnapshotWriter : public SnapshotWriter {
  public:
   static const intptr_t kInitialSize = 64 * KB;
   TestSnapshotWriter(uint8_t** buffer, ReAlloc alloc)
-      : SnapshotWriter(Snapshot::kScript,
-                       Thread::Current(),
+      : SnapshotWriter(Thread::Current(),
+                       Snapshot::kScript,
                        buffer,
                        alloc,
+                       NULL,
                        kInitialSize,
                        &forward_list_,
-                       NULL, /* test_writer */
-                       true, /* can_send_any_object */
-                       false, /* snapshot_code */
-                       true /* vm_isolate_is_symbolic */),
+                       true /* can_send_any_object */),
         forward_list_(thread(), kMaxPredefinedObjectIds) {
     ASSERT(buffer != NULL);
     ASSERT(alloc != NULL);
   }
-  ~TestSnapshotWriter() { }
+  ~TestSnapshotWriter() {}
 
   // Writes just a script object
-  void WriteScript(const Script& script) {
-    WriteObject(script.raw());
-  }
+  void WriteScript(const Script& script) { WriteObject(script.raw()); }
 
  private:
   ForwardList forward_list_;
@@ -860,27 +864,25 @@ static void GenerateSourceAndCheck(const Script& script) {
   // Check if we are able to generate the source from the token stream.
   // Rescan this source and compare the token stream to see if they are
   // the same.
-  const TokenStream& expected_tokens = TokenStream::Handle(script.tokens());
-  TokenStream::Iterator expected_iterator(
-      expected_tokens,
-      TokenPosition::kMinSource,
-      TokenStream::Iterator::kAllTokens);
-  const String& str = String::Handle(expected_tokens.GenerateSource());
-  const String& private_key = String::Handle(expected_tokens.PrivateKey());
-  Scanner scanner(str, private_key);
+  Zone* zone = Thread::Current()->zone();
+  const TokenStream& expected_tokens =
+      TokenStream::Handle(zone, script.tokens());
+  TokenStream::Iterator expected_iterator(zone, expected_tokens,
+                                          TokenPosition::kMinSource,
+                                          TokenStream::Iterator::kAllTokens);
+  const String& str = String::Handle(zone, expected_tokens.GenerateSource());
+  const String& private_key =
+      String::Handle(zone, expected_tokens.PrivateKey());
   const TokenStream& reconstructed_tokens =
-      TokenStream::Handle(TokenStream::New(scanner.GetStream(),
-                                           private_key,
-                                           false));
+      TokenStream::Handle(zone, TokenStream::New(str, private_key, false));
   expected_iterator.SetCurrentPosition(TokenPosition::kMinSource);
   TokenStream::Iterator reconstructed_iterator(
-      reconstructed_tokens,
-      TokenPosition::kMinSource,
+      zone, reconstructed_tokens, TokenPosition::kMinSource,
       TokenStream::Iterator::kAllTokens);
   Token::Kind expected_kind = expected_iterator.CurrentTokenKind();
   Token::Kind reconstructed_kind = reconstructed_iterator.CurrentTokenKind();
-  String& expected_literal = String::Handle();
-  String& actual_literal = String::Handle();
+  String& expected_literal = String::Handle(zone);
+  String& actual_literal = String::Handle(zone);
   while (expected_kind != Token::kEOS && reconstructed_kind != Token::kEOS) {
     EXPECT_EQ(expected_kind, reconstructed_kind);
     expected_literal ^= expected_iterator.CurrentLiteral();
@@ -938,14 +940,14 @@ TEST_CASE(SerializeScript) {
       "  }\n"
       "}\n";
 
-  String& url = String::Handle(String::New("dart-test:SerializeScript"));
-  String& source = String::Handle(String::New(kScriptChars));
-  Script& script = Script::Handle(Script::New(url,
-                                              source,
-                                              RawScript::kScriptTag));
-  const String& lib_url = String::Handle(Symbols::New("TestLib"));
-  Library& lib = Library::Handle(Library::New(lib_url));
-  lib.Register();
+  Zone* zone = thread->zone();
+  String& url = String::Handle(zone, String::New("dart-test:SerializeScript"));
+  String& source = String::Handle(zone, String::New(kScriptChars));
+  Script& script =
+      Script::Handle(zone, Script::New(url, source, RawScript::kScriptTag));
+  const String& lib_url = String::Handle(zone, Symbols::New(thread, "TestLib"));
+  Library& lib = Library::Handle(zone, Library::New(lib_url));
+  lib.Register(thread);
   EXPECT(CompilerTest::TestCompileScript(lib, script));
 
   // Write snapshot with script content.
@@ -955,27 +957,28 @@ TEST_CASE(SerializeScript) {
 
   // Read object back from the snapshot.
   ScriptSnapshotReader reader(buffer, writer.BytesWritten(), thread);
-  Script& serialized_script = Script::Handle(thread->zone());
+  Script& serialized_script = Script::Handle(zone);
   serialized_script ^= reader.ReadObject();
 
   // Check if the serialized script object matches the original script.
-  String& expected_literal = String::Handle();
-  String& actual_literal = String::Handle();
-  String& str = String::Handle();
+  String& expected_literal = String::Handle(zone);
+  String& actual_literal = String::Handle(zone);
+  String& str = String::Handle(zone);
   str ^= serialized_script.url();
   EXPECT(url.Equals(str));
 
-  const TokenStream& expected_tokens = TokenStream::Handle(script.tokens());
+  const TokenStream& expected_tokens =
+      TokenStream::Handle(zone, script.tokens());
   const TokenStream& serialized_tokens =
-      TokenStream::Handle(serialized_script.tokens());
+      TokenStream::Handle(zone, serialized_script.tokens());
   const ExternalTypedData& expected_data =
-      ExternalTypedData::Handle(expected_tokens.GetStream());
+      ExternalTypedData::Handle(zone, expected_tokens.GetStream());
   const ExternalTypedData& serialized_data =
-      ExternalTypedData::Handle(serialized_tokens.GetStream());
+      ExternalTypedData::Handle(zone, serialized_tokens.GetStream());
   EXPECT_EQ(expected_data.Length(), serialized_data.Length());
-  TokenStream::Iterator expected_iterator(expected_tokens,
+  TokenStream::Iterator expected_iterator(zone, expected_tokens,
                                           TokenPosition::kMinSource);
-  TokenStream::Iterator serialized_iterator(serialized_tokens,
+  TokenStream::Iterator serialized_iterator(zone, serialized_tokens,
                                             TokenPosition::kMinSource);
   Token::Kind expected_kind = expected_iterator.CurrentTokenKind();
   Token::Kind serialized_kind = serialized_iterator.CurrentTokenKind();
@@ -1000,7 +1003,7 @@ TEST_CASE(SerializeScript) {
 
 
 #if !defined(PRODUCT)  // Uses deferred loading.
-UNIT_TEST_CASE(CanonicalizationInScriptSnapshots) {
+VM_UNIT_TEST_CASE(CanonicalizationInScriptSnapshots) {
   const char* kScriptChars =
       "\n"
       "import 'dart:mirrors';"
@@ -1036,10 +1039,8 @@ UNIT_TEST_CASE(CanonicalizationInScriptSnapshots) {
     Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
 
     // Write out the script snapshot.
-    result = Dart_CreateSnapshot(NULL,
-                                 &vm_isolate_snapshot_size,
-                                 &isolate_snapshot,
-                                 &isolate_snapshot_size);
+    result = Dart_CreateSnapshot(NULL, &vm_isolate_snapshot_size,
+                                 &isolate_snapshot, &isolate_snapshot_size);
     EXPECT_VALID(result);
     full_snapshot = reinterpret_cast<uint8_t*>(malloc(isolate_snapshot_size));
     memmove(full_snapshot, isolate_snapshot, isolate_snapshot_size);
@@ -1121,11 +1122,16 @@ static void IterateScripts(const Library& lib) {
   }
 }
 
-VM_TEST_CASE(GenerateSource) {
+ISOLATE_UNIT_TEST_CASE(GenerateSource) {
+  // Disable stack trace collection for this test as it results in a timeout.
+  bool stack_trace_collection_enabled =
+      MallocHooks::stack_trace_collection_enabled();
+  MallocHooks::set_stack_trace_collection_enabled(false);
+
   Zone* zone = thread->zone();
   Isolate* isolate = thread->isolate();
-  const GrowableObjectArray& libs = GrowableObjectArray::Handle(
-      zone, isolate->object_store()->libraries());
+  const GrowableObjectArray& libs =
+      GrowableObjectArray::Handle(zone, isolate->object_store()->libraries());
   Library& lib = Library::Handle();
   String& uri = String::Handle();
   for (intptr_t i = 0; i < libs.Length(); i++) {
@@ -1135,10 +1141,13 @@ VM_TEST_CASE(GenerateSource) {
     OS::Print("Generating source for library: %s\n", uri.ToCString());
     IterateScripts(lib);
   }
+
+  MallocHooks::set_stack_trace_collection_enabled(
+      stack_trace_collection_enabled);
 }
 
 
-UNIT_TEST_CASE(FullSnapshot) {
+VM_UNIT_TEST_CASE(FullSnapshot) {
   const char* kScriptChars =
       "class Fields  {\n"
       "  Fields(int i, int j) : fld1 = i, fld2 = j {}\n"
@@ -1164,7 +1173,7 @@ UNIT_TEST_CASE(FullSnapshot) {
       "}\n";
   Dart_Handle result;
 
-  uint8_t* isolate_snapshot_buffer;
+  uint8_t* isolate_snapshot_data_buffer;
 
   // Start an Isolate, load a script and create a full snapshot.
   Timer timer1(true, "Snapshot_test");
@@ -1184,12 +1193,9 @@ UNIT_TEST_CASE(FullSnapshot) {
 
     // Write snapshot with object content.
     {
-      FullSnapshotWriter writer(NULL,
-                                &isolate_snapshot_buffer,
-                                NULL, /* instructions_snapshot_buffer */
-                                &malloc_allocator,
-                                false, /* snapshot_code */
-                                true);
+      FullSnapshotWriter writer(
+          Snapshot::kCore, NULL, &isolate_snapshot_data_buffer,
+          &malloc_allocator, NULL, NULL /* image_writer */);
       writer.WriteFullSnapshot();
     }
   }
@@ -1198,25 +1204,24 @@ UNIT_TEST_CASE(FullSnapshot) {
   // from the script.
   Timer timer2(true, "Snapshot_test");
   timer2.Start();
-  TestCase::CreateTestIsolateFromSnapshot(isolate_snapshot_buffer);
+  TestCase::CreateTestIsolateFromSnapshot(isolate_snapshot_data_buffer);
   {
     Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
     timer2.Stop();
     OS::PrintErr("From Snapshot: %" Pd64 "us\n", timer2.TotalElapsedTime());
 
     // Invoke a function which returns an object.
-    Dart_Handle cls =
-        Dart_GetClass(TestCase::lib(), NewString("FieldsTest"));
+    Dart_Handle cls = Dart_GetClass(TestCase::lib(), NewString("FieldsTest"));
     result = Dart_Invoke(cls, NewString("testMain"), 0, NULL);
     EXPECT_VALID(result);
     Dart_ExitScope();
   }
   Dart_ShutdownIsolate();
-  free(isolate_snapshot_buffer);
+  free(isolate_snapshot_data_buffer);
 }
 
 
-UNIT_TEST_CASE(FullSnapshot1) {
+VM_UNIT_TEST_CASE(FullSnapshot1) {
   // This buffer has to be static for this to compile with Visual Studio.
   // If it is not static compilation of this file with Visual Studio takes
   // more than 30 minutes!
@@ -1225,7 +1230,7 @@ UNIT_TEST_CASE(FullSnapshot1) {
   };
   const char* kScriptChars = kFullSnapshotScriptChars;
 
-  uint8_t* isolate_snapshot_buffer;
+  uint8_t* isolate_snapshot_data_buffer;
 
   // Start an Isolate, load a script and create a full snapshot.
   Timer timer1(true, "Snapshot_test");
@@ -1245,12 +1250,9 @@ UNIT_TEST_CASE(FullSnapshot1) {
 
     // Write snapshot with object content.
     {
-      FullSnapshotWriter writer(NULL,
-                                &isolate_snapshot_buffer,
-                                NULL, /* instructions_snapshot_buffer */
-                                &malloc_allocator,
-                                false, /* snapshot_code */
-                                true /* vm_isolate_is_symbolic */);
+      FullSnapshotWriter writer(
+          Snapshot::kCore, NULL, &isolate_snapshot_data_buffer,
+          &malloc_allocator, NULL, NULL /* image_writer */);
       writer.WriteFullSnapshot();
     }
 
@@ -1264,15 +1266,14 @@ UNIT_TEST_CASE(FullSnapshot1) {
   // from the script.
   Timer timer2(true, "Snapshot_test");
   timer2.Start();
-  TestCase::CreateTestIsolateFromSnapshot(isolate_snapshot_buffer);
+  TestCase::CreateTestIsolateFromSnapshot(isolate_snapshot_data_buffer);
   {
     Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
     timer2.Stop();
     OS::PrintErr("From Snapshot: %" Pd64 "us\n", timer2.TotalElapsedTime());
 
     // Invoke a function which returns an object.
-    Dart_Handle cls = Dart_GetClass(TestCase::lib(),
-                                    NewString("FieldsTest"));
+    Dart_Handle cls = Dart_GetClass(TestCase::lib(), NewString("FieldsTest"));
     Dart_Handle result = Dart_Invoke(cls, NewString("testMain"), 0, NULL);
     if (Dart_IsError(result)) {
       // Print the error.  It is probably an unhandled exception.
@@ -1282,14 +1283,14 @@ UNIT_TEST_CASE(FullSnapshot1) {
     Dart_ExitScope();
   }
   Dart_ShutdownIsolate();
-  free(isolate_snapshot_buffer);
+  free(isolate_snapshot_data_buffer);
 }
 
 
 #ifndef PRODUCT
 
 
-UNIT_TEST_CASE(ScriptSnapshot) {
+VM_UNIT_TEST_CASE(ScriptSnapshot) {
   const char* kLibScriptChars =
       "library dart_import_lib;"
       "class LibFields  {"
@@ -1351,10 +1352,8 @@ UNIT_TEST_CASE(ScriptSnapshot) {
     Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
 
     // Write out the script snapshot.
-    result = Dart_CreateSnapshot(NULL,
-                                 &vm_isolate_snapshot_size,
-                                 &isolate_snapshot,
-                                 &isolate_snapshot_size);
+    result = Dart_CreateSnapshot(NULL, &vm_isolate_snapshot_size,
+                                 &isolate_snapshot, &isolate_snapshot_size);
     EXPECT_VALID(result);
     full_snapshot = reinterpret_cast<uint8_t*>(malloc(isolate_snapshot_size));
     memmove(full_snapshot, isolate_snapshot, isolate_snapshot_size);
@@ -1370,17 +1369,16 @@ UNIT_TEST_CASE(ScriptSnapshot) {
     Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
 
     // Load the library.
-    Dart_Handle import_lib = Dart_LoadLibrary(NewString("dart_import_lib"),
-                                              NewString(kLibScriptChars),
-                                              0, 0);
+    Dart_Handle import_lib =
+        Dart_LoadLibrary(NewString("dart_import_lib"), Dart_Null(),
+                         NewString(kLibScriptChars), 0, 0);
     EXPECT_VALID(import_lib);
 
     // Create a test library and Load up a test script in it.
     TestCase::LoadTestScript(kScriptChars, NULL);
 
-    EXPECT_VALID(Dart_LibraryImportLibrary(TestCase::lib(),
-                                           import_lib,
-                                           Dart_Null()));
+    EXPECT_VALID(
+        Dart_LibraryImportLibrary(TestCase::lib(), import_lib, Dart_Null()));
     EXPECT_VALID(Api::CheckAndFinalizePendingClasses(Thread::Current()));
 
     // Get list of library URLs loaded and save the count.
@@ -1422,59 +1420,17 @@ UNIT_TEST_CASE(ScriptSnapshot) {
     Dart_ExitScope();
     Dart_ShutdownIsolate();
   }
-  free(script_snapshot);
-
-  // Test for Dart_CreateLibrarySnapshot.
-  {
-    // Create an Isolate using the full snapshot, load a script and create
-    // a script snapshot of the script.
-    TestCase::CreateTestIsolateFromSnapshot(full_snapshot);
-    Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
-
-    // Load the library.
-    Dart_Handle lib = Dart_LoadLibrary(NewString("dart_lib"),
-                                       NewString(kScriptChars),
-                                       0, 0);
-    EXPECT_VALID(lib);
-
-    // Write out the script snapshot.
-    result = Dart_CreateLibrarySnapshot(lib, &buffer, &size);
-    EXPECT_VALID(result);
-    script_snapshot = reinterpret_cast<uint8_t*>(malloc(size));
-    memmove(script_snapshot, buffer, size);
-    Dart_ExitScope();
-    Dart_ShutdownIsolate();
-  }
-
-  {
-    // Now Create an Isolate using the full snapshot and load the
-    // script snapshot created above and execute it.
-    TestCase::CreateTestIsolateFromSnapshot(full_snapshot);
-    Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
-
-    // Load the test library from the snapshot.
-    EXPECT(script_snapshot != NULL);
-    result = Dart_LoadScriptFromSnapshot(script_snapshot, size);
-    EXPECT_VALID(result);
-
-    // Invoke a function which returns an object.
-    Dart_Handle cls = Dart_GetClass(result, NewString("FieldsTest"));
-    result = Dart_Invoke(cls, NewString("testMain"), 0, NULL);
-    EXPECT_VALID(result);
-    Dart_ExitScope();
-    Dart_ShutdownIsolate();
-  }
   free(full_snapshot);
   free(script_snapshot);
 }
 
 
-UNIT_TEST_CASE(ScriptSnapshot1) {
+VM_UNIT_TEST_CASE(ScriptSnapshot1) {
   const char* kScriptChars =
-    "class _SimpleNumEnumerable<T extends num> {"
+      "class _SimpleNumEnumerable<T extends num> {"
       "final Iterable<T> _source;"
       "const _SimpleNumEnumerable(this._source) : super();"
-    "}";
+      "}";
 
   Dart_Handle result;
   uint8_t* buffer;
@@ -1495,10 +1451,8 @@ UNIT_TEST_CASE(ScriptSnapshot1) {
     Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
 
     // Write out the script snapshot.
-    result = Dart_CreateSnapshot(NULL,
-                                 &vm_isolate_snapshot_size,
-                                 &isolate_snapshot,
-                                 &isolate_snapshot_size);
+    result = Dart_CreateSnapshot(NULL, &vm_isolate_snapshot_size,
+                                 &isolate_snapshot, &isolate_snapshot_size);
     EXPECT_VALID(result);
     full_snapshot = reinterpret_cast<uint8_t*>(malloc(isolate_snapshot_size));
     memmove(full_snapshot, isolate_snapshot, isolate_snapshot_size);
@@ -1544,7 +1498,7 @@ UNIT_TEST_CASE(ScriptSnapshot1) {
 }
 
 
-UNIT_TEST_CASE(ScriptSnapshot2) {
+VM_UNIT_TEST_CASE(ScriptSnapshot2) {
   // The snapshot of this library is always created in production mode, but
   // loaded and executed in both production and checked modes.
   // This test verifies that type information is still contained in the snapshot
@@ -1589,10 +1543,8 @@ UNIT_TEST_CASE(ScriptSnapshot2) {
     Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
 
     // Write out the script snapshot.
-    result = Dart_CreateSnapshot(NULL,
-                                 &vm_isolate_snapshot_size,
-                                 &isolate_snapshot,
-                                 &isolate_snapshot_size);
+    result = Dart_CreateSnapshot(NULL, &vm_isolate_snapshot_size,
+                                 &isolate_snapshot, &isolate_snapshot_size);
     EXPECT_VALID(result);
     full_snapshot = reinterpret_cast<uint8_t*>(malloc(isolate_snapshot_size));
     memmove(full_snapshot, isolate_snapshot, isolate_snapshot_size);
@@ -1607,17 +1559,16 @@ UNIT_TEST_CASE(ScriptSnapshot2) {
     Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
 
     // Load the library.
-    Dart_Handle import_lib = Dart_LoadLibrary(NewString("dart_import_lib"),
-                                              NewString(kLibScriptChars),
-                                              0, 0);
+    Dart_Handle import_lib =
+        Dart_LoadLibrary(NewString("dart_import_lib"), Dart_Null(),
+                         NewString(kLibScriptChars), 0, 0);
     EXPECT_VALID(import_lib);
 
     // Create a test library and Load up a test script in it.
     TestCase::LoadTestScript(kScriptChars, NULL);
 
-    EXPECT_VALID(Dart_LibraryImportLibrary(TestCase::lib(),
-                                           import_lib,
-                                           Dart_Null()));
+    EXPECT_VALID(
+        Dart_LibraryImportLibrary(TestCase::lib(), import_lib, Dart_Null()));
     EXPECT_VALID(Api::CheckAndFinalizePendingClasses(Thread::Current()));
 
     // Write out the script snapshot.
@@ -1655,6 +1606,90 @@ UNIT_TEST_CASE(ScriptSnapshot2) {
     // Invoke the test_b function.
     result = Dart_Invoke(lib, NewString("test_b"), 0, NULL);
     EXPECT(Dart_IsError(result) == saved_enable_type_checks_mode);
+    Dart_ExitScope();
+  }
+  Dart_ShutdownIsolate();
+  free(full_snapshot);
+  free(script_snapshot);
+}
+
+
+VM_UNIT_TEST_CASE(MismatchedSnapshotKinds) {
+  const char* kScriptChars = "main() { print('Hello, world!'); }";
+  Dart_Handle result;
+
+  uint8_t* buffer;
+  intptr_t size;
+  intptr_t vm_isolate_snapshot_size;
+  uint8_t* isolate_snapshot = NULL;
+  intptr_t isolate_snapshot_size;
+  uint8_t* full_snapshot = NULL;
+  uint8_t* script_snapshot = NULL;
+
+  bool saved_load_deferred_eagerly_mode = FLAG_load_deferred_eagerly;
+  FLAG_load_deferred_eagerly = true;
+  bool saved_concurrent_sweep_mode = FLAG_concurrent_sweep;
+  FLAG_concurrent_sweep = false;
+  {
+    // Start an Isolate, and create a full snapshot of it.
+    TestIsolateScope __test_isolate__;
+    Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
+
+    // Write out the script snapshot.
+    result = Dart_CreateSnapshot(NULL, &vm_isolate_snapshot_size,
+                                 &isolate_snapshot, &isolate_snapshot_size);
+    EXPECT_VALID(result);
+    full_snapshot = reinterpret_cast<uint8_t*>(malloc(isolate_snapshot_size));
+    memmove(full_snapshot, isolate_snapshot, isolate_snapshot_size);
+    Dart_ExitScope();
+  }
+  FLAG_concurrent_sweep = saved_concurrent_sweep_mode;
+  FLAG_load_deferred_eagerly = saved_load_deferred_eagerly_mode;
+
+  {
+    // Create an Isolate using the full snapshot, load a script and create
+    // a script snapshot of the script.
+    TestCase::CreateTestIsolateFromSnapshot(full_snapshot);
+    Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
+
+    // Create a test library and Load up a test script in it.
+    TestCase::LoadTestScript(kScriptChars, NULL);
+
+    EXPECT_VALID(Api::CheckAndFinalizePendingClasses(Thread::Current()));
+
+    // Write out the script snapshot.
+    result = Dart_CreateScriptSnapshot(&buffer, &size);
+    EXPECT_VALID(result);
+    script_snapshot = reinterpret_cast<uint8_t*>(malloc(size));
+    memmove(script_snapshot, buffer, size);
+    Dart_ExitScope();
+    Dart_ShutdownIsolate();
+  }
+
+  {
+    // Use a script snapshot where a full snapshot is expected.
+    char* error = NULL;
+    Dart_Isolate isolate = Dart_CreateIsolate(
+        "script-uri", "main", script_snapshot, NULL, NULL, NULL, &error);
+    EXPECT(isolate == NULL);
+    EXPECT(error != NULL);
+    EXPECT_SUBSTRING(
+        "Incompatible snapshot kinds:"
+        " vm 'core', isolate 'script'",
+        error);
+    free(error);
+  }
+
+  {
+    TestCase::CreateTestIsolateFromSnapshot(full_snapshot);
+    Dart_EnterScope();  // Start a Dart API scope for invoking API functions.
+
+    // Use a full snapshot where a script snapshot is expected.
+    Dart_Handle result = Dart_LoadScriptFromSnapshot(full_snapshot, size);
+    EXPECT_ERROR(result,
+                 "Dart_LoadScriptFromSnapshot expects parameter"
+                 " 'buffer' to be a script type snapshot.");
+
     Dart_ExitScope();
   }
   Dart_ShutdownIsolate();
@@ -1702,7 +1737,7 @@ static uint8_t* GetSerialized(Dart_Handle lib,
 
   // Serialize the object into a message.
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, false);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, false);
   writer.WriteMessage(obj);
   *buffer_len = writer.BytesWritten();
   return buffer;
@@ -1722,7 +1757,7 @@ static void CheckString(Dart_Handle dart_string, const char* expected) {
   String& str = String::Handle();
   str ^= Api::UnwrapHandle(dart_string);
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, false);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, false);
   writer.WriteMessage(str);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -1742,7 +1777,7 @@ static void CheckStringInvalid(Dart_Handle dart_string) {
   String& str = String::Handle();
   str ^= Api::UnwrapHandle(dart_string);
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, false);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, false);
   writer.WriteMessage(str);
   intptr_t buffer_len = writer.BytesWritten();
 
@@ -1755,7 +1790,7 @@ static void CheckStringInvalid(Dart_Handle dart_string) {
 }
 
 
-UNIT_TEST_CASE(DartGeneratedMessages) {
+VM_UNIT_TEST_CASE(DartGeneratedMessages) {
   static const char* kCustomIsolateScriptChars =
       "getSmi() {\n"
       "  return 42;\n"
@@ -1793,8 +1828,7 @@ UNIT_TEST_CASE(DartGeneratedMessages) {
   EXPECT(isolate != NULL);
   Dart_EnterScope();
 
-  Dart_Handle lib = TestCase::LoadTestScript(kCustomIsolateScriptChars,
-                                             NULL);
+  Dart_Handle lib = TestCase::LoadTestScript(kCustomIsolateScriptChars, NULL);
   EXPECT_VALID(lib);
   Dart_Handle smi_result;
   smi_result = Dart_Invoke(lib, NewString("getSmi"), 0, NULL);
@@ -1854,7 +1888,7 @@ UNIT_TEST_CASE(DartGeneratedMessages) {
       Smi& smi = Smi::Handle();
       smi ^= Api::UnwrapHandle(smi_result);
       uint8_t* buffer;
-      MessageWriter writer(&buffer, &zone_allocator, false);
+      MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, false);
       writer.WriteMessage(smi);
       intptr_t buffer_len = writer.BytesWritten();
 
@@ -1872,7 +1906,7 @@ UNIT_TEST_CASE(DartGeneratedMessages) {
       Bigint& bigint = Bigint::Handle();
       bigint ^= Api::UnwrapHandle(bigint_result);
       uint8_t* buffer;
-      MessageWriter writer(&buffer, &zone_allocator, false);
+      MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, false);
       writer.WriteMessage(bigint);
       intptr_t buffer_len = writer.BytesWritten();
 
@@ -1904,7 +1938,7 @@ UNIT_TEST_CASE(DartGeneratedMessages) {
 }
 
 
-UNIT_TEST_CASE(DartGeneratedListMessages) {
+VM_UNIT_TEST_CASE(DartGeneratedListMessages) {
   const int kArrayLength = 10;
   static const char* kScriptChars =
       "final int kArrayLength = 10;\n"
@@ -2015,7 +2049,7 @@ UNIT_TEST_CASE(DartGeneratedListMessages) {
 }
 
 
-UNIT_TEST_CASE(DartGeneratedArrayLiteralMessages) {
+VM_UNIT_TEST_CASE(DartGeneratedArrayLiteralMessages) {
   const int kArrayLength = 10;
   static const char* kScriptChars =
       "final int kArrayLength = 10;\n"
@@ -2236,7 +2270,7 @@ UNIT_TEST_CASE(DartGeneratedArrayLiteralMessages) {
 }
 
 
-UNIT_TEST_CASE(DartGeneratedListMessagesWithBackref) {
+VM_UNIT_TEST_CASE(DartGeneratedListMessagesWithBackref) {
   const int kArrayLength = 10;
   static const char* kScriptChars =
       "import 'dart:typed_data';\n"
@@ -2456,7 +2490,7 @@ UNIT_TEST_CASE(DartGeneratedListMessagesWithBackref) {
 }
 
 
-UNIT_TEST_CASE(DartGeneratedArrayLiteralMessagesWithBackref) {
+VM_UNIT_TEST_CASE(DartGeneratedArrayLiteralMessagesWithBackref) {
   const int kArrayLength = 10;
   static const char* kScriptChars =
       "import 'dart:typed_data';\n"
@@ -2686,12 +2720,12 @@ UNIT_TEST_CASE(DartGeneratedArrayLiteralMessagesWithBackref) {
 static void CheckTypedData(Dart_CObject* object,
                            Dart_TypedData_Type typed_data_type,
                            int len) {
-    EXPECT_EQ(Dart_CObject_kTypedData, object->type);
-    EXPECT_EQ(typed_data_type, object->value.as_typed_data.type);
-    EXPECT_EQ(len, object->value.as_typed_data.length);
+  EXPECT_EQ(Dart_CObject_kTypedData, object->type);
+  EXPECT_EQ(typed_data_type, object->value.as_typed_data.type);
+  EXPECT_EQ(len, object->value.as_typed_data.length);
 }
 
-UNIT_TEST_CASE(DartGeneratedListMessagesWithTypedData) {
+VM_UNIT_TEST_CASE(DartGeneratedListMessagesWithTypedData) {
   static const char* kScriptChars =
       "import 'dart:typed_data';\n"
       "getTypedDataList() {\n"
@@ -2787,23 +2821,16 @@ UNIT_TEST_CASE(DartGeneratedListMessagesWithTypedData) {
         Dart_TypedData_Type type;
         int size;
       } expected[] = {
-        { Dart_TypedData_kInt8, 256},
-        { Dart_TypedData_kUint8, 256},
-        { Dart_TypedData_kInt16, 512},
-        { Dart_TypedData_kUint16, 512},
-        { Dart_TypedData_kInt32, 1024},
-        { Dart_TypedData_kUint32, 1024},
-        { Dart_TypedData_kInt64, 2048},
-        { Dart_TypedData_kUint64, 2048},
-        { Dart_TypedData_kFloat32, 1024},
-        { Dart_TypedData_kFloat64, 2048},
-        { Dart_TypedData_kInvalid, -1 }
-      };
+          {Dart_TypedData_kInt8, 256},     {Dart_TypedData_kUint8, 256},
+          {Dart_TypedData_kInt16, 512},    {Dart_TypedData_kUint16, 512},
+          {Dart_TypedData_kInt32, 1024},   {Dart_TypedData_kUint32, 1024},
+          {Dart_TypedData_kInt64, 2048},   {Dart_TypedData_kUint64, 2048},
+          {Dart_TypedData_kFloat32, 1024}, {Dart_TypedData_kFloat64, 2048},
+          {Dart_TypedData_kInvalid, -1}};
 
       int i = 0;
       while (expected[i].type != Dart_TypedData_kInvalid) {
-        CheckTypedData(root->value.as_array.values[i],
-                       expected[i].type,
+        CheckTypedData(root->value.as_array.values[i], expected[i].type,
                        expected[i].size);
         i++;
       }
@@ -2820,46 +2847,29 @@ UNIT_TEST_CASE(DartGeneratedListMessagesWithTypedData) {
         Dart_TypedData_Type type;
         int size;
       } expected[] = {
-        { Dart_TypedData_kInt8, 256},
-        { Dart_TypedData_kUint8, 256},
-        { Dart_TypedData_kInt16, 512},
-        { Dart_TypedData_kUint16, 512},
-        { Dart_TypedData_kInt32, 1024},
-        { Dart_TypedData_kUint32, 1024},
-        { Dart_TypedData_kInt64, 2048},
-        { Dart_TypedData_kUint64, 2048},
-        { Dart_TypedData_kFloat32, 1024},
-        { Dart_TypedData_kFloat64, 2048},
+          {Dart_TypedData_kInt8, 256},     {Dart_TypedData_kUint8, 256},
+          {Dart_TypedData_kInt16, 512},    {Dart_TypedData_kUint16, 512},
+          {Dart_TypedData_kInt32, 1024},   {Dart_TypedData_kUint32, 1024},
+          {Dart_TypedData_kInt64, 2048},   {Dart_TypedData_kUint64, 2048},
+          {Dart_TypedData_kFloat32, 1024}, {Dart_TypedData_kFloat64, 2048},
 
-        { Dart_TypedData_kInt8, 512},
-        { Dart_TypedData_kUint8, 512},
-        { Dart_TypedData_kInt8, 1024},
-        { Dart_TypedData_kUint8, 1024},
-        { Dart_TypedData_kInt8, 2048},
-        { Dart_TypedData_kUint8, 2048},
-        { Dart_TypedData_kInt8, 1024},
-        { Dart_TypedData_kUint8, 1024},
-        { Dart_TypedData_kInt8, 2048},
-        { Dart_TypedData_kUint8, 2048},
+          {Dart_TypedData_kInt8, 512},     {Dart_TypedData_kUint8, 512},
+          {Dart_TypedData_kInt8, 1024},    {Dart_TypedData_kUint8, 1024},
+          {Dart_TypedData_kInt8, 2048},    {Dart_TypedData_kUint8, 2048},
+          {Dart_TypedData_kInt8, 1024},    {Dart_TypedData_kUint8, 1024},
+          {Dart_TypedData_kInt8, 2048},    {Dart_TypedData_kUint8, 2048},
 
-        { Dart_TypedData_kInt16, 256},
-        { Dart_TypedData_kUint16, 256},
-        { Dart_TypedData_kInt16, 1024},
-        { Dart_TypedData_kUint16, 1024},
-        { Dart_TypedData_kInt16, 2048},
-        { Dart_TypedData_kUint16, 2048},
-        { Dart_TypedData_kInt16, 1024},
-        { Dart_TypedData_kUint16, 1024},
-        { Dart_TypedData_kInt16, 2048},
-        { Dart_TypedData_kUint16, 2048},
+          {Dart_TypedData_kInt16, 256},    {Dart_TypedData_kUint16, 256},
+          {Dart_TypedData_kInt16, 1024},   {Dart_TypedData_kUint16, 1024},
+          {Dart_TypedData_kInt16, 2048},   {Dart_TypedData_kUint16, 2048},
+          {Dart_TypedData_kInt16, 1024},   {Dart_TypedData_kUint16, 1024},
+          {Dart_TypedData_kInt16, 2048},   {Dart_TypedData_kUint16, 2048},
 
-        { Dart_TypedData_kInvalid, -1 }
-      };
+          {Dart_TypedData_kInvalid, -1}};
 
       int i = 0;
       while (expected[i].type != Dart_TypedData_kInvalid) {
-        CheckTypedData(root->value.as_array.values[i],
-                       expected[i].type,
+        CheckTypedData(root->value.as_array.values[i], expected[i].type,
                        expected[i].size);
         i++;
       }
@@ -2877,23 +2887,16 @@ UNIT_TEST_CASE(DartGeneratedListMessagesWithTypedData) {
         Dart_TypedData_Type type;
         int size;
       } expected[] = {
-        { Dart_TypedData_kInt8, 256},
-        { Dart_TypedData_kUint8, 256},
-        { Dart_TypedData_kInt16, 256},
-        { Dart_TypedData_kUint16, 256},
-        { Dart_TypedData_kInt32, 256},
-        { Dart_TypedData_kUint32, 256},
-        { Dart_TypedData_kInt64, 256},
-        { Dart_TypedData_kUint64, 256},
-        { Dart_TypedData_kFloat32, 256},
-        { Dart_TypedData_kFloat64, 256},
-        { Dart_TypedData_kInvalid, -1 }
-      };
+          {Dart_TypedData_kInt8, 256},    {Dart_TypedData_kUint8, 256},
+          {Dart_TypedData_kInt16, 256},   {Dart_TypedData_kUint16, 256},
+          {Dart_TypedData_kInt32, 256},   {Dart_TypedData_kUint32, 256},
+          {Dart_TypedData_kInt64, 256},   {Dart_TypedData_kUint64, 256},
+          {Dart_TypedData_kFloat32, 256}, {Dart_TypedData_kFloat64, 256},
+          {Dart_TypedData_kInvalid, -1}};
 
       int i = 0;
       while (expected[i].type != Dart_TypedData_kInvalid) {
-        CheckTypedData(root->value.as_array.values[i],
-                       expected[i].type,
+        CheckTypedData(root->value.as_array.values[i], expected[i].type,
                        expected[i].size);
 
         // All views point to the same data.
@@ -2909,7 +2912,7 @@ UNIT_TEST_CASE(DartGeneratedListMessagesWithTypedData) {
 }
 
 
-UNIT_TEST_CASE(PostCObject) {
+VM_UNIT_TEST_CASE(PostCObject) {
   // Create a native port for posting from C to Dart
   TestIsolateScope __test_isolate__;
   const char* kScriptChars =
@@ -2920,7 +2923,7 @@ UNIT_TEST_CASE(PostCObject) {
       "  var port = new RawReceivePort();\n"
       "  var sendPort = port.sendPort;\n"
       "  port.handler = (message) {\n"
-      "    if (messageCount < 8) {\n"
+      "    if (messageCount < 9) {\n"
       "      exception = '$exception${message}';\n"
       "    } else {\n"
       "      exception = '$exception${message.length}';\n"
@@ -2929,7 +2932,7 @@ UNIT_TEST_CASE(PostCObject) {
       "      }\n"
       "    }\n"
       "    messageCount++;\n"
-      "    if (messageCount == 9) throw new Exception(exception);\n"
+      "    if (messageCount == 10) throw new Exception(exception);\n"
       "  };\n"
       "  return sendPort;\n"
       "}\n";
@@ -2968,6 +2971,10 @@ UNIT_TEST_CASE(PostCObject) {
   object.value.as_string = const_cast<char*>("æøå");
   EXPECT(Dart_PostCObject(port_id, &object));
 
+  object.type = Dart_CObject_kString;
+  object.value.as_string = const_cast<char*>("");
+  EXPECT(Dart_PostCObject(port_id, &object));
+
   object.type = Dart_CObject_kDouble;
   object.value.as_double = 3.14;
   EXPECT(Dart_PostCObject(port_id, &object));
@@ -2977,18 +2984,14 @@ UNIT_TEST_CASE(PostCObject) {
   EXPECT(Dart_PostCObject(port_id, &object));
 
   static const int kArrayLength = 10;
-  Dart_CObject* array =
-      reinterpret_cast<Dart_CObject*>(
-          Dart_ScopeAllocate(
-              sizeof(Dart_CObject) + sizeof(Dart_CObject*) * kArrayLength));  // NOLINT
+  Dart_CObject* array = reinterpret_cast<Dart_CObject*>(Dart_ScopeAllocate(
+      sizeof(Dart_CObject) + sizeof(Dart_CObject*) * kArrayLength));  // NOLINT
   array->type = Dart_CObject_kArray;
   array->value.as_array.length = kArrayLength;
-  array->value.as_array.values =
-      reinterpret_cast<Dart_CObject**>(array + 1);
+  array->value.as_array.values = reinterpret_cast<Dart_CObject**>(array + 1);
   for (int i = 0; i < kArrayLength; i++) {
-    Dart_CObject* element =
-        reinterpret_cast<Dart_CObject*>(
-            Dart_ScopeAllocate(sizeof(Dart_CObject)));
+    Dart_CObject* element = reinterpret_cast<Dart_CObject*>(
+        Dart_ScopeAllocate(sizeof(Dart_CObject)));
     element->type = Dart_CObject_kInt32;
     element->value.as_int32 = i;
     array->value.as_array.values[i] = element;
@@ -3008,7 +3011,7 @@ UNIT_TEST_CASE(PostCObject) {
 TEST_CASE(OmittedObjectEncodingLength) {
   StackZone zone(Thread::Current());
   uint8_t* buffer;
-  MessageWriter writer(&buffer, &zone_allocator, true);
+  MessageWriter writer(&buffer, &zone_allocator, &zone_deallocator, true);
   writer.WriteInlinedObjectHeader(kOmittedObjectId);
   // For performance, we'd like single-byte headers when ids are omitted.
   // If this starts failing, consider renumbering the snapshot ids.

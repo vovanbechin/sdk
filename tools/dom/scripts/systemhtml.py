@@ -19,6 +19,21 @@ _logger = logging.getLogger('systemhtml')
 HTML_LIBRARY_NAMES = ['html', 'indexed_db', 'svg',
                       'web_audio', 'web_gl', 'web_sql']
 
+# The following two sets let us avoid shadowing fields with properties.
+# This information could be derived from the IDL files but would require
+# a significant refactor to compute accurately. Instead we manually compute
+# these sets based on manual triage of strong mode errors.
+_force_property_members = monitored.Set('systemhtml._force_property_members', [
+    'Element.outerHtml',
+    'Element.isContentEditable',
+    'AudioContext.createGain',
+    'AudioContext.createScriptProcessor',
+    ])
+_safe_to_ignore_shadowing_members = monitored.Set('systemhtml._safe_to_ignore_shadowing_members', [
+    'SVGElement.tabIndex',
+    'SVGStyleElement.title',
+    ])
+
 _js_custom_members = monitored.Set('systemhtml._js_custom_members', [
     'AudioBufferSourceNode.start',
     'AudioBufferSourceNode.stop',
@@ -58,6 +73,10 @@ _js_custom_members = monitored.Set('systemhtml._js_custom_members', [
     'Document.createTreeWalker',
     'DOMException.name',
     'DOMException.toString',
+    # ListMixin already provides this method although the implementation
+    # is slower. As this class is obsolete anyway, we ignore the slowdown in
+    # DOMStringList performance.
+    'DOMStringList.contains',
     'Element.animate',
     'Element.createShadowRoot',
     'Element.insertAdjacentElement',
@@ -444,6 +463,21 @@ js_support_checks = dict({
             else ElemSupportStr(_html_element_constructors[key])) for key in
     _js_support_checks_basic_element_with_constructors +
     _js_support_checks_additional_element).items())
+
+
+# JavaScript element class names of elements for which createElement does not
+# always return exactly the right element, either because it might not be
+# supported, or some browser does something weird.
+_js_unreliable_element_factories = set(
+    _js_support_checks_basic_element_with_constructors +
+    _js_support_checks_additional_element +
+    [
+        'HTMLEmbedElement',
+        'HTMLObjectElement',
+        'HTMLShadowElement',
+        'HTMLTemplateElement',
+    ])
+
 # ------------------------------------------------------------------------------
 
 class HtmlDartInterfaceGenerator(object):
@@ -535,7 +569,7 @@ class HtmlDartInterfaceGenerator(object):
     base_type_info = None
     if self._interface.parents:
       supertype = self._interface.parents[0].type.id
-      if not IsDartCollectionType(supertype) and not IsPureInterface(supertype):
+      if not IsDartCollectionType(supertype) and not IsPureInterface(supertype, self._database):
         base_type_info = self._type_registry.TypeInfo(supertype)
 
     if base_type_info:
@@ -575,7 +609,7 @@ class HtmlDartInterfaceGenerator(object):
 
     class_modifiers = ''
     if (self._renamer.ShouldSuppressInterface(self._interface) or
-      IsPureInterface(self._interface.id)):
+      IsPureInterface(self._interface.id, self._database)):
       # XMLHttpRequestProgressEvent can't be abstract we need to instantiate
       # for JsInterop.
       if (not(isinstance(self._backend, Dart2JSBackend)) and
@@ -586,7 +620,7 @@ class HtmlDartInterfaceGenerator(object):
         class_modifiers = ''
       else:
         # For Dartium w/ JsInterop these suppressed interfaces are needed to
-        # instanciate the internal classes when wrap_jso is called for a JS object.
+        # instanciate the internal classes.
         if (self._renamer.ShouldSuppressInterface(self._interface) and
             not(isinstance(self._backend, Dart2JSBackend)) and
             self._options.dart_js_interop):
@@ -595,26 +629,15 @@ class HtmlDartInterfaceGenerator(object):
           class_modifiers = 'abstract '
 
     native_spec = ''
-    if not IsPureInterface(self._interface.id):
+    if not IsPureInterface(self._interface.id, self._database):
       native_spec = self._backend.NativeSpec()
 
     class_name = self._interface_type_info.implementation_name()
 
-    js_interop_equivalence_op = \
-      '  bool operator ==(other) => unwrap_jso(other) == unwrap_jso(this) || identical(this, other);\n' \
-      + '  int get hashCode => unwrap_jso(this).hashCode;\n'
-    # ClientRect overrides the equivalence operator.
-    if interface_name == 'ClientRect' or interface_name == 'DomRectReadOnly':
-        js_interop_equivalence_op = ''
-
     js_interop_wrapper = '''
 
   @Deprecated("Internal Use Only")
-  static {0} internalCreate{0}() {{
-    return new {0}._internalWrap();
-  }}
-
-  external factory {0}._internalWrap();
+  external static Type get instanceRuntimeType;
 
   @Deprecated("Internal Use Only")
   {0}.internal_() : super.internal_();
@@ -622,19 +645,13 @@ class HtmlDartInterfaceGenerator(object):
 '''.format(class_name)
     if base_class == 'NativeFieldWrapperClass2' or base_class == 'DartHtmlDomObject':
         js_interop_wrapper = '''
-  @Deprecated("Internal Use Only")
-  static {0} internalCreate{0}() {{
-    return new {0}._internalWrap();
-  }}
 
-  factory {0}._internalWrap() {{
-    return new {0}.internal_();
-  }}
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
 
   @Deprecated("Internal Use Only")
   {0}.internal_() {{ }}
-
-{1}'''.format(class_name, js_interop_equivalence_op)
+'''.format(class_name)
         # Change to use the synthesized class so we can construct with a mixin
         # classes prefixed with name of NativeFieldWrapperClass2 don't have a
         # default constructor so classes with mixins can't be new'd.
@@ -687,7 +704,7 @@ class HtmlDartInterfaceGenerator(object):
     if (implementation_members_emitter and
         self._options.templates._conditions['DARTIUM'] and
         self._options.dart_js_interop and
-        not IsPureInterface(self._interface.id)):
+        not IsPureInterface(self._interface.id, self._database)):
       implementation_members_emitter.Emit(js_interop_wrapper)
 
     if isElement and self._interface.id != 'Element':
@@ -758,7 +775,9 @@ class Dart2JSBackend(HtmlDartGenerator):
   def AdditionalImplementedInterfaces(self):
     implements = super(Dart2JSBackend, self).AdditionalImplementedInterfaces()
     if self._interface_type_info.list_item_type() and self.HasIndexedGetter():
-      implements.append('JavaScriptIndexingBehavior')
+      item_type = self._type_registry.TypeInfo(
+          self._interface_type_info.list_item_type()).dart_type()
+      implements.append('JavaScriptIndexingBehavior<%s>' % item_type)
     return implements
 
   def NativeSpec(self):
@@ -800,6 +819,26 @@ class Dart2JSBackend(HtmlDartGenerator):
     # Custom factory will be taken from the template.
     return self._interface.doc_js_name in _js_custom_constructors
 
+  def MakeFactoryCall(self, factory, method, arguments, constructor_info):
+    if factory is 'document' and method is 'createElement' \
+        and not ',' in arguments \
+        and not self._HasUnreliableFactoryConstructor():
+      return emitter.Format(
+          "JS('returns:$INTERFACE_NAME;creates:$INTERFACE_NAME;new:true',"
+          " '#.$METHOD(#)', $FACTORY, $ARGUMENTS)",
+          INTERFACE_NAME=self._interface_type_info.interface_name(),
+          FACTORY=factory,
+          METHOD=method,
+          ARGUMENTS=arguments)
+    return emitter.Format(
+        '$FACTORY.$METHOD($ARGUMENTS)',
+        FACTORY=factory,
+        METHOD=method,
+        ARGUMENTS=arguments)
+
+  def _HasUnreliableFactoryConstructor(self):
+    return self._interface.doc_js_name in _js_unreliable_element_factories
+
   def IsConstructorArgumentOptional(self, argument):
     return argument.optional
 
@@ -834,7 +873,7 @@ class Dart2JSBackend(HtmlDartGenerator):
         break
     return has_indexed_getter
 
-  def AddIndexer(self, element_type):
+  def AddIndexer(self, element_type, nullable):
     """Adds all the methods required to complete implementation of List."""
     # We would like to simply inherit the implementation of everything except
     # length, [], and maybe []=.  It is possible to extend from a base
@@ -857,8 +896,8 @@ class Dart2JSBackend(HtmlDartGenerator):
     has_indexed_getter = self.HasIndexedGetter()
 
     if has_indexed_getter:
-      indexed_getter = ('JS("%s", "#[#]", this, index)' %
-          self.SecureOutputType(element_type));
+      indexed_getter = ('JS("%s%s", "#[#]", this, index)' %
+          (self.SecureOutputType(element_type), "|Null" if nullable else ""));
     elif any(op.id == 'getItem' for op in self._interface.operations):
       indexed_getter = 'this.getItem(index)'
     elif any(op.id == 'item' for op in self._interface.operations):
@@ -890,13 +929,13 @@ class Dart2JSBackend(HtmlDartGenerator):
           '  }\n',
           TYPE=self._NarrowInputType(element_type))
 
-    self.EmitListMixin(self._DartType(element_type))
+    self.EmitListMixin(self._DartType(element_type), nullable)
 
   def EmitAttribute(self, attribute, html_name, read_only):
     if self._HasCustomImplementation(attribute.id):
       return
 
-    if IsPureInterface(self._interface.id):
+    if IsPureInterface(self._interface.id, self._database):
       self._AddInterfaceAttribute(attribute, html_name, read_only)
       return
 
@@ -908,8 +947,13 @@ class Dart2JSBackend(HtmlDartGenerator):
     #  is renamed.
     (super_attribute, super_attribute_interface) = self._FindShadowedAttribute(
         attribute)
+    if self._ForcePropertyMember(html_name):
+      self._members_emitter.Emit('\n  // Using property as subclass shadows.');
+      self._AddAttributeUsingProperties(attribute, html_name, read_only)
+      return
+
     if super_attribute:
-      if read_only:
+      if read_only or self._SafeToIgnoreShadowingMember(html_name):
         if attribute.type.id == super_attribute.type.id:
           # Compatible attribute, use the superclass property.  This works
           # because JavaScript will do its own dynamic dispatch.
@@ -924,6 +968,16 @@ class Dart2JSBackend(HtmlDartGenerator):
       self._members_emitter.Emit('\n  // Shadowing definition.')
       self._AddAttributeUsingProperties(attribute, html_name, read_only)
       return
+
+    # If the attribute is shadowed incompatibly in a subclass then we also
+    # can't just generate it as a field. In particular, this happens with
+    # DomMatrixReadOnly and its subclass DomMatrix. Force the superclass
+    # to generate getters. Hardcoding the known problem classes for now.
+    # TODO(alanknight): Fix this more generally.
+    if (self._interface.id == 'DOMMatrixReadOnly' or self._interface.id == 'DOMPointReadOnly'
+       or self._interface.id == 'DOMRectReadOnly'):
+        self._AddAttributeUsingProperties(attribute, html_name, read_only)
+        return
 
     # If the type has a conversion we need a getter or setter to contain the
     # conversion code.
@@ -1051,7 +1105,7 @@ class Dart2JSBackend(HtmlDartGenerator):
     if self._HasCustomImplementation(info.name):
       return
 
-    if IsPureInterface(self._interface.id):
+    if IsPureInterface(self._interface.id, self._database):
       self._AddInterfaceOperation(info, html_name)
     elif info.callback_args:
       self._AddFutureifiedOperation(info, html_name)
@@ -1164,6 +1218,14 @@ class Dart2JSBackend(HtmlDartGenerator):
     member_name = '%s.%s' % (self._interface.doc_js_name, member_name)
     return member_name in _js_custom_members
 
+  def _ForcePropertyMember(self, member_name):
+    member_name = '%s.%s' % (self._interface.doc_js_name, member_name)
+    return member_name in _force_property_members
+
+  def _SafeToIgnoreShadowingMember(self, member_name):
+    member_name = '%s.%s' % (self._interface.doc_js_name, member_name)
+    return member_name in _safe_to_ignore_shadowing_members
+
   def _RenamingAnnotation(self, idl_name, member_name):
     if member_name != idl_name:
       return  "@JSName('%s')\n  " % idl_name
@@ -1177,6 +1239,7 @@ class Dart2JSBackend(HtmlDartGenerator):
         idl_type, self._interface.id, idl_member_name):
       return_type = self.SecureOutputType(idl_type)
       native_type = self._NarrowToImplementationType(idl_type)
+
       if native_type != return_type:
         anns = anns + [
           "@Returns('%s')" % native_type,
@@ -1202,7 +1265,7 @@ class Dart2JSBackend(HtmlDartGenerator):
         parent = interface.parents[0]
         if IsDartCollectionType(parent.type.id):
           return (None, None)
-        if IsPureInterface(parent.type.id):
+        if IsPureInterface(parent.type.id, self._database):
           return (None, None)
         if self._database.HasInterface(parent.type.id):
           interfaces_to_search_in = []
@@ -1285,13 +1348,9 @@ class DartLibrary():
     emitters = library_emitter.Emit(
         self._template, AUXILIARY_DIR=massage_path(auxiliary_dir))
     if isinstance(emitters, tuple):
-      if self._dart_js_interop:
-        imports_emitter, map_emitter, function_emitter = emitters
-      else:
-        imports_emitter, map_emitter = emitters
-        function_emitter = None
+      imports_emitter, map_emitter = emitters
     else:
-      imports_emitter, map_emitter, function_emitter = emitters, None, None
+      imports_emitter, map_emitter = emitters, None
 
     for path in sorted(self._paths):
       relpath = os.path.relpath(path, library_file_dir)
@@ -1304,25 +1363,9 @@ class DartLibrary():
       items.sort()
       for (idl_name, dart_name) in items:
         map_emitter.Emit(
-          "  '$IDL_NAME': () => $DART_NAME,\n",
+          "  '$IDL_NAME': () => $DART_NAME.instanceRuntimeType,\n",
           IDL_NAME=idl_name,
           DART_NAME=dart_name)
-
-    # Emit the $!TYPE_FUNCTION_MAP
-    if function_emitter:
-      items = self._typeMap.items()
-      items.sort()
-      for (idl_name, dart_name) in items:
-        # DOMStringMap is in the abstract list but is used as a concrete class
-        # in Dartium.
-        if not IsPureInterface(idl_name):
-          # Handle classes that are concrete (abstract can't be instantiated).
-          function_emitter.Emit(
-            "  '$IDL_NAME': () => $DART_NAME.internalCreate$DART_NAME,\n",
-            IDL_NAME=idl_name,
-            DART_NAME=dart_name)
-      if self._dart_path.endswith('html_dartium.dart'):
-        function_emitter.Emit("  'polymer-element': () => HtmlElement.internalCreateHtmlElement,\n")
 
 
 # ------------------------------------------------------------------------------

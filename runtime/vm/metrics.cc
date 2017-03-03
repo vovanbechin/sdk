@@ -13,7 +13,9 @@
 
 namespace dart {
 
-DEFINE_FLAG(bool, print_metrics, false,
+DEFINE_FLAG(bool,
+            print_metrics,
+            false,
             "Print metrics when isolates (and the VM) are shutdown.");
 
 Metric* Metric::vm_list_head_ = NULL;
@@ -24,8 +26,7 @@ Metric::Metric()
       description_(NULL),
       unit_(kCounter),
       value_(0),
-      next_(NULL) {
-}
+      next_(NULL) {}
 
 
 void Metric::Init(Isolate* isolate,
@@ -67,10 +68,15 @@ Metric::~Metric() {
 }
 
 
+#ifndef PRODUCT
 static const char* UnitString(intptr_t unit) {
   switch (unit) {
-    case Metric::kCounter: return "counter";
-    case Metric::kByte: return "byte";
+    case Metric::kCounter:
+      return "counter";
+    case Metric::kByte:
+      return "byte";
+    case Metric::kMicrosecond:
+      return "us";
     default:
       UNREACHABLE();
   }
@@ -97,6 +103,7 @@ void Metric::PrintJSON(JSONStream* stream) {
   double value_as_double = static_cast<double>(Value());
   obj.AddProperty("value", value_as_double);
 }
+#endif  // !PRODUCT
 
 
 char* Metric::ValueToString(int64_t value, Unit unit) {
@@ -108,22 +115,33 @@ char* Metric::ValueToString(int64_t value, Unit unit) {
     case kCounter:
       return zone->PrintToString("%" Pd64 "", value);
     case kByte: {
-      const char* scaled_suffix = "b";
+      const char* scaled_suffix = "B";
       double scaled_value = static_cast<double>(value);
-      if (value > KB) {
-        scaled_suffix = "kb";
-        scaled_value /= KB;
-      } else if (value > MB) {
-        scaled_suffix = "mb";
-        scaled_value /= MB;
-      } else if (value > GB) {
-        scaled_suffix = "gb";
+      if (value > GB) {
+        scaled_suffix = "GB";
         scaled_value /= GB;
+      } else if (value > MB) {
+        scaled_suffix = "MB";
+        scaled_value /= MB;
+      } else if (value > KB) {
+        scaled_suffix = "kB";
+        scaled_value /= KB;
       }
-      return zone->PrintToString("%.3f %s (%" Pd64 ")",
-                                 scaled_value,
-                                 scaled_suffix,
-                                 value);
+      return zone->PrintToString("%.3f %s (%" Pd64 " B)", scaled_value,
+                                 scaled_suffix, value);
+    }
+    case kMicrosecond: {
+      const char* scaled_suffix = "us";
+      double scaled_value = static_cast<double>(value);
+      if (value > kMicrosecondsPerSecond) {
+        scaled_suffix = "s";
+        scaled_value /= kMicrosecondsPerSecond;
+      } else if (value > kMicrosecondsPerMillisecond) {
+        scaled_suffix = "ms";
+        scaled_value /= kMicrosecondsPerMillisecond;
+      }
+      return zone->PrintToString("%.3f %s (%" Pd64 " us)", scaled_value,
+                                 scaled_suffix, value);
     }
     default:
       UNREACHABLE();
@@ -137,7 +155,7 @@ char* Metric::ToString() {
   ASSERT(thread != NULL);
   Zone* zone = thread->zone();
   ASSERT(zone != NULL);
-  return zone->PrintToString("%s %s", name(), ValueToString(value(), unit()));
+  return zone->PrintToString("%s %s", name(), ValueToString(Value(), unit()));
 }
 
 
@@ -153,7 +171,6 @@ bool Metric::NameExists(Metric* head, const char* name) {
   }
   return false;
 }
-
 
 
 void Metric::RegisterWithIsolate() {
@@ -289,9 +306,14 @@ int64_t MetricIsolateCount::Value() const {
   return Isolate::IsolateListLength();
 }
 
+
+int64_t MetricPeakRSS::Value() const {
+  return OS::MaxRSS();
+}
+
 #define VM_METRIC_VARIABLE(type, variable, name, unit)                         \
   static type vm_metric_##variable##_;
-  VM_METRIC_LIST(VM_METRIC_VARIABLE);
+VM_METRIC_LIST(VM_METRIC_VARIABLE);
 #undef VM_METRIC_VARIABLE
 
 
@@ -303,22 +325,21 @@ void Metric::InitOnce() {
 }
 
 void Metric::Cleanup() {
-  if (FLAG_print_metrics) {
+  if (FLAG_print_metrics || FLAG_print_benchmarking_metrics) {
     // Create a zone to allocate temporary strings in.
     StackZone sz(Thread::Current());
-    OS::Print("Printing metrics for VM\n");
+    OS::PrintErr("Printing metrics for VM\n");
     Metric* current = Metric::vm_head();
     while (current != NULL) {
-      OS::Print("%s\n", current->ToString());
+      OS::PrintErr("%s\n", current->ToString());
       current = current->next();
     }
-    OS::Print("\n");
+    OS::PrintErr("\n");
   }
 }
 
 
-MaxMetric::MaxMetric()
-    : Metric() {
+MaxMetric::MaxMetric() : Metric() {
   set_value(kMinInt64);
 }
 
@@ -330,8 +351,7 @@ void MaxMetric::SetValue(int64_t new_value) {
 }
 
 
-MinMetric::MinMetric()
-    : Metric() {
+MinMetric::MinMetric() : Metric() {
   set_value(kMaxInt64);
 }
 

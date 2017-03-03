@@ -4,18 +4,11 @@
 
 // Dart core library.
 
-patch class Null {
+@patch class Null {
+  static const _HASH_CODE = 2011; // The year Dart was announced and a prime.
 
-  factory Null._uninstantiable() {
-    throw new UnsupportedError(
-        "class Null cannot be instantiated");
-  }
+  @patch
+  int get hashCode => _HASH_CODE;
 
-  int get _identityHashCode {
-    return 2011;  // The year Dart was announced and a prime.
-  }
-
-  String toString() {
-    return 'null';
-  }
+  int get _identityHashCode => _HASH_CODE;
 }

@@ -8,15 +8,16 @@ import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/keyword_contributor.dart';
 import 'package:analyzer/dart/ast/token.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../../utils.dart';
 import 'completion_contributor_util.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(KeywordContributorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(KeywordContributorTest);
+    defineReflectiveTests(KeywordContributorTest_Driver);
+  });
 }
 
 @reflectiveTest
@@ -220,6 +221,13 @@ class KeywordContributorTest extends DartCompletionContributorTest {
     Map<String, int> expectedOffsets = <String, int>{};
     Set<String> actualCompletions = new Set<String>();
     expectedCompletions.addAll(expectedKeywords.map((k) => k.syntax));
+    ['import', 'export', 'part'].forEach((s) {
+      if (expectedCompletions.contains(s)) {
+        expectedCompletions.remove(s);
+        expectedCompletions.add('$s \'\';');
+      }
+    });
+
     expectedCompletions.addAll(pseudoKeywords);
     for (CompletionSuggestion s in suggestions) {
       if (s.kind == CompletionSuggestionKind.KEYWORD) {
@@ -245,10 +253,6 @@ class KeywordContributorTest extends DartCompletionContributorTest {
       if (s.kind == CompletionSuggestionKind.KEYWORD) {
         if (s.completion.startsWith(Keyword.IMPORT.syntax)) {
           int importRelevance = relevance;
-          if (importRelevance == DART_RELEVANCE_HIGH &&
-              s.completion == "import '';") {
-            ++importRelevance;
-          }
           expect(s.relevance, equals(importRelevance), reason: s.completion);
         } else {
           if (s.completion == Keyword.RETHROW.syntax) {
@@ -261,7 +265,11 @@ class KeywordContributorTest extends DartCompletionContributorTest {
         if (expectedOffset == null) {
           expectedOffset = s.completion.length;
         }
-        expect(s.selectionOffset, equals(expectedOffset));
+        expect(
+            s.selectionOffset,
+            equals(s.completion.endsWith('\'\';')
+                ? expectedOffset - 2
+                : expectedOffset));
         expect(s.selectionLength, equals(0));
         expect(s.isDeprecated, equals(false));
         expect(s.isPotential, equals(false));
@@ -364,6 +372,22 @@ class KeywordContributorTest extends DartCompletionContributorTest {
         pseudoKeywords: ['async', 'async*', 'sync*']);
   }
 
+  test_anonymous_function_async6() async {
+    addTestSource('main() {foo("bar", () as^{}}');
+    await computeSuggestions();
+    assertSuggestKeywords([],
+        pseudoKeywords: ['async', 'async*', 'sync*'],
+        relevance: DART_RELEVANCE_HIGH);
+  }
+
+  test_anonymous_function_async7() async {
+    addTestSource('main() {foo("bar", () as^ => null');
+    await computeSuggestions();
+    assertSuggestKeywords([],
+        pseudoKeywords: ['async', 'async*', 'sync*'],
+        relevance: DART_RELEVANCE_HIGH);
+  }
+
   test_argument() async {
     addTestSource('main() {foo(^);}');
     await computeSuggestions();
@@ -446,13 +470,202 @@ class KeywordContributorTest extends DartCompletionContributorTest {
         relevance: DART_RELEVANCE_HIGH);
   }
 
-  test_catch() async {
+  test_catch_1a() async {
+    // '}'  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} ^}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_1b() async {
+    // [ExpressionStatement 'c']  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} c^}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_1c() async {
+    // [EmptyStatement] Block BlockFunction FunctionExpression
+    addTestSource('main() {try {} ^;}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_1d() async {
+    // [EmptyStatement] Block BlockFunction FunctionExpression
+    addTestSource('main() {try {} ^ Foo foo;}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_2a() async {
+    // '}'  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} on SomeException {} ^}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    keywords.addAll(STMT_START_OUTSIDE_CLASS);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_2b() async {
+    // [ExpressionStatement 'c']  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} on SomeException {} c^}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    keywords.addAll(STMT_START_OUTSIDE_CLASS);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_2c() async {
+    // [EmptyStatement] Block BlockFunction FunctionExpression
+    addTestSource('main() {try {} on SomeException {} ^;}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    keywords.addAll(STMT_START_OUTSIDE_CLASS);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_2d() async {
+    // [EmptyStatement] Block BlockFunction FunctionExpression
+    addTestSource('main() {try {} on SomeException {} ^ Foo foo;}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    keywords.addAll(STMT_START_OUTSIDE_CLASS);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_3a() async {
+    // '}'  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} catch (e) {} ^}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    keywords.addAll(STMT_START_OUTSIDE_CLASS);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_3b() async {
+    // [ExpressionStatement 'c']  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} catch (e) {} c^}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    keywords.addAll(STMT_START_OUTSIDE_CLASS);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_3c() async {
+    // [EmptyStatement] Block BlockFunction FunctionExpression
+    addTestSource('main() {try {} catch (e) {} ^;}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    keywords.addAll(STMT_START_OUTSIDE_CLASS);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_3d() async {
+    // [EmptyStatement] Block BlockFunction FunctionExpression
+    addTestSource('main() {try {} catch (e) {} ^ Foo foo;}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    keywords.add(Keyword.FINALLY);
+    keywords.addAll(STMT_START_OUTSIDE_CLASS);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_4a1() async {
+    // [CatchClause]  TryStatement  Block
+    addTestSource('main() {try {} ^ on SomeException {}}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_4a2() async {
+    // ['c' VariableDeclarationStatement]  Block  BlockFunctionBody
+    addTestSource('main() {try {} c^ on SomeException {}}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    // TODO(danrubel) finally should not be suggested here
+    keywords.add(Keyword.FINALLY);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_4b1() async {
+    // [CatchClause]  TryStatement  Block
+    addTestSource('main() {try {} ^ catch (e) {}}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_4b2() async {
+    // ['c' ExpressionStatement]  Block  BlockFunctionBody
+    addTestSource('main() {try {} c^ catch (e) {}}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    // TODO(danrubel) finally should not be suggested here
+    keywords.add(Keyword.FINALLY);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_4c1() async {
+    // ['finally']  TryStatement  Block
+    addTestSource('main() {try {} ^ finally {}}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_4c2() async {
+    // ['c' ExpressionStatement]  Block  BlockFunctionBody
+    addTestSource('main() {try {} c^ finally {}}');
+    await computeSuggestions();
+    var keywords = <Keyword>[];
+    keywords.add(Keyword.CATCH);
+    // TODO(danrubel) finally should not be suggested here
+    keywords.add(Keyword.FINALLY);
+    assertSuggestKeywords(keywords, pseudoKeywords: ['on']);
+  }
+
+  test_catch_block() async {
+    // '}'  Block  CatchClause  TryStatement  Block
     addTestSource('main() {try {} catch (e) {^}}}');
     await computeSuggestions();
     var keywords = <Keyword>[];
     keywords.addAll(STMT_START_OUTSIDE_CLASS);
     keywords.add(Keyword.RETHROW);
-    assertSuggestKeywords(keywords, relevance: DART_RELEVANCE_KEYWORD);
+    assertSuggestKeywords(keywords);
   }
 
   test_class() async {
@@ -651,6 +864,12 @@ class KeywordContributorTest extends DartCompletionContributorTest {
     assertSuggestKeywords([Keyword.IN], relevance: DART_RELEVANCE_HIGH);
   }
 
+  test_for_expression_in_inInitializer() async {
+    addTestSource('main() {for (int i^)}');
+    await computeSuggestions();
+    assertSuggestKeywords([]);
+  }
+
   test_for_expression_init() async {
     addTestSource('main() {for (int x = i^)}');
     await computeSuggestions();
@@ -661,6 +880,12 @@ class KeywordContributorTest extends DartCompletionContributorTest {
     addTestSource('main() {for (int x = in^)}');
     await computeSuggestions();
     assertSuggestKeywords(EXPRESSION_START_NO_INSTANCE);
+  }
+
+  test_for_initialization_var() async {
+    addTestSource('main() {for (^)}');
+    await computeSuggestions();
+    assertSuggestKeywords([Keyword.VAR], relevance: DART_RELEVANCE_HIGH);
   }
 
   test_function_async() async {
@@ -849,6 +1074,46 @@ class A {
     await computeSuggestions();
     assertSuggestKeywords(STMT_START_OUTSIDE_CLASS,
         pseudoKeywords: ['await', 'yield', 'yield*']);
+  }
+
+  test_if_after_else() async {
+    addTestSource('main() { if (true) {} else ^ }');
+    await computeSuggestions();
+    assertSuggestKeywords(STMT_START_OUTSIDE_CLASS,
+        relevance: DART_RELEVANCE_KEYWORD);
+  }
+
+  test_if_afterThen_nextCloseCurlyBrace0() async {
+    addTestSource('main() { if (true) {} ^ }');
+    await computeSuggestions();
+    assertSuggestKeywords(STMT_START_OUTSIDE_CLASS.toList()..add(Keyword.ELSE),
+        relevance: DART_RELEVANCE_KEYWORD);
+  }
+
+  test_if_afterThen_nextCloseCurlyBrace1() async {
+    addTestSource('main() { if (true) {} e^ }');
+    await computeSuggestions();
+    assertSuggestKeywords(STMT_START_OUTSIDE_CLASS.toList()..add(Keyword.ELSE),
+        relevance: DART_RELEVANCE_KEYWORD);
+  }
+
+  test_if_afterThen_nextStatement0() async {
+    addTestSource('main() { if (true) {} ^ print(0); }');
+    await computeSuggestions();
+    assertSuggestKeywords(STMT_START_OUTSIDE_CLASS.toList()..add(Keyword.ELSE),
+        relevance: DART_RELEVANCE_KEYWORD);
+  }
+
+  test_if_condition_isKeyword() async {
+    addTestSource('main() { if (v i^) {} }');
+    await computeSuggestions();
+    assertSuggestKeywords([Keyword.IS], relevance: DART_RELEVANCE_HIGH);
+  }
+
+  test_if_condition_isKeyword2() async {
+    addTestSource('main() { if (v i^ && false) {} }');
+    await computeSuggestions();
+    assertSuggestKeywords([Keyword.IS], relevance: DART_RELEVANCE_HIGH);
   }
 
   test_if_expression_in_class() async {
@@ -1120,6 +1385,12 @@ class A {
     assertSuggestKeywords([Keyword.IS], relevance: DART_RELEVANCE_HIGH);
   }
 
+  test_is_expression_partial() async {
+    addTestSource('main() {if (x i^)}');
+    await computeSuggestions();
+    assertSuggestKeywords([Keyword.IS], relevance: DART_RELEVANCE_HIGH);
+  }
+
   test_library() async {
     addTestSource('library foo;^');
     await computeSuggestions();
@@ -1279,6 +1550,18 @@ class A {
     addTestSource('class A { foo() {return ^}}');
     await computeSuggestions();
     assertSuggestKeywords(EXPRESSION_START_INSTANCE);
+  }
+
+  test_method_invocation() async {
+    addTestSource('class A { foo() {bar.^}}');
+    await computeSuggestions();
+    assertNoSuggestions();
+  }
+
+  test_method_invocation2() async {
+    addTestSource('class A { foo() {bar.as^}}');
+    await computeSuggestions();
+    assertNoSuggestions();
   }
 
   test_method_param() async {
@@ -1493,4 +1776,10 @@ class A {
     if (iter2.any((c) => !iter1.contains(c))) return false;
     return true;
   }
+}
+
+@reflectiveTest
+class KeywordContributorTest_Driver extends KeywordContributorTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

@@ -7,15 +7,16 @@ library test.services.completion.dart.arglist;
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/arglist_contributor.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../../utils.dart';
 import 'completion_contributor_util.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(ArgListContributorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(ArgListContributorTest);
+    defineReflectiveTests(ArgListContributorTest_Driver);
+  });
 }
 
 @reflectiveTest
@@ -77,12 +78,30 @@ class ArgListContributorTest extends DartCompletionContributorTest {
   }
 
   /**
+   * Assert that the specified named argument suggestions with their types are
+   * the only suggestions.
+   */
+  void assertSuggestArgumentsAndTypes(
+      {Map<String, String> namedArgumentsWithTypes, bool includeColon: true}) {
+    List<CompletionSuggestion> expected = new List<CompletionSuggestion>();
+    namedArgumentsWithTypes.forEach((String name, String type) {
+      String completion = includeColon ? '$name: ' : name;
+      expected.add(assertSuggest(completion,
+          csKind: CompletionSuggestionKind.NAMED_ARGUMENT,
+          relevance: DART_RELEVANCE_NAMED_PARAMETER,
+          paramName: name,
+          paramType: type));
+    });
+    assertNoOtherSuggestions(expected);
+  }
+
+  /**
    * Assert that the specified suggestions are the only suggestions.
    */
-  void assertSuggestArguments({List<String> namedArguments}) {
+  void assertSuggestions(List<String> suggestions) {
     List<CompletionSuggestion> expected = new List<CompletionSuggestion>();
-    for (String name in namedArguments) {
-      expected.add(assertSuggest('$name: ',
+    for (String suggestion in suggestions) {
+      expected.add(assertSuggest('$suggestion',
           csKind: CompletionSuggestionKind.NAMED_ARGUMENT,
           relevance: DART_RELEVANCE_NAMED_PARAMETER));
     }
@@ -94,22 +113,113 @@ class ArgListContributorTest extends DartCompletionContributorTest {
     return new ArgListContributor();
   }
 
-  test_Annotation_local_constructor_named_param() async {
+  fail_test_Annotation_local_constructor_named_param_10() async {
     addTestSource('''
-class A { A({int one, String two: 'defaultValue'}) { } }
-@A(^) main() { }''');
+class A { const A({int one, String two: 'defaultValue'}); }
+@A(two: '2' ^) main() { }''');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['one', 'two']);
+    assertSuggestions([', one: ']);
+  }
+
+  fail_test_Annotation_local_constructor_named_param_9() async {
+    addTestSource('''
+class A { const A({int one, String two: 'defaultValue'}); }
+@A(two: '2'^) main() { }''');
+    await computeSuggestions();
+    assertSuggestions([', one: ']);
   }
 
   test_Annotation_imported_constructor_named_param() async {
     addSource(
         '/libA.dart',
         '''
-library libA; class A { A({int one, String two: 'defaultValue'}) { } }''');
+library libA; class A { const A({int one, String two: 'defaultValue'}); }''');
     addTestSource('import "/libA.dart"; @A(^) main() { }');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['one', 'two']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'one': 'int', 'two': 'String'});
+  }
+
+  test_Annotation_local_constructor_named_param() async {
+    addTestSource('''
+class A { const A({int one, String two: 'defaultValue'}); }
+@A(^) main() { }''');
+    await computeSuggestions();
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'one': 'int', 'two': 'String'});
+  }
+
+  test_Annotation_local_constructor_named_param_11() async {
+    addTestSource('''
+class A { const A({int one, String two: 'defaultValue'}); }
+@A(two: '2', ^) main() { }''');
+    await computeSuggestions();
+    assertSuggestArgumentsAndTypes(namedArgumentsWithTypes: {'one': 'int'});
+  }
+
+  test_Annotation_local_constructor_named_param_2() async {
+    addTestSource('''
+class A { const A({int one, String two: 'defaultValue'}); }
+@A(^ two: '2') main() { }''');
+    await computeSuggestions();
+    assertSuggestions(['one: ,']);
+  }
+
+  test_Annotation_local_constructor_named_param_3() async {
+    addTestSource('''
+class A { const A({int one, String two: 'defaultValue'}); }
+@A(^two: '2') main() { }''');
+    await computeSuggestions();
+    assertSuggestions(['one: ,']);
+  }
+
+  test_Annotation_local_constructor_named_param_4() async {
+    addTestSource('''
+class A { const A({int one, String two: 'defaultValue'}); }
+@A(^, two: '2') main() { }''');
+    await computeSuggestions();
+    assertSuggestArgumentsAndTypes(namedArgumentsWithTypes: {'one': 'int'});
+  }
+
+  test_Annotation_local_constructor_named_param_5() async {
+    addTestSource('''
+class A { const A({int one, String two: 'defaultValue'}); }
+@A(^ , two: '2') main() { }''');
+    await computeSuggestions();
+    assertSuggestArgumentsAndTypes(namedArgumentsWithTypes: {'one': 'int'});
+  }
+
+  test_Annotation_local_constructor_named_param_6() async {
+    addTestSource('''
+class A { const A(int zero, {int one, String two: 'defaultValue'}); }
+@A(0, ^, two: '2') main() { }''');
+    await computeSuggestions();
+    assertSuggestArgumentsAndTypes(namedArgumentsWithTypes: {'one': 'int'});
+  }
+
+  test_Annotation_local_constructor_named_param_7() async {
+    addTestSource('''
+class A { const A(int zero, {int one, String two: 'defaultValue'}); }
+@A(0, ^ two: '2') main() { }''');
+    await computeSuggestions();
+    assertSuggestions(['one: ,']);
+  }
+
+  test_Annotation_local_constructor_named_param_8() async {
+    addTestSource('''
+class A { const A(int zero, {int one, String two: 'defaultValue'}); }
+@A(0, ^two: '2') main() { }''');
+    await computeSuggestions();
+    assertSuggestions(['one: ,']);
+  }
+
+  test_Annotation_local_constructor_named_param_negative() async {
+    addTestSource('''
+class A { const A(int one, int two, int three, {int four, String five:
+  'defaultValue'}); }
+@A(1, ^, 3) main() { }''');
+    await computeSuggestions();
+    assertNoSuggestions();
   }
 
   test_ArgumentList_getter() async {
@@ -119,19 +229,57 @@ library libA; class A { A({int one, String two: 'defaultValue'}) { } }''');
   }
 
   test_ArgumentList_imported_constructor_named_param() async {
-    //
-    addSource('/libA.dart', 'library libA; class A{A({int one}){}}');
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement
+    addSource('/libA.dart', 'library libA; class A{A({int one}); }');
     addTestSource('import "/libA.dart"; main() { new A(^);}');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['one']);
+    assertSuggestArgumentsAndTypes(namedArgumentsWithTypes: {'one': 'int'});
   }
 
   test_ArgumentList_imported_constructor_named_param2() async {
-    //
-    addSource('/libA.dart', 'library libA; class A{A.foo({int one}){}}');
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement
+    addSource('/libA.dart', 'library libA; class A{A.foo({int one}); }');
     addTestSource('import "/libA.dart"; main() { new A.foo(^);}');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['one']);
+    assertSuggestArgumentsAndTypes(namedArgumentsWithTypes: {'one': 'int'});
+  }
+
+  test_ArgumentList_imported_constructor_named_typed_param() async {
+    // ArgumentList  InstanceCreationExpression  VariableDeclaration
+    addSource(
+        '/libA.dart', 'library libA; class A { A({int i, String s, d}) {} }}');
+    addTestSource('import "/libA.dart"; main() { var a = new A(^);}');
+    await computeSuggestions();
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'i': 'int', 's': 'String', 'd': 'dynamic'});
+  }
+
+  test_ArgumentList_imported_factory_named_param() async {
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement
+    addSource(
+        '/libA.dart', 'library libA; class A{factory A({int one}) => null;}');
+    addTestSource('import "/libA.dart"; main() { new A(^);}');
+    await computeSuggestions();
+    assertSuggestArgumentsAndTypes(namedArgumentsWithTypes: {'one': 'int'});
+  }
+
+  test_ArgumentList_imported_factory_named_param2() async {
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement
+    addSource('/libA.dart',
+        'library libA; abstract class A{factory A.foo({int one});}');
+    addTestSource('import "/libA.dart"; main() { new A.foo(^);}');
+    await computeSuggestions();
+    assertSuggestArgumentsAndTypes(namedArgumentsWithTypes: {'one': 'int'});
+  }
+
+  test_ArgumentList_imported_factory_named_typed_param() async {
+    // ArgumentList  InstanceCreationExpression  VariableDeclaration
+    addSource('/libA.dart',
+        'library libA; class A {factory A({int i, String s, d}) {} }}');
+    addTestSource('import "/libA.dart"; main() { var a = new A(^);}');
+    await computeSuggestions();
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'i': 'int', 's': 'String', 'd': 'dynamic'});
   }
 
   test_ArgumentList_imported_function_0() async {
@@ -282,21 +430,24 @@ library libA; class A { A({int one, String two: 'defaultValue'}) { } }''');
     //
     addTestSource('main() { int.parse("16", ^);}');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['radix', 'onError']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'radix': 'int', 'onError': '(String) → int'});
   }
 
   test_ArgumentList_imported_function_named_param1() async {
     //
     addTestSource('main() { int.parse("16", r^);}');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['radix', 'onError']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'radix': 'int', 'onError': '(String) → int'});
   }
 
   test_ArgumentList_imported_function_named_param2() async {
     //
     addTestSource('main() { int.parse("16", radix: 7, ^);}');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['onError']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'onError': '(String) → int'});
   }
 
   test_ArgumentList_imported_function_named_param2a() async {
@@ -310,21 +461,78 @@ library libA; class A { A({int one, String two: 'defaultValue'}) { } }''');
     //
     addTestSource('main() { int.parse("16", r^: 16);}');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['radix', 'onError']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'radix': 'int', 'onError': '(String) → int'},
+        includeColon: false);
   }
 
   test_ArgumentList_imported_function_named_param_label2() async {
     //
     addTestSource('main() { int.parse("16", ^r: 16);}');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['radix', 'onError']);
+    assertSuggestions(['radix: ,', 'onError: ,']);
   }
 
   test_ArgumentList_imported_function_named_param_label3() async {
     //
     addTestSource('main() { int.parse("16", ^: 16);}');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['radix', 'onError']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'radix': 'int', 'onError': '(String) → int'});
+  }
+
+  test_ArgumentList_local_constructor_named_fieldFormal_documentation() async {
+    String content = '''
+class A {
+  /// aaa
+  ///
+  /// bbb
+  /// ccc
+  int fff;
+  A({this.fff});
+}
+main() {
+  new A(^);
+}
+''';
+    addTestSource(content);
+    await computeSuggestions();
+    expect(suggestions, hasLength(1));
+
+    CompletionSuggestion suggestion = suggestions[0];
+    expect(suggestion.docSummary, 'aaa');
+    expect(suggestion.docComplete, 'aaa\n\nbbb\nccc');
+
+    Element element = suggestion.element;
+    expect(element, isNotNull);
+    expect(element.kind, ElementKind.PARAMETER);
+    expect(element.name, 'fff');
+    expect(element.location.offset, content.indexOf('fff})'));
+  }
+
+  test_ArgumentList_local_constructor_named_fieldFormal_noDocumentation() async {
+    String content = '''
+class A {
+  int fff;
+  A({this.fff});
+}
+main() {
+  new A(^);
+}
+''';
+    addTestSource(content);
+    await computeSuggestions();
+    expect(suggestions, hasLength(1));
+
+    CompletionSuggestion suggestion = suggestions[0];
+    expect(suggestion.docSummary, isNull);
+    expect(suggestion.docComplete, isNull);
+
+    Element element = suggestion.element;
+    expect(element, isNotNull);
+    expect(element.kind, ElementKind.PARAMETER);
+    expect(element.name, 'fff');
+    expect(element.location.offset, content.indexOf('fff})'));
   }
 
   test_ArgumentList_local_constructor_named_param() async {
@@ -333,7 +541,8 @@ library libA; class A { A({int one, String two: 'defaultValue'}) { } }''');
 class A { A({int one, String two: 'defaultValue'}) { } }
 main() { new A(^);}''');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['one', 'two']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'one': 'int', 'two': 'String'});
   }
 
   test_ArgumentList_local_constructor_named_param2() async {
@@ -342,7 +551,8 @@ main() { new A(^);}''');
 class A { A.foo({int one, String two: 'defaultValue'}) { } }
 main() { new A.foo(^);}''');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['one', 'two']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'one': 'int', 'two': 'String'});
   }
 
   test_ArgumentList_local_function_1() async {
@@ -435,7 +645,8 @@ main() { new A.foo(^);}''');
 f(v,{int radix, int onError(String s)}){}
 main() { f("16", ^);}''');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['radix', 'onError']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'radix': 'int', 'onError': '(String) → int'});
   }
 
   test_ArgumentList_local_function_named_param1() async {
@@ -444,7 +655,8 @@ main() { f("16", ^);}''');
 f(v,{int radix, int onError(String s)}){}
 main() { f("16", r^);}''');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['radix', 'onError']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'radix': 'int', 'onError': '(String) → int'});
   }
 
   test_ArgumentList_local_function_named_param2() async {
@@ -453,7 +665,8 @@ main() { f("16", r^);}''');
 f(v,{int radix, int onError(String s)}){}
 main() { f("16", radix: 7, ^);}''');
     await computeSuggestions();
-    assertSuggestArguments(namedArguments: ['onError']);
+    assertSuggestArgumentsAndTypes(
+        namedArgumentsWithTypes: {'onError': '(String) → int'});
   }
 
   test_ArgumentList_local_function_named_param2a() async {
@@ -500,4 +713,10 @@ main() { f("16", radix: ^);}''');
     await computeSuggestions();
     assertSuggestArgumentList(['arg', 'blat'], ['dynamic', 'int']);
   }
+}
+
+@reflectiveTest
+class ArgListContributorTest_Driver extends ArgListContributorTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

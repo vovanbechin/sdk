@@ -359,7 +359,7 @@ abstract class FileSystemEntity {
    * with .type set to
    * FileSystemEntityType.NOT_FOUND and the other fields invalid.
    */
-  Future<FileStat> stat();
+  Future<FileStat> stat() => FileStat.stat(path);
 
   /**
    * Synchronously calls the operating system's stat() function on the
@@ -371,7 +371,7 @@ abstract class FileSystemEntity {
    * If the call fails, returns a [FileStat] object with .type set to
    * FileSystemEntityType.NOT_FOUND and the other fields invalid.
    */
-  FileStat statSync();
+  FileStat statSync() => FileStat.statSync(path);
 
   /**
    * Deletes this [FileSystemEntity].
@@ -433,7 +433,7 @@ abstract class FileSystemEntity {
    * being listened to, not when the call to [watch] is issued.
    *
    * The returned value is an endless broadcast [Stream], that only stops when
-   * one of the following happends:
+   * one of the following happens:
    *
    *   * The [Stream] is canceled, e.g. by calling `cancel` on the
    *      [StreamSubscription].
@@ -482,8 +482,8 @@ abstract class FileSystemEntity {
   /**
    * Returns a [bool] indicating whether this object's path is absolute.
    *
-   * On Windows, a path is absolute if it starts with \\ or a drive letter
-   * between a and z (upper or lower case) followed by :\ or :/.
+   * On Windows, a path is absolute if it starts with \\\\ or a drive letter
+   * between a and z (upper or lower case) followed by :\\ or :/.
    * On non-Windows, a path is absolute if it starts with /.
    */
   bool get isAbsolute {
@@ -624,7 +624,7 @@ abstract class FileSystemEntity {
   /**
    * Removes the final path component of a path, using the platform's
    * path separator to split the path.  Will not remove the root component
-   * of a Windows path, like "C:\" or "\\server_name\".
+   * of a Windows path, like "C:\\" or "\\\\server_name\\".
    * Ignores trailing path separators, and leaves no trailing path separators.
    */
   static String parentOf(String path) {
@@ -653,8 +653,7 @@ abstract class FileSystemEntity {
   }
 
   /**
-   * The directory containing [this].  If [this] is a root
-   * directory, returns [this].
+   * The directory containing [this].
    */
   Directory get parent => new Directory(parentOf(path));
 
@@ -816,7 +815,7 @@ class FileSystemDeleteEvent extends FileSystemEvent {
  */
 class FileSystemMoveEvent extends FileSystemEvent {
   /**
-   * If the underlaying implementation is able to identify the destination of
+   * If the underlying implementation is able to identify the destination of
    * the moved file, [destination] will be set. Otherwise, it will be `null`.
    */
   final String destination;

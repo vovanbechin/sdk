@@ -2,18 +2,28 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef BIN_ISOLATE_DATA_H_
-#define BIN_ISOLATE_DATA_H_
+#ifndef RUNTIME_BIN_ISOLATE_DATA_H_
+#define RUNTIME_BIN_ISOLATE_DATA_H_
 
 #include "include/dart_api.h"
 #include "platform/assert.h"
 #include "platform/globals.h"
 
 namespace dart {
+
+// Forward declaration.
+template <typename T>
+class MallocGrowableArray;
+
+}  // namespace dart
+
+namespace dart {
 namespace bin {
 
 // Forward declaration.
+class AppSnapshot;
 class EventHandler;
+class Loader;
 
 // Data associated with every isolate in the standalone VM
 // embedding. This is used to free external resources for each isolate
@@ -22,34 +32,9 @@ class IsolateData {
  public:
   IsolateData(const char* url,
               const char* package_root,
-              const char* packages_file)
-      : script_url((url != NULL) ? strdup(url) : NULL),
-        package_root(NULL),
-        packages_file(NULL),
-        udp_receive_buffer(NULL),
-        load_async_id(-1),
-        builtin_lib_(NULL) {
-    if (package_root != NULL) {
-      ASSERT(packages_file == NULL);
-      this->package_root = strdup(package_root);
-    } else if (packages_file != NULL) {
-      this->packages_file = strdup(packages_file);
-    }
-  }
-
-  ~IsolateData() {
-    free(script_url);
-    script_url = NULL;
-    free(package_root);
-    package_root = NULL;
-    free(packages_file);
-    packages_file = NULL;
-    free(udp_receive_buffer);
-    udp_receive_buffer = NULL;
-    if (builtin_lib_ != NULL) {
-      Dart_DeletePersistentHandle(builtin_lib_);
-    }
-  }
+              const char* packages_file,
+              AppSnapshot* app_snapshot);
+  ~IsolateData();
 
   Dart_Handle builtin_lib() const {
     ASSERT(builtin_lib_ != NULL);
@@ -67,10 +52,29 @@ class IsolateData {
   char* package_root;
   char* packages_file;
   uint8_t* udp_receive_buffer;
-  int64_t load_async_id;
+
+  // While loading a loader is associated with the isolate.
+  bool HasLoader() const { return loader_ != NULL; }
+  Loader* loader() const {
+    ASSERT(loader_ != NULL);
+    return loader_;
+  }
+  void set_loader(Loader* loader) {
+    ASSERT((loader_ == NULL) || (loader == NULL));
+    loader_ = loader;
+  }
+  MallocGrowableArray<char*>* dependencies() const { return dependencies_; }
+  void set_dependencies(MallocGrowableArray<char*>* deps) {
+    dependencies_ = deps;
+  }
+
+  void OnIsolateShutdown();
 
  private:
   Dart_Handle builtin_lib_;
+  Loader* loader_;
+  AppSnapshot* app_snapshot_;
+  MallocGrowableArray<char*>* dependencies_;
 
   DISALLOW_COPY_AND_ASSIGN(IsolateData);
 };
@@ -78,4 +82,4 @@ class IsolateData {
 }  // namespace bin
 }  // namespace dart
 
-#endif  // BIN_ISOLATE_DATA_H_
+#endif  // RUNTIME_BIN_ISOLATE_DATA_H_

@@ -103,7 +103,10 @@ final GeneratedDirectory targetDir =
       }
     }
   }
-  print(map.keys);
+  print("Generating...");
+  map.keys.forEach((String file) {
+    print("  ${targetDir.outputDirPath}/$file");
+  });
   return map;
 });
 
@@ -480,8 +483,7 @@ class CodegenJavaType extends CodegenJavaVisitor {
 //        }
       if (className != 'Outline') {
         publicMethod('fromJson', () {
-          writeln(
-              'public static $className fromJson(JsonObject jsonObject) {');
+          writeln('public static $className fromJson(JsonObject jsonObject) {');
           indent(() {
             for (TypeObjectField field in fields) {
               write('${javaFieldType(field)} ${javaName(field.name)} = ');

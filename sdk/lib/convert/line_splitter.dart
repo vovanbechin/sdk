@@ -9,7 +9,7 @@ const int _LF = 10;
 const int _CR = 13;
 
 /**
- * A [Converter] that splits a [String] into individual lines.
+ * A [StreamTransformer] that splits a [String] into individual lines.
  *
  * A line is terminated by either a CR (U+000D), a LF (U+000A), a
  * CR+LF sequence (DOS line ending),
@@ -17,7 +17,11 @@ const int _CR = 13;
  *
  * The returned lines do not contain the line terminators.
  */
-class LineSplitter extends Converter<String, List<String>> {
+
+class LineSplitter
+    extends Converter<String, List<String>>/*=Object*/
+    implements ChunkedConverter<String, List<String>, String, String>
+        /*=StreamTransformer<String, String>*/ {
 
   const LineSplitter();
 
@@ -80,8 +84,11 @@ class LineSplitter extends Converter<String, List<String>> {
     return new _LineSplitterSink(sink);
   }
 
-  // Override the base-class' bind, to provide a better type.
-  Stream<String> bind(Stream<String> stream) => super.bind(stream);
+  Stream/*<String>*/ bind(Stream<String> stream) {
+    return new Stream<String>.eventTransformed(
+          stream,
+          (EventSink<String> sink) => new _LineSplitterEventSink(sink));
+  }
 }
 
 // TODO(floitsch): deal with utf8.
@@ -157,5 +164,18 @@ class _LineSplitterSink extends StringConversionSinkBase {
     } else {
       _skipLeadingLF = (char == _CR);
     }
+  }
+}
+
+class _LineSplitterEventSink extends _LineSplitterSink
+    implements EventSink<String> {
+  final EventSink<String> _eventSink;
+
+  _LineSplitterEventSink(EventSink<String> eventSink)
+      : _eventSink = eventSink,
+        super(new StringConversionSink.from(eventSink));
+
+  void addError(Object o, [StackTrace stackTrace]) {
+    _eventSink.addError(o, stackTrace);
   }
 }

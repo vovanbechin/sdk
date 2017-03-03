@@ -83,7 +83,8 @@ class HtmlDartGenerator(object):
     element_type = None
     requires_indexer = False
     if self._interface_type_info.list_item_type():
-      self.AddIndexer(self._interface_type_info.list_item_type())
+      self.AddIndexer(self._interface_type_info.list_item_type(),
+                      self._interface_type_info.list_item_type_nullable())
     else:
       for parent in self._database.Hierarchy(self._interface):
         if parent == self._interface:
@@ -177,7 +178,7 @@ class HtmlDartGenerator(object):
 
     # Never remove operations that are added as a result of an implements they
     # are pure interfaces (mixins to this interface).
-    if (IsPureInterface(parent_name)):
+    if (IsPureInterface(parent_name, self._database)):
       return
 
     for operation in parent.operations:
@@ -420,7 +421,7 @@ class HtmlDartGenerator(object):
           else:
             checks.append('(%s is %s)' % (
                 parameter_name, test_type))
-        elif i >= number_of_required_in_dart:
+        elif i >= number_of_required_in_dart and not argument.type.nullable:
           checks.append('%s != null' % parameter_name)
 
       # There can be multiple presence checks.  We need them all since a later
@@ -571,32 +572,30 @@ class HtmlDartGenerator(object):
       # TODO(antonm): use common dispatcher generation for this case as well.
       has_optional = any(param_info.is_optional
           for param_info in constructor_info.param_infos)
-
+      factory_call = self.MakeFactoryCall(
+          factory_name, factory_constructor_name, factory_parameters,
+          constructor_info)
       if not has_optional:
         self._members_emitter.Emit(
             '\n  $(METADATA)'
             'factory $CTOR($PARAMS) => '
-            '$FACTORY.$CTOR_FACTORY_NAME($FACTORY_PARAMS);\n',
+            '$FACTORY_CALL;\n',
             CTOR=constructor_info._ConstructorFullName(self._DartType),
             PARAMS=constructor_info.ParametersAsDeclaration(InputType),
-            FACTORY=factory_name,
-            METADATA=metadata,
-            CTOR_FACTORY_NAME=factory_constructor_name,
-            FACTORY_PARAMS=factory_parameters)
+            FACTORY_CALL=factory_call,
+            METADATA=metadata)
       else:
         inits = self._members_emitter.Emit(
             '\n  $(METADATA)'
             'factory $CONSTRUCTOR($PARAMS) {\n'
-            '    var e = $FACTORY.$CTOR_FACTORY_NAME($FACTORY_PARAMS);\n'
+            '    $CONSTRUCTOR e = $FACTORY_CALL;\n'
             '$!INITS'
             '    return e;\n'
             '  }\n',
             CONSTRUCTOR=constructor_info._ConstructorFullName(self._DartType),
             METADATA=metadata,
-            FACTORY=factory_name,
-            CTOR_FACTORY_NAME=factory_constructor_name,
-            PARAMS=constructor_info.ParametersAsDeclaration(InputType),
-            FACTORY_PARAMS=factory_parameters)
+            FACTORY_CALL=factory_call,
+            PARAMS=constructor_info.ParametersAsDeclaration(InputType))
 
         for index, param_info in enumerate(constructor_info.param_infos):
           if param_info.is_optional:
@@ -626,7 +625,7 @@ class HtmlDartGenerator(object):
             (factory_params, converted_arguments) = self._ConvertArgumentTypes(
                 stmts_emitter, arguments, argument_count, constructor_info)
             args = ', '.join(converted_arguments)
-            call_template = 'wrap_jso($FACTORY_NAME($FACTORY_PARAMS))'
+            call_template = '$FACTORY_NAME($FACTORY_PARAMS)'
         else:
             qualified_name = emitter.Format(
                 '$FACTORY.$NAME',
@@ -759,7 +758,7 @@ class HtmlDartGenerator(object):
              NAME=method_name,
              PARAMS=operation.ParametersAsDeclaration(self._DartType))
 
-  def EmitListMixin(self, element_name):
+  def EmitListMixin(self, element_name, nullable):
     # TODO(sra): Use separate mixins for mutable implementations of List<T>.
     # TODO(sra): Use separate mixins for typed array implementations of List<T>.
     template_file = 'immutable_list_mixin.darttemplate'
@@ -795,7 +794,12 @@ class HtmlDartGenerator(object):
           'DEFINE_LENGTH_SETTER': not has_length_setter,
           'USE_NATIVE_INDEXED_GETTER': _HasNativeIndexedGetter(self) or _HasExplicitIndexedGetter(self),
         })
-    self._members_emitter.Emit(template, E=element_name, GETTER=getter_name)
+    if nullable:
+        element_js = element_name + "|Null"
+    else:
+        element_js = element_name
+    self._members_emitter.Emit(template, E=element_name, EJS=element_js,
+                               GETTER=getter_name)
 
   def SecureOutputType(self, type_name, is_dart_type=False,
       can_narrow_type=False):
@@ -870,7 +874,7 @@ class HtmlDartGenerator(object):
         else:
           param_type = self._NarrowInputType(arg.type.id)
           # Verified by argument checking on entry to the dispatcher.
-  
+
           verified_type = self._InputType(
               info.param_infos[position].type_id, info)
           # The native method does not need an argument type if we know the type.

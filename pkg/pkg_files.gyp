@@ -9,8 +9,8 @@
     # This target lists all the files in pkg and third_party/pkg,
     # and creates the timestamp pkg_files.stamp, which depends on some
     # intermediate helper timestamps.
-    # We split third_party/pkg up into three groups, based on the last
-    # character before .dart at the end of the filename.
+    # We split third_party/pkg up into three groups, based on the first letter
+    # of the package name.
     {
       'target_name': 'pkg_files_stamp',
       'type': 'none',
@@ -19,10 +19,10 @@
           'action_name': 'make_pkg_files_stamp',
           'inputs': [
             '../tools/create_timestamp_file.py',
-            '<!@(["python", "../tools/list_files.py", "\\.dart$", "."])',
-            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_1.stamp',
-            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_2.stamp',
-            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_3.stamp',
+            '<!@(["python", "../tools/list_dart_files.py", "relative", "."])',
+            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_a_k.stamp',
+            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_l_r.stamp',
+            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_s_z.stamp',
           ],
           'outputs': [
             '<(SHARED_INTERMEDIATE_DIR)/pkg_files.stamp',
@@ -33,15 +33,14 @@
           ],
         },
         {
-          'action_name': 'make_third_party_pkg_files_1_stamp',
+          'action_name': 'make_third_party_pkg_files_a_k_stamp',
           'inputs': [
             '../tools/create_timestamp_file.py',
-            '<!@(["python", "../tools/list_files.py",'
-                '"^(?!.*_test\.dart).*[a-k]\.dart$",'
-                '"../third_party/pkg"])',
+            '<!@(["python", "../tools/list_dart_files.py", "relative", '
+                '"../third_party/pkg", "[a-k].*"])',
           ],
           'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_1.stamp',
+            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_a_k.stamp',
           ],
           'action': [
             'python', '../tools/create_timestamp_file.py',
@@ -49,15 +48,14 @@
           ],
         },
         {
-          'action_name': 'make_third_party_pkg_files_2_stamp',
+          'action_name': 'make_third_party_pkg_files_l_r_stamp',
           'inputs': [
             '../tools/create_timestamp_file.py',
-            '<!@(["python", "../tools/list_files.py",'
-                '"^(?!.*_test\.dart).*[l-r]\.dart$",'
-                '"../third_party/pkg"])',
+            '<!@(["python", "../tools/list_dart_files.py", "relative", '
+                '"../third_party/pkg", "[l-r].*"])',
           ],
           'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_2.stamp',
+            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_l_r.stamp',
           ],
           'action': [
             'python', '../tools/create_timestamp_file.py',
@@ -65,15 +63,14 @@
           ],
         },
         {
-          'action_name': 'make_third_party_pkg_files_3_stamp',
+          'action_name': 'make_third_party_pkg_files_s_z_stamp',
           'inputs': [
             '../tools/create_timestamp_file.py',
-            '<!@(["python", "../tools/list_files.py",'
-                '"^(?!.*_test\.dart).*[^a-r]\.dart$",'
-                '"../third_party/pkg"])',
+            '<!@(["python", "../tools/list_dart_files.py", "relative", '
+                '"../third_party/pkg", "[s-z].*"])',
           ],
           'outputs': [
-            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_3.stamp',
+            '<(SHARED_INTERMEDIATE_DIR)/third_party_pkg_files_s_z.stamp',
           ],
           'action': [
             'python', '../tools/create_timestamp_file.py',

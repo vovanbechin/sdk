@@ -5,7 +5,7 @@
 library domain.analysis;
 
 import 'dart:async';
-import 'dart:core' hide Resource;
+import 'dart:core';
 
 import 'package:analysis_server/plugin/analysis/analysis_domain.dart';
 import 'package:analysis_server/src/analysis_server.dart';
@@ -13,20 +13,20 @@ import 'package:analysis_server/src/computer/computer_hover.dart';
 import 'package:analysis_server/src/constants.dart';
 import 'package:analysis_server/src/context_manager.dart';
 import 'package:analysis_server/src/domains/analysis/navigation.dart';
+import 'package:analysis_server/src/domains/analysis/navigation_dart.dart';
 import 'package:analysis_server/src/operation/operation_analysis.dart'
-    show
-        NavigationOperation,
-        OccurrencesOperation,
-        sendAnalysisNotificationNavigation;
+    show NavigationOperation, OccurrencesOperation;
 import 'package:analysis_server/src/protocol/protocol_internal.dart';
 import 'package:analysis_server/src/protocol_server.dart';
 import 'package:analysis_server/src/services/dependencies/library_dependencies.dart';
 import 'package:analysis_server/src/services/dependencies/reachable_source_collector.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/error/error.dart' as engine;
+import 'package:analyzer/exception/exception.dart';
 import 'package:analyzer/file_system/file_system.dart';
+import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer/src/generated/engine.dart' as engine;
-import 'package:analyzer/src/generated/java_engine.dart' show CaughtException;
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/task/model.dart' show ResultDescriptor;
 
@@ -50,60 +50,79 @@ class AnalysisDomainHandler implements RequestHandler {
   /**
    * Implement the `analysis.getErrors` request.
    */
-  Response getErrors(Request request) {
+  Future<Null> getErrors(Request request) async {
     String file = new AnalysisGetErrorsParams.fromRequest(request).file;
+
+    void send(engine.AnalysisOptions analysisOptions, LineInfo lineInfo,
+        List<engine.AnalysisError> errors) {
+      if (lineInfo == null) {
+        server.sendResponse(new Response.getErrorsInvalidFile(request));
+      } else {
+        List<AnalysisError> protocolErrors =
+            doAnalysisError_listFromEngine(analysisOptions, lineInfo, errors);
+        server.sendResponse(
+            new AnalysisGetErrorsResult(protocolErrors).toResponse(request.id));
+      }
+    }
+
+    if (server.options.enableNewAnalysisDriver) {
+      var result = await server.getAnalysisResult(file);
+      send(result?.driver?.analysisOptions, result?.lineInfo, result?.errors);
+      return;
+    }
+
     Future<AnalysisDoneReason> completionFuture =
         server.onFileAnalysisComplete(file);
     if (completionFuture == null) {
-      return new Response.getErrorsInvalidFile(request);
+      server.sendResponse(new Response.getErrorsInvalidFile(request));
     }
-    completionFuture.then((AnalysisDoneReason reason) {
+    completionFuture.then((AnalysisDoneReason reason) async {
       switch (reason) {
         case AnalysisDoneReason.COMPLETE:
           engine.AnalysisErrorInfo errorInfo = server.getErrors(file);
-          List<AnalysisError> errors;
           if (errorInfo == null) {
             server.sendResponse(new Response.getErrorsInvalidFile(request));
           } else {
             engine.AnalysisContext context = server.getAnalysisContext(file);
-            errors = doAnalysisError_listFromEngine(
-                context, errorInfo.lineInfo, errorInfo.errors);
-            server.sendResponse(
-                new AnalysisGetErrorsResult(errors).toResponse(request.id));
+            send(context.analysisOptions, errorInfo.lineInfo, errorInfo.errors);
           }
           break;
         case AnalysisDoneReason.CONTEXT_REMOVED:
           // The active contexts have changed, so try again.
-          Response response = getErrors(request);
-          if (response != Response.DELAYED_RESPONSE) {
-            server.sendResponse(response);
-          }
+          await getErrors(request);
           break;
       }
     });
-    // delay response
-    return Response.DELAYED_RESPONSE;
   }
 
   /**
    * Implement the `analysis.getHover` request.
    */
-  Response getHover(Request request) {
-    // prepare parameters
+  Future<Null> getHover(Request request) async {
     var params = new AnalysisGetHoverParams.fromRequest(request);
-    // prepare hovers
+
+    // Prepare the resolved units.
+    CompilationUnit unit;
+    if (server.options.enableNewAnalysisDriver) {
+      AnalysisResult result = await server.getAnalysisResult(params.file);
+      unit = result?.unit;
+    } else {
+      unit = await server.getResolvedCompilationUnit(params.file);
+    }
+
+    // Prepare the hovers.
     List<HoverInformation> hovers = <HoverInformation>[];
-    List<CompilationUnit> units =
-        server.getResolvedCompilationUnits(params.file);
-    for (CompilationUnit unit in units) {
+    if (unit != null) {
       HoverInformation hoverInformation =
           new DartUnitHoverComputer(unit, params.offset).compute();
       if (hoverInformation != null) {
         hovers.add(hoverInformation);
       }
     }
-    // send response
-    return new AnalysisGetHoverResult(hovers).toResponse(request.id);
+
+    // Send the response.
+    server.sendResponse(
+        new AnalysisGetHoverResult(hovers).toResponse(request.id));
   }
 
   /// Implement the `analysis.getLibraryDependencies` request.
@@ -125,23 +144,45 @@ class AnalysisDomainHandler implements RequestHandler {
   /**
    * Implement the `analysis.getNavigation` request.
    */
-  Response getNavigation(Request request) {
+  Future<Null> getNavigation(Request request) async {
     var params = new AnalysisGetNavigationParams.fromRequest(request);
     String file = params.file;
+
+    if (server.options.enableNewAnalysisDriver) {
+      AnalysisDriver driver = server.getAnalysisDriver(file);
+      if (driver == null) {
+        server.sendResponse(new Response.getNavigationInvalidFile(request));
+      } else {
+        AnalysisResult result = await server.getAnalysisResult(file);
+        CompilationUnit unit = result?.unit;
+        if (unit == null || !result.exists) {
+          server.sendResponse(new Response.getNavigationInvalidFile(request));
+        } else {
+          NavigationCollectorImpl collector = new NavigationCollectorImpl();
+          computeDartNavigation(collector, unit, params.offset, params.length);
+          collector.createRegions();
+          server.sendResponse(new AnalysisGetNavigationResult(
+                  collector.files, collector.targets, collector.regions)
+              .toResponse(request.id));
+        }
+      }
+      return;
+    }
+
     Future<AnalysisDoneReason> analysisFuture =
         server.onFileAnalysisComplete(file);
     if (analysisFuture == null) {
-      return new Response.getNavigationInvalidFile(request);
+      server.sendResponse(new Response.getNavigationInvalidFile(request));
+      return;
     }
-    analysisFuture.then((AnalysisDoneReason reason) {
+    analysisFuture.then((AnalysisDoneReason reason) async {
       switch (reason) {
         case AnalysisDoneReason.COMPLETE:
-          List<CompilationUnit> units =
-              server.getResolvedCompilationUnits(file);
-          if (units.isEmpty) {
+          CompilationUnit unit = await server.getResolvedCompilationUnit(file);
+          if (unit == null) {
             server.sendResponse(new Response.getNavigationInvalidFile(request));
           } else {
-            CompilationUnitElement unitElement = units.first.element;
+            CompilationUnitElement unitElement = unit.element;
             NavigationCollectorImpl collector = computeNavigation(
                 server,
                 unitElement.context,
@@ -155,15 +196,10 @@ class AnalysisDomainHandler implements RequestHandler {
           break;
         case AnalysisDoneReason.CONTEXT_REMOVED:
           // The active contexts have changed, so try again.
-          Response response = getNavigation(request);
-          if (response != Response.DELAYED_RESPONSE) {
-            server.sendResponse(response);
-          }
+          await getNavigation(request);
           break;
       }
     });
-    // delay response
-    return Response.DELAYED_RESPONSE;
   }
 
   /**
@@ -188,13 +224,16 @@ class AnalysisDomainHandler implements RequestHandler {
     try {
       String requestName = request.method;
       if (requestName == ANALYSIS_GET_ERRORS) {
-        return getErrors(request);
+        getErrors(request);
+        return Response.DELAYED_RESPONSE;
       } else if (requestName == ANALYSIS_GET_HOVER) {
-        return getHover(request);
+        getHover(request);
+        return Response.DELAYED_RESPONSE;
       } else if (requestName == ANALYSIS_GET_LIBRARY_DEPENDENCIES) {
         return getLibraryDependencies(request);
       } else if (requestName == ANALYSIS_GET_NAVIGATION) {
-        return getNavigation(request);
+        getNavigation(request);
+        return Response.DELAYED_RESPONSE;
       } else if (requestName == ANALYSIS_GET_REACHABLE_SOURCES) {
         return getReachableSources(request);
       } else if (requestName == ANALYSIS_REANALYZE) {

@@ -4,25 +4,21 @@
 
 import 'package:expect/expect.dart';
 import 'package:async_helper/async_helper.dart';
-import 'package:compiler/src/types/types.dart'
-    show TypeMask;
+import 'package:compiler/src/types/types.dart' show TypeMask;
+import 'package:compiler/src/world.dart' show ClosedWorld;
 
 import 'compiler_helper.dart';
 import 'type_mask_test_helper.dart';
 
-void compileAndFind(String code,
-                    String className,
-                    String memberName,
-                    bool disableInlining,
-                    check(compiler, element)) {
+void compileAndFind(String code, String className, String memberName,
+    bool disableInlining, check(compiler, element)) {
   Uri uri = new Uri(scheme: 'source');
-  var compiler = compilerFor(code, uri);
+  var compiler = compilerFor(code, uri, disableInlining: disableInlining);
   asyncTest(() => compiler.run(uri).then((_) {
-    compiler.disableInlining = disableInlining;
-    var cls = findElement(compiler, className);
-    var member = cls.lookupMember(memberName);
-    check(compiler, member);
-  }));
+        var cls = findElement(compiler, className);
+        var member = cls.lookupMember(memberName);
+        check(compiler, member);
+      }));
 }
 
 const String TEST_1 = r"""
@@ -178,7 +174,6 @@ const String TEST_10 = r"""
     a.m();
   }
 """;
-
 
 const String TEST_11 = r"""
   class S {
@@ -475,97 +470,145 @@ const String TEST_27 = r"""
   }
 """;
 
-void doTest(String test, bool disableInlining, Map<String, Function> fields) {
-  fields.forEach((String name, Function f) {
-    compileAndFind(
-      test,
-      'A',
-      name,
-      disableInlining,
-      (compiler, field) {
-        TypeMask type = f(compiler.typesTask);
-        var inferrer = compiler.typesTask.typesInferrer;
-        TypeMask inferredType =
-            simplify(inferrer.getTypeOfElement(field), inferrer.compiler);
-        Expect.equals(type, inferredType, test);
+typedef TypeMask TestCallback(ClosedWorld closedWorld);
+
+void doTest(
+    String test, bool disableInlining, Map<String, TestCallback> fields) {
+  fields.forEach((String name, TestCallback f) {
+    compileAndFind(test, 'A', name, disableInlining, (compiler, field) {
+      var inferrer = compiler.globalInference.typesInferrerInternal;
+      var closedWorld = inferrer.closedWorld;
+      TypeMask type = f(closedWorld);
+      TypeMask inferredType =
+          simplify(inferrer.getTypeOfElement(field), closedWorld);
+      Expect.equals(type, inferredType, test);
     });
   });
 }
 
-void runTest(String test, Map<String, Function> fields) {
+void runTest(String test, Map<String, TestCallback> fields) {
   doTest(test, false, fields);
   doTest(test, true, fields);
 }
 
 void test() {
-  subclassOfInterceptor(types) =>
-      findTypeMask(types.compiler, 'Interceptor', 'nonNullSubclass');
-
-  runTest(TEST_1, {'f': (types) => types.nullType});
-  runTest(TEST_2, {'f1': (types) => types.nullType,
-                   'f2': (types) => types.uint31Type});
-  runTest(TEST_3, {'f1': (types) => types.uint31Type,
-                   'f2': (types) => types.uint31Type.nullable()});
-  runTest(TEST_4, {'f1': subclassOfInterceptor,
-                   'f2': (types) => types.stringType.nullable()});
-
-  // TODO(ngeoffray): We should try to infer that the initialization
-  // code at the declaration site of the fields does not matter.
-  runTest(TEST_5, {'f1': subclassOfInterceptor,
-                   'f2': subclassOfInterceptor});
-  runTest(TEST_6, {'f1': subclassOfInterceptor,
-                   'f2': subclassOfInterceptor});
-  runTest(TEST_7, {'f1': subclassOfInterceptor,
-                   'f2': subclassOfInterceptor});
-
-  runTest(TEST_8, {'f': (types) => types.stringType.nullable()});
-  runTest(TEST_9, {'f': (types) => types.stringType.nullable()});
-  runTest(TEST_10, {'f': (types) => types.uint31Type});
-  runTest(TEST_11, {'fs': (types) => types.uint31Type});
+  runTest(TEST_1, <String, TestCallback>{
+    'f': (closedWorld) => closedWorld.commonMasks.nullType
+  });
+  runTest(TEST_2, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.nullType,
+    'f2': (closedWorld) => closedWorld.commonMasks.uint31Type
+  });
+  runTest(TEST_3, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.uint31Type,
+    'f2': (closedWorld) => closedWorld.commonMasks.uint31Type.nullable()
+  });
+  runTest(TEST_4, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.interceptorType,
+    'f2': (closedWorld) => closedWorld.commonMasks.stringType.nullable()
+  });
 
   // TODO(ngeoffray): We should try to infer that the initialization
   // code at the declaration site of the fields does not matter.
-  runTest(TEST_12, {'fs': subclassOfInterceptor});
+  runTest(TEST_5, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.interceptorType,
+    'f2': (closedWorld) => closedWorld.commonMasks.interceptorType,
+  });
+  runTest(TEST_6, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.interceptorType,
+    'f2': (closedWorld) => closedWorld.commonMasks.interceptorType,
+  });
+  runTest(TEST_7, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.interceptorType,
+    'f2': (closedWorld) => closedWorld.commonMasks.interceptorType,
+  });
 
-  runTest(TEST_13, {'fs': (types) => types.uint31Type});
-  runTest(TEST_14, {'f': (types) => types.uint31Type});
-  runTest(TEST_15, {'f': (types) {
-                            ClassElement cls =
-                                types.compiler.backend.helpers.jsIndexableClass;
-                            return new TypeMask.nonNullSubtype(cls,
-                                types.compiler.world);
-                         }});
-  runTest(TEST_16, {'f': subclassOfInterceptor});
-  runTest(TEST_17, {'f': (types) => types.uint31Type.nullable()});
-  runTest(TEST_18, {'f1': (types) => types.uint31Type,
-                    'f2': (types) => types.stringType,
-                    'f3': (types) => types.dynamicType});
-  runTest(TEST_19, {'f1': (types) => types.uint31Type,
-                    'f2': (types) => types.stringType,
-                    'f3': (types) => types.dynamicType});
-  runTest(TEST_20, {'f': (types) => types.uint31Type.nullable()});
-  runTest(TEST_21, {'f': (types) => types.uint31Type.nullable()});
+  runTest(TEST_8, <String, TestCallback>{
+    'f': (closedWorld) => closedWorld.commonMasks.stringType.nullable()
+  });
+  runTest(TEST_9, <String, TestCallback>{
+    'f': (closedWorld) => closedWorld.commonMasks.stringType.nullable()
+  });
+  runTest(TEST_10, <String, TestCallback>{
+    'f': (closedWorld) => closedWorld.commonMasks.uint31Type
+  });
+  runTest(TEST_11, <String, TestCallback>{
+    'fs': (closedWorld) => closedWorld.commonMasks.uint31Type
+  });
 
-  runTest(TEST_22, {'f1': (types) => types.uint31Type,
-                    'f2': (types) => types.uint31Type,
-                    'f3': (types) => types.stringType.nullable()});
+  // TODO(ngeoffray): We should try to infer that the initialization
+  // code at the declaration site of the fields does not matter.
+  runTest(TEST_12, <String, TestCallback>{
+    'fs': (closedWorld) => closedWorld.commonMasks.interceptorType
+  });
 
-  runTest(TEST_23, {'f1': (types) => types.uint31Type.nullable(),
-                    'f2': (types) => types.uint31Type.nullable(),
-                    'f3': (types) => types.uint31Type.nullable(),
-                    'f4': (types) => types.uint31Type.nullable()});
+  runTest(TEST_13, <String, TestCallback>{
+    'fs': (closedWorld) => closedWorld.commonMasks.uint31Type
+  });
+  runTest(TEST_14, <String, TestCallback>{
+    'f': (closedWorld) => closedWorld.commonMasks.uint31Type
+  });
+  runTest(TEST_15, <String, TestCallback>{
+    'f': (closedWorld) {
+      ClassElement cls = closedWorld.backendClasses.indexableClass;
+      return new TypeMask.nonNullSubtype(cls, closedWorld);
+    }
+  });
+  runTest(TEST_16, <String, TestCallback>{
+    'f': (closedWorld) => closedWorld.commonMasks.interceptorType
+  });
+  runTest(TEST_17, <String, TestCallback>{
+    'f': (closedWorld) => closedWorld.commonMasks.uint31Type.nullable()
+  });
+  runTest(TEST_18, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.uint31Type,
+    'f2': (closedWorld) => closedWorld.commonMasks.stringType,
+    'f3': (closedWorld) => closedWorld.commonMasks.dynamicType
+  });
+  runTest(TEST_19, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.uint31Type,
+    'f2': (closedWorld) => closedWorld.commonMasks.stringType,
+    'f3': (closedWorld) => closedWorld.commonMasks.dynamicType
+  });
+  runTest(TEST_20, <String, TestCallback>{
+    'f': (closedWorld) => closedWorld.commonMasks.uint31Type.nullable()
+  });
+  runTest(TEST_21, <String, TestCallback>{
+    'f': (closedWorld) => closedWorld.commonMasks.uint31Type.nullable()
+  });
 
-  runTest(TEST_24, {'f1': (types) => types.positiveIntType,
-                    'f2': (types) => types.positiveIntType,
-                    'f3': (types) => types.uint31Type,
-                    'f4': (types) => types.uint31Type,
-                    'f5': (types) => types.numType.nullable(),
-                    'f6': (types) => types.stringType.nullable()});
+  runTest(TEST_22, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.uint31Type,
+    'f2': (closedWorld) => closedWorld.commonMasks.uint31Type,
+    'f3': (closedWorld) => closedWorld.commonMasks.stringType.nullable()
+  });
 
-  runTest(TEST_25, {'f1': (types) => types.uint31Type });
-  runTest(TEST_26, {'f1': (types) => types.positiveIntType });
-  runTest(TEST_27, {'f1': (types) => types.uint31Type,
-                    'f2': (types) => types.uint31Type.nullable()});
+  runTest(TEST_23, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.uint31Type.nullable(),
+    'f2': (closedWorld) => closedWorld.commonMasks.uint31Type.nullable(),
+    'f3': (closedWorld) => closedWorld.commonMasks.uint31Type.nullable(),
+    'f4': (closedWorld) => closedWorld.commonMasks.uint31Type.nullable()
+  });
+
+  runTest(TEST_24, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.positiveIntType,
+    'f2': (closedWorld) => closedWorld.commonMasks.positiveIntType,
+    'f3': (closedWorld) => closedWorld.commonMasks.uint31Type,
+    'f4': (closedWorld) => closedWorld.commonMasks.uint31Type,
+    'f5': (closedWorld) => closedWorld.commonMasks.numType.nullable(),
+    'f6': (closedWorld) => closedWorld.commonMasks.stringType.nullable()
+  });
+
+  runTest(TEST_25, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.uint31Type
+  });
+  runTest(TEST_26, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.positiveIntType
+  });
+  runTest(TEST_27, <String, TestCallback>{
+    'f1': (closedWorld) => closedWorld.commonMasks.uint31Type,
+    'f2': (closedWorld) => closedWorld.commonMasks.uint31Type.nullable()
+  });
 }
 
 void main() {

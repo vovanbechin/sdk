@@ -36,23 +36,24 @@ RawFunction* Resolver::ResolveDynamicForReceiverClass(
     const String& function_name,
     const ArgumentsDescriptor& args_desc,
     bool allow_add) {
+  Thread* thread = Thread::Current();
+  Zone* zone = thread->zone();
 
   Function& function = Function::Handle(
-      ResolveDynamicAnyArgs(receiver_class, function_name, allow_add));
+      zone,
+      ResolveDynamicAnyArgs(zone, receiver_class, function_name, allow_add));
 
-  if (function.IsNull() ||
-      !function.AreValidArguments(args_desc, NULL)) {
+  if (function.IsNull() || !function.AreValidArguments(args_desc, NULL)) {
     // Return a null function to signal to the upper levels to dispatch to
     // "noSuchMethod" function.
     if (FLAG_trace_resolving) {
       String& error_message =
-          String::Handle(Symbols::New("function not found"));
+          String::Handle(zone, Symbols::New(thread, "function not found"));
       if (!function.IsNull()) {
         // Obtain more detailed error message.
         function.AreValidArguments(args_desc, &error_message);
       }
-      THR_Print("ResolveDynamic error '%s': %s.\n",
-                function_name.ToCString(),
+      THR_Print("ResolveDynamic error '%s': %s.\n", function_name.ToCString(),
                 error_message.ToCString());
     }
     return Function::null();
@@ -61,19 +62,18 @@ RawFunction* Resolver::ResolveDynamicForReceiverClass(
 }
 
 
-RawFunction* Resolver::ResolveDynamicAnyArgs(
-    const Class& receiver_class,
-    const String& function_name,
-    bool allow_add) {
-  Class& cls = Class::Handle(receiver_class.raw());
+RawFunction* Resolver::ResolveDynamicAnyArgs(Zone* zone,
+                                             const Class& receiver_class,
+                                             const String& function_name,
+                                             bool allow_add) {
+  Class& cls = Class::Handle(zone, receiver_class.raw());
   if (FLAG_trace_resolving) {
-    THR_Print("ResolveDynamic '%s' for class %s\n",
-              function_name.ToCString(),
-              String::Handle(cls.Name()).ToCString());
+    THR_Print("ResolveDynamic '%s' for class %s\n", function_name.ToCString(),
+              String::Handle(zone, cls.Name()).ToCString());
   }
 
   const bool is_getter = Field::IsGetterName(function_name);
-  String& field_name = String::Handle();
+  String& field_name = String::Handle(zone);
   if (is_getter) {
     field_name ^= Field::NameFromGetter(function_name);
 
@@ -88,7 +88,7 @@ RawFunction* Resolver::ResolveDynamicAnyArgs(
       field_name = String::SubString(field_name, 1);
       ASSERT(!Field::IsGetterName(field_name));
 
-      String& property_getter_name = String::Handle();
+      String& property_getter_name = String::Handle(zone);
       if (!Field::IsSetterName(field_name)) {
         // If this is not a setter, we need to look for both the regular
         // name and the getter name. (In the case of an operator, this
@@ -97,7 +97,7 @@ RawFunction* Resolver::ResolveDynamicAnyArgs(
         property_getter_name = Field::GetterName(field_name);
       }
 
-      Function& function = Function::Handle();
+      Function& function = Function::Handle(zone);
       while (!cls.IsNull()) {
         function = cls.LookupDynamicFunction(field_name);
         if (!function.IsNull()) {
@@ -117,7 +117,7 @@ RawFunction* Resolver::ResolveDynamicAnyArgs(
 
   // Now look for an instance function whose name matches function_name
   // in the class.
-  Function& function = Function::Handle();
+  Function& function = Function::Handle(zone);
   while (!cls.IsNull()) {
     function ^= cls.LookupDynamicFunction(function_name);
     if (!function.IsNull()) {
@@ -159,12 +159,10 @@ RawFunction* Resolver::ResolveStatic(const Library& library,
         if (FLAG_trace_resolving) {
           String& error_message = String::Handle();
           // Obtain more detailed error message.
-          function.AreValidArguments(num_arguments,
-                                     argument_names,
+          function.AreValidArguments(num_arguments, argument_names,
                                      &error_message);
           THR_Print("ResolveStatic error '%s': %s.\n",
-                    function_name.ToCString(),
-                    error_message.ToCString());
+                    function_name.ToCString(), error_message.ToCString());
         }
         function = Function::null();
       }
@@ -180,22 +178,19 @@ RawFunction* Resolver::ResolveStatic(const Library& library,
     // ResolveStatic will return a NULL function object.
     const Class& cls = Class::Handle(library.LookupClass(class_name));
     if (!cls.IsNull()) {
-      function = ResolveStatic(cls,
-                               function_name,
-                               num_arguments,
-                               argument_names);
+      function =
+          ResolveStatic(cls, function_name, num_arguments, argument_names);
     }
     if (FLAG_trace_resolving && function.IsNull()) {
       THR_Print("ResolveStatic error: function '%s.%s' not found.\n",
-                class_name.ToCString(),
-                function_name.ToCString());
+                class_name.ToCString(), function_name.ToCString());
     }
   }
   return function.raw();
 }
 
 
-RawFunction* Resolver::ResolveStatic(const Class&  cls,
+RawFunction* Resolver::ResolveStatic(const Class& cls,
                                      const String& function_name,
                                      intptr_t num_arguments,
                                      const Array& argument_names) {
@@ -213,12 +208,10 @@ RawFunction* Resolver::ResolveStatic(const Class&  cls,
       String& error_message = String::Handle(String::New("function not found"));
       if (!function.IsNull()) {
         // Obtain more detailed error message.
-        function.AreValidArguments(num_arguments,
-                                   argument_names,
+        function.AreValidArguments(num_arguments, argument_names,
                                    &error_message);
       }
-      THR_Print("ResolveStatic error '%s': %s.\n",
-                function_name.ToCString(),
+      THR_Print("ResolveStatic error '%s': %s.\n", function_name.ToCString(),
                 error_message.ToCString());
     }
     return Function::null();
@@ -227,7 +220,7 @@ RawFunction* Resolver::ResolveStatic(const Class&  cls,
 }
 
 
-RawFunction* Resolver::ResolveStaticAllowPrivate(const Class&  cls,
+RawFunction* Resolver::ResolveStaticAllowPrivate(const Class& cls,
                                                  const String& function_name,
                                                  intptr_t num_arguments,
                                                  const Array& argument_names) {
@@ -245,13 +238,11 @@ RawFunction* Resolver::ResolveStaticAllowPrivate(const Class&  cls,
       String& error_message = String::Handle(String::New("function not found"));
       if (!function.IsNull()) {
         // Obtain more detailed error message.
-        function.AreValidArguments(num_arguments,
-                                   argument_names,
+        function.AreValidArguments(num_arguments, argument_names,
                                    &error_message);
       }
       THR_Print("ResolveStaticAllowPrivate error '%s': %s.\n",
-                function_name.ToCString(),
-                error_message.ToCString());
+                function_name.ToCString(), error_message.ToCString());
     }
     return Function::null();
   }

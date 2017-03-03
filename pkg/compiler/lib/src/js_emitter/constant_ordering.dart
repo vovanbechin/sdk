@@ -5,14 +5,11 @@
 library dart2js.js_emitter.constant_ordering;
 
 import '../constants/values.dart';
-
-import '../dart_types.dart';
-import '../elements/elements.dart'
-    show Element,
-         Elements,
-         FieldElement;
-import '../tree/tree.dart' show DartString;
+import '../elements/elements.dart' show Elements;
+import '../elements/entities.dart' show Entity, FieldEntity;
+import '../elements/resolution_types.dart';
 import '../js_backend/js_backend.dart' show SyntheticConstantKind;
+import '../tree/dartstring.dart' show DartString;
 
 /// A canonical but arbrary ordering of constants. The ordering is 'stable'
 /// under perturbation of the source.
@@ -48,13 +45,13 @@ class _CompareVisitor implements ConstantValueVisitor<int, ConstantValue> {
     return 0;
   }
 
-  static int compareElements(Element a, Element b) {
+  static int compareElements(Entity a, Entity b) {
     int r = a.name.compareTo(b.name);
     if (r != 0) return r;
     return Elements.compareByPosition(a, b);
   }
 
-  static int compareDartTypes(DartType a, DartType b) {
+  static int compareDartTypes(ResolutionDartType a, ResolutionDartType b) {
     if (a == b) return 0;
     int r = a.kind.index.compareTo(b.kind.index);
     if (r != 0) return r;
@@ -64,8 +61,8 @@ class _CompareVisitor implements ConstantValueVisitor<int, ConstantValue> {
     if (a is GenericType) {
       GenericType aGeneric = a;
       GenericType bGeneric = b;
-      r = compareLists(compareDartTypes,
-                       aGeneric.typeArguments, bGeneric.typeArguments);
+      r = compareLists(
+          compareDartTypes, aGeneric.typeArguments, bGeneric.typeArguments);
       if (r != 0) return r;
     }
     throw 'unexpected compareDartTypes  $a  $b';
@@ -76,6 +73,10 @@ class _CompareVisitor implements ConstantValueVisitor<int, ConstantValue> {
   }
 
   int visitNull(NullConstantValue a, NullConstantValue b) {
+    return 0;
+  }
+
+  int visitNonConstant(NonConstantValue a, NonConstantValue b) {
     return 0;
   }
 
@@ -104,7 +105,9 @@ class _CompareVisitor implements ConstantValueVisitor<int, ConstantValue> {
   int visitList(ListConstantValue a, ListConstantValue b) {
     int r = compareLists(compareValues, a.entries, b.entries);
     if (r != 0) return r;
-    return compareDartTypes(a.type, b.type);
+    ResolutionInterfaceType type1 = a.type;
+    ResolutionInterfaceType type2 = b.type;
+    return compareDartTypes(type1, type2);
   }
 
   int visitMap(MapConstantValue a, MapConstantValue b) {
@@ -112,20 +115,25 @@ class _CompareVisitor implements ConstantValueVisitor<int, ConstantValue> {
     if (r != 0) return r;
     r = compareLists(compareValues, a.values, b.values);
     if (r != 0) return r;
-    return compareDartTypes(a.type, b.type);
+    ResolutionInterfaceType type1 = a.type;
+    ResolutionInterfaceType type2 = b.type;
+    return compareDartTypes(type1, type2);
   }
 
   int visitConstructed(ConstructedConstantValue a, ConstructedConstantValue b) {
-    int r = compareDartTypes(a.type, b.type);
+    ResolutionInterfaceType type1 = a.type;
+    ResolutionInterfaceType type2 = b.type;
+    int r = compareDartTypes(type1, type2);
     if (r != 0) return r;
 
-    List<FieldElement> aFields = a.fields.keys.toList()..sort(compareElements);
-    List<FieldElement> bFields = b.fields.keys.toList()..sort(compareElements);
+    List<FieldEntity> aFields = a.fields.keys.toList()..sort(compareElements);
+    List<FieldEntity> bFields = b.fields.keys.toList()..sort(compareElements);
 
     r = compareLists(compareElements, aFields, bFields);
     if (r != 0) return r;
 
-    return compareLists(compareValues,
+    return compareLists(
+        compareValues,
         aFields.map((field) => a.fields[field]).toList(),
         aFields.map((field) => b.fields[field]).toList());
   }
@@ -133,11 +141,13 @@ class _CompareVisitor implements ConstantValueVisitor<int, ConstantValue> {
   int visitType(TypeConstantValue a, TypeConstantValue b) {
     int r = compareDartTypes(a.representedType, b.representedType);
     if (r != 0) return r;
-    return compareDartTypes(a.type, b.type);
+    ResolutionInterfaceType type1 = a.type;
+    ResolutionInterfaceType type2 = b.type;
+    return compareDartTypes(type1, type2);
   }
 
   int visitInterceptor(InterceptorConstantValue a, InterceptorConstantValue b) {
-    return compareDartTypes(a.dispatchedType, b.dispatchedType);
+    return compareElements(a.cls, b.cls);
   }
 
   int visitSynthetic(SyntheticConstantValue a, SyntheticConstantValue b) {
@@ -146,11 +156,11 @@ class _CompareVisitor implements ConstantValueVisitor<int, ConstantValue> {
     // as elements of a few constants.  If this becomes a source of instability,
     // we will need to add a total ordering on JavaScript ASTs including
     // deferred elements.
-    SyntheticConstantKind aKind = a.kind;
-    SyntheticConstantKind bKind = b.kind;
+    SyntheticConstantKind aKind = a.valueKind;
+    SyntheticConstantKind bKind = b.valueKind;
     int r = aKind.index - bKind.index;
     if (r != 0) return r;
-    switch (a.kind) {
+    switch (aKind) {
       case SyntheticConstantKind.DUMMY_INTERCEPTOR:
       case SyntheticConstantKind.EMPTY_VALUE:
         // Never emitted.
@@ -191,12 +201,14 @@ class _KindVisitor implements ConstantValueVisitor<int, Null> {
   static const int INTERCEPTOR = 11;
   static const int SYNTHETIC = 12;
   static const int DEFERRED = 13;
+  static const int NONCONSTANT = 13;
 
   static int kind(ConstantValue constant) =>
       constant.accept(const _KindVisitor(), null);
 
   int visitFunction(FunctionConstantValue a, _) => FUNCTION;
   int visitNull(NullConstantValue a, _) => NULL;
+  int visitNonConstant(NonConstantValue a, _) => NONCONSTANT;
   int visitInt(IntConstantValue a, _) => INT;
   int visitDouble(DoubleConstantValue a, _) => DOUBLE;
   int visitBool(BoolConstantValue a, _) => BOOL;

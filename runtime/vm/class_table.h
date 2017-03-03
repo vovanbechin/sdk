@@ -2,10 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_CLASS_TABLE_H_
-#define VM_CLASS_TABLE_H_
+#ifndef RUNTIME_VM_CLASS_TABLE_H_
+#define RUNTIME_VM_CLASS_TABLE_H_
 
 #include "platform/assert.h"
+#include "vm/atomic.h"
 #include "vm/bitfield.h"
 #include "vm/globals.h"
 
@@ -16,11 +17,13 @@ class ClassStats;
 class JSONArray;
 class JSONObject;
 class JSONStream;
-template<typename T> class MallocGrowableArray;
+template <typename T>
+class MallocGrowableArray;
 class ObjectPointerVisitor;
 class RawClass;
 
-template<typename T>
+#ifndef PRODUCT
+template <typename T>
 class AllocStats {
  public:
   T new_count;
@@ -34,8 +37,8 @@ class AllocStats {
   }
 
   void AddNew(T size) {
-    new_count++;
-    new_size += size;
+    AtomicOperations::IncrementBy(&new_count, 1);
+    AtomicOperations::IncrementBy(&new_size, size);
   }
 
   void ResetOld() {
@@ -44,8 +47,8 @@ class AllocStats {
   }
 
   void AddOld(T size, T count = 1) {
-    old_count += count;
-    old_size += size;
+    AtomicOperations::IncrementBy(&old_count, count);
+    AtomicOperations::IncrementBy(&old_size, size);
   }
 
   void Reset() {
@@ -103,12 +106,8 @@ class ClassHeapStats {
     return OFFSET_OF(ClassHeapStats, recent) +
            OFFSET_OF(AllocStats<intptr_t>, old_size);
   }
-  static intptr_t state_offset() {
-    return OFFSET_OF(ClassHeapStats, state_);
-  }
-  static intptr_t TraceAllocationMask() {
-    return (1 << kTraceAllocationBit);
-  }
+  static intptr_t state_offset() { return OFFSET_OF(ClassHeapStats, state_); }
+  static intptr_t TraceAllocationMask() { return (1 << kTraceAllocationBit); }
 
   void Initialize();
   void ResetAtNewGC();
@@ -116,12 +115,12 @@ class ClassHeapStats {
   void ResetAccumulator();
   void UpdatePromotedAfterNewGC();
   void UpdateSize(intptr_t instance_size);
+#ifndef PRODUCT
   void PrintToJSONObject(const Class& cls, JSONObject* obj) const;
+#endif
   void Verify();
 
-  bool trace_allocation() const {
-    return TraceAllocationBit::decode(state_);
-  }
+  bool trace_allocation() const { return TraceAllocationBit::decode(state_); }
 
   void set_trace_allocation(bool trace_allocation) {
     state_ = TraceAllocationBit::update(trace_allocation, state_);
@@ -132,15 +131,16 @@ class ClassHeapStats {
     kTraceAllocationBit = 0,
   };
 
-  class TraceAllocationBit :
-      public BitField<intptr_t, bool, kTraceAllocationBit, 1> {};
+  class TraceAllocationBit
+      : public BitField<intptr_t, bool, kTraceAllocationBit, 1> {};
 
   // Recent old at start of last new GC (used to compute promoted_*).
   intptr_t old_pre_new_gc_count_;
   intptr_t old_pre_new_gc_size_;
   intptr_t state_;
+  intptr_t align_;  // Make SIMARM and ARM agree on the size of ClassHeapStats.
 };
-
+#endif  // !PRODUCT
 
 class ClassTable {
  public:
@@ -156,6 +156,8 @@ class ClassTable {
     return table_[index];
   }
 
+  void SetAt(intptr_t index, RawClass* raw_cls) { table_[index] = raw_cls; }
+
   bool IsValidIndex(intptr_t index) const {
     return (index > 0) && (index < top_);
   }
@@ -167,7 +169,15 @@ class ClassTable {
 
   intptr_t NumCids() const { return top_; }
 
+  // Used to drop recently added classes.
+  void SetNumCids(intptr_t num_cids) {
+    ASSERT(num_cids <= top_);
+    top_ = num_cids;
+  }
+
   void Register(const Class& cls);
+
+  void AllocateIndex(intptr_t index);
 
   void RegisterAt(intptr_t index, const Class& cls);
 
@@ -175,19 +185,21 @@ class ClassTable {
   void Unregister(intptr_t index);
 #endif
 
+  void Remap(intptr_t* old_to_new_cids);
+
   void VisitObjectPointers(ObjectPointerVisitor* visitor);
 
   void Validate();
 
   void Print();
 
-  void PrintToJSONObject(JSONObject* object);
+  // Used by the generated code.
+  static intptr_t table_offset() { return OFFSET_OF(ClassTable, table_); }
 
   // Used by the generated code.
-  static intptr_t table_offset() {
-    return OFFSET_OF(ClassTable, table_);
-  }
+  static intptr_t ClassOffsetFor(intptr_t cid);
 
+#ifndef PRODUCT
   // Called whenever a class is allocated in the runtime.
   void UpdateAllocatedNew(intptr_t cid, intptr_t size);
   void UpdateAllocatedOld(intptr_t cid, intptr_t size);
@@ -198,9 +210,6 @@ class ClassTable {
   void ResetCountersNew();
   // Called immediately after a new GC.
   void UpdatePromoted();
-
-  // Used by the generated code.
-  static intptr_t ClassOffsetFor(intptr_t cid);
 
   // Used by the generated code.
   ClassHeapStats** TableAddressFor(intptr_t cid);
@@ -220,6 +229,10 @@ class ClassTable {
   void AllocationProfilePrintJSON(JSONStream* stream);
   void ResetAllocationAccumulators();
 
+  void PrintToJSONObject(JSONObject* object);
+#endif  // !PRODUCT
+
+  void AddOldTable(RawClass** old_table);
   // Deallocates table copies. Do not call during concurrent access to table.
   void FreeOldTables();
 
@@ -242,18 +255,19 @@ class ClassTable {
   RawClass** table_;
   MallocGrowableArray<RawClass**>* old_tables_;
 
+#ifndef PRODUCT
   ClassHeapStats* class_heap_stats_table_;
-
   ClassHeapStats* predefined_class_heap_stats_table_;
 
   // May not have updated size for variable size classes.
   ClassHeapStats* PreliminaryStatsAt(intptr_t cid);
   void UpdateLiveOld(intptr_t cid, intptr_t size, intptr_t count = 1);
   void UpdateLiveNew(intptr_t cid, intptr_t size);
+#endif  // !PRODUCT
 
   DISALLOW_COPY_AND_ASSIGN(ClassTable);
 };
 
 }  // namespace dart
 
-#endif  // VM_CLASS_TABLE_H_
+#endif  // RUNTIME_VM_CLASS_TABLE_H_

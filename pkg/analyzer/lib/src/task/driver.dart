@@ -7,9 +7,9 @@ library analyzer.src.task.driver;
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:analyzer/exception/exception.dart';
 import 'package:analyzer/src/context/cache.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/resolver.dart';
 import 'package:analyzer/src/generated/utilities_general.dart';
 import 'package:analyzer/src/task/inputs.dart';
@@ -101,15 +101,18 @@ class AnalysisDriver {
     try {
       isTaskRunning = true;
       AnalysisTask task;
-      WorkOrder workOrder = createWorkOrderForResult(target, result);
-      if (workOrder != null) {
-        while (workOrder.moveNext()) {
-//          AnalysisTask previousTask = task;
-//          String message = workOrder.current.toString();
-          task = performWorkItem(workOrder.current);
-//          if (task == null) {
-//            throw new AnalysisException(message, previousTask.caughtException);
-//          }
+      while (true) {
+        try {
+          WorkOrder workOrder = createWorkOrderForResult(target, result);
+          if (workOrder != null) {
+            while (workOrder.moveNext()) {
+              task = performWorkItem(workOrder.current);
+            }
+          }
+          break;
+        } on ModificationTimeMismatchError {
+          // Cache inconsistency was detected and fixed by invalidating
+          // corresponding results in cache. Computation must be restarted.
         }
       }
       return task;
@@ -248,7 +251,12 @@ class AnalysisDriver {
       if (currentWorkOrder == null) {
         currentWorkOrder = createNextWorkOrder();
       } else if (currentWorkOrder.moveNext()) {
-        performWorkItem(currentWorkOrder.current);
+        try {
+          performWorkItem(currentWorkOrder.current);
+        } on ModificationTimeMismatchError {
+          reset();
+          return true;
+        }
       } else {
         currentWorkOrder = createNextWorkOrder();
       }
@@ -278,9 +286,15 @@ class AnalysisDriver {
       AnalysisTarget target = task.target;
       CacheEntry entry = context.getCacheEntry(target);
       if (task.caughtException == null) {
-        List<TargetedResult> dependedOn = item.inputTargetedResults.toList();
+        List<TargetedResult> dependedOn =
+            context.analysisOptions.trackCacheDependencies
+                ? item.inputTargetedResults.toList()
+                : const <TargetedResult>[];
         Map<ResultDescriptor, dynamic> outputs = task.outputs;
-        for (ResultDescriptor result in task.descriptor.results) {
+        List<ResultDescriptor> results = task.descriptor.results;
+        int resultLength = results.length;
+        for (int i = 0; i < resultLength; i++) {
+          ResultDescriptor result = results[i];
           // TODO(brianwilkerson) We could check here that a value was produced
           // and throw an exception if not (unless we want to allow null values).
           entry.setValue(result, outputs[result], dependedOn);
@@ -597,7 +611,7 @@ class WorkItem {
    * or `null` if all of the inputs have been collected and the task can be
    * created.
    */
-  TaskInputBuilder builder;
+  TopLevelTaskInputBuilder builder;
 
   /**
    * The [TargetedResult]s outputs of this task depends on.
@@ -608,7 +622,7 @@ class WorkItem {
   /**
    * The inputs to the task that have been computed.
    */
-  Map<String, dynamic> inputs;
+  Map<String, dynamic> inputs = const <String, dynamic>{};
 
   /**
    * The exception that was found while trying to populate the inputs. If this
@@ -643,7 +657,6 @@ class WorkItem {
     if (!builder.moveNext()) {
       builder = null;
     }
-    inputs = new HashMap<String, dynamic>();
   }
 
   @override
@@ -759,7 +772,6 @@ class WorkItem {
             throw new AnalysisException(
                 'Cannot create work order to build $inputResult for $inputTarget',
                 this.exception);
-            return null;
           }
         }
       } else {

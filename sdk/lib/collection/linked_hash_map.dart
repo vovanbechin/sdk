@@ -15,7 +15,7 @@ part of dart.collection;
  * but removing the key and adding it again
  * will make it be last in the iteration order.
  *
- * The keys of a `LinkedHashMap` must have consistent [Object.operator==]
+ * The keys of a `LinkedHashMap` must have consistent [Object.==]
  * and [Object.hashCode] implementations. This means that the `==` operator
  * must define a stable equivalence relation on the keys (reflexive,
  * symmetric, transitive, and consistent over time), and that `hashCode`
@@ -28,14 +28,14 @@ abstract class LinkedHashMap<K, V> implements HashMap<K, V> {
    * Creates an insertion-ordered hash-table based [Map].
    *
    * If [equals] is provided, it is used to compare the keys in the table with
-   * new keys. If [equals] is omitted, the key's own [Object.operator==] is used
+   * new keys. If [equals] is omitted, the key's own [Object.==] is used
    * instead.
    *
    * Similar, if [hashCode] is provided, it is used to produce a hash value
    * for keys in order to place them in the hash table. If it is omitted, the
    * key's own [Object.hashCode] is used.
    *
-   * If using methods like [operator[]], [remove] and [containsKey] together
+   * If using methods like [[]], [remove] and [containsKey] together
    * with a custom equality and hashcode, an extra `isValidKey` function
    * can be supplied. This function is called before calling [equals] or
    * [hashCode] with an argument that may not be a [K] instance, and if the
@@ -79,8 +79,8 @@ abstract class LinkedHashMap<K, V> implements HashMap<K, V> {
    *
    * Effectively a shorthand for:
    *
-   *     new LinkedHashMap(equals: identical,
-   *                       hashCode: identityHashCodeOf)
+   *     new LinkedHashMap<K, V>(equals: identical,
+   *                             hashCode: identityHashCode)
    */
   external factory LinkedHashMap.identity();
 
@@ -89,7 +89,7 @@ abstract class LinkedHashMap<K, V> implements HashMap<K, V> {
    */
   factory LinkedHashMap.from(Map other) {
     LinkedHashMap<K, V> result = new LinkedHashMap<K, V>();
-    other.forEach((k, v) { result[k] = v; });
+    other.forEach((k, v) { result[k as Object/*=K*/] = v as Object/*=V*/; });
     return result;
   }
 

@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_BENCHMARK_TEST_H_
-#define VM_BENCHMARK_TEST_H_
+#ifndef RUNTIME_VM_BENCHMARK_TEST_H_
+#define RUNTIME_VM_BENCHMARK_TEST_H_
 
 #include "include/dart_api.h"
 
@@ -11,6 +11,7 @@
 #include "vm/globals.h"
 #include "vm/heap.h"
 #include "vm/isolate.h"
+#include "vm/malloc_hooks.h"
 #include "vm/object.h"
 #include "vm/zone.h"
 
@@ -20,13 +21,11 @@ DECLARE_FLAG(int, code_heap_size);
 DECLARE_FLAG(int, old_gen_growth_space_ratio);
 
 namespace bin {
-// vm_isolate_snapshot_buffer points to a snapshot for the vm isolate if we
-// link in a snapshot otherwise it is initialized to NULL.
-extern const uint8_t* vm_isolate_snapshot_buffer;
-
-// isolate_snapshot_buffer points to a snapshot for an isolate if we link in a
-// snapshot otherwise it is initialized to NULL.
-extern const uint8_t* isolate_snapshot_buffer;
+// Snapshot pieces if we link in a snapshot, otherwise initialized to NULL.
+extern const uint8_t* vm_snapshot_data;
+extern const uint8_t* vm_snapshot_instructions;
+extern const uint8_t* core_isolate_snapshot_data;
+extern const uint8_t* core_isolate_snapshot_instructions;
 }
 
 // The BENCHMARK macros are used for benchmarking a specific functionality
@@ -34,8 +33,12 @@ extern const uint8_t* isolate_snapshot_buffer;
 #define BENCHMARK_HELPER(name, kind)                                           \
   void Dart_Benchmark##name(Benchmark* benchmark);                             \
   static Benchmark kRegister##name(Dart_Benchmark##name, #name, kind);         \
-  static void Dart_BenchmarkHelper##name(Benchmark* benchmark, Thread* thread);\
+  static void Dart_BenchmarkHelper##name(Benchmark* benchmark,                 \
+                                         Thread* thread);                      \
   void Dart_Benchmark##name(Benchmark* benchmark) {                            \
+    bool __stack_trace_collection_enabled__ =                                  \
+        MallocHooks::stack_trace_collection_enabled();                         \
+    MallocHooks::set_stack_trace_collection_enabled(false);                    \
     FLAG_old_gen_growth_space_ratio = 100;                                     \
     BenchmarkIsolateScope __isolate__(benchmark);                              \
     Thread* __thread__ = Thread::Current();                                    \
@@ -43,12 +46,14 @@ extern const uint8_t* isolate_snapshot_buffer;
     StackZone __zone__(__thread__);                                            \
     HandleScope __hs__(__thread__);                                            \
     Dart_BenchmarkHelper##name(benchmark, __thread__);                         \
+    MallocHooks::set_stack_trace_collection_enabled(                           \
+        __stack_trace_collection_enabled__);                                   \
   }                                                                            \
   static void Dart_BenchmarkHelper##name(Benchmark* benchmark, Thread* thread)
 
 #define BENCHMARK(name) BENCHMARK_HELPER(name, "RunTime")
 #define BENCHMARK_SIZE(name) BENCHMARK_HELPER(name, "CodeSize")
-
+#define BENCHMARK_MEMORY(name) BENCHMARK_HELPER(name, "MemoryUse")
 
 inline Dart_Handle NewString(const char* str) {
   return Dart_NewStringFromCString(str);
@@ -57,15 +62,15 @@ inline Dart_Handle NewString(const char* str) {
 
 class Benchmark {
  public:
-  typedef void (RunEntry)(Benchmark* benchmark);
+  typedef void(RunEntry)(Benchmark* benchmark);
 
-  Benchmark(RunEntry* run, const char* name, const char* score_kind) :
-      run_(run),
-      name_(name),
-      score_kind_(score_kind),
-      score_(0),
-      isolate_(NULL),
-      next_(NULL) {
+  Benchmark(RunEntry* run, const char* name, const char* score_kind)
+      : run_(run),
+        name_(name),
+        score_kind_(score_kind),
+        score_(0),
+        isolate_(NULL),
+        next_(NULL) {
     if (first_ == NULL) {
       first_ = this;
     } else {
@@ -81,7 +86,8 @@ class Benchmark {
   int64_t score() const { return score_; }
   Isolate* isolate() const { return reinterpret_cast<Isolate*>(isolate_); }
 
-  Dart_Isolate CreateIsolate(const uint8_t* buffer);
+  Dart_Isolate CreateIsolate(const uint8_t* snapshot_data,
+                             const uint8_t* snapshot_instructions);
 
   void Run() { (*run_)(this); }
   void RunBenchmark();
@@ -109,7 +115,8 @@ class Benchmark {
 class BenchmarkIsolateScope {
  public:
   explicit BenchmarkIsolateScope(Benchmark* benchmark) : benchmark_(benchmark) {
-    benchmark_->CreateIsolate(bin::isolate_snapshot_buffer);
+    benchmark_->CreateIsolate(bin::core_isolate_snapshot_data,
+                              bin::core_isolate_snapshot_instructions);
     Dart_EnterScope();  // Create a Dart API scope for unit benchmarks.
   }
   ~BenchmarkIsolateScope() {
@@ -128,4 +135,4 @@ class BenchmarkIsolateScope {
 
 }  // namespace dart
 
-#endif  // VM_BENCHMARK_TEST_H_
+#endif  // RUNTIME_VM_BENCHMARK_TEST_H_

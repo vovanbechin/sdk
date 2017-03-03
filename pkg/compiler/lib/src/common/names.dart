@@ -6,13 +6,9 @@
 /// the compiler.
 library dart2js.common.names;
 
-import '../elements/elements.dart' show
-    Name,
-    PublicName;
-import '../universe/call_structure.dart' show
-    CallStructure;
-import '../universe/selector.dart' show
-    Selector;
+import '../elements/elements.dart' show Name, PublicName;
+import '../universe/call_structure.dart' show CallStructure;
+import '../universe/selector.dart' show Selector;
 
 /// [String]s commonly used.
 class Identifiers {
@@ -29,6 +25,9 @@ class Identifiers {
 
   /// The name of the iterator property used in for-each loops.
   static const String iterator = 'iterator';
+
+  /// The name of the `loadLibrary` getter defined on deferred prefixes.
+  static const String loadLibrary = 'loadLibrary';
 
   /// The name of the main method.
   static const String main = 'main';
@@ -106,8 +105,7 @@ class Selectors {
       new Selector.call(Names.toString_, CallStructure.NO_ARGS);
 
   /// The selector for tearing off toString.
-  static final Selector toStringGetter =
-      new Selector.getter(Names.toString_);
+  static final Selector toStringGetter = new Selector.getter(Names.toString_);
 
   static final Selector hashCode_ =
       new Selector.getter(const PublicName('hashCode'));
@@ -131,9 +129,22 @@ class Selectors {
   /// These objects are shared between different runs in batch-mode and must
   /// thus remain in the [Selector.canonicalizedValues] map.
   static final List<Selector> ALL = <Selector>[
-      cancel, current, iterator, moveNext, noSuchMethod_, noSuchMethodGetter,
-      toString_, toStringGetter, hashCode_, compareTo, equals, length,
-      codeUnitAt, index, runtimeType_];
+    cancel,
+    current,
+    iterator,
+    moveNext,
+    noSuchMethod_,
+    noSuchMethodGetter,
+    toString_,
+    toStringGetter,
+    hashCode_,
+    compareTo,
+    equals,
+    length,
+    codeUnitAt,
+    index,
+    runtimeType_
+  ];
 }
 
 /// [Uri]s commonly used.
@@ -141,11 +152,29 @@ class Uris {
   /// The URI for 'dart:async'.
   static final Uri dart_async = new Uri(scheme: 'dart', path: 'async');
 
+  /// The URI for 'dart:collection'.
+  static final Uri dart_collection =
+      new Uri(scheme: 'dart', path: 'collection');
+
   /// The URI for 'dart:core'.
   static final Uri dart_core = new Uri(scheme: 'dart', path: 'core');
 
   /// The URI for 'dart:html'.
   static final Uri dart_html = new Uri(scheme: 'dart', path: 'html');
+
+  /// The URI for 'dart:html_common'.
+  static final Uri dart_html_common =
+      new Uri(scheme: 'dart', path: 'html_common');
+
+  /// The URI for 'dart:indexed_db'.
+  static final Uri dart_indexed_db =
+      new Uri(scheme: 'dart', path: 'indexed_db');
+
+  /// The URI for 'dart:isolate'.
+  static final Uri dart_isolate = new Uri(scheme: 'dart', path: 'isolate');
+
+  /// The URI for 'dart:math'.
+  static final Uri dart_math = new Uri(scheme: 'dart', path: 'math');
 
   /// The URI for 'dart:mirrors'.
   static final Uri dart_mirrors = new Uri(scheme: 'dart', path: 'mirrors');
@@ -156,4 +185,20 @@ class Uris {
   /// The URI for 'dart:_native_typed_data'.
   static final Uri dart__native_typed_data =
       new Uri(scheme: 'dart', path: '_native_typed_data');
+
+  /// The URI for 'dart:typed_data'.
+  static final Uri dart_typed_data =
+      new Uri(scheme: 'dart', path: 'typed_data');
+
+  /// The URI for 'dart:svg'.
+  static final Uri dart_svg = new Uri(scheme: 'dart', path: 'svg');
+
+  /// The URI for 'dart:web_audio'.
+  static final Uri dart_web_audio = new Uri(scheme: 'dart', path: 'web_audio');
+
+  /// The URI for 'dart:web_gl'.
+  static final Uri dart_web_gl = new Uri(scheme: 'dart', path: 'web_gl');
+
+  /// The URI for 'dart:web_sql'.
+  static final Uri dart_web_sql = new Uri(scheme: 'dart', path: 'web_sql');
 }

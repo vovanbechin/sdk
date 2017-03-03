@@ -52,7 +52,11 @@ enum FileLock {
   /// Shared file lock.
   SHARED,
   /// Exclusive file lock.
-  EXCLUSIVE
+  EXCLUSIVE,
+  /// Blocking shared file lock.
+  BLOCKING_SHARED,
+  /// Blocking exclusive file lock.
+  BLOCKING_EXCLUSIVE,
 }
 
 /**
@@ -110,7 +114,7 @@ enum FileLock {
  * data into the required format or to prepare it for output.
  *
  * You might want to use a stream to read large files,
- * to manipulate the data with tranformers,
+ * to manipulate the data with transformers,
  * or for compatibility with another API, such as [WebSocket]s.
  *
  *     import 'dart:io';
@@ -215,7 +219,7 @@ abstract class File implements FileSystemEntity {
   factory File.fromUri(Uri uri) => new File(uri.toFilePath());
 
   /**
-   * Create the file. Returns a [:Future<File>:] that completes with
+   * Create the file. Returns a `Future<File>` that completes with
    * the file when it has been created.
    *
    * If [recursive] is false, the default, the file is created only if
@@ -284,7 +288,7 @@ abstract class File implements FileSystemEntity {
   File copySync(String newPath);
 
   /**
-   * Get the length of the file. Returns a [:Future<int>:] that
+   * Get the length of the file. Returns a `Future<int>` that
    * completes with the length in bytes.
    */
   Future<int> length();
@@ -305,24 +309,79 @@ abstract class File implements FileSystemEntity {
    */
   File get absolute;
 
-  /**
-   * Get the last-modified time of the file. Returns a
-   * [:Future<DateTime>:] that completes with a [DateTime] object for the
-   * modification date.
-   */
-  Future<DateTime> lastModified();
+/**
+ * Get the last-accessed time of the file.
+ *
+ * Returns the date and time when the file was last accessed, if the
+ * information is available.
+ *
+ * Throws a [FileSystemException] if the operation fails.
+ */
+  Future<DateTime> lastAccessed();
+
+/**
+ * Get the last-accessed time of the file.
+ *
+ * Returns the date and time when the file was last accessed,
+ * if the information is available. Blocks until the information can be returned
+ * or it is determined that the information is not available.
+ *
+ * Throws a [FileSystemException] if the operation fails.
+ */
+  DateTime lastAccessedSync();
 
   /**
-   * Get the last-modified time of the file. Throws an exception
-   * if the file does not exist.
+   * Modifies the time the file was last accessed.
    *
-   * Throws a [FileSystemException] if the operation fails.
+   * Throws a [FilsSystemException] if the time cannot be set.
    */
+  Future setLastAccessed(DateTime time);
+
+  /**
+   * Synchronously modifies the time the file was last accessed.
+   *
+   * Throws a [FilsSystemException] if the time cannot be set.
+   */
+  void setLastAccessedSync(DateTime time);
+
+/**
+ * Get the last-modified time of the file.
+ *
+ * Returns the date and time when the file was last modified, if the
+ * information is available.
+ *
+ * Throws a [FileSystemException] if the operation fails.
+ */
+  Future<DateTime> lastModified();
+
+/**
+ * Get the last-modified time of the file.
+ *
+ * Returns the date and time when the file was last modified,
+ * if the information is available. Blocks until the information can be returned
+ * or it is determined that the information is not available.
+ *
+ * Throws a [FileSystemException] if the operation fails.
+ */
   DateTime lastModifiedSync();
 
   /**
+   * Modifies the time the file was last modified.
+   *
+   * Throws a [FilsSystemException] if the time cannot be set.
+   */
+  Future setLastModified(DateTime time);
+
+  /**
+   * Synchronously modifies the time the file was last modified.
+   *
+   * If the attributes cannot be set, throws a [FileSystemException].
+   */
+  void setLastModifiedSync(DateTime time);
+
+  /**
    * Open the file for random access operations. Returns a
-   * [:Future<RandomAccessFile>:] that completes with the opened
+   * `Future<RandomAccessFile>` that completes with the opened
    * random access file. [RandomAccessFile]s must be closed using the
    * [RandomAccessFile.close] method.
    *
@@ -379,7 +438,7 @@ abstract class File implements FileSystemEntity {
    *
    *  When writing strings through the returned [IOSink] the encoding
    *  specified using [encoding] will be used. The returned [IOSink]
-   *  has an [:encoding:] property which can be changed after the
+   *  has an `encoding` property which can be changed after the
    *  [IOSink] has been created.
    */
   IOSink openWrite({FileMode mode: FileMode.WRITE,
@@ -387,7 +446,7 @@ abstract class File implements FileSystemEntity {
 
   /**
    * Read the entire file contents as a list of bytes. Returns a
-   * [:Future<List<int>>:] that completes with the list of bytes that
+   * `Future<List<int>>` that completes with the list of bytes that
    * is the contents of the file.
    */
   Future<List<int>> readAsBytes();
@@ -403,7 +462,7 @@ abstract class File implements FileSystemEntity {
    * Read the entire file contents as a string using the given
    * [Encoding].
    *
-   * Returns a [:Future<String>:] that completes with the string once
+   * Returns a `Future<String>` that completes with the string once
    * the file contents has been read.
    */
   Future<String> readAsString({Encoding encoding: UTF8});
@@ -420,7 +479,7 @@ abstract class File implements FileSystemEntity {
    * Read the entire file contents as lines of text using the given
    * [Encoding].
    *
-   * Returns a [:Future<List<String>>:] that completes with the lines
+   * Returns a `Future<List<String>>` that completes with the lines
    * once the file contents has been read.
    */
   Future<List<String>> readAsLines({Encoding encoding: UTF8});
@@ -437,7 +496,7 @@ abstract class File implements FileSystemEntity {
    * Write a list of bytes to a file.
    *
    * Opens the file, writes the list of bytes to it, and closes the file.
-   * Returns a [:Future<File>:] that completes with this [File] object once
+   * Returns a `Future<File>` that completes with this [File] object once
    * the entire operation has completed.
    *
    * By default [writeAsBytes] creates the file for writing and truncates the
@@ -473,7 +532,7 @@ abstract class File implements FileSystemEntity {
    * Write a string to a file.
    *
    * Opens the file, writes the string in the given encoding, and closes the
-   * file. Returns a [:Future<File>:] that completes with this [File] object
+   * file. Returns a `Future<File>` that completes with this [File] object
    * once the entire operation has completed.
    *
    * By default [writeAsString] creates the file for writing and truncates the
@@ -522,7 +581,7 @@ abstract class File implements FileSystemEntity {
  * file.
  *
  * `RandomAccessFile` objects are obtained by calling the
- * [:open:] method on a [File] object.
+ * `open` method on a [File] object.
  *
  * A `RandomAccessFile` have both asynchronous and synchronous
  * methods. The asynchronous methods all return a `Future`
@@ -538,7 +597,7 @@ abstract class File implements FileSystemEntity {
  */
 abstract class RandomAccessFile {
   /**
-   * Closes the file. Returns a [:Future<RandomAccessFile>:] that
+   * Closes the file. Returns a `Future<RandomAccessFile>` that
    * completes with this RandomAccessFile when it has been closed.
    */
   Future<RandomAccessFile> close();
@@ -551,7 +610,7 @@ abstract class RandomAccessFile {
   void closeSync();
 
   /**
-   * Reads a byte from the file. Returns a [:Future<int>:] that
+   * Reads a byte from the file. Returns a `Future<int>` that
    * completes with the byte, or with -1 if end-of-file has been reached.
    */
   Future<int> readByte();
@@ -578,22 +637,22 @@ abstract class RandomAccessFile {
   List<int> readSync(int bytes);
 
   /**
-   * Reads into an existing List<int> from the file. If [start] is present, the
-   * bytes will be filled into [buffer] from at index [start], otherwise index
-   * 0. If [end] is present, the [end] - [start] bytes will be read into
+   * Reads into an existing [List<int>] from the file. If [start] is present,
+   * the bytes will be filled into [buffer] from at index [start], otherwise
+   * index 0. If [end] is present, the [end] - [start] bytes will be read into
    * [buffer], otherwise up to [buffer.length]. If [end] == [start] nothing
-   * happends.
+   * happens.
    *
-   * Returns a [:Future<int>:] that completes with the number of bytes read.
+   * Returns a `Future<int>` that completes with the number of bytes read.
    */
   Future<int> readInto(List<int> buffer, [int start = 0, int end]);
 
   /**
-   * Synchronously reads into an existing List<int> from the file. If [start] is
-   * present, the bytes will be filled into [buffer] from at index [start],
+   * Synchronously reads into an existing [List<int>] from the file. If [start]
+   * is present, the bytes will be filled into [buffer] from at index [start],
    * otherwise index 0.  If [end] is present, the [end] - [start] bytes will be
    * read into [buffer], otherwise up to [buffer.length]. If [end] == [start]
-   * nothing happends.
+   * nothing happens.
    *
    * Throws a [FileSystemException] if the operation fails.
    */
@@ -601,7 +660,7 @@ abstract class RandomAccessFile {
 
   /**
    * Writes a single byte to the file. Returns a
-   * [:Future<RandomAccessFile>:] that completes with this
+   * `Future<RandomAccessFile>` that completes with this
    * RandomAccessFile when the write completes.
    */
   Future<RandomAccessFile> writeByte(int value);
@@ -619,7 +678,7 @@ abstract class RandomAccessFile {
    * [start] to index [end]. If [start] is omitted, it'll start from index 0.
    * If [end] is omitted, it will write to end of [buffer].
    *
-   * Returns a [:Future<RandomAccessFile>:] that completes with this
+   * Returns a `Future<RandomAccessFile>` that completes with this
    * [RandomAccessFile] when the write completes.
    */
   Future<RandomAccessFile> writeFrom(
@@ -637,7 +696,7 @@ abstract class RandomAccessFile {
 
   /**
    * Writes a string to the file using the given [Encoding]. Returns a
-   * [:Future<RandomAccessFile>:] that completes with this
+   * `Future<RandomAccessFile>` that completes with this
    * RandomAccessFile when the write completes.
    */
   Future<RandomAccessFile> writeString(String string,
@@ -654,7 +713,7 @@ abstract class RandomAccessFile {
 
   /**
    * Gets the current byte position in the file. Returns a
-   * [:Future<int>:] that completes with the position.
+   * `Future<int>` that completes with the position.
    */
   Future<int> position();
 
@@ -667,7 +726,7 @@ abstract class RandomAccessFile {
 
   /**
    * Sets the byte position in the file. Returns a
-   * [:Future<RandomAccessFile>:] that completes with this
+   * `Future<RandomAccessFile>` that completes with this
    * RandomAccessFile when the position has been set.
    */
   Future<RandomAccessFile> setPosition(int position);
@@ -681,7 +740,7 @@ abstract class RandomAccessFile {
 
   /**
    * Truncates (or extends) the file to [length] bytes. Returns a
-   * [:Future<RandomAccessFile>:] that completes with this
+   * `Future<RandomAccessFile>` that completes with this
    * RandomAccessFile when the truncation has been performed.
    */
   Future<RandomAccessFile> truncate(int length);
@@ -694,7 +753,7 @@ abstract class RandomAccessFile {
   void truncateSync(int length);
 
   /**
-   * Gets the length of the file. Returns a [:Future<int>:] that
+   * Gets the length of the file. Returns a `Future<int>` that
    * completes with the length in bytes.
    */
   Future<int> length();
@@ -708,7 +767,7 @@ abstract class RandomAccessFile {
 
   /**
    * Flushes the contents of the file to disk. Returns a
-   * [:Future<RandomAccessFile>:] that completes with this
+   * `Future<RandomAccessFile>` that completes with this
    * RandomAccessFile when the flush operation completes.
    */
   Future<RandomAccessFile> flush();
@@ -735,6 +794,11 @@ abstract class RandomAccessFile {
    *
    * To obtain an exclusive lock on a file it must be opened for writing.
    *
+   * If [mode] is [FileLock.EXCLUSIVE] or [FileLock.SHARED], an error is
+   * signaled if the lock cannot be obtained. If [mode] is
+   * [FileLock.BLOCKING_EXCLUSIVE] or [FileLock.BLOCKING_SHARED], the
+   * returned [Future] is resolved only when the lock has been obtained.
+   *
    * *NOTE* file locking does have slight differences in behavior across
    * platforms:
    *
@@ -751,7 +815,7 @@ abstract class RandomAccessFile {
    * already unlocked".
    */
   Future<RandomAccessFile> lock(
-      [FileLock mode = FileLock.EXCLUSIVE, int start = 0, int end]);
+      [FileLock mode = FileLock.EXCLUSIVE, int start = 0, int end = -1]);
 
   /**
    * Synchronously locks the file or part of the file.
@@ -767,6 +831,11 @@ abstract class RandomAccessFile {
    * explicit value of `end` which is past the current length of the file.
    *
    * To obtain an exclusive lock on a file it must be opened for writing.
+   *
+   * If [mode] is [FileLock.EXCLUSIVE] or [FileLock.SHARED], an exception is
+   * thrown if the lock cannot be obtained. If [mode] is
+   * [FileLock.BLOCKING_EXCLUSIVE] or [FileLock.BLOCKING_SHARED], the
+   * call returns only after the lock has been obtained.
    *
    * *NOTE* file locking does have slight differences in behavior across
    * platforms:
@@ -784,7 +853,8 @@ abstract class RandomAccessFile {
    * already unlocked".
    *
    */
-  void lockSync([FileLock mode = FileLock.EXCLUSIVE, int start = 0, int end]);
+  void lockSync(
+      [FileLock mode = FileLock.EXCLUSIVE, int start = 0, int end = -1]);
 
   /**
    * Unlocks the file or part of the file.
@@ -800,7 +870,7 @@ abstract class RandomAccessFile {
    *
    * See [lock] for more details.
    */
-  Future<RandomAccessFile> unlock([int start = 0, int end]);
+  Future<RandomAccessFile> unlock([int start = 0, int end = -1]);
 
   /**
    * Synchronously unlocks the file or part of the file.
@@ -816,7 +886,7 @@ abstract class RandomAccessFile {
    *
    * See [lockSync] for more details.
    */
-  void unlockSync([int start = 0, int end]);
+  void unlockSync([int start = 0, int end = -1]);
 
   /**
    * Returns a human-readable string for this RandomAccessFile instance.

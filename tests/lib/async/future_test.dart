@@ -876,6 +876,62 @@ void testWaitCleanUpError() {
   });
 }
 
+void testWaitSyncError() {
+  var cms = const Duration(milliseconds: 100);
+  var cleanups = new List.filled(3, false);
+  asyncStart();
+  asyncStart();
+  runZoned(() {
+    Future.wait(new Iterable.generate(5, (i) {
+      if (i != 3) return new Future.delayed(cms * (i + 1), () => i);
+      throw "throwing synchronously in iterable";
+    }), cleanUp: (index) {
+      Expect.isFalse(cleanups[index]);
+      cleanups[index] = true;
+      if (cleanups.every((x) => x)) asyncEnd();
+    });
+  }, onError: (e, s) {
+    asyncEnd();
+  });
+}
+
+void testWaitSyncError2() {
+  asyncStart();
+  Future.wait([null]).catchError((e, st) {
+    // Makes sure that the `catchError` is invoked.
+    // Regression test: an earlier version of `Future.wait` would propagate
+    // the error too soon for the code to install an error handler.
+    // `testWaitSyncError` didn't show this problem, because the `runZoned`
+    // was already installed.
+    asyncEnd();
+  });
+}
+
+// Future.wait transforms synchronous errors into asynchronous ones.
+// This function tests that zones can intercept them.
+void testWaitSyncError3() {
+  var caughtError;
+  var count = 0;
+
+  AsyncError errorCallback(
+      Zone self, ZoneDelegate parent, Zone zone, Object error,
+      StackTrace stackTrace) {
+    Expect.equals(0, count);
+    count++;
+    caughtError = error;
+    return parent.errorCallback(zone, error, stackTrace);
+  }
+
+  asyncStart();
+  runZoned(() {
+    Future.wait([null]).catchError((e, st) {
+      Expect.identical(e, caughtError);
+      Expect.equals(1, count);
+      asyncEnd();
+    });
+  }, zoneSpecification: new ZoneSpecification(errorCallback: errorCallback));
+}
+
 void testBadFuture() {
   var bad = new BadFuture();
   // Completing with bad future (then call throws) puts error in result.
@@ -994,6 +1050,29 @@ void testAnyIgnoreError() {
   cs[0].completeError("BAD");
 }
 
+void testFutureResult() {
+  asyncStart();
+  () async {
+    var f = new UglyFuture(5);
+    // Sanity check that our future is as mis-behaved as we think.
+    f.then((v) { Expect.isTrue(v is Future); });
+
+    var v = await f;
+    // The static type of await is Flatten(static-type-of-expression), so it
+    // suggests that it flattens. In practice it currently doesn't.
+    // The specification doesn't say anything special, so v should be the
+    // completion value of the UglyFuture future which is a future.
+    Expect.isTrue(v is Future);
+
+    // This used to hit an assert in checked mode.
+    // The CL adding this test changed the behavior to actually flatten the
+    // the future returned by the then-callback.
+    var w = new Future.value(42).then((_) => f);
+    Expect.equals(42, await w);
+    asyncEnd();
+  }();
+}
+
 main() {
   asyncStart();
 
@@ -1052,6 +1131,9 @@ main() {
 
   testWaitCleanUp();
   testWaitCleanUpError();
+  testWaitSyncError();
+  testWaitSyncError2();
+  testWaitSyncError3();
 
   testBadFuture();
 
@@ -1062,10 +1144,12 @@ main() {
   testAnyIgnoreIncomplete();
   testAnyIgnoreError();
 
+  testFutureResult();
+
   asyncEnd();
 }
 
-/// A Future that isn't recognizable as a _Future.
+/// A well-behaved Future that isn't recognizable as a _Future.
 class CustomFuture<T> implements Future<T> {
   Future _realFuture;
   CustomFuture(this._realFuture);
@@ -1081,6 +1165,7 @@ class CustomFuture<T> implements Future<T> {
   int get hashCode => _realFuture.hashCode;
 }
 
+/// A bad future that throws on every method.
 class BadFuture<T> implements Future<T> {
   Future then(action(T result), {Function onError}) {
     throw "then GOTCHA!";
@@ -1096,5 +1181,27 @@ class BadFuture<T> implements Future<T> {
   }
   Future timeout(Duration duration, {onTimeout()}) {
     throw "timeout GOTCHA!";
+  }
+}
+
+// An evil future that completes with another future.
+class UglyFuture implements Future<dynamic> {
+  final _result;
+  UglyFuture(int badness) :
+      _result = (badness == 0) ? 42 : new UglyFuture(badness - 1);
+  Future then(action(value), {onError(error, StackTrace stack)}) {
+    var c = new Completer();
+    c.complete(new Future.microtask(() => action(_result)));
+    return c.future;
+  }
+  Future catchError(onError, {test}) => this;  // Never an error.
+  Future whenComplete(action()) {
+    return new Future.microtask(action).then((_) => this);
+  }
+  Stream asStream() {
+    return (new StreamController()..add(_result)..close()).stream;
+  }
+  Future timeout(Duration duration, {onTimeout()}) {
+    return this;
   }
 }

@@ -4,12 +4,14 @@
 
 library analyzer.src.context.source;
 
+import 'dart:collection';
+import 'dart:math' show min;
+
+import 'package:analyzer/exception/exception.dart';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:analyzer/source/package_map_resolver.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/java_core.dart';
-import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/sdk.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/utilities_dart.dart' as utils;
@@ -20,9 +22,6 @@ import 'package:package_config/packages.dart';
  * against an existing [Source].
  */
 class SourceFactoryImpl implements SourceFactory {
-  /**
-   * The analysis context that this source factory is associated with.
-   */
   @override
   AnalysisContext context;
 
@@ -48,25 +47,26 @@ class SourceFactoryImpl implements SourceFactory {
   LocalSourcePredicate _localSourcePredicate = LocalSourcePredicate.NOT_SDK;
 
   /**
+   * Cache of mapping of absolute [Uri]s to [Source]s.
+   */
+  final HashMap<Uri, Source> _absoluteUriToSourceCache =
+      new HashMap<Uri, Source>();
+
+  /**
    * Initialize a newly created source factory with the given absolute URI
-   * [resolvers] and optional [packages] resolution helper.
+   * [resolvers] and optional [_packages] resolution helper.
    */
   SourceFactoryImpl(this.resolvers,
       [this._packages, ResourceProvider resourceProvider])
-      : _resourceProvider = resourceProvider != null
-            ? resourceProvider
-            : PhysicalResourceProvider.INSTANCE;
+      : _resourceProvider =
+            resourceProvider ?? PhysicalResourceProvider.INSTANCE;
 
-  /**
-   * Return the [DartSdk] associated with this [SourceFactory], or `null` if
-   * there is no such SDK.
-   *
-   * @return the [DartSdk] associated with this [SourceFactory], or `null` if
-   *         there is no such SDK
-   */
   @override
   DartSdk get dartSdk {
-    for (UriResolver resolver in resolvers) {
+    List<UriResolver> resolvers = this.resolvers;
+    int length = resolvers.length;
+    for (int i = 0; i < length; i++) {
+      UriResolver resolver = resolvers[i];
       if (resolver is DartUriResolver) {
         DartUriResolver dartUriResolver = resolver;
         return dartUriResolver.dartSdk;
@@ -75,18 +75,11 @@ class SourceFactoryImpl implements SourceFactory {
     return null;
   }
 
-  /**
-   * Sets the [LocalSourcePredicate].
-   *
-   * @param localSourcePredicate the predicate to determine is [Source] is local
-   */
   @override
   void set localSourcePredicate(LocalSourcePredicate localSourcePredicate) {
     this._localSourcePredicate = localSourcePredicate;
   }
 
-  /// A table mapping package names to paths of directories containing
-  /// the package (or [null] if there is no registered package URI resolver).
   @override
   Map<String, List<Folder>> get packageMap {
     // Start by looking in .packages.
@@ -105,13 +98,9 @@ class SourceFactoryImpl implements SourceFactory {
     // Default to the PackageMapUriResolver.
     PackageMapUriResolver resolver = resolvers
         .firstWhere((r) => r is PackageMapUriResolver, orElse: () => null);
-    return resolver != null ? resolver.packageMap : null;
+    return resolver?.packageMap;
   }
 
-  /**
-   * Return a source factory that will resolve URI's in the same way that this
-   * source factory does.
-   */
   @override
   SourceFactory clone() {
     SourceFactory factory =
@@ -120,17 +109,10 @@ class SourceFactoryImpl implements SourceFactory {
     return factory;
   }
 
-  /**
-   * Return a source object representing the given absolute URI, or `null` if
-   * the URI is not a valid URI or if it is not an absolute URI.
-   *
-   * @param absoluteUri the absolute URI to be resolved
-   * @return a source object representing the absolute URI
-   */
   @override
   Source forUri(String absoluteUri) {
     try {
-      Uri uri = parseUriWithException(absoluteUri);
+      Uri uri = Uri.parse(absoluteUri);
       if (uri.isAbsolute) {
         return _internalResolveUri(null, uri);
       }
@@ -142,13 +124,6 @@ class SourceFactoryImpl implements SourceFactory {
     return null;
   }
 
-  /**
-   * Return a source object representing the given absolute URI, or `null` if
-   * the URI is not an absolute URI.
-   *
-   * @param absoluteUri the absolute URI to be resolved
-   * @return a source object representing the absolute URI
-   */
   @override
   Source forUri2(Uri absoluteUri) {
     if (absoluteUri.isAbsolute) {
@@ -163,41 +138,18 @@ class SourceFactoryImpl implements SourceFactory {
     return null;
   }
 
-  /**
-   * Return a source object that is equal to the source object used to obtain
-   * the given encoding.
-   *
-   * @param encoding the encoding of a source object
-   * @return a source object that is described by the given encoding
-   * @throws IllegalArgumentException if the argument is not a valid encoding
-   * See [Source.encoding].
-   */
   @override
   Source fromEncoding(String encoding) {
     Source source = forUri(encoding);
     if (source == null) {
-      throw new IllegalArgumentException(
-          "Invalid source encoding: '$encoding'");
+      throw new ArgumentError("Invalid source encoding: '$encoding'");
     }
     return source;
   }
 
-  /**
-   * Determines if the given [Source] is local.
-   *
-   * @param source the [Source] to analyze
-   * @return `true` if the given [Source] is local
-   */
   @override
   bool isLocalSource(Source source) => _localSourcePredicate.isLocal(source);
 
-  /**
-   * Return a source representing the URI that results from resolving the given
-   * (possibly relative) [containedUri] against the URI associated with the
-   * [containingSource], whether or not the resulting source exists, or `null`
-   * if either the [containedUri] is invalid or if it cannot be resolved against
-   * the [containingSource]'s URI.
-   */
   @override
   Source resolveUri(Source containingSource, String containedUri) {
     if (containedUri == null || containedUri.isEmpty) {
@@ -205,9 +157,8 @@ class SourceFactoryImpl implements SourceFactory {
     }
     try {
       // Force the creation of an escaped URI to deal with spaces, etc.
-      return _internalResolveUri(
-          containingSource, parseUriWithException(containedUri));
-    } on URISyntaxException {
+      return _internalResolveUri(containingSource, Uri.parse(containedUri));
+    } on FormatException {
       return null;
     } catch (exception, stackTrace) {
       String containingFullName =
@@ -220,13 +171,6 @@ class SourceFactoryImpl implements SourceFactory {
     }
   }
 
-  /**
-   * Return an absolute URI that represents the given source, or `null` if a
-   * valid URI cannot be computed.
-   *
-   * @param source the source to get URI for
-   * @return the absolute URI representing the given source
-   */
   @override
   Uri restoreUri(Source source) {
     // First see if a resolver can restore the URI.
@@ -259,8 +203,9 @@ class SourceFactoryImpl implements SourceFactory {
     _packages.asMap().forEach((String name, Uri uri) {
       if (packageUri == null) {
         if (utils.startsWith(sourceUri, uri)) {
-          packageUri = Uri.parse(
-              'package:$name/${sourceUri.path.substring(uri.path.length)}');
+          String relativePath = sourceUri.path
+              .substring(min(uri.path.length, sourceUri.path.length));
+          packageUri = Uri.parse('package:$name/$relativePath');
         }
       }
     });
@@ -286,7 +231,8 @@ class SourceFactoryImpl implements SourceFactory {
             "Cannot resolve a relative URI without a containing source: "
             "$containedUri");
       }
-      containedUri = containingSource.resolveRelativeUri(containedUri);
+      containedUri =
+          utils.resolveRelativeUri(containingSource.uri, containedUri);
     }
 
     Uri actualUri = containedUri;
@@ -310,13 +256,14 @@ class SourceFactoryImpl implements SourceFactory {
       }
     }
 
-    for (UriResolver resolver in resolvers) {
-      Source result = resolver.resolveAbsolute(containedUri, actualUri);
-      if (result != null) {
-        return result;
+    return _absoluteUriToSourceCache.putIfAbsent(actualUri, () {
+      for (UriResolver resolver in resolvers) {
+        Source result = resolver.resolveAbsolute(containedUri, actualUri);
+        if (result != null) {
+          return result;
+        }
       }
-    }
-
-    return null;
+      return null;
+    });
   }
 }

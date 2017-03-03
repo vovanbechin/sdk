@@ -21,6 +21,7 @@ import 'package:analysis_server/src/services/refactoring/rename_unit_member.dart
 import 'package:analysis_server/src/services/search/element_visitors.dart';
 import 'package:analysis_server/src/services/search/search_engine.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/standard_resolution_map.dart';
 import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
@@ -49,15 +50,15 @@ Element _getLocalElement(SimpleIdentifier node) {
  */
 String _getNormalizedSource(String src) {
   List<Token> selectionTokens = TokenUtils.getTokens(src);
-  return StringUtils.join(selectionTokens, _TOKEN_SEPARATOR);
+  return selectionTokens.join(_TOKEN_SEPARATOR);
 }
 
 /**
  * Returns the [Map] which maps [map] values to their keys.
  */
-Map<String, String> _inverseMap(Map map) {
-  Map result = {};
-  map.forEach((key, value) {
+Map<String, String> _inverseMap(Map<String, String> map) {
+  Map<String, String> result = <String, String>{};
+  map.forEach((String key, String value) {
     result[value] = key;
   });
   return result;
@@ -70,7 +71,7 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
     implements ExtractMethodRefactoring {
   static const ERROR_EXITS =
       'Selected statements contain a return statement, but not all possible '
-      'execuion flows exit. Semantics may not be preserved.';
+      'execution flows exit. Semantics may not be preserved.';
 
   final SearchEngine searchEngine;
   final CompilationUnit unit;
@@ -81,7 +82,7 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
   LibraryElement libraryElement;
   SourceRange selectionRange;
   CorrectionUtils utils;
-  Set<LibraryElement> librariesToImport = new Set<LibraryElement>();
+  Set<Source> librariesToImport = new Set<Source>();
 
   String returnType = '';
   String variableType;
@@ -411,7 +412,8 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
     AstNode parent = _parentMember.parent;
     // top-level function
     if (parent is CompilationUnit) {
-      LibraryElement libraryElement = parent.element.library;
+      LibraryElement libraryElement =
+          resolutionMap.elementDeclaredByCompilationUnit(parent).library;
       return validateCreateFunction(searchEngine, libraryElement, name);
     }
     // method of class
@@ -420,7 +422,7 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
       return validateCreateMethod(searchEngine, classElement, name);
     }
     // OK
-    return new Future.value(result);
+    return new Future<RefactoringStatus>.value(result);
   }
 
   /**
@@ -565,7 +567,9 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
     if (_selectionExpression != null) {
       _selectionExpression.accept(visitor);
     } else if (_selectionStatements != null) {
-      _selectionStatements.forEach((statement) => statement.accept(visitor));
+      _selectionStatements.forEach((statement) {
+        statement.accept(visitor);
+      });
     }
     _hasAwait = visitor.result;
   }
@@ -850,6 +854,15 @@ class _ExtractMethodAnalyzer extends StatementAnalyzer {
           "Cannot extract initialization part of a 'for' statement.");
     } else if (node.updaters.contains(lastSelectedNode)) {
       invalidSelection("Cannot extract increment part of a 'for' statement.");
+    }
+    return null;
+  }
+
+  @override
+  Object visitGenericFunctionType(GenericFunctionType node) {
+    super.visitGenericFunctionType(node);
+    if (_isFirstSelectedNode(node)) {
+      invalidSelection('Cannot extract a single type reference.');
     }
     return null;
   }
@@ -1215,8 +1228,7 @@ class _ReturnTypeComputer extends RecursiveAstVisitor {
       if (returnType is InterfaceType && type is InterfaceType) {
         returnType = InterfaceType.getSmartLeastUpperBound(returnType, type);
       } else {
-        returnType = context.typeSystem
-            .getLeastUpperBound(context.typeProvider, returnType, type);
+        returnType = context.typeSystem.getLeastUpperBound(returnType, type);
       }
     }
   }

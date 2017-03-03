@@ -7,17 +7,17 @@
 
 #include "vm/os.h"
 
-#include <errno.h>  // NOLINT
-#include <limits.h>  // NOLINT
-#include <mach/mach.h>  // NOLINT
-#include <mach/clock.h>  // NOLINT
+#include <errno.h>           // NOLINT
+#include <limits.h>          // NOLINT
+#include <mach/mach.h>       // NOLINT
+#include <mach/clock.h>      // NOLINT
 #include <mach/mach_time.h>  // NOLINT
-#include <sys/time.h>  // NOLINT
-#include <sys/resource.h>  // NOLINT
-#include <unistd.h>  // NOLINT
+#include <sys/time.h>        // NOLINT
+#include <sys/resource.h>    // NOLINT
+#include <unistd.h>          // NOLINT
 #if TARGET_OS_IOS
 #include <sys/sysctl.h>  // NOLINT
-#include <syslog.h>  // NOLINT
+#include <syslog.h>      // NOLINT
 #endif
 
 #include "platform/utils.h"
@@ -90,7 +90,9 @@ int64_t OS::GetCurrentTimeMicros() {
 }
 
 
+#if !TARGET_OS_IOS
 static mach_timebase_info_data_t timebase_info;
+#endif
 
 
 int64_t OS::GetCurrentMonotonicTicks() {
@@ -109,6 +111,10 @@ int64_t OS::GetCurrentMonotonicTicks() {
   origin += boottime.tv_usec;
   return now - origin;
 #else
+  if (timebase_info.denom == 0) {
+    kern_return_t kr = mach_timebase_info(&timebase_info);
+    ASSERT(KERN_SUCCESS == kr);
+  }
   ASSERT(timebase_info.denom != 0);
   // timebase_info converts absolute time tick units into nanoseconds.
   int64_t result = mach_absolute_time();
@@ -139,21 +145,24 @@ int64_t OS::GetCurrentMonotonicMicros() {
 }
 
 
-void* OS::AlignedAllocate(intptr_t size, intptr_t alignment) {
-  const int kMinimumAlignment = 16;
-  ASSERT(Utils::IsPowerOfTwo(alignment));
-  ASSERT(alignment >= kMinimumAlignment);
-  // Temporary workaround until xcode is upgraded.
-  // Mac guarantees malloc returns a 16 byte aligned memory chunk.
-  // Currently we only allocate with 16-bye alignment.
-  ASSERT(alignment == 16);
-  // TODO(johnmccutchan): Remove hack and switch to posix_memalign.
-  return malloc(size);
-}
-
-
-void OS::AlignedFree(void* ptr) {
-  free(ptr);
+int64_t OS::GetCurrentThreadCPUMicros() {
+  mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
+  thread_basic_info_data_t info_data;
+  thread_basic_info_t info = &info_data;
+  mach_port_t thread_port = mach_thread_self();
+  if (thread_port == MACH_PORT_NULL) {
+    return -1;
+  }
+  kern_return_t r =
+      thread_info(thread_port, THREAD_BASIC_INFO, (thread_info_t)info, &count);
+  mach_port_deallocate(mach_task_self(), thread_port);
+  ASSERT(r == KERN_SUCCESS);
+  int64_t thread_cpu_micros =
+      (info->system_time.seconds + info->user_time.seconds);
+  thread_cpu_micros *= kMicrosecondsPerSecond;
+  thread_cpu_micros += info->user_time.microseconds;
+  thread_cpu_micros += info->system_time.microseconds;
+  return thread_cpu_micros;
 }
 
 
@@ -169,10 +178,12 @@ intptr_t OS::ActivationFrameAlignment() {
   return 16;  // iOS simulator
 #elif TARGET_ARCH_X64
   return 16;  // iOS simulator
+#elif TARGET_ARCH_DBC
+  return 16;
 #else
 #error Unimplemented
 #endif
-#else  // TARGET_OS_IOS
+#else   // TARGET_OS_IOS
   // OS X activation frames must be 16 byte-aligned; see "Mac OS X ABI
   // Function Call Guide".
   return 16;
@@ -181,8 +192,22 @@ intptr_t OS::ActivationFrameAlignment() {
 
 
 intptr_t OS::PreferredCodeAlignment() {
-  ASSERT(32 <= OS::kMaxPreferredCodeAlignment);
-  return 32;
+#if defined(TARGET_ARCH_IA32) || defined(TARGET_ARCH_X64) ||                   \
+    defined(TARGET_ARCH_ARM64) || defined(TARGET_ARCH_DBC)
+  const int kMinimumAlignment = 32;
+#elif defined(TARGET_ARCH_ARM) || defined(TARGET_ARCH_MIPS)
+  const int kMinimumAlignment = 16;
+#else
+#error Unsupported architecture.
+#endif
+  intptr_t alignment = kMinimumAlignment;
+  // TODO(5411554): Allow overriding default code alignment for
+  // testing purposes.
+  // Flags::DebugIsInt("codealign", &alignment);
+  ASSERT(Utils::IsPowerOfTwo(alignment));
+  ASSERT(alignment >= kMinimumAlignment);
+  ASSERT(alignment <= OS::kMaxPreferredCodeAlignment);
+  return alignment;
 }
 
 
@@ -193,6 +218,15 @@ bool OS::AllowStackFrameIteratorFromAnotherThread() {
 
 int OS::NumberOfAvailableProcessors() {
   return sysconf(_SC_NPROCESSORS_ONLN);
+}
+
+
+uintptr_t OS::MaxRSS() {
+  struct rusage usage;
+  usage.ru_maxrss = 0;
+  int r = getrusage(RUSAGE_SELF, &usage);
+  ASSERT(r == 0);
+  return usage.ru_maxrss;
 }
 
 
@@ -232,10 +266,16 @@ void OS::DebugBreak() {
 }
 
 
+uintptr_t DART_NOINLINE OS::GetProgramCounter() {
+  return reinterpret_cast<uintptr_t>(
+      __builtin_extract_return_addr(__builtin_return_address(0)));
+}
+
+
 char* OS::StrNDup(const char* s, intptr_t n) {
-  // strndup has only been added to Mac OS X in 10.7. We are supplying
-  // our own copy here if needed.
-#if !defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) || \
+// strndup has only been added to Mac OS X in 10.7. We are supplying
+// our own copy here if needed.
+#if !defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) ||                 \
     __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ <= 1060
   intptr_t len = strlen(s);
   if ((n < 0) || (len < 0)) {
@@ -250,8 +290,25 @@ char* OS::StrNDup(const char* s, intptr_t n) {
   }
   result[len] = '\0';
   return reinterpret_cast<char*>(memmove(result, s, len));
-#else  // !defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) || ...
+#else   // !defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) || ...
   return strndup(s, n);
+#endif  // !defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) || ...
+}
+
+
+intptr_t OS::StrNLen(const char* s, intptr_t n) {
+// strnlen has only been added to Mac OS X in 10.7. We are supplying
+// our own copy here if needed.
+#if !defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) ||                 \
+    __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ <= 1060
+  intptr_t len = 0;
+  while ((len <= n) && (*s != '\0')) {
+    s++;
+    len++;
+  }
+  return len;
+#else   // !defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) || ...
+  return strnlen(s, n);
 #endif  // !defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) || ...
 }
 
@@ -336,8 +393,7 @@ bool OS::StringToInt64(const char* str, int64_t* value) {
   if (str[0] == '-') {
     i = 1;
   }
-  if ((str[i] == '0') &&
-      (str[i + 1] == 'x' || str[i + 1] == 'X') &&
+  if ((str[i] == '0') && (str[i + 1] == 'x' || str[i + 1] == 'X') &&
       (str[i + 2] != '\0')) {
     base = 16;
   }
@@ -347,8 +403,7 @@ bool OS::StringToInt64(const char* str, int64_t* value) {
 }
 
 
-void OS::RegisterCodeObservers() {
-}
+void OS::RegisterCodeObservers() {}
 
 
 void OS::PrintErr(const char* format, ...) {
@@ -373,13 +428,10 @@ void OS::InitOnce() {
   static bool init_once_called = false;
   ASSERT(init_once_called == false);
   init_once_called = true;
-  kern_return_t kr = mach_timebase_info(&timebase_info);
-  ASSERT(KERN_SUCCESS == kr);
 }
 
 
-void OS::Shutdown() {
-}
+void OS::Shutdown() {}
 
 
 void OS::Abort() {

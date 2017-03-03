@@ -7,15 +7,15 @@ library test.domain.analysis.hover;
 import 'dart:async';
 
 import 'package:analysis_server/plugin/protocol/protocol.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
 import '../analysis_abstract.dart';
-import '../utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(AnalysisHoverTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(AnalysisHoverTest);
+  });
 }
 
 @reflectiveTest
@@ -29,7 +29,7 @@ class AnalysisHoverTest extends AbstractAnalysisTest {
     await waitForTasksFinished();
     Request request =
         new AnalysisGetHoverParams(testFile, offset).toRequest('0');
-    Response response = handleSuccessfulRequest(request);
+    Response response = await waitResponse(request);
     var result = new AnalysisGetHoverResult.fromResponse(response);
     List<HoverInformation> hovers = result.hovers;
     return hovers.isNotEmpty ? hovers.first : null;
@@ -238,6 +238,24 @@ class A {
     expect(hover.parameter, isNull);
   }
 
+  test_expression_method_deprecated() async {
+    addTestFile('''
+class A {
+  @deprecated
+  static void test() {}
+}
+main() {
+  A.test();
+}
+''');
+    HoverInformation hover = await prepareHover('test();');
+    // element
+    expect(hover.containingLibraryPath, testFile);
+    expect(hover.elementDescription, 'test() → void');
+    expect(hover.elementKind, 'method');
+    expect(hover.isDeprecated, isTrue);
+  }
+
   test_expression_method_invocation() async {
     addTestFile('''
 library my.library;
@@ -258,8 +276,9 @@ main(A a) {
     expect(hover.containingLibraryPath, testFile);
     expect(hover.elementDescription, 'mmm(int a, String b) → List<String>');
     expect(hover.elementKind, 'method');
+    expect(hover.isDeprecated, isFalse);
     // types
-    expect(hover.staticType, isNull);
+    expect(hover.staticType, '(int, String) → List<String>');
     expect(hover.propagatedType, isNull);
     // no parameter
     expect(hover.parameter, isNull);
@@ -287,6 +306,48 @@ class A {
     expect(hover.propagatedType, isNull);
     // no parameter
     expect(hover.parameter, isNull);
+  }
+
+  test_expression_parameter_fieldFormal_declaration() async {
+    addTestFile('''
+class A {
+  /// The field documentation.
+  final int fff;
+  A({this.fff});
+}
+main() {
+  new A(fff: 42);
+}
+''');
+    HoverInformation hover = await prepareHover('fff});');
+    expect(hover.containingLibraryName, isNull);
+    expect(hover.containingLibraryPath, isNull);
+    expect(hover.containingClassDescription, isNull);
+    expect(hover.dartdoc, 'The field documentation.');
+    expect(hover.elementDescription, '{int fff}');
+    expect(hover.elementKind, 'parameter');
+    expect(hover.staticType, 'int');
+  }
+
+  test_expression_parameter_fieldFormal_use() async {
+    addTestFile('''
+class A {
+  /// The field documentation.
+  final int fff;
+  A({this.fff});
+}
+main() {
+  new A(fff: 42);
+}
+''');
+    HoverInformation hover = await prepareHover('fff: 42');
+    expect(hover.containingLibraryName, isNull);
+    expect(hover.containingLibraryPath, isNull);
+    expect(hover.containingClassDescription, isNull);
+    expect(hover.dartdoc, 'The field documentation.');
+    expect(hover.elementDescription, '{int fff}');
+    expect(hover.elementKind, 'parameter');
+    expect(hover.staticType, 'int');
   }
 
   test_expression_syntheticGetter_invocation() async {
@@ -409,6 +470,7 @@ main() {
       // no parameter
       expect(hover.parameter, isNull);
     }
+
     {
       HoverInformation hover = await prepareHover('new A');
       onConstructor(hover);
@@ -445,6 +507,7 @@ main() {
       expect(hover.elementDescription, 'A.named() → A');
       expect(hover.elementKind, 'constructor');
     }
+
     {
       HoverInformation hover = await prepareHover('new A');
       onConstructor(hover);

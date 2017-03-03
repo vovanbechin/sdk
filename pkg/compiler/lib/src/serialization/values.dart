@@ -7,7 +7,7 @@
 library dart2js.serialization.values;
 
 import '../constants/expressions.dart';
-import '../dart_types.dart';
+import '../elements/resolution_types.dart';
 import '../elements/elements.dart';
 import 'keys.dart';
 
@@ -48,8 +48,8 @@ class ElementValue implements Value {
   String toString() => element.toString();
 }
 
-class TypeValue implements Value  {
-  final DartType type;
+class TypeValue implements Value {
+  final ResolutionDartType type;
   final Value id;
 
   TypeValue(this.type, this.id);
@@ -59,7 +59,7 @@ class TypeValue implements Value  {
   String toString() => type.toString();
 }
 
-class ConstantValue implements Value  {
+class ConstantValue implements Value {
   final ConstantExpression constant;
   final Value id;
 
@@ -67,7 +67,7 @@ class ConstantValue implements Value  {
 
   accept(ValueVisitor visitor, arg) => visitor.visitConstant(this, arg);
 
-  String toString() => constant.getText();
+  String toString() => constant.toDartText();
 }
 
 abstract class PrimitiveValue implements Value {

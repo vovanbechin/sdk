@@ -12,6 +12,12 @@
     'target_arch': 'ia32',
     # Flag that tells us whether to build native support for dart:io.
     'dart_io_support': 1,
+    # Flag that tells us whether this is an ASAN build.
+    'asan%': 0,
+    # Flag that tells us whether this is a MSAN build.
+    'msan%': 0,
+    # Flag that teslls us whether this is a TSAN build.
+    'tsan%': 0,
   },
   'conditions': [
     [ 'OS=="linux"', {

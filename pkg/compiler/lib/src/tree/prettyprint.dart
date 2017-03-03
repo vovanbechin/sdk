@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import '../tokens/token.dart' show BeginGroupToken, Token;
+import 'package:front_end/src/fasta/scanner.dart' show Token;
 import '../util/util.dart';
 import 'nodes.dart';
 
@@ -47,8 +47,7 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
 
   visitAsyncModifier(AsyncModifier node) {
     openAndCloseNode(node, "AsyncModifier",
-        {'asyncToken': node.asyncToken,
-         'starToken': node.starToken});
+        {'asyncToken': node.asyncToken, 'starToken': node.starToken});
   }
 
   visitBlock(Block node) {
@@ -76,9 +75,8 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
   }
 
   visitClassNode(ClassNode node) {
-    openNode(node, "ClassNode", {
-      "extendsKeyword" : tokenToStringOrNull(node.extendsKeyword)
-    });
+    openNode(node, "ClassNode",
+        {"extendsKeyword": tokenToStringOrNull(node.extendsKeyword)});
     visitChildNode(node.name, "name");
     visitChildNode(node.superclass, "superclass");
     visitChildNode(node.interfaces, "interfaces");
@@ -124,14 +122,19 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
     visitNodeWithChildren(node, "For");
   }
 
+  visitForIn(ForIn node) {
+    node.visitChildren(this);
+    closeNode();
+  }
+
   visitAsyncForIn(AsyncForIn node) {
     openNode(node, "AsyncForIn");
+    visitForIn(node);
   }
 
   visitSyncForIn(SyncForIn node) {
-    openNode(node, "ForIn");
-    node.visitChildren(this);
-    closeNode();
+    openNode(node, "SyncForIn");
+    visitForIn(node);
   }
 
   visitFunctionDeclaration(FunctionDeclaration node) {
@@ -139,9 +142,8 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
   }
 
   visitFunctionExpression(FunctionExpression node) {
-    openNode(node, "FunctionExpression", {
-      "getOrSet" : tokenToStringOrNull(node.getOrSet)
-    });
+    openNode(node, "FunctionExpression",
+        {"getOrSet": tokenToStringOrNull(node.getOrSet)});
     visitChildNode(node.modifiers, "modifiers");
     visitChildNode(node.returnType, "returnType");
     visitChildNode(node.name, "name");
@@ -151,8 +153,16 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
     closeNode();
   }
 
+  visitFunctionTypeAnnotation(FunctionTypeAnnotation node) {
+    openNode(node, "FunctionTypeAnnotation");
+    visitChildNode(node.returnType, "returnType");
+    visitChildNode(node.typeParameters, "typeParameters");
+    visitChildNode(node.formals, "formals");
+    closeNode();
+  }
+
   visitIdentifier(Identifier node) {
-    openAndCloseNode(node, "Identifier", {"token" : node.token});
+    openAndCloseNode(node, "Identifier", {"token": node.token});
   }
 
   visitIf(If node) {
@@ -169,7 +179,7 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
 
   // Custom.
   printLiteral(Literal node, String type) {
-    openAndCloseNode(node, type, {"value" : node.value.toString()});
+    openAndCloseNode(node, type, {"value": node.value.toString()});
   }
 
   visitLiteralBool(LiteralBool node) {
@@ -188,9 +198,8 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
   tokenToStringOrNull(Token token) => token == null ? null : token.stringValue;
 
   visitLiteralList(LiteralList node) {
-    openNode(node, "LiteralList", {
-      "constKeyword" : tokenToStringOrNull(node.constKeyword)
-    });
+    openNode(node, "LiteralList",
+        {"constKeyword": tokenToStringOrNull(node.constKeyword)});
     visitChildNode(node.typeArguments, "typeArguments");
     visitChildNode(node.elements, "elements");
     closeNode();
@@ -209,8 +218,7 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
   }
 
   visitLiteralString(LiteralString node) {
-    openAndCloseNode(node, "LiteralString",
-        {"value" : node.token});
+    openAndCloseNode(node, "LiteralString", {"value": node.token});
   }
 
   visitMixinApplication(MixinApplication node) {
@@ -234,7 +242,7 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
   }
 
   visitNodeList(NodeList node) {
-    var params = { "delimiter" : node.delimiter };
+    var params = {"delimiter": node.delimiter};
     if (node.isEmpty) {
       openAndCloseNode(node, "NodeList", params);
     } else {
@@ -244,8 +252,15 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
     }
   }
 
+  visitNominalTypeAnnotation(NominalTypeAnnotation node) {
+    openNode(node, "NominalTypeAnnotation");
+    visitChildNode(node.typeName, "typeName");
+    visitChildNode(node.typeArguments, "typeArguments");
+    closeNode();
+  }
+
   visitOperator(Operator node) {
-    openAndCloseNode(node, "Operator", {"value" : node.token});
+    openAndCloseNode(node, "Operator", {"value": node.token});
   }
 
   visitParenthesizedExpression(ParenthesizedExpression node) {
@@ -287,9 +302,9 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
 
   openSendNodeWithFields(Send node, String type) {
     openNode(node, type, {
-        "isPrefix" : "${node.isPrefix}",
-        "isPostfix" : "${node.isPostfix}",
-        "isIndex" : "${node.isIndex}"
+      "isPrefix": "${node.isPrefix}",
+      "isPostfix": "${node.isPostfix}",
+      "isIndex": "${node.isIndex}"
     });
     visitChildNode(node.receiver, "receiver");
     visitChildNode(node.selector, "selector");
@@ -345,13 +360,6 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
     visitNodeWithChildren(node, "TryStatement");
   }
 
-  visitTypeAnnotation(TypeAnnotation node) {
-    openNode(node, "TypeAnnotation");
-    visitChildNode(node.typeName, "typeName");
-    visitChildNode(node.typeArguments, "typeArguments");
-    closeNode();
-  }
-
   visitTypedef(Typedef node) {
     visitNodeWithChildren(node, "Typedef");
   }
@@ -376,16 +384,14 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
   }
 
   visitMetadata(Metadata node) {
-    openNode(node, "Metadata", {
-      "token": node.token
-    });
+    openNode(node, "Metadata", {"token": node.token});
     visitChildNode(node.expression, "expression");
     closeNode();
   }
 
   visitCombinator(Combinator node) {
-    openNode(node, "Combinator", {"isShow" : "${node.isShow}",
-                                  "isHide" : "${node.isHide}"});
+    openNode(node, "Combinator",
+        {"isShow": "${node.isShow}", "isHide": "${node.isHide}"});
     closeNode();
   }
 
@@ -400,8 +406,7 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
   }
 
   visitImport(Import node) {
-    openNode(node, "Import", {
-      "isDeferred" : "${node.isDeferred}"});
+    openNode(node, "Import", {"isDeferred": "${node.isDeferred}"});
     visitChildNode(node.uri, "uri");
     if (node.conditionalUris != null) {
       visitChildNode(node.conditionalUris, "conditionalUris");
@@ -472,6 +477,10 @@ class PrettyPrinter extends Indentation with Tagging<Node> implements Visitor {
   }
 
   visitGotoStatement(GotoStatement node) {
+    unimplemented('visitNode', node: node);
+  }
+
+  visitTypeAnnotation(TypeAnnotation node) {
     unimplemented('visitNode', node: node);
   }
 

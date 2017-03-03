@@ -8,18 +8,20 @@ import 'package:analysis_server/src/protocol_server.dart';
 import 'package:analysis_server/src/provisional/completion/dart/completion_target.dart';
 import 'package:analysis_server/src/services/completion/dart/optype.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/file_system/memory_file_system.dart';
 import 'package:analyzer/src/generated/engine.dart';
+import 'package:analyzer/src/generated/sdk.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:plugin/manager.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../../abstract_context.dart';
-import '../../../utils.dart';
+import '../../../mock_sdk.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(OpTypeTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(OpTypeTest);
+  });
 }
 
 @reflectiveTest
@@ -27,6 +29,9 @@ class OpTypeTest {
   OpType visitor;
 
   void addTestSource(String content, {bool resolved: false}) {
+    MemoryResourceProvider resourceProvider = new MemoryResourceProvider();
+    DartSdk sdk = new MockSdk(resourceProvider: resourceProvider);
+
     int offset = content.indexOf('^');
     expect(offset, isNot(equals(-1)), reason: 'missing ^');
     int nextOffset = content.indexOf('^', offset + 1);
@@ -34,8 +39,7 @@ class OpTypeTest {
     content = content.substring(0, offset) + content.substring(offset + 1);
     Source source = new _TestSource('/completionTest.dart');
     AnalysisContext context = AnalysisEngine.instance.createAnalysisContext();
-    context.sourceFactory =
-        new SourceFactory([AbstractContextTest.SDK_RESOLVER]);
+    context.sourceFactory = new SourceFactory([new DartUriResolver(sdk)]);
     context.setContents(source, content);
     CompilationUnit unit = resolved
         ? context.resolveCompilationUnit2(source, source)
@@ -48,21 +52,26 @@ class OpTypeTest {
   void assertOpType(
       {bool caseLabel: false,
       bool constructors: false,
+      bool namedArgs: false,
       bool prefixed: false,
       bool returnValue: false,
       bool statementLabel: false,
       bool staticMethodBody: false,
       bool typeNames: false,
+      bool varNames: false,
       bool voidReturn: false,
       CompletionSuggestionKind kind: CompletionSuggestionKind.INVOCATION}) {
     expect(visitor.includeCaseLabelSuggestions, caseLabel, reason: 'caseLabel');
     expect(visitor.includeConstructorSuggestions, constructors,
         reason: 'constructors');
+    expect(visitor.includeNamedArgumentSuggestions, namedArgs,
+        reason: 'namedArgs');
     expect(visitor.includeReturnValueSuggestions, returnValue,
         reason: 'returnValue');
     expect(visitor.includeStatementLabelSuggestions, statementLabel,
         reason: 'statementLabel');
     expect(visitor.includeTypeNameSuggestions, typeNames, reason: 'typeNames');
+    expect(visitor.includeVarNameSuggestions, varNames, reason: 'varNames');
     expect(visitor.includeVoidReturnSuggestions, voidReturn,
         reason: 'voidReturn');
     expect(visitor.inStaticMethodBody, staticMethodBody,
@@ -88,8 +97,94 @@ class OpTypeTest {
 
   test_ArgumentList() {
     // ArgumentList  MethodInvocation  ExpressionStatement  Block
-    addTestSource('void main() {expect(^)}');
-    assertOpType(returnValue: true, typeNames: true);
+    addTestSource('void main() {expect(^)}', resolved: false);
+    // If "expect()" were resolved, then either namedArgs would be true
+    // or returnValue and typeNames would be true.
+    assertOpType(namedArgs: true, returnValue: true, typeNames: true);
+  }
+
+  test_ArgumentList_constructor_named_resolved_1_0() {
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement Block
+    addTestSource(
+        'main() { new A.b(^); }'
+        'class A{ A.b({one, two}) {} }',
+        resolved: true);
+    assertOpType(namedArgs: true);
+  }
+
+  test_ArgumentList_constructor_named_resolved_1_1() {
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement  Block
+    addTestSource(
+        'main() { new A.b(o^); }'
+        'class A { A.b({one, two}) {} }',
+        resolved: true);
+    assertOpType(namedArgs: true);
+  }
+
+  test_ArgumentList_constructor_resolved_1_0() {
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement Block
+    addTestSource(
+        'main() { new A(^); }'
+        'class A{ A({one, two}) {} }',
+        resolved: true);
+    assertOpType(namedArgs: true);
+  }
+
+  test_ArgumentList_constructor_resolved_1_1() {
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement  Block
+    addTestSource(
+        'main() { new A(o^); }'
+        'class A { A({one, two}) {} }',
+        resolved: true);
+    assertOpType(namedArgs: true);
+  }
+
+  test_ArgumentList_factory_named_resolved_1_0() {
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement Block
+    addTestSource(
+        'main() { new A.b(^); }'
+        'class A{ factory A.b({one, two}) {} }',
+        resolved: true);
+    assertOpType(namedArgs: true);
+  }
+
+  test_ArgumentList_factory_named_resolved_1_1() {
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement  Block
+    addTestSource(
+        'main() { new A.b(o^); }'
+        'class A { factory A.b({one, two}) {} }',
+        resolved: true);
+    assertOpType(namedArgs: true);
+  }
+
+  test_ArgumentList_factory_resolved_1_0() {
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement Block
+    addTestSource(
+        'main() { new A(^); }'
+        'class A{ factory A({one, two}) {} }',
+        resolved: true);
+    assertOpType(namedArgs: true);
+  }
+
+  test_ArgumentList_factory_resolved_1_1() {
+    // ArgumentList  InstanceCreationExpression  ExpressionStatement  Block
+    addTestSource(
+        'main() { new A(o^); }'
+        'class A { factory A({one, two}) {} }',
+        resolved: true);
+    assertOpType(namedArgs: true);
+  }
+
+  test_ArgumentList_method_resolved_1_0() {
+    // ArgumentList  MethodInvocation  ExpressionStatement  Block
+    addTestSource('main() { foo(^);} foo({one, two}) {}', resolved: true);
+    assertOpType(namedArgs: true);
+  }
+
+  test_ArgumentList_method_resolved_1_1() {
+    // ArgumentList  MethodInvocation  ExpressionStatement  Block
+    addTestSource('main() { foo(o^);} foo({one, two}) {}', resolved: true);
+    assertOpType(namedArgs: true);
   }
 
   test_ArgumentList_namedParam() {
@@ -105,10 +200,32 @@ class OpTypeTest {
     assertOpType(returnValue: true, typeNames: true, prefixed: true);
   }
 
+  test_ArgumentList_resolved() {
+    // ArgumentList  MethodInvocation  ExpressionStatement  Block
+    addTestSource('void main() {int.parse(^)}', resolved: true);
+    assertOpType(returnValue: true, typeNames: true);
+  }
+
+  test_ArgumentList_resolved_2_0() {
+    // ArgumentList  MethodInvocation  ExpressionStatement  Block
+    addTestSource('void main() {int.parse("16", ^)}', resolved: true);
+    assertOpType(namedArgs: true);
+  }
+
   test_AsExpression() {
     // SimpleIdentifier  TypeName  AsExpression
     addTestSource('class A {var b; X _c; foo() {var a; (a as ^).foo();}');
     assertOpType(typeNames: true);
+  }
+
+  test_AsIdentifier() {
+    addTestSource('class A {var asdf; foo() {as^}');
+    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
+  test_AsIdentifier2() {
+    addTestSource('class A {var asdf; foo() {A as^}');
+    assertOpType();
   }
 
   test_Assert() {
@@ -120,7 +237,7 @@ class OpTypeTest {
     // SimpleIdentifier  VariableDeclaration  VariableDeclarationList
     // VariableDeclarationStatement  Block
     addTestSource('class A {} main() {int a; int ^b = 1;}');
-    assertOpType();
+    assertOpType(varNames: true);
   }
 
   test_AssignmentExpression_RHS() {
@@ -256,6 +373,122 @@ class OpTypeTest {
         }
       }''');
     assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
+  test_Block_catch_1a() async {
+    // '}'  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} ^}');
+    // Only return 'on', 'catch', and 'finally' keywords
+    assertOpType();
+  }
+
+  test_Block_catch_1b() async {
+    // [ExpressionStatement 'c']  Block  BlockFunctionBody
+    addTestSource('main() {try {} c^}');
+    // Only return 'on', 'catch', and 'finally' keywords
+    assertOpType();
+  }
+
+  test_Block_catch_1c() async {
+    // [EmptyStatement]  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} ^;}');
+    // Only return 'on', 'catch', and 'finally' keywords
+    assertOpType();
+  }
+
+  test_Block_catch_1d() async {
+    // [VariableDeclarationStatement 'Foo foo']  Block  BlockFunctionBody
+    addTestSource('main() {try {} ^ Foo foo;}');
+    // Only return 'on', 'catch', and 'finally' keywords
+    assertOpType();
+  }
+
+  test_Block_catch_2a() async {
+    // '}'  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} catch () {} ^}');
+    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
+  test_Block_catch_2b() async {
+    // [ExpressionStatement 'c']  Block  BlockFunctionBody
+    addTestSource('main() {try {} catch () {} c^}');
+    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
+  test_Block_catch_2c() async {
+    // [EmptyStatement]  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} catch () {} ^;}');
+    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
+  test_Block_catch_2d() async {
+    // [VariableDeclarationStatement 'Foo foo']  Block  BlockFunctionBody
+    addTestSource('main() {try {} catch () {} ^ Foo foo;}');
+    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
+  test_Block_catch_3a() async {
+    // '}'  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} finally {} ^}');
+    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
+  test_Block_catch_3b() async {
+    // [ExpressionStatement 'c']  Block  BlockFunctionBody
+    addTestSource('main() {try {} finally {} c^}');
+    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
+  test_Block_catch_3c() async {
+    // [EmptyStatement]  Block  BlockFunctionBody  FunctionExpression
+    addTestSource('main() {try {} finally {} ^;}');
+    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
+  test_Block_catch_3d() async {
+    // [VariableDeclarationStatement 'Foo foo']  Block  BlockFunctionBody
+    addTestSource('main() {try {} finally {} ^ Foo foo;}');
+    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
+  test_catch_4a1() async {
+    addTestSource('main() {try {} ^ on SomeException {}}');
+    assertOpType();
+  }
+
+  test_catch_4a2() async {
+    addTestSource('main() {try {} c^ on SomeException {}}');
+    assertOpType();
+  }
+
+  test_catch_4b1() async {
+    addTestSource('main() {try {} ^ catch (e) {}}');
+    assertOpType();
+  }
+
+  test_catch_4b2() async {
+    addTestSource('main() {try {} c^ catch (e) {}}');
+    assertOpType();
+  }
+
+  test_catch_4c1() async {
+    addTestSource('main() {try {} ^ finally {}}');
+    assertOpType();
+  }
+
+  test_catch_4c2() async {
+    addTestSource('main() {try {} c^ finally {}}');
+    assertOpType();
+  }
+
+  test_catch_5a() async {
+    addTestSource('main() {try {} on ^ finally {}}');
+    assertOpType(typeNames: true);
+  }
+
+  test_catch_5b() async {
+    addTestSource('main() {try {} on E^ finally {}}');
+    assertOpType(typeNames: true);
   }
 
   test_Block_empty() {
@@ -515,7 +748,25 @@ class OpTypeTest {
   test_ExpressionStatement_name() {
     // ExpressionStatement  Block  BlockFunctionBody  MethodDeclaration
     addTestSource('class C {a() {C ^}}');
-    assertOpType();
+    assertOpType(varNames: true);
+  }
+
+  test_ExpressionStatement_name_semicolon() {
+    // ExpressionStatement  Block  BlockFunctionBody  MethodDeclaration
+    addTestSource('class C {a() {C ^;}}');
+    assertOpType(varNames: true);
+  }
+
+  test_ExpressionStatement_prefixed_name() {
+    // ExpressionStatement  Block  BlockFunctionBody  MethodDeclaration
+    addTestSource('class C {a() {x.Y ^}}');
+    assertOpType(varNames: true);
+  }
+
+  test_ExpressionStatement_prefixed_name_semicolon() {
+    // ExpressionStatement  Block  BlockFunctionBody  MethodDeclaration
+    addTestSource('class C {a() {x.Y ^;}}');
+    assertOpType(varNames: true);
   }
 
   test_ExtendsClause() {
@@ -528,7 +779,7 @@ class OpTypeTest {
     // SimpleIdentifier  VariableDeclaration  VariableDeclarationList
     // FieldDeclaration
     addTestSource('class C {A ^}');
-    assertOpType();
+    assertOpType(varNames: true);
   }
 
   test_FieldDeclaration_name_var() {
@@ -619,15 +870,29 @@ class OpTypeTest {
   test_ForStatement_condition() {
     // SimpleIdentifier  ForStatement
     addTestSource('main() {for (int index = 0; i^)}');
-    // TODO (danrubel) may want to exclude methods/functions with void return
-    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+    assertOpType(returnValue: true, typeNames: true);
   }
 
   test_ForStatement_initializer() {
     // SimpleIdentifier  ForStatement
     addTestSource('main() {List a; for (^)}');
-    // TODO (danrubel) may want to exclude methods/functions with void return
-    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+    assertOpType(typeNames: true);
+  }
+
+  test_ForStatement_initializer_inKeyword() {
+    addTestSource('main() { for (var v i^) }');
+    assertOpType();
+  }
+
+  test_ForStatement_initializer_type() {
+    // SimpleIdentifier  ForStatement
+    addTestSource('main() {List a; for (i^ v = 0;)}');
+    assertOpType(typeNames: true);
+  }
+
+  test_ForStatement_initializer_variableNameEmpty_afterType() {
+    addTestSource('main() { for (String ^) }');
+    assertOpType(varNames: true);
   }
 
   test_ForStatement_updaters() {
@@ -1296,6 +1561,11 @@ class C2 {
     assertOpType(returnValue: true, typeNames: true, voidReturn: true);
   }
 
+  test_SwitchStatement_body_end2() {
+    addTestSource('main() {switch(k) {case 1:as^}}');
+    assertOpType(returnValue: true, typeNames: true, voidReturn: true);
+  }
+
   test_SwitchStatement_expression1() {
     // SimpleIdentifier  SwitchStatement  Block
     addTestSource('main() {switch(^k) {case 1:{}}}');
@@ -1378,8 +1648,19 @@ class C2 {
   test_TopLevelVariableDeclaration_typed_name() {
     // SimpleIdentifier  VariableDeclaration  VariableDeclarationList
     // TopLevelVariableDeclaration
+    // _OpTypeAstVisitor.visitVariableDeclarationList is executed with this
+    // source, but _OpTypeAstVisitor.visitTopLevelVariableDeclaration is called
+    // for test_TopLevelVariableDeclaration_typed_name_semicolon
     addTestSource('class A {} B ^');
-    assertOpType();
+    assertOpType(varNames: true);
+  }
+
+  test_TopLevelVariableDeclaration_typed_name_semicolon() {
+    // SimpleIdentifier  VariableDeclaration  VariableDeclarationList
+    // TopLevelVariableDeclaration
+    // See comment in test_TopLevelVariableDeclaration_typed_name
+    addTestSource('class A {} B ^;');
+    assertOpType(varNames: true);
   }
 
   test_TopLevelVariableDeclaration_untyped_name() {
@@ -1424,14 +1705,14 @@ class C2 {
     // SimpleIdentifier  VariableDeclaration  VariableDeclarationList
     // VariableDeclarationStatement  Block
     addTestSource('main() {List<int> m^}');
-    assertOpType();
+    assertOpType(varNames: true);
   }
 
   test_VariableDeclaration_name_hasSome_simpleType() {
     // SimpleIdentifier  VariableDeclaration  VariableDeclarationList
     // VariableDeclarationStatement  Block
     addTestSource('main() {String m^}');
-    assertOpType();
+    assertOpType(varNames: true);
   }
 
   test_VariableDeclarationList_final() {
@@ -1465,6 +1746,12 @@ class C2 {
     addTestSource('mth() { while (b^) {} }}');
     assertOpType(returnValue: true, typeNames: true);
   }
+
+  test_WithClause() {
+    // WithClause  ClassDeclaration
+    addTestSource('class x extends Object with ^\n{}');
+    assertOpType(typeNames: true);
+  }
 }
 
 class _TestSource implements Source {
@@ -1482,6 +1769,9 @@ class _TestSource implements Source {
 
   @override
   Source get source => this;
+
+  @override
+  Uri get uri => new Uri.file(fullName);
 
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

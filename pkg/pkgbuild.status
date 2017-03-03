@@ -2,15 +2,13 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
-samples/searchable_list: Pass, Slow
-
-[ $use_repository_packages ]
-pkg/analyzer: PubGetError
-samples/third_party/angular_todo: Fail # angular needs to be updated
-
-[ $use_public_packages ]
+pkg/analyzer: Fail # Issue 27654
+pkg/analyzer_plugin: SkipByDesign # Issue 27937
 pkg/compiler: SkipByDesign # js_ast is not published
-samples/third_party/angular_todo: Pass, Slow
+pkg/dev_compiler: SkipByDesign # we have relative paths to analyzer
+pkg/front_end: Fail # Issue 27655
+pkg/kernel: SkipByDesign # Issue 27937
+third_party/pkg/linter: SkipByDesign # Issue 27937
 
-[ $builder_tag == russian ]
-samples/third_party/angular_todo: Fail # Issue 16356
+[ $system == windows ]
+third_party/pkg/*: Pass, Slow

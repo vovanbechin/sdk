@@ -23,7 +23,7 @@ abstract class Symbol {
    *   (one of "`+`", "`-`", "`*`", "`/`", "`%`", "`~/`", "`&`", "`|`",
    *   "`^`", "`~`", "`<<`", "`>>`", "`<`", "`<=`", "`>`", "`>=`", "`==`",
    *   "`[]`", "`[]=`", or "`unary-`"),
-   * * any of the above preceeded by any number of qualifiers,
+   * * any of the above preceded by any number of qualifiers,
    *   where a qualifier is a non-private identifier followed by '`.`',
    * * or the empty string (the default name of a library with no library
    *   name declaration).
@@ -49,5 +49,5 @@ abstract class Symbol {
    * Qualified member names, like `#foo.bar` are equal only if they have the
    * same identifiers before the same final member name.
    */
-  bool operator ==(Object other);
+  bool operator ==(other);
 }

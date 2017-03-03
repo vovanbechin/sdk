@@ -4,100 +4,122 @@
 
 library closureToClassMapper;
 
+import 'common/names.dart' show Identifiers;
+import 'common/resolution.dart' show ParsingContext, Resolution;
+import 'common/tasks.dart' show CompilerTask;
 import 'common.dart';
-import 'common/names.dart' show
-    Identifiers;
-import 'common/resolution.dart' show
-    Parsing,
-    Resolution;
-import 'common/tasks.dart' show
-    CompilerTask;
-import 'compiler.dart' show
-    Compiler;
+import 'compiler.dart' show Compiler;
 import 'constants/expressions.dart';
-import 'dart_types.dart';
+import 'elements/resolution_types.dart';
 import 'elements/elements.dart';
-import 'elements/modelx.dart' show
-    BaseFunctionElementX,
-    ClassElementX,
-    ElementX,
-    LocalFunctionElementX;
+import 'elements/entities.dart';
+import 'elements/modelx.dart'
+    show BaseFunctionElementX, ClassElementX, ElementX;
 import 'elements/visitor.dart' show ElementVisitor;
 import 'js_backend/js_backend.dart' show JavaScriptBackend;
 import 'resolution/tree_elements.dart' show TreeElements;
-import 'tokens/token.dart' show Token;
+import 'package:front_end/src/fasta/scanner.dart' show Token;
 import 'tree/tree.dart';
 import 'util/util.dart';
-import 'universe/universe.dart' show
-    Universe;
+import 'world.dart' show ClosedWorldRefiner;
 
 class ClosureTask extends CompilerTask {
-  Map<Node, ClosureClassMap> closureMappingCache;
+  Map<Element, ClosureClassMap> _closureMappingCache =
+      <Element, ClosureClassMap>{};
+  Compiler compiler;
   ClosureTask(Compiler compiler)
-      : closureMappingCache = new Map<Node, ClosureClassMap>(),
-        super(compiler);
+      : compiler = compiler,
+        super(compiler.measurer);
 
   String get name => "Closure Simplifier";
 
-  ClosureClassMap computeClosureToClassMapping(Element element,
-                                               Node node,
-                                               TreeElements elements) {
+  DiagnosticReporter get reporter => compiler.reporter;
+
+  /// Returns the [ClosureClassMap] computed for [resolvedAst].
+  ClosureClassMap getClosureToClassMapping(ResolvedAst resolvedAst) {
     return measure(() {
-      ClosureClassMap cached = closureMappingCache[node];
+      Element element = resolvedAst.element;
+      if (element.isGenerativeConstructorBody) {
+        ConstructorBodyElement constructorBody = element;
+        element = constructorBody.constructor;
+      }
+      ClosureClassMap closureClassMap = _closureMappingCache[element];
+      assert(invariant(resolvedAst.element, closureClassMap != null,
+          message: "No ClosureClassMap computed for ${element}."));
+      return closureClassMap;
+    });
+  }
+
+  /// Create [ClosureClassMap]s for all live members.
+  void createClosureClasses(ClosedWorldRefiner closedWorldRefiner) {
+    compiler.enqueuer.resolution.processedEntities
+        .forEach((AstElement element) {
+      // TODO(johnniwinther): Typedefs should never be in processedElements.
+      if (element.isTypedef) return;
+      ResolvedAst resolvedAst = element.resolvedAst;
+      if (element.isAbstract) return;
+      if (element.isField &&
+          !element.isInstanceMember &&
+          resolvedAst.body == null) {
+        // Skip top-level/static fields without an initializer.
+        return;
+      }
+      computeClosureToClassMapping(resolvedAst, closedWorldRefiner);
+    });
+  }
+
+  ClosureClassMap computeClosureToClassMapping(
+      ResolvedAst resolvedAst, ClosedWorldRefiner closedWorldRefiner) {
+    return measure(() {
+      Element element = resolvedAst.element;
+      ClosureClassMap cached = _closureMappingCache[element];
       if (cached != null) return cached;
+      if (resolvedAst.kind != ResolvedAstKind.PARSED) {
+        return _closureMappingCache[element] =
+            new ClosureClassMap(null, null, null, new ThisLocal(element));
+      }
+      return reporter.withCurrentElement(element.implementation, () {
+        Node node = resolvedAst.node;
+        TreeElements elements = resolvedAst.elements;
 
-      ClosureTranslator translator =
-          new ClosureTranslator(compiler, elements, closureMappingCache);
+        ClosureTranslator translator = new ClosureTranslator(
+            compiler, closedWorldRefiner, elements, _closureMappingCache);
 
-      // The translator will store the computed closure-mappings inside the
-      // cache. One for given node and one for each nested closure.
-      if (node is FunctionExpression) {
-        translator.translateFunction(element, node);
-      } else if (element.isSynthesized) {
-        return new ClosureClassMap(null, null, null, new ThisLocal(element));
-      } else {
-        assert(element.isField);
-        VariableElement field = element;
-        if (field.initializer != null) {
-          // The lazy initializer of a static.
-          translator.translateLazyInitializer(element, node, field.initializer);
-        } else {
-          assert(element.isInstanceMember);
-          closureMappingCache[node] =
+        // The translator will store the computed closure-mappings inside the
+        // cache. One for given node and one for each nested closure.
+        if (node is FunctionExpression) {
+          translator.translateFunction(element, node);
+        } else if (element.isSynthesized) {
+          reporter.internalError(
+              element, "Unexpected synthesized element: $element");
+          _closureMappingCache[element] =
               new ClosureClassMap(null, null, null, new ThisLocal(element));
+        } else {
+          assert(invariant(element, element.isField,
+              message: "Expected $element to be a field."));
+          Node initializer = resolvedAst.body;
+          if (initializer != null) {
+            // The lazy initializer of a static.
+            translator.translateLazyInitializer(element, node, initializer);
+          } else {
+            assert(invariant(element, element.isInstanceMember,
+                message: "Expected $element (${element
+                    .runtimeType}) to be an instance field."));
+            _closureMappingCache[element] =
+                new ClosureClassMap(null, null, null, new ThisLocal(element));
+          }
         }
-      }
-      assert(closureMappingCache[node] != null);
-      return closureMappingCache[node];
+        assert(invariant(element, _closureMappingCache[element] != null,
+            message: "No ClosureClassMap computed for ${element}."));
+        return _closureMappingCache[element];
+      });
     });
-  }
-
-  ClosureClassMap getMappingForNestedFunction(FunctionExpression node) {
-    return measure(() {
-      ClosureClassMap nestedClosureData = closureMappingCache[node];
-      if (nestedClosureData == null) {
-        reporter.internalError(node, "No closure cache.");
-      }
-      return nestedClosureData;
-    });
-  }
-
-  void forgetElement(var closure) {
-    ClosureClassElement cls;
-    if (closure is ClosureFieldElement) {
-      cls = closure.closureClass;
-    } else if (closure is SynthesizedCallMethodElementX) {
-      cls = closure.closureClass;
-    } else {
-      throw new SpannableAssertionFailure(
-          closure, 'Not a closure: $closure (${closure.runtimeType}).');
-    }
-    compiler.enqueuer.codegen.forgetElement(cls);
   }
 }
 
 /// Common interface for [BoxFieldElement] and [ClosureFieldElement] as
 /// non-elements.
+// TODO(johnniwinther): Remove `implements Element`.
 abstract class CapturedVariable implements Element {}
 
 // TODO(ahe): These classes continuously cause problems.  We need to
@@ -107,9 +129,7 @@ class ClosureFieldElement extends ElementX
   /// The [BoxLocal] or [LocalElement] being accessed through the field.
   final Local local;
 
-  ClosureFieldElement(String name,
-                      this.local,
-                      ClosureClassElement enclosing)
+  ClosureFieldElement(String name, this.local, ClosureClassElement enclosing)
       : super(name, ElementKind.FIELD, enclosing);
 
   /// Use [closureClass] instead.
@@ -128,32 +148,33 @@ class ClosureFieldElement extends ElementX
   bool get hasNode => false;
 
   Node get node {
-    throw new SpannableAssertionFailure(local,
-        'Should not access node of ClosureFieldElement.');
+    throw new SpannableAssertionFailure(
+        local, 'Should not access node of ClosureFieldElement.');
   }
 
   bool get hasResolvedAst => hasTreeElements;
 
   ResolvedAst get resolvedAst {
-    return new ResolvedAst(this, null, treeElements);
+    return new ParsedResolvedAst(this, null, null, treeElements,
+        memberContext.compilationUnit.script.resourceUri);
   }
 
   Expression get initializer {
-    throw new SpannableAssertionFailure(local,
-        'Should not access initializer of ClosureFieldElement.');
+    throw new SpannableAssertionFailure(
+        local, 'Should not access initializer of ClosureFieldElement.');
   }
 
   bool get isInstanceMember => true;
   bool get isAssignable => false;
 
-  DartType computeType(Resolution resolution) => type;
+  ResolutionDartType computeType(Resolution resolution) => type;
 
-  DartType get type {
+  ResolutionDartType get type {
     if (local is LocalElement) {
       LocalElement element = local;
       return element.type;
     }
-    return const DynamicType();
+    return const ResolutionDynamicType();
   }
 
   String toString() => "ClosureFieldElement($name)";
@@ -168,15 +189,19 @@ class ClosureFieldElement extends ElementX
   List<FunctionElement> get nestedClosures => const <FunctionElement>[];
 
   @override
+  bool get hasConstant => false;
+
+  @override
   ConstantExpression get constant => null;
 }
 
 // TODO(ahe): These classes continuously cause problems.  We need to find
 // a more general solution.
 class ClosureClassElement extends ClassElementX {
-  DartType rawType;
-  DartType thisType;
-  FunctionType callType;
+  ResolutionDartType rawType;
+  ResolutionDartType thisType;
+  ResolutionFunctionType callType;
+
   /// Node that corresponds to this closure, used for source position.
   final FunctionExpression node;
 
@@ -187,26 +212,25 @@ class ClosureClassElement extends ClassElementX {
 
   final List<ClosureFieldElement> _closureFields = <ClosureFieldElement>[];
 
-  ClosureClassElement(this.node,
-                      String name,
-                      Compiler compiler,
-                      LocalFunctionElement closure)
+  ClosureClassElement(
+      this.node, String name, Compiler compiler, LocalFunctionElement closure)
       : this.methodElement = closure,
-        super(name,
-              closure.compilationUnit,
-              // By assigning a fresh class-id we make sure that the hashcode
-              // is unique, but also emit closure classes after all other
-              // classes (since the emitter sorts classes by their id).
-              compiler.getNextFreeClassId(),
-              STATE_DONE) {
+        super(
+            name,
+            closure.compilationUnit,
+            // By assigning a fresh class-id we make sure that the hashcode
+            // is unique, but also emit closure classes after all other
+            // classes (since the emitter sorts classes by their id).
+            compiler.idGenerator.getNextFreeId(),
+            STATE_DONE) {
     JavaScriptBackend backend = compiler.backend;
     ClassElement superclass = methodElement.isInstanceMember
         ? backend.helpers.boundClosureClass
         : backend.helpers.closureClass;
     superclass.ensureResolved(compiler.resolution);
     supertype = superclass.thisType;
-    interfaces = const Link<DartType>();
-    thisType = rawType = new InterfaceType(this);
+    interfaces = const Link<ResolutionDartType>();
+    thisType = rawType = new ResolutionInterfaceType(this);
     allSupertypesAndSelf =
         superclass.allSupertypesAndSelf.extendClass(thisType);
     callType = methodElement.type;
@@ -225,7 +249,7 @@ class ClosureClassElement extends ClassElementX {
 
   Token get position => node.getBeginToken();
 
-  Node parseNode(Parsing parsing) => node;
+  Node parseNode(ParsingContext parsing) => node;
 
   // A [ClosureClassElement] is nested inside a function or initializer in terms
   // of [enclosingElement], but still has to be treated as a top-level
@@ -245,24 +269,34 @@ class BoxLocal extends Local {
   final String name;
   final ExecutableElement executableContext;
 
+  final int hashCode = _nextHashCode = (_nextHashCode + 10007).toUnsigned(30);
+  static int _nextHashCode = 0;
+
   BoxLocal(this.name, this.executableContext);
+
+  @override
+  MemberElement get memberContext => executableContext.memberContext;
+
+  String toString() => 'BoxLocal($name)';
 }
 
 // TODO(ngeoffray, ahe): These classes continuously cause problems.  We need to
 // find a more general solution.
 class BoxFieldElement extends ElementX
-    implements TypedElement, CapturedVariable, FieldElement,
+    implements
+        TypedElement,
+        CapturedVariable,
+        FieldElement,
         PrivatelyNamedJSEntity {
   final BoxLocal box;
 
-  BoxFieldElement(String name, this.variableElement,
-      BoxLocal box)
+  BoxFieldElement(String name, this.variableElement, BoxLocal box)
       : this.box = box,
         super(name, ElementKind.FIELD, box.executableContext);
 
-  DartType computeType(Resolution resolution) => type;
+  ResolutionDartType computeType(Resolution resolution) => type;
 
-  DartType get type => variableElement.type;
+  ResolutionDartType get type => variableElement.type;
 
   @override
   Entity get declaredEntity => variableElement;
@@ -303,14 +337,21 @@ class BoxFieldElement extends ElementX
   }
 
   @override
+  bool get hasConstant => false;
+
+  @override
   ConstantExpression get constant => null;
 }
 
 /// A local variable used encode the direct (uncaptured) references to [this].
 class ThisLocal extends Local {
   final ExecutableElement executableContext;
+  final hashCode = ElementX.newHashCode();
 
   ThisLocal(this.executableContext);
+
+  @override
+  MemberElement get memberContext => executableContext.memberContext;
 
   String get name => 'this';
 
@@ -321,12 +362,13 @@ class ThisLocal extends Local {
 class SynthesizedCallMethodElementX extends BaseFunctionElementX
     implements MethodElement {
   final LocalFunctionElement expression;
+  final FunctionExpression node;
+  final TreeElements treeElements;
 
-  SynthesizedCallMethodElementX(String name,
-                                LocalFunctionElementX other,
-                                ClosureClassElement enclosing)
+  SynthesizedCallMethodElementX(String name, LocalFunctionElement other,
+      ClosureClassElement enclosing, this.node, this.treeElements)
       : expression = other,
-        super(name, other.kind, other.modifiers, enclosing) {
+        super(name, other.kind, Modifiers.EMPTY, enclosing) {
     asyncMarker = other.asyncMarker;
     functionSignature = other.functionSignature;
   }
@@ -341,17 +383,22 @@ class SynthesizedCallMethodElementX extends BaseFunctionElementX
     return closureClass.methodElement.memberContext;
   }
 
-  bool get hasNode => expression.hasNode;
+  bool get hasNode => node != null;
 
-  FunctionExpression get node => expression.node;
-
-  FunctionExpression parseNode(Parsing parsing) => node;
-
-  ResolvedAst get resolvedAst {
-    return new ResolvedAst(this, node, treeElements);
-  }
+  FunctionExpression parseNode(ParsingContext parsing) => node;
 
   Element get analyzableElement => closureClass.methodElement.analyzableElement;
+
+  bool get hasResolvedAst => true;
+
+  ResolvedAst get resolvedAst {
+    return new ParsedResolvedAst(this, node, node.body, treeElements,
+        expression.compilationUnit.script.resourceUri);
+  }
+
+  accept(ElementVisitor visitor, arg) {
+    return visitor.visitMethodElement(this, arg);
+  }
 }
 
 // The box-element for a scope, and the captured variables that need to be
@@ -373,9 +420,30 @@ class ClosureScope {
     return capturedVariables.containsKey(variable);
   }
 
-  void forEachCapturedVariable(f(LocalVariableElement variable,
-                                 BoxFieldElement boxField)) {
+  void forEachCapturedVariable(
+      f(LocalVariableElement variable, BoxFieldElement boxField)) {
     capturedVariables.forEach(f);
+  }
+
+  String toString() {
+    String separator = '';
+    StringBuffer sb = new StringBuffer();
+    sb.write('ClosureScope(');
+    if (boxElement != null) {
+      sb.write('box=$boxElement');
+      separator = ',';
+    }
+    if (boxedLoopVariables.isNotEmpty) {
+      sb.write(separator);
+      sb.write('boxedLoopVariables=${boxedLoopVariables}');
+      separator = ',';
+    }
+    if (capturedVariables.isNotEmpty) {
+      sb.write(separator);
+      sb.write('capturedVariables=$capturedVariables');
+    }
+    sb.write(')');
+    return sb.toString();
   }
 }
 
@@ -408,13 +476,11 @@ class ClosureClassMap {
   ///
   /// Also parameters to a `sync*` generator must be boxed, because of the way
   /// we rewrite sync* functions. See also comments in [useLocal].
-  /// TODO(johnniwinter): Add variables to this only if the variable is mutated.
+  // TODO(johnniwinther): Add variables to this only if the variable is mutated.
   final Set<Local> variablesUsedInTryOrGenerator = new Set<Local>();
 
-  ClosureClassMap(this.closureElement,
-                  this.closureClassElement,
-                  this.callElement,
-                  this.thisLocal);
+  ClosureClassMap(this.closureElement, this.closureClassElement,
+      this.callElement, this.thisLocal);
 
   void addFreeVariable(Local element) {
     assert(freeVariableMap[element] == null);
@@ -427,8 +493,7 @@ class ClosureClassMap {
     return freeVariableMap.containsKey(element);
   }
 
-  void forEachFreeVariable(f(Local variable,
-                             CapturedVariable field)) {
+  void forEachFreeVariable(f(Local variable, CapturedVariable field)) {
     freeVariableMap.forEach(f);
   }
 
@@ -452,8 +517,7 @@ class ClosureClassMap {
     return capturingScopesBox(variable);
   }
 
-  void forEachCapturedVariable(void f(Local variable,
-                                      CapturedVariable field)) {
+  void forEachCapturedVariable(void f(Local variable, CapturedVariable field)) {
     freeVariableMap.forEach((variable, copy) {
       if (variable is BoxLocal) return;
       f(variable, copy);
@@ -463,8 +527,8 @@ class ClosureClassMap {
     });
   }
 
-  void forEachBoxedVariable(void f(LocalVariableElement local,
-                                   BoxFieldElement field)) {
+  void forEachBoxedVariable(
+      void f(LocalVariableElement local, BoxFieldElement field)) {
     freeVariableMap.forEach((variable, copy) {
       if (!isVariableBoxed(variable)) return;
       f(variable, copy);
@@ -473,24 +537,17 @@ class ClosureClassMap {
       scope.forEachCapturedVariable(f);
     });
   }
-
-  void removeMyselfFrom(Universe universe) {
-    freeVariableMap.values.forEach((e) {
-      universe.closurizedMembers.remove(e);
-      universe.fieldSetters.remove(e);
-      universe.fieldGetters.remove(e);
-    });
-  }
 }
 
 class ClosureTranslator extends Visitor {
   final Compiler compiler;
+  final ClosedWorldRefiner closedWorldRefiner;
   final TreeElements elements;
   int closureFieldCounter = 0;
   int boxedFieldCounter = 0;
   bool inTryStatement = false;
 
-  final Map<Node, ClosureClassMap> closureMappingCache;
+  final Map<Element, ClosureClassMap> closureMappingCache;
 
   // Map of captured variables. Initially they will map to `null`. If
   // a variable needs to be boxed then the scope declaring the variable
@@ -499,7 +556,7 @@ class ClosureTranslator extends Visitor {
       new Map<Local, BoxFieldElement>();
 
   // List of encountered closures.
-  List<Expression> closures = <Expression>[];
+  List<LocalFunctionElement> closures = <LocalFunctionElement>[];
 
   // The local variables that have been declared in the current scope.
   List<LocalVariableElement> scopeVariables;
@@ -516,9 +573,8 @@ class ClosureTranslator extends Visitor {
 
   bool insideClosure = false;
 
-  ClosureTranslator(this.compiler,
-                    this.elements,
-                    this.closureMappingCache);
+  ClosureTranslator(this.compiler, this.closedWorldRefiner, this.elements,
+      this.closureMappingCache);
 
   DiagnosticReporter get reporter => compiler.reporter;
 
@@ -563,8 +619,7 @@ class ClosureTranslator extends Visitor {
     _capturedVariableMapping[variable] = null;
   }
 
-  void setCapturedVariableBoxField(Local variable,
-      BoxFieldElement boxField) {
+  void setCapturedVariableBoxField(Local variable, BoxFieldElement boxField) {
     assert(isCapturedVariable(variable));
     _capturedVariableMapping[variable] = boxField;
   }
@@ -586,9 +641,10 @@ class ClosureTranslator extends Visitor {
   }
 
   void translateLazyInitializer(VariableElement element,
-                                VariableDefinitions node,
-                                Expression initializer) {
-    visitInvokable(element, node, () { visit(initializer); });
+      VariableDefinitions node, Expression initializer) {
+    visitInvokable(element, node, () {
+      visit(initializer);
+    });
     updateClosures();
   }
 
@@ -596,7 +652,7 @@ class ClosureTranslator extends Visitor {
   // free variables to the boxed value. It also adds the field-elements to the
   // class representing the closure.
   void updateClosures() {
-    for (Expression closure in closures) {
+    for (LocalFunctionElement closure in closures) {
       // The captured variables that need to be stored in a field of the closure
       // class.
       Set<Local> fieldCaptures = new Set<Local>();
@@ -622,8 +678,7 @@ class ClosureTranslator extends Visitor {
         }
       });
       ClosureClassElement closureClass = data.closureClassElement;
-      assert(closureClass != null ||
-             (fieldCaptures.isEmpty && boxes.isEmpty));
+      assert(closureClass != null || (fieldCaptures.isEmpty && boxes.isEmpty));
 
       void addClosureField(Local local, String name) {
         ClosureFieldElement closureField =
@@ -669,7 +724,7 @@ class ClosureTranslator extends Visitor {
     // the factory.
     bool inCurrentContext(Local variable) {
       return variable == executableContext ||
-             variable.executableContext == executableContext;
+          variable.executableContext == executableContext;
     }
 
     if (insideClosure && !inCurrentContext(variable)) {
@@ -691,7 +746,7 @@ class ClosureTranslator extends Visitor {
     }
   }
 
-  void useTypeVariableAsLocal(TypeVariableType typeVariable) {
+  void useTypeVariableAsLocal(ResolutionTypeVariableType typeVariable) {
     useLocal(new TypeVariableLocal(typeVariable, outermostElement));
   }
 
@@ -714,8 +769,8 @@ class ClosureTranslator extends Visitor {
       visit(node.type);
     }
     for (Link<Node> link = node.definitions.nodes;
-         !link.isEmpty;
-         link = link.tail) {
+        !link.isEmpty;
+        link = link.tail) {
       Node definition = link.head;
       LocalElement element = elements[definition];
       assert(element != null);
@@ -739,17 +794,18 @@ class ClosureTranslator extends Visitor {
 
   visitTypeAnnotation(TypeAnnotation node) {
     MemberElement member = executableContext.memberContext;
-    DartType type = elements.getType(node);
+    ResolutionDartType type = elements.getType(node);
     // TODO(karlklose,johnniwinther): if the type is null, the annotation is
     // from a parameter which has been analyzed before the method has been
     // resolved and the result has been thrown away.
-    if (compiler.enableTypeAssertions && type != null &&
+    if (compiler.options.enableTypeAssertions &&
+        type != null &&
         type.containsTypeVariables) {
       if (insideClosure && member.isFactoryConstructor) {
         // This is a closure in a factory constructor.  Since there is no
         // [:this:], we have to mark the type arguments as free variables to
         // capture them in the closure.
-        type.forEachTypeVariable((TypeVariableType variable) {
+        type.forEachTypeVariable((ResolutionTypeVariableType variable) {
           useTypeVariableAsLocal(variable);
         });
       }
@@ -770,8 +826,7 @@ class ClosureTranslator extends Visitor {
     } else {
       Element element = elements[node];
       if (element != null && element.isTypeVariable) {
-        if (outermostElement.isConstructor ||
-            outermostElement.isField) {
+        if (outermostElement.isConstructor || outermostElement.isField) {
           TypeVariableElement typeVariable = element;
           useTypeVariableAsLocal(typeVariable.type);
         } else {
@@ -791,19 +846,20 @@ class ClosureTranslator extends Visitor {
       TypeVariableElement variable = element;
       analyzeType(variable.type);
     } else if (node.receiver == null &&
-               Elements.isInstanceSend(node, elements)) {
+        Elements.isInstanceSend(node, elements)) {
       registerNeedsThis();
     } else if (node.isSuperCall) {
       registerNeedsThis();
     } else if (node.isTypeTest || node.isTypeCast) {
       TypeAnnotation annotation = node.typeAnnotationFromIsCheckOrCast;
-      DartType type = elements.getType(annotation);
+      ResolutionDartType type = elements.getType(annotation);
       analyzeType(type);
     } else if (node.isTypeTest) {
-      DartType type = elements.getType(node.typeAnnotationFromIsCheckOrCast);
+      ResolutionDartType type =
+          elements.getType(node.typeAnnotationFromIsCheckOrCast);
       analyzeType(type);
     } else if (node.isTypeCast) {
-      DartType type = elements.getType(node.arguments.head);
+      ResolutionDartType type = elements.getType(node.arguments.head);
       analyzeType(type);
     }
     node.visitChildren(this);
@@ -813,7 +869,7 @@ class ClosureTranslator extends Visitor {
     Element element = elements[node];
     if (Elements.isLocal(element)) {
       mutatedVariables.add(element);
-      if (compiler.enableTypeAssertions) {
+      if (compiler.options.enableTypeAssertions) {
         TypedElement typedElement = element;
         analyzeTypeVariables(typedElement.type);
       }
@@ -822,29 +878,28 @@ class ClosureTranslator extends Visitor {
   }
 
   visitNewExpression(NewExpression node) {
-    DartType type = elements.getType(node);
+    ResolutionDartType type = elements.getType(node);
     analyzeType(type);
     node.visitChildren(this);
   }
 
   visitLiteralList(LiteralList node) {
-    DartType type = elements.getType(node);
+    ResolutionDartType type = elements.getType(node);
     analyzeType(type);
     node.visitChildren(this);
   }
 
   visitLiteralMap(LiteralMap node) {
-    DartType type = elements.getType(node);
+    ResolutionDartType type = elements.getType(node);
     analyzeType(type);
     node.visitChildren(this);
   }
 
-  void analyzeTypeVariables(DartType type) {
-    type.forEachTypeVariable((TypeVariableType typeVariable) {
+  void analyzeTypeVariables(ResolutionDartType type) {
+    type.forEachTypeVariable((ResolutionTypeVariableType typeVariable) {
       // Field initializers are inlined and access the type variable as
       // normal parameters.
-      if (!outermostElement.isField &&
-          !outermostElement.isConstructor) {
+      if (!outermostElement.isField && !outermostElement.isConstructor) {
         registerNeedsThis();
       } else {
         useTypeVariableAsLocal(typeVariable);
@@ -852,13 +907,12 @@ class ClosureTranslator extends Visitor {
     });
   }
 
-  void analyzeType(DartType type) {
+  void analyzeType(ResolutionDartType type) {
     // TODO(johnniwinther): Find out why this can be null.
     if (type == null) return;
     if (outermostElement.isClassMember &&
         compiler.backend.classNeedsRti(outermostElement.enclosingClass)) {
-      if (outermostElement.isConstructor ||
-          outermostElement.isField) {
+      if (outermostElement.isConstructor || outermostElement.isField) {
         analyzeTypeVariables(type);
       } else if (outermostElement.isInstanceMember) {
         if (type.containsTypeVariables) {
@@ -953,8 +1007,8 @@ class ClosureTranslator extends Visitor {
           node.initializer.asVariableDefinitions();
       if (definitions == null) return;
       for (Link<Node> link = definitions.definitions.nodes;
-           !link.isEmpty;
-           link = link.tail) {
+          !link.isEmpty;
+          link = link.tail) {
         Node definition = link.head;
         LocalVariableElement element = elements[definition];
         // Non-mutated variables should not be boxed.  The mutatedVariables set
@@ -979,20 +1033,20 @@ class ClosureTranslator extends Visitor {
       parts = parts.prepend(ownName);
     }
     for (Element enclosingElement = element.enclosingElement;
-         enclosingElement != null &&
-             (enclosingElement.kind == ElementKind.GENERATIVE_CONSTRUCTOR_BODY
-              || enclosingElement.kind == ElementKind.GENERATIVE_CONSTRUCTOR
-              || enclosingElement.kind == ElementKind.CLASS
-              || enclosingElement.kind == ElementKind.FUNCTION
-              || enclosingElement.kind == ElementKind.GETTER
-              || enclosingElement.kind == ElementKind.SETTER);
-         enclosingElement = enclosingElement.enclosingElement) {
+        enclosingElement != null &&
+            (enclosingElement.kind == ElementKind.GENERATIVE_CONSTRUCTOR_BODY ||
+                enclosingElement.kind == ElementKind.GENERATIVE_CONSTRUCTOR ||
+                enclosingElement.kind == ElementKind.CLASS ||
+                enclosingElement.kind == ElementKind.FUNCTION ||
+                enclosingElement.kind == ElementKind.GETTER ||
+                enclosingElement.kind == ElementKind.SETTER);
+        enclosingElement = enclosingElement.enclosingElement) {
       // TODO(johnniwinther): Simplify computed names.
       if (enclosingElement.isGenerativeConstructor ||
           enclosingElement.isGenerativeConstructorBody ||
           enclosingElement.isFactoryConstructor) {
-        parts = parts.prepend(
-            Elements.reconstructConstructorName(enclosingElement));
+        parts = parts
+            .prepend(Elements.reconstructConstructorName(enclosingElement));
       } else {
         String surroundingName =
             Elements.operatorNameToIdentifier(enclosingElement.name);
@@ -1009,35 +1063,31 @@ class ClosureTranslator extends Visitor {
 
   JavaScriptBackend get backend => compiler.backend;
 
-  ClosureClassMap globalizeClosure(FunctionExpression node,
-                                   LocalFunctionElement element) {
+  ClosureClassMap globalizeClosure(
+      FunctionExpression node, LocalFunctionElement element) {
     String closureName = computeClosureName(element);
-    ClosureClassElement globalizedElement = new ClosureClassElement(
-        node, closureName, compiler, element);
+    ClosureClassElement globalizedElement =
+        new ClosureClassElement(node, closureName, compiler, element);
     // Extend [globalizedElement] as an instantiated class in the closed world.
-    compiler.world.registerClass(
-        globalizedElement, isDirectlyInstantiated: true);
-    FunctionElement callElement =
-        new SynthesizedCallMethodElementX(Identifiers.call,
-                                          element,
-                                          globalizedElement);
-    backend.maybeMarkClosureAsNeededForReflection(
+    closedWorldRefiner.registerClosureClass(globalizedElement);
+    FunctionElement callElement = new SynthesizedCallMethodElementX(
+        Identifiers.call, element, globalizedElement, node, elements);
+    backend.mirrorsData.maybeMarkClosureAsNeededForReflection(
         globalizedElement, callElement, element);
     MemberElement enclosing = element.memberContext;
     enclosing.nestedClosures.add(callElement);
     globalizedElement.addMember(callElement, reporter);
-    globalizedElement.computeAllClassMembers(compiler);
+    globalizedElement.computeAllClassMembers(compiler.resolution);
     // The nested function's 'this' is the same as the one for the outer
     // function. It could be [null] if we are inside a static method.
     ThisLocal thisElement = closureData.thisLocal;
 
-    return new ClosureClassMap(element, globalizedElement,
-                               callElement, thisElement);
+    return new ClosureClassMap(
+        element, globalizedElement, callElement, thisElement);
   }
 
-  void visitInvokable(ExecutableElement element,
-                      Node node,
-                      void visitChildren()) {
+  void visitInvokable(
+      ExecutableElement element, Node node, void visitChildren()) {
     bool oldInsideClosure = insideClosure;
     Element oldFunctionElement = executableContext;
     ClosureClassMap oldClosureData = closureData;
@@ -1047,7 +1097,7 @@ class ClosureTranslator extends Visitor {
     executableContext = element;
     if (insideClosure) {
       closure = element;
-      closures.add(node);
+      closures.add(closure);
       closureData = globalizeClosure(node, closure);
     } else {
       outermostElement = element;
@@ -1057,21 +1107,23 @@ class ClosureTranslator extends Visitor {
       }
       closureData = new ClosureClassMap(null, null, null, thisElement);
     }
-    closureMappingCache[node] = closureData;
+    closureMappingCache[element.declaration] = closureData;
+    if (closureData.callElement != null) {
+      closureMappingCache[closureData.callElement] = closureData;
+    }
 
     inNewScope(node, () {
-      DartType type = element.type;
+      ResolutionDartType type = element.type;
       // If the method needs RTI, or checked mode is set, we need to
       // escape the potential type variables used in that closure.
       if (element is FunctionElement &&
           (compiler.backend.methodNeedsRti(element) ||
-           compiler.enableTypeAssertions)) {
+              compiler.options.enableTypeAssertions)) {
         analyzeTypeVariables(type);
       }
 
       visitChildren();
     });
-
 
     ClosureClassMap savedClosureData = closureData;
     bool savedInsideClosure = insideClosure;
@@ -1093,7 +1145,7 @@ class ClosureTranslator extends Visitor {
   visitFunctionExpression(FunctionExpression node) {
     Element element = elements[node];
 
-    if (element.isParameter) {
+    if (element.isRegularParameter) {
       // TODO(ahe): This is a hack. This method should *not* call
       // visitChildren.
       return node.name.accept(this);
@@ -1139,10 +1191,13 @@ class ClosureTranslator extends Visitor {
 
 /// A type variable as a local variable.
 class TypeVariableLocal implements Local {
-  final TypeVariableType typeVariable;
+  final ResolutionTypeVariableType typeVariable;
   final ExecutableElement executableContext;
 
   TypeVariableLocal(this.typeVariable, this.executableContext);
+
+  @override
+  MemberElement get memberContext => executableContext.memberContext;
 
   String get name => typeVariable.name;
 

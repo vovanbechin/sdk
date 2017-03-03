@@ -96,21 +96,23 @@ void test(String code, void check(CompilerImpl compiler)) {
   Uri uri = new Uri(scheme: 'source');
   var compiler = compilerFor(code, uri);
   asyncTest(() => compiler.run(uri).then((_) {
-    check(compiler);
-  }));
+        check(compiler);
+      }));
 }
 
 void testHasRuntimeType(String code) {
   test(code, (compiler) {
     var element = compiler.backend.helpers.createRuntimeType;
-    Expect.isTrue(compiler.enqueuer.resolution.isProcessed(element));
+    Expect.isTrue(
+        compiler.enqueuer.resolution.processedEntities.contains(element));
   });
 }
 
 main() {
   test(NO_RUNTIME_TYPE, (compiler) {
     var element = compiler.backend.helpers.createRuntimeType;
-    Expect.isFalse(compiler.enqueuer.resolution.isProcessed(element));
+    Expect.isFalse(
+        compiler.enqueuer.resolution.processedEntities.contains(element));
   });
 
   testHasRuntimeType(HAS_RUNTIME_TYPE_1);

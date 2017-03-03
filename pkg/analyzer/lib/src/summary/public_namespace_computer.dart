@@ -19,6 +19,17 @@ UnlinkedPublicNamespaceBuilder computePublicNamespace(CompilationUnit unit) {
       names: visitor.names, exports: visitor.exports, parts: visitor.parts);
 }
 
+/**
+ * Serialize a [Configuration] into a [UnlinkedConfigurationBuilder].
+ */
+UnlinkedConfigurationBuilder serializeConfiguration(
+    Configuration configuration) {
+  return new UnlinkedConfigurationBuilder(
+      name: configuration.name.components.map((i) => i.name).join('.'),
+      value: configuration.value?.stringValue ?? 'true',
+      uri: configuration.uri.stringValue);
+}
+
 class _CombinatorEncoder extends SimpleAstVisitor<UnlinkedCombinatorBuilder> {
   _CombinatorEncoder();
 
@@ -68,9 +79,7 @@ class _PublicNamespaceVisitor extends RecursiveAstVisitor {
         node.typeParameters?.typeParameters?.length ?? 0);
     if (cls != null) {
       for (ClassMember member in node.members) {
-        if (member is FieldDeclaration &&
-            member.isStatic &&
-            member.fields.isConst) {
+        if (member is FieldDeclaration && member.isStatic) {
           for (VariableDeclaration field in member.fields.variables) {
             String name = field.name.name;
             if (isPublic(name)) {
@@ -83,14 +92,15 @@ class _PublicNamespaceVisitor extends RecursiveAstVisitor {
         }
         if (member is MethodDeclaration &&
             member.isStatic &&
-            !member.isGetter &&
             !member.isSetter &&
             !member.isOperator) {
           String name = member.name.name;
           if (isPublic(name)) {
             cls.members.add(new UnlinkedPublicNameBuilder(
                 name: name,
-                kind: ReferenceKind.method,
+                kind: member.isGetter
+                    ? ReferenceKind.propertyAccessor
+                    : ReferenceKind.method,
                 numTypeParameters:
                     member.typeParameters?.typeParameters?.length ?? 0));
           }
@@ -116,7 +126,23 @@ class _PublicNamespaceVisitor extends RecursiveAstVisitor {
 
   @override
   visitEnumDeclaration(EnumDeclaration node) {
-    addNameIfPublic(node.name.name, ReferenceKind.classOrEnum, 0);
+    UnlinkedPublicNameBuilder enm =
+        addNameIfPublic(node.name.name, ReferenceKind.classOrEnum, 0);
+    if (enm != null) {
+      enm.members.add(new UnlinkedPublicNameBuilder(
+          name: 'values',
+          kind: ReferenceKind.propertyAccessor,
+          numTypeParameters: 0));
+      for (EnumConstantDeclaration enumConstant in node.constants) {
+        String name = enumConstant.name.name;
+        if (isPublic(name)) {
+          enm.members.add(new UnlinkedPublicNameBuilder(
+              name: name,
+              kind: ReferenceKind.propertyAccessor,
+              numTypeParameters: 0));
+        }
+      }
+    }
   }
 
   @override
@@ -125,7 +151,9 @@ class _PublicNamespaceVisitor extends RecursiveAstVisitor {
         uri: node.uri.stringValue,
         combinators: node.combinators
             .map((Combinator c) => c.accept(new _CombinatorEncoder()))
-            .toList()));
+            .toList(),
+        configurations:
+            node.configurations.map(serializeConfiguration).toList()));
   }
 
   @override
@@ -150,7 +178,7 @@ class _PublicNamespaceVisitor extends RecursiveAstVisitor {
 
   @override
   visitPartDirective(PartDirective node) {
-    parts.add(node.uri.stringValue);
+    parts.add(node.uri.stringValue ?? '');
   }
 
   @override

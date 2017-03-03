@@ -8,25 +8,26 @@ import 'package:analysis_server/src/protocol_server.dart' hide Element;
 import 'package:analysis_server/src/services/correction/source_range.dart';
 import 'package:analysis_server/src/services/correction/status.dart';
 import 'package:analysis_server/src/services/search/search_engine.dart';
+import 'package:analysis_server/src/services/search/search_engine_internal.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
 import '../../abstract_single_unit.dart';
-import '../../utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(RefactoringLocationTest);
-  defineReflectiveTests(RefactoringStatusTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(RefactoringLocationTest);
+    defineReflectiveTests(RefactoringStatusTest);
+  });
 }
 
 @reflectiveTest
 class RefactoringLocationTest extends AbstractSingleUnitTest {
-  void test_createLocation_forElement() {
-    resolveTestUnit('class MyClass {}');
+  test_createLocation_forElement() async {
+    await resolveTestUnit('class MyClass {}');
     Element element = findElement('MyClass');
     // check
     Location location = newLocation_fromElement(element);
@@ -37,11 +38,11 @@ class RefactoringLocationTest extends AbstractSingleUnitTest {
     expect(location.startColumn, 7);
   }
 
-  void test_createLocation_forMatch() {
-    resolveTestUnit('class MyClass {}');
+  test_createLocation_forMatch() async {
+    await resolveTestUnit('class MyClass {}');
     Element element = findElement('MyClass');
     SourceRange range = rangeElementName(element);
-    SearchMatch match = new SearchMatch(
+    SearchMatch match = new SearchMatchImpl(
         context,
         element.library.source.uri.toString(),
         element.source.uri.toString(),
@@ -56,8 +57,8 @@ class RefactoringLocationTest extends AbstractSingleUnitTest {
     expect(location.length, range.length);
   }
 
-  void test_createLocation_forNode() {
-    resolveTestUnit('''
+  test_createLocation_forNode() async {
+    await resolveTestUnit('''
 main() {
 }
 ''');
@@ -69,8 +70,8 @@ main() {
     expect(location.length, node.length);
   }
 
-  void test_createLocation_forUnit() {
-    resolveTestUnit('');
+  test_createLocation_forUnit() async {
+    await resolveTestUnit('');
     SourceRange range = rangeStartLength(10, 20);
     // check
     Location location = newLocation_fromUnit(testUnit, range);

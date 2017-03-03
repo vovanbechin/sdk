@@ -9,22 +9,25 @@ import 'package:analyzer/source/analysis_options_provider.dart';
 import 'package:analyzer/source/error_processor.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:analyzer/src/lint/linter.dart';
+import 'package:analyzer/src/lint/registry.dart';
 import 'package:analyzer/src/task/options.dart';
 import 'package:analyzer/task/general.dart';
 import 'package:analyzer/task/model.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
+import 'package:test_reflective_loader/test_reflective_loader.dart';
 import 'package:yaml/yaml.dart';
 
 import '../../generated/test_support.dart';
-import '../../reflective_tests.dart';
-import '../../utils.dart';
 import '../context/abstract_context.dart';
 
 main() {
-  initializeTestEnvironment();
-  runReflectiveTests(ContextConfigurationTest);
-  runReflectiveTests(GenerateOptionsErrorsTaskTest);
-  runReflectiveTests(OptionsFileValidatorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(ContextConfigurationTest);
+    defineReflectiveTests(GenerateNewOptionsErrorsTaskTest);
+    defineReflectiveTests(GenerateOldOptionsErrorsTaskTest);
+    defineReflectiveTests(OptionsFileValidatorTest);
+  });
 }
 
 isInstanceOf isGenerateOptionsErrorsTask =
@@ -37,7 +40,7 @@ class ContextConfigurationTest extends AbstractContextTest {
   AnalysisOptions get analysisOptions => context.analysisOptions;
 
   configureContext(String optionsSource) =>
-      configureContextOptions(context, parseOptions(optionsSource));
+      applyToAnalysisOptions(analysisOptions, parseOptions(optionsSource));
 
   Map<String, YamlNode> parseOptions(String source) =>
       optionsProvider.getOptionsFromString(source);
@@ -50,50 +53,14 @@ analyzer:
     expect(analysisOptions.strongMode, false);
   }
 
-  test_configure_enableAsync() {
+  test_configure_enableLazyAssignmentOperators() {
+    expect(analysisOptions.enableStrictCallChecks, false);
     configureContext('''
 analyzer:
   language:
+    enableStrictCallChecks: true
 ''');
-    expect(analysisOptions.enableAsync, true);
-  }
-
-  test_configure_enableAsync_false() {
-    configureContext('''
-analyzer:
-  language:
-    enableAsync: false
-''');
-    expect(analysisOptions.enableAsync, false);
-  }
-
-  test_configure_enableGenericMethods() {
-    expect(analysisOptions.enableGenericMethods, false);
-    configureContext('''
-analyzer:
-  language:
-    enableGenericMethods: true
-''');
-    expect(analysisOptions.enableGenericMethods, true);
-  }
-
-  test_configure_enableConditionalDirectives() {
-    expect(analysisOptions.enableConditionalDirectives, false);
-    configureContext('''
-analyzer:
-  language:
-    enableConditionalDirectives: true
-''');
-    expect(analysisOptions.enableConditionalDirectives, true);
-  }
-
-  test_configure_enableSuperMixins() {
-    configureContext('''
-analyzer:
-  language:
-    enableSuperMixins: true
-''');
-    expect(analysisOptions.enableSuperMixins, true);
+    expect(analysisOptions.enableStrictCallChecks, true);
   }
 
   test_configure_enableStrictCallChecks() {
@@ -105,6 +72,15 @@ analyzer:
     expect(analysisOptions.enableStrictCallChecks, true);
   }
 
+  test_configure_enableSuperMixins() {
+    configureContext('''
+analyzer:
+  language:
+    enableSuperMixins: true
+''');
+    expect(analysisOptions.enableSuperMixins, true);
+  }
+
   test_configure_error_processors() {
     configureContext('''
 analyzer:
@@ -113,8 +89,7 @@ analyzer:
     unused_local_variable: error
 ''');
 
-    List<ErrorProcessor> processors =
-        context.getConfigurationData(CONFIGURED_ERROR_PROCESSORS);
+    List<ErrorProcessor> processors = analysisOptions.errorProcessors;
     expect(processors, hasLength(2));
 
     var unused_local = new AnalysisError(
@@ -137,6 +112,18 @@ analyzer:
     expect(unusedLocal.severity, ErrorSeverity.ERROR);
   }
 
+  test_configure_excludes() {
+    configureContext('''
+analyzer:
+  exclude:
+    - foo/bar.dart
+    - 'test/**'
+''');
+
+    List<String> excludes = analysisOptions.excludePatterns;
+    expect(excludes, unorderedEquals(['foo/bar.dart', 'test/**']));
+  }
+
   test_configure_strong_mode() {
     configureContext('''
 analyzer:
@@ -155,10 +142,19 @@ analyzer:
 }
 
 @reflectiveTest
-class GenerateOptionsErrorsTaskTest extends AbstractContextTest {
-  final optionsFilePath = '/${AnalysisEngine.ANALYSIS_OPTIONS_FILE}';
+class GenerateNewOptionsErrorsTaskTest extends GenerateOptionsErrorsTaskTest {
+  String get optionsFilePath => '/${AnalysisEngine.ANALYSIS_OPTIONS_YAML_FILE}';
+}
 
+@reflectiveTest
+class GenerateOldOptionsErrorsTaskTest extends GenerateOptionsErrorsTaskTest {
+  String get optionsFilePath => '/${AnalysisEngine.ANALYSIS_OPTIONS_FILE}';
+}
+
+abstract class GenerateOptionsErrorsTaskTest extends AbstractContextTest {
   Source source;
+
+  String get optionsFilePath;
   LineInfo lineInfo(String source) =>
       GenerateOptionsErrorsTask.computeLineInfo(source);
 
@@ -222,9 +218,83 @@ class GenerateOptionsErrorsTaskTest extends AbstractContextTest {
     AnalysisTarget target = newSource(optionsFilePath, code);
     computeResult(target, ANALYSIS_OPTIONS_ERRORS);
     expect(task, isGenerateOptionsErrorsTask);
-    List<AnalysisError> errors = outputs[ANALYSIS_OPTIONS_ERRORS];
+    List<AnalysisError> errors =
+        outputs[ANALYSIS_OPTIONS_ERRORS] as List<AnalysisError>;
     expect(errors, hasLength(1));
     expect(errors[0].errorCode, AnalysisOptionsErrorCode.PARSE_ERROR);
+  }
+
+  test_perform_include() {
+    newSource('/other_options.yaml', '');
+    String code = r'''
+include: other_options.yaml
+''';
+    AnalysisTarget target = newSource(optionsFilePath, code);
+    computeResult(target, ANALYSIS_OPTIONS_ERRORS);
+    expect(task, isGenerateOptionsErrorsTask);
+    List<AnalysisError> errors =
+        outputs[ANALYSIS_OPTIONS_ERRORS] as List<AnalysisError>;
+    expect(errors, hasLength(0));
+  }
+
+  test_perform_include_bad_value() {
+    newSource(
+        '/other_options.yaml',
+        '''
+analyzer:
+  errors:
+    unused_local_variable: ftw
+''');
+    String code = r'''
+include: other_options.yaml
+''';
+    AnalysisTarget target = newSource(optionsFilePath, code);
+    computeResult(target, ANALYSIS_OPTIONS_ERRORS);
+    expect(task, isGenerateOptionsErrorsTask);
+    List<AnalysisError> errors =
+        outputs[ANALYSIS_OPTIONS_ERRORS] as List<AnalysisError>;
+    expect(errors, hasLength(1));
+    AnalysisError error = errors[0];
+    expect(error.errorCode, AnalysisOptionsWarningCode.INCLUDED_FILE_WARNING);
+    expect(error.source, target.source);
+    expect(error.offset, 10);
+    expect(error.length, 18);
+    expect(error.message, contains('other_options.yaml(47..49)'));
+  }
+
+  test_perform_include_bad_yaml() {
+    newSource('/other_options.yaml', ':');
+    String code = r'''
+include: other_options.yaml
+''';
+    AnalysisTarget target = newSource(optionsFilePath, code);
+    computeResult(target, ANALYSIS_OPTIONS_ERRORS);
+    expect(task, isGenerateOptionsErrorsTask);
+    List<AnalysisError> errors =
+        outputs[ANALYSIS_OPTIONS_ERRORS] as List<AnalysisError>;
+    expect(errors, hasLength(1));
+    AnalysisError error = errors[0];
+    expect(error.errorCode, AnalysisOptionsErrorCode.INCLUDED_FILE_PARSE_ERROR);
+    expect(error.source, target.source);
+    expect(error.offset, 10);
+    expect(error.length, 18);
+    expect(error.message, contains('other_options.yaml(0..0)'));
+  }
+
+  test_perform_include_missing() {
+    String code = r'''
+include: other_options.yaml
+''';
+    AnalysisTarget target = newSource(optionsFilePath, code);
+    computeResult(target, ANALYSIS_OPTIONS_ERRORS);
+    expect(task, isGenerateOptionsErrorsTask);
+    List<AnalysisError> errors =
+        outputs[ANALYSIS_OPTIONS_ERRORS] as List<AnalysisError>;
+    expect(errors, hasLength(1));
+    AnalysisError error = errors[0];
+    expect(error.errorCode, AnalysisOptionsWarningCode.INCLUDE_FILE_NOT_FOUND);
+    expect(error.offset, 10);
+    expect(error.length, 18);
   }
 
   test_perform_OK() {
@@ -250,14 +320,11 @@ analyzer:
     AnalysisTarget target = newSource(optionsFilePath, code);
     computeResult(target, ANALYSIS_OPTIONS_ERRORS);
     expect(task, isGenerateOptionsErrorsTask);
-    List<AnalysisError> errors = outputs[ANALYSIS_OPTIONS_ERRORS];
+    List<AnalysisError> errors =
+        outputs[ANALYSIS_OPTIONS_ERRORS] as List<AnalysisError>;
     expect(errors, hasLength(1));
     expect(errors[0].errorCode,
         AnalysisOptionsWarningCode.UNSUPPORTED_OPTION_WITH_LEGAL_VALUES);
-    expect(
-        errors[0].message,
-        "The option 'not_supported' is not supported by analyzer, supported "
-        "values are 'errors', 'exclude', 'language', 'plugins' and 'strong-mode'");
   }
 }
 
@@ -378,11 +445,12 @@ analyzer:
   }
 
   test_linter_supported_rules() {
+    Registry.ruleRegistry.register(new TestRule());
     validate(
         '''
 linter:
   rules:
-    - camel_case_types
+    - fantastic_test_rule
     ''',
         []);
   }
@@ -396,10 +464,14 @@ linter:
         [AnalysisOptionsWarningCode.UNSUPPORTED_OPTION_WITH_LEGAL_VALUE]);
   }
 
-  void validate(String source, List<AnalysisOptionsErrorCode> expected) {
+  void validate(String source, List<ErrorCode> expected) {
     var options = optionsProvider.getOptionsFromString(source);
     var errors = validator.validate(options);
     expect(errors.map((AnalysisError e) => e.errorCode),
         unorderedEquals(expected));
   }
+}
+
+class TestRule extends LintRule {
+  TestRule() : super(name: 'fantastic_test_rule');
 }

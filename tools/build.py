@@ -44,6 +44,13 @@ the Dart repo root,
 
 unless you really intend to use a non-default Makefile.""" % DART_ROOT
 
+DART_USE_GYP = "DART_USE_GYP"
+
+
+def use_gyp():
+  return DART_USE_GYP in os.environ
+
+
 def BuildOptions():
   result = optparse.OptionParser(usage=usage)
   result.add_option("-m", "--mode",
@@ -56,7 +63,7 @@ def BuildOptions():
   result.add_option("-a", "--arch",
       help='Target architectures (comma-separated).',
       metavar='[all,ia32,x64,simarm,arm,simarmv6,armv6,simarmv5te,armv5te,'
-              'simmips,mips,simarm64,arm64,]',
+              'simmips,mips,simarm64,arm64,simdbc,armsimdbc]',
       default=utils.GuessArchitecture())
   result.add_option("--os",
     help='Target OSs (comma-separated).',
@@ -77,6 +84,10 @@ def BuildOptions():
       help='Name of the devenv.com/msbuild executable on Windows (varies for '
            'different versions of Visual Studio)',
       default=vs_executable)
+  result.add_option("--gyp",
+      help='Build with gyp.',
+      default=use_gyp(),
+      action='store_true')
   return result
 
 
@@ -88,7 +99,7 @@ def ProcessOsOption(os_name):
 
 def ProcessOptions(options, args):
   if options.arch == 'all':
-    options.arch = 'ia32,x64,simarm,simmips,simarm64'
+    options.arch = 'ia32,x64,simarm,simarm64,simmips,simdbc64'
   if options.mode == 'all':
     options.mode = 'debug,release,product'
   if options.os == 'all':
@@ -102,7 +113,8 @@ def ProcessOptions(options, args):
       return False
   for arch in options.arch:
     archs = ['ia32', 'x64', 'simarm', 'arm', 'simarmv6', 'armv6',
-             'simarmv5te', 'armv5te', 'simmips', 'mips', 'simarm64', 'arm64',]
+             'simarmv5te', 'armv5te', 'simmips', 'mips', 'simarm64', 'arm64',
+             'simdbc', 'simdbc64', 'armsimdbc', 'armsimdbc64']
     if not arch in archs:
       print "Unknown arch %s" % arch
       return False
@@ -119,7 +131,8 @@ def ProcessOptions(options, args):
         print ("Cross-compilation to %s is not supported on host os %s."
                % (os_name, HOST_OS))
         return False
-      if not arch in ['ia32', 'x64', 'arm', 'armv6', 'armv5te', 'arm64', 'mips']:
+      if not arch in ['ia32', 'x64', 'arm', 'armv6', 'armv5te', 'arm64', 'mips',
+                      'simdbc', 'simdbc64']:
         print ("Cross-compilation to %s is not supported for architecture %s."
                % (os_name, arch))
         return False
@@ -137,9 +150,9 @@ def GetToolchainPrefix(target_os, arch, options):
 
   if target_os == 'android':
     android_toolchain = GetAndroidToolchainDir(HOST_OS, arch)
-    if arch == 'arm':
+    if arch == 'arm' or arch == 'simdbc':
       return os.path.join(android_toolchain, 'arm-linux-androideabi')
-    if arch == 'arm64':
+    if arch == 'arm64' or arch == 'simdbc64':
       return os.path.join(android_toolchain, 'aarch64-linux-android')
     if arch == 'ia32':
       return os.path.join(android_toolchain, 'i686-linux-android')
@@ -152,7 +165,7 @@ def GetToolchainPrefix(target_os, arch, options):
                     'supported on Linux.')
 
   # For ARM Linux, by default use the Linux distribution's cross-compiler.
-  if arch == 'arm':
+  if arch == 'arm' or arch == 'armsimdbc':
     # To use a non-hf compiler, specify on the command line with --toolchain.
     return (DEFAULT_ARM_CROSS_COMPILER_PATH + "/arm-linux-gnueabihf")
   if arch == 'arm64':
@@ -197,7 +210,7 @@ def GetAndroidToolchainDir(host_os, target_arch):
   global THIRD_PARTY_ROOT
   if host_os not in ['linux']:
     raise Exception('Unsupported host os %s' % host_os)
-  if target_arch not in ['ia32', 'x64', 'arm', 'arm64']:
+  if target_arch not in ['ia32', 'x64', 'arm', 'arm64', 'simdbc', 'simdbc64']:
     raise Exception('Unsupported target architecture %s' % target_arch)
 
   # Set up path to the Android NDK.
@@ -209,7 +222,7 @@ def GetAndroidToolchainDir(host_os, target_arch):
 
   # Set up the directory of the Android NDK cross-compiler toolchain.
   toolchain_arch = 'arm-linux-androideabi-4.9'
-  if target_arch == 'arm64':
+  if target_arch == 'arm64' or target_arch == 'simdbc64':
     toolchain_arch = 'aarch64-linux-android-4.9'
   if target_arch == 'ia32':
     toolchain_arch = 'x86-4.9'
@@ -387,86 +400,168 @@ def NotifyBuildDone(build_config, success, start):
     os.system(command)
 
 
+def RunGN(target_os, mode, arch):
+  gn_os = 'host' if target_os == HOST_OS else target_os
+  gn_command = [
+    'python',
+    os.path.join(DART_ROOT, 'tools', 'gn.py'),
+    '-m', mode,
+    '-a', arch,
+    '--os', gn_os,
+    '-v',
+  ]
+  process = subprocess.Popen(gn_command)
+  process.wait()
+  if process.returncode != 0:
+    print ("Tried to run GN, but it failed. Try running it manually: \n\t$ " +
+           ' '.join(gn_command))
+
+
+def ShouldRunGN(out_dir):
+  return (not os.path.exists(out_dir) or
+          not os.path.isfile(os.path.join(out_dir, 'args.gn')))
+
+
+def UseGoma(out_dir):
+  args_gn = os.path.join(out_dir, 'args.gn')
+  return 'use_goma = true' in open(args_gn, 'r').read()
+
+
+# Try to start goma, but don't bail out if we can't. Instead print an error
+# message, and let the build fail with its own error messages as well.
+def EnsureGomaStarted(out_dir):
+  args_gn_path = os.path.join(out_dir, 'args.gn')
+  goma_dir = None
+  with open(args_gn_path, 'r') as fp:
+    for line in fp:
+      if 'goma_dir' in line:
+        words = line.split()
+        goma_dir = words[2][1:-1]  # goma_dir = "/path/to/goma"
+  if not goma_dir:
+    print 'Could not find goma for ' + out_dir
+    return False
+  if not os.path.exists(goma_dir) or not os.path.isdir(goma_dir):
+    print 'Could not find goma at ' + goma_dir
+    return False
+  goma_ctl = os.path.join(goma_dir, 'goma_ctl.py')
+  goma_ctl_command = [
+    'python',
+    goma_ctl,
+    'ensure_start',
+  ]
+  process = subprocess.Popen(goma_ctl_command)
+  process.wait()
+  if process.returncode != 0:
+    print ("Tried to run goma_ctl.py, but it failed. Try running it manually: "
+           + "\n\t" + ' '.join(goma_ctl_command))
+    return False
+  return True
+
+
+
+def BuildNinjaCommand(options, target, target_os, mode, arch):
+  out_dir = utils.GetBuildRoot(HOST_OS, mode, arch, target_os)
+  if ShouldRunGN(out_dir):
+    RunGN(target_os, mode, arch)
+  command = ['ninja', '-C', out_dir]
+  if options.verbose:
+    command += ['-v']
+  if UseGoma(out_dir):
+    if EnsureGomaStarted(out_dir):
+      command += ['-j1000']
+    else:
+      # If we couldn't ensure that goma is started, let the build start, but
+      # slowly so we can see any helpful error messages that pop out.
+      command += ['-j1']
+  command += [target]
+  return command
+
+
 filter_xcodebuild_output = False
 def BuildOneConfig(options, target, target_os, mode, arch, override_tools):
   global filter_xcodebuild_output
   start_time = time.time()
-  os.environ['DART_BUILD_MODE'] = mode
+  args = []
   build_config = utils.GetBuildConf(mode, arch, target_os)
-  if HOST_OS == 'macos':
-    filter_xcodebuild_output = True
-    project_file = 'dart.xcodeproj'
-    if os.path.exists('dart-%s.gyp' % CurrentDirectoryBaseName()):
-      project_file = 'dart-%s.xcodeproj' % CurrentDirectoryBaseName()
-    args = ['xcodebuild',
-            '-project',
-            project_file,
-            '-target',
-            target,
-            '-configuration',
-            build_config,
-            'SYMROOT=%s' % os.path.abspath('xcodebuild')
-            ]
-  elif HOST_OS == 'win32':
-    project_file = 'dart.sln'
-    if os.path.exists('dart-%s.gyp' % CurrentDirectoryBaseName()):
-      project_file = 'dart-%s.sln' % CurrentDirectoryBaseName()
-    # Select a platform suffix to pass to devenv.
-    if arch == 'ia32':
-      platform_suffix = 'Win32'
-    elif arch == 'x64':
-      platform_suffix = 'x64'
-    else:
-      print 'Unsupported arch for MSVC build: %s' % arch
-      return 1
-    config_name = '%s|%s' % (build_config, platform_suffix)
-    if target == 'all':
-      args = [options.devenv + os.sep + options.executable,
-              '/build',
-              config_name,
-              project_file
-             ]
-    else:
-      args = [options.devenv + os.sep + options.executable,
-              '/build',
-              config_name,
-              '/project',
-              target,
-              project_file
-             ]
+  if not options.gyp:
+    args = BuildNinjaCommand(options, target, target_os, mode, arch)
   else:
-    make = 'make'
-    if HOST_OS == 'freebsd':
-      make = 'gmake'
-      # work around lack of flock
-      os.environ['LINK'] = '$(CXX)'
-    args = [make,
-            '-j',
-            options.j,
-            'BUILDTYPE=' + build_config,
-            ]
-    if target_os != HOST_OS:
-      args += ['builddir_name=' + utils.GetBuildDir(HOST_OS)]
-    if options.verbose:
-      args += ['V=1']
-
-    args += [target]
-
-  toolsOverride = None
-  if override_tools:
-    toolsOverride = SetTools(arch, target_os, options)
-  if toolsOverride:
-    for k, v in toolsOverride.iteritems():
-      args.append(  k + "=" + v)
-      if options.verbose:
-        print k + " = " + v
-    if not os.path.isfile(toolsOverride['CC.target']):
-      if arch == 'arm':
-        print arm_cc_error
+    os.environ['DART_BUILD_MODE'] = mode
+    if HOST_OS == 'macos':
+      filter_xcodebuild_output = True
+      project_file = 'dart.xcodeproj'
+      if os.path.exists('dart-%s.gyp' % CurrentDirectoryBaseName()):
+        project_file = 'dart-%s.xcodeproj' % CurrentDirectoryBaseName()
+      if target == 'all':
+        target = 'All'
+      args = ['xcodebuild',
+              '-project',
+              project_file,
+              '-target',
+              target,
+              '-configuration',
+              build_config,
+              'SYMROOT=%s' % os.path.abspath('xcodebuild')
+              ]
+    elif HOST_OS == 'win32':
+      project_file = 'dart.sln'
+      if os.path.exists('dart-%s.gyp' % CurrentDirectoryBaseName()):
+        project_file = 'dart-%s.sln' % CurrentDirectoryBaseName()
+      # Select a platform suffix to pass to devenv.
+      if arch == 'ia32':
+        platform_suffix = 'Win32'
+      elif arch == 'x64':
+        platform_suffix = 'x64'
       else:
-        print "Couldn't find compiler: %s" % toolsOverride['CC.target']
-      return 1
+        print 'Unsupported arch for MSVC build: %s' % arch
+        return 1
+      config_name = '%s|%s' % (build_config, platform_suffix)
+      if target == 'all':
+        args = [options.devenv + os.sep + options.executable,
+                '/build',
+                config_name,
+                project_file
+               ]
+      else:
+        args = [options.devenv + os.sep + options.executable,
+                '/build',
+                config_name,
+                '/project',
+                target,
+                project_file
+               ]
+    else:
+      make = 'make'
+      if HOST_OS == 'freebsd':
+        make = 'gmake'
+        # work around lack of flock
+        os.environ['LINK'] = '$(CXX)'
+      args = [make,
+              '-j',
+              options.j,
+              'BUILDTYPE=' + build_config,
+              ]
+      if target_os != HOST_OS:
+        args += ['builddir_name=' + utils.GetBuildDir(HOST_OS)]
+      if options.verbose:
+        args += ['V=1']
 
+      args += [target]
+
+    toolsOverride = None
+    if override_tools:
+      toolsOverride = SetTools(arch, target_os, options)
+    if toolsOverride:
+      for k, v in toolsOverride.iteritems():
+        args.append(  k + "=" + v)
+        if options.verbose:
+          print k + " = " + v
+      if not os.path.isfile(toolsOverride['CC.target']):
+        if arch == 'arm':
+          print arm_cc_error
+        else:
+          print "Couldn't find compiler: %s" % toolsOverride['CC.target']
+        return 1
 
   print ' '.join(args)
   process = None
@@ -498,9 +593,6 @@ def BuildCrossSdk(options, target_os, mode, arch):
   # Then, build the runtime for the target arch.
   if BuildOneConfig(options, 'runtime', target_os, mode, arch, True) != 0:
     return 1
-
-  # TODO(zra): verify that no platform specific details leak into the snapshots
-  # created for pub, dart2js, etc.
 
   # Copy dart-sdk from the host build products dir to the target build
   # products dir, and copy the dart binary for target to the sdk bin/ dir.
@@ -537,10 +629,7 @@ def Main():
     return 1
   # Determine which targets to build. By default we build the "all" target.
   if len(args) == 0:
-    if HOST_OS == 'macos':
-      targets = ['All']
-    else:
-      targets = ['all']
+    targets = ['all']
   else:
     targets = args
 

@@ -9,17 +9,16 @@ import 'dart:convert';
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analysis_server/src/constants.dart';
 import 'package:analysis_server/src/protocol/protocol_internal.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
-
-import 'utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(NotificationTest);
-  defineReflectiveTests(RequestTest);
-  defineReflectiveTests(RequestErrorTest);
-  defineReflectiveTests(ResponseTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(NotificationTest);
+    defineReflectiveTests(RequestTest);
+    defineReflectiveTests(RequestErrorTest);
+    defineReflectiveTests(ResponseTest);
+  });
 }
 
 Matcher _throwsRequestFailure = throwsA(new isInstanceOf<RequestFailure>());
@@ -266,7 +265,8 @@ class ResponseTest {
     Response original = new Response('myId', result: {'foo': 'bar'});
     Response response = new Response.fromJson(original.toJson());
     expect(response.id, equals('myId'));
-    Map<String, Object> result = response.toJson()['result'];
+    Map<String, Object> result =
+        response.toJson()['result'] as Map<String, Object>;
     expect(result.length, equals(1));
     expect(result['foo'], equals('bar'));
   }

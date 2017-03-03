@@ -5,50 +5,38 @@
 library dart2js.parser.task;
 
 import '../common.dart';
-import '../common/tasks.dart' show
-    CompilerTask;
-import '../compiler.dart' show
-    Compiler;
-import '../elements/modelx.dart' show
-    ElementX;
-import '../tokens/token.dart' show
-    Token;
-import '../tree/tree.dart' show
-    Node;
-
-import 'element_listener.dart' show
-    ScannerOptions;
-import 'listener.dart' show
-    ParserError;
-import 'node_listener.dart' show
-    NodeListener;
-import 'parser.dart' show
-    Parser;
+import '../common/tasks.dart' show CompilerTask;
+import '../compiler.dart' show Compiler;
+import '../elements/modelx.dart' show ElementX;
+import 'package:front_end/src/fasta/scanner.dart' show Token;
+import '../tree/tree.dart' show Node;
+import 'element_listener.dart' show ScannerOptions;
+import 'package:front_end/src/fasta/parser.dart' show Parser, ParserError;
+import 'node_listener.dart' show NodeListener;
 
 class ParserTask extends CompilerTask {
-  final bool _enableConditionalDirectives;
+  final Compiler compiler;
 
-  ParserTask(Compiler compiler,
-             {bool enableConditionalDirectives: false})
-      : this._enableConditionalDirectives = enableConditionalDirectives,
-        super(compiler);
+  ParserTask(Compiler compiler)
+      : compiler = compiler,
+        super(compiler.measurer);
 
   String get name => 'Parser';
 
   Node parse(ElementX element) {
-    return measure(() => element.parseNode(compiler.parsing));
+    return measure(() => element.parseNode(compiler.parsingContext));
   }
 
   Node parseCompilationUnit(Token token) {
     return measure(() {
-      NodeListener listener = new NodeListener(
-          const ScannerOptions(), reporter, null);
-      Parser parser = new Parser(
-          listener, enableConditionalDirectives: _enableConditionalDirectives);
+      NodeListener listener =
+          new NodeListener(const ScannerOptions(), compiler.reporter, null);
+      Parser parser = new Parser(listener);
       try {
         parser.parseUnit(token);
-      } on ParserError catch(_) {
-        assert(invariant(token, compiler.compilationFailed));
+      } on ParserError catch (_) {
+        assert(invariant(compiler.reporter.spanFromToken(token),
+            compiler.compilationFailed));
         return listener.makeNodeList(0, null, null, '\n');
       }
       Node result = listener.popNode();

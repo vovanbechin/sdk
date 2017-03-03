@@ -2,7 +2,15 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of js_backend;
+import '../compiler.dart' show Compiler;
+import '../constants/values.dart';
+import '../elements/resolution_types.dart';
+import '../elements/elements.dart';
+import '../universe/use.dart' show StaticUse;
+import '../universe/world_impact.dart'
+    show WorldImpact, StagedWorldImpactBuilder;
+import 'backend.dart';
+import 'backend_usage.dart' show BackendUsageBuilder;
 
 /**
  * Support for Custom Elements.
@@ -47,7 +55,7 @@ class CustomElementsAnalysis {
   final CustomElementsAnalysisJoin resolutionJoin;
   final CustomElementsAnalysisJoin codegenJoin;
   bool fetchedTableAccessorMethod = false;
-  Element tableAccessorMethod;
+  MethodElement tableAccessorMethod;
 
   CustomElementsAnalysis(JavaScriptBackend backend)
       : this.backend = backend,
@@ -63,21 +71,22 @@ class CustomElementsAnalysis {
     codegenJoin.allClassesSelected = true;
   }
 
-  CustomElementsAnalysisJoin joinFor(Enqueuer enqueuer) =>
-      enqueuer.isResolutionQueue ? resolutionJoin : codegenJoin;
+  CustomElementsAnalysisJoin joinFor({bool forResolution}) =>
+      forResolution ? resolutionJoin : codegenJoin;
 
-  void registerInstantiatedClass(ClassElement classElement, Enqueuer enqueuer) {
+  void registerInstantiatedClass(ClassElement classElement,
+      {bool forResolution}) {
     classElement.ensureResolved(compiler.resolution);
-    if (!backend.isNativeOrExtendsNative(classElement)) return;
+    if (!backend.nativeData.isNativeOrExtendsNative(classElement)) return;
     if (classElement.isMixinApplication) return;
     if (classElement.isAbstract) return;
     // JsInterop classes are opaque interfaces without a concrete
     // implementation.
     if (backend.isJsInterop(classElement)) return;
-    joinFor(enqueuer).instantiatedClasses.add(classElement);
+    joinFor(forResolution: forResolution).instantiatedClasses.add(classElement);
   }
 
-  void registerTypeLiteral(DartType type) {
+  void registerTypeLiteral(ResolutionDartType type) {
     if (type.isInterfaceType) {
       // TODO(sra): If we had a flow query from the type literal expression to
       // the Type argument of the metadata lookup, we could tell if this type
@@ -96,19 +105,20 @@ class CustomElementsAnalysis {
     codegenJoin.selectedClasses.add(element);
   }
 
-  void registerStaticUse(Element element, Enqueuer enqueuer) {
+  void registerStaticUse(Element element, {bool forResolution}) {
     assert(element != null);
     if (!fetchedTableAccessorMethod) {
       fetchedTableAccessorMethod = true;
       tableAccessorMethod = backend.helpers.findIndexForNativeSubclassType;
     }
     if (element == tableAccessorMethod) {
-      joinFor(enqueuer).demanded = true;
+      joinFor(forResolution: forResolution).demanded = true;
     }
   }
 
-  void onQueueEmpty(Enqueuer enqueuer) {
-    joinFor(enqueuer).flush(enqueuer);
+  /// Computes the [WorldImpact] of the classes registered since last flush.
+  WorldImpact flush({bool forResolution}) {
+    return joinFor(forResolution: forResolution).flush();
   }
 
   bool get needsTable => codegenJoin.demanded;
@@ -116,14 +126,15 @@ class CustomElementsAnalysis {
   bool needsClass(ClassElement classElement) =>
       codegenJoin.activeClasses.contains(classElement);
 
-  List<Element> constructors(ClassElement classElement) =>
+  List<ConstructorElement> constructors(ClassElement classElement) =>
       codegenJoin.computeEscapingConstructors(classElement);
 }
-
 
 class CustomElementsAnalysisJoin {
   final JavaScriptBackend backend;
   Compiler get compiler => backend.compiler;
+
+  final StagedWorldImpactBuilder impactBuilder = new StagedWorldImpactBuilder();
 
   // Classes that are candidates for needing constructors.  Classes are moved to
   // [activeClasses] when we know they need constructors.
@@ -143,13 +154,15 @@ class CustomElementsAnalysisJoin {
 
   CustomElementsAnalysisJoin(this.backend);
 
-  void flush(Enqueuer enqueuer) {
-    if (!demanded) return;
+  BackendUsageBuilder get backendUsageBuilder => backend.backendUsageBuilder;
+
+  WorldImpact flush() {
+    if (!demanded) return const WorldImpact();
     var newActiveClasses = new Set<ClassElement>();
     for (ClassElement classElement in instantiatedClasses) {
       bool isNative = backend.isNative(classElement);
       bool isExtension =
-          !isNative && backend.isNativeOrExtendsNative(classElement);
+          !isNative && backend.nativeData.isNativeOrExtendsNative(classElement);
       // Generate table entries for native classes that are explicitly named and
       // extensions that fix our criteria.
       if ((isNative && selectedClasses.contains(classElement)) ||
@@ -159,25 +172,28 @@ class CustomElementsAnalysisJoin {
         Iterable<ConstructorElement> escapingConstructors =
             computeEscapingConstructors(classElement);
         for (ConstructorElement constructor in escapingConstructors) {
-          enqueuer.registerStaticUse(new StaticUse.foreignUse(constructor));
+          impactBuilder
+              .registerStaticUse(new StaticUse.foreignUse(constructor));
         }
         escapingConstructors
-            .forEach(compiler.globalDependencies.registerDependency);
+            .forEach(backendUsageBuilder.registerGlobalDependency);
         // Force the generaton of the type constant that is the key to an entry
         // in the generated table.
         ConstantValue constant = makeTypeConstant(classElement);
-        backend.registerCompileTimeConstant(
-            constant, compiler.globalDependencies);
+        backend.computeImpactForCompileTimeConstant(
+            constant, impactBuilder, false);
         backend.addCompileTimeConstantForEmission(constant);
       }
     }
     activeClasses.addAll(newActiveClasses);
     instantiatedClasses.removeAll(newActiveClasses);
+    return impactBuilder.flush();
   }
 
   TypeConstantValue makeTypeConstant(ClassElement element) {
-    DartType elementType = element.rawType;
-    return backend.constantSystem.createType(compiler, elementType);
+    ResolutionDartType elementType = element.rawType;
+    return backend.constantSystem.createType(
+        compiler.commonElements, compiler.backend.backendClasses, elementType);
   }
 
   List<ConstructorElement> computeEscapingConstructors(
@@ -199,9 +215,9 @@ class CustomElementsAnalysisJoin {
         }
       }
     }
+
     classElement.forEachMember(selectGenerativeConstructors,
-        includeBackendMembers: false,
-        includeSuperAndInjectedMembers: false);
+        includeBackendMembers: false, includeSuperAndInjectedMembers: false);
     return result;
   }
 }

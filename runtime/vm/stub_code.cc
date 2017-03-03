@@ -14,23 +14,25 @@
 #include "vm/snapshot.h"
 #include "vm/virtual_memory.h"
 #include "vm/visitor.h"
+#include "vm/clustered_snapshot.h"
 
 namespace dart {
 
 DEFINE_FLAG(bool, disassemble_stubs, false, "Disassemble generated stubs.");
 
-#define STUB_CODE_DECLARE(name)                                                \
-  StubEntry* StubCode::name##_entry_ = NULL;
-VM_STUB_CODE_LIST(STUB_CODE_DECLARE);
+StubEntry* StubCode::entries_[kNumStubEntries] = {
+#define STUB_CODE_DECLARE(name) NULL,
+    VM_STUB_CODE_LIST(STUB_CODE_DECLARE)
 #undef STUB_CODE_DECLARE
+};
 
 
 StubEntry::StubEntry(const Code& code)
     : code_(code.raw()),
-      entry_point_(code.EntryPoint()),
+      entry_point_(code.UncheckedEntryPoint()),
+      checked_entry_point_(code.CheckedEntryPoint()),
       size_(code.Size()),
-      label_(code.EntryPoint()) {
-}
+      label_(code.UncheckedEntryPoint()) {}
 
 
 // Visit all object pointers.
@@ -41,17 +43,18 @@ void StubEntry::VisitObjectPointers(ObjectPointerVisitor* visitor) {
 
 
 #define STUB_CODE_GENERATE(name)                                               \
-  code ^= Generate("_stub_"#name, StubCode::Generate##name##Stub);             \
-  name##_entry_ = new StubEntry(code);
+  code ^= Generate("_stub_" #name, StubCode::Generate##name##Stub);            \
+  entries_[k##name##Index] = new StubEntry(code);
 
 
 void StubCode::InitOnce() {
-#if !defined(DART_PRECOMPILED_RUNTIME)
+#if defined(DART_PRECOMPILED_RUNTIME)
+  // Stubs will be loaded from the snapshot.
+  UNREACHABLE();
+#else
   // Generate all the stubs.
   Code& code = Code::Handle();
   VM_STUB_CODE_LIST(STUB_CODE_GENERATE);
-#else
-  UNREACHABLE();
 #endif  // DART_PRECOMPILED_RUNTIME
 }
 
@@ -59,56 +62,54 @@ void StubCode::InitOnce() {
 #undef STUB_CODE_GENERATE
 
 
-void StubCode::ReadFrom(SnapshotReader* reader) {
-#define READ_STUB(name)                                                        \
-  *(reader->CodeHandle()) ^= reader->ReadObject();                             \
-  name##_entry_ = new StubEntry(*(reader->CodeHandle()));
-  VM_STUB_CODE_LIST(READ_STUB);
-#undef READ_STUB
-}
-
-void StubCode::WriteTo(SnapshotWriter* writer) {
-  // TODO(rmacnak): Consider writing only the instructions to avoid
-  // vm_isolate_is_symbolic.
-#define WRITE_STUB(name)                                                       \
-  writer->WriteObject(StubCode::name##_entry()->code());
-  VM_STUB_CODE_LIST(WRITE_STUB);
-#undef WRITE_STUB
-}
+void StubCode::Init(Isolate* isolate) {}
 
 
-void StubCode::Init(Isolate* isolate) { }
-
-
-void StubCode::VisitObjectPointers(ObjectPointerVisitor* visitor) {
-}
+void StubCode::VisitObjectPointers(ObjectPointerVisitor* visitor) {}
 
 
 bool StubCode::HasBeenInitialized() {
-  // Use JumpToExceptionHandler and InvokeDart as canaries.
-  const StubEntry* entry_1 = StubCode::JumpToExceptionHandler_entry();
+#if !defined(TARGET_ARCH_DBC)
+  // Use JumpToHandler and InvokeDart as canaries.
+  const StubEntry* entry_1 = StubCode::JumpToFrame_entry();
   const StubEntry* entry_2 = StubCode::InvokeDartCode_entry();
   return (entry_1 != NULL) && (entry_2 != NULL);
+#else
+  return true;
+#endif
 }
 
 
 bool StubCode::InInvocationStub(uword pc) {
+#if !defined(TARGET_ARCH_DBC)
   ASSERT(HasBeenInitialized());
   uword entry = StubCode::InvokeDartCode_entry()->EntryPoint();
   uword size = StubCode::InvokeDartCodeSize();
   return (pc >= entry) && (pc < (entry + size));
+#else
+  // On DBC we use a special marker PC to signify entry frame because there is
+  // no such thing as invocation stub.
+  return (pc & 2) != 0;
+#endif
 }
 
 
-bool StubCode::InJumpToExceptionHandlerStub(uword pc) {
+bool StubCode::InJumpToFrameStub(uword pc) {
+#if !defined(TARGET_ARCH_DBC)
   ASSERT(HasBeenInitialized());
-  uword entry = StubCode::JumpToExceptionHandler_entry()->EntryPoint();
-  uword size = StubCode::JumpToExceptionHandlerSize();
+  uword entry = StubCode::JumpToFrame_entry()->EntryPoint();
+  uword size = StubCode::JumpToFrameSize();
   return (pc >= entry) && (pc < (entry + size));
+#else
+  // This stub does not exist on DBC.
+  return false;
+#endif
 }
 
 
 RawCode* StubCode::GetAllocationStubForClass(const Class& cls) {
+// These stubs are not used by DBC.
+#if !defined(TARGET_ARCH_DBC)
   Thread* thread = Thread::Current();
   Zone* zone = thread->zone();
   const Error& error = Error::Handle(zone, cls.EnsureIsFinalized(thread));
@@ -156,24 +157,29 @@ RawCode* StubCode::GetAllocationStubForClass(const Class& cls) {
         isolate->heap()->CollectAllGarbage();
       }
     }
+#ifndef PRODUCT
     if (FLAG_support_disassembler && FLAG_disassemble_stubs) {
       LogBlock lb;
       THR_Print("Code for allocation stub '%s': {\n", name);
-#ifndef PRODUCT
       DisassembleToStdout formatter;
       stub.Disassemble(&formatter);
-#endif
       THR_Print("}\n");
       const ObjectPool& object_pool = ObjectPool::Handle(stub.object_pool());
       object_pool.DebugPrint();
     }
+#endif  // !PRODUCT
   }
   return stub.raw();
+#endif  // !DBC
+  UNIMPLEMENTED();
+  return Code::null();
 }
 
 
 const StubEntry* StubCode::UnoptimizedStaticCallEntry(
     intptr_t num_args_tested) {
+// These stubs are not used by DBC.
+#if !defined(TARGET_ARCH_DBC)
   switch (num_args_tested) {
     case 0:
       return ZeroArgsUnoptimizedStaticCall_entry();
@@ -185,6 +191,9 @@ const StubEntry* StubCode::UnoptimizedStaticCallEntry(
       UNIMPLEMENTED();
       return NULL;
   }
+#else
+  return NULL;
+#endif
 }
 
 
@@ -192,8 +201,9 @@ RawCode* StubCode::Generate(const char* name,
                             void (*GenerateStub)(Assembler* assembler)) {
   Assembler assembler;
   GenerateStub(&assembler);
-  const Code& code = Code::Handle(
-      Code::FinalizeCode(name, &assembler, false /* optimized */));
+  const Code& code =
+      Code::Handle(Code::FinalizeCode(name, &assembler, false /* optimized */));
+#ifndef PRODUCT
   if (FLAG_support_disassembler && FLAG_disassemble_stubs) {
     LogBlock lb;
     THR_Print("Code for stub '%s': {\n", name);
@@ -203,6 +213,7 @@ RawCode* StubCode::Generate(const char* name,
     const ObjectPool& object_pool = ObjectPool::Handle(code.object_pool());
     object_pool.DebugPrint();
   }
+#endif  // !PRODUCT
   return code.raw();
 }
 
@@ -211,7 +222,7 @@ const char* StubCode::NameOfStub(uword entry_point) {
 #define VM_STUB_CODE_TESTER(name)                                              \
   if ((name##_entry() != NULL) &&                                              \
       (entry_point == name##_entry()->EntryPoint())) {                         \
-    return ""#name;                                                            \
+    return "" #name;                                                           \
   }
   VM_STUB_CODE_LIST(VM_STUB_CODE_TESTER);
 #undef VM_STUB_CODE_TESTER

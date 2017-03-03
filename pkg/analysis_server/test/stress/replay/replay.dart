@@ -5,16 +5,15 @@
 /**
  * A stress test for the analysis server.
  */
-library analysis_server.test.stress.replay.replay;
-
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analyzer/dart/ast/token.dart';
+import 'package:analyzer/error/listener.dart' as error;
 import 'package:analyzer/src/dart/scanner/reader.dart';
 import 'package:analyzer/src/dart/scanner/scanner.dart';
-import 'package:analyzer/src/generated/error.dart' as error;
 import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/util/glob.dart';
@@ -22,13 +21,14 @@ import 'package:args/args.dart';
 import 'package:path/path.dart' as path;
 
 import '../utilities/git.dart';
+import '../utilities/logger.dart';
 import '../utilities/server.dart';
 import 'operation.dart';
 
 /**
  * Run the simulation based on the given command-line [arguments].
  */
-Future main(List<String> arguments) async {
+Future<Null> main(List<String> arguments) async {
   Driver driver = new Driver();
   await driver.run(arguments);
 }
@@ -73,6 +73,12 @@ class Driver {
   static const String TEMP_BRANCH_NAME = 'temp';
 
   /**
+   * The name of the command-line flag that will cause verbose output to be
+   * produced.
+   */
+  static String VERBOSE_FLAG_NAME = 'verbose';
+
+  /**
    * The style of interaction to use for analysis.updateContent requests.
    */
   OverlayStyle overlayStyle;
@@ -95,7 +101,7 @@ class Driver {
   /**
    * The connection to the analysis server.
    */
-  Server server = new Server();
+  Server server;
 
   /**
    * A list of the glob patterns used to identify the files being analyzed by
@@ -109,6 +115,16 @@ class Driver {
   Statistics statistics;
 
   /**
+   * A flag indicating whether verbose output should be provided.
+   */
+  bool verbose = false;
+
+  /**
+   * The logger to which verbose logging data will be written.
+   */
+  Logger logger;
+
+  /**
    * Initialize a newly created driver.
    */
   Driver() {
@@ -116,14 +132,26 @@ class Driver {
   }
 
   /**
+   * Allow the output from the server to be read and processed.
+   */
+  Future<Null> readServerOutput() async {
+    await new Future.delayed(new Duration(milliseconds: 2));
+  }
+
+  /**
    * Run the simulation based on the given command-line arguments ([args]).
    */
-  Future run(List<String> args) async {
+  Future<Null> run(List<String> args) async {
     //
     // Process the command-line arguments.
     //
     if (!_processCommandLine(args)) {
       return null;
+    }
+    if (verbose) {
+      stdout.writeln();
+      stdout.writeln('-' * 80);
+      stdout.writeln();
     }
     //
     // Simulate interactions with the server.
@@ -132,7 +160,16 @@ class Driver {
     //
     // Print out statistics gathered while performing the simulation.
     //
+    if (verbose) {
+      stdout.writeln();
+      stdout.writeln('-' * 80);
+    }
+    stdout.writeln();
     statistics.print();
+    if (verbose) {
+      stdout.writeln();
+      server.printStatistics();
+    }
     exit(0);
     return null;
   }
@@ -148,7 +185,6 @@ class Driver {
         help: 'Print usage information',
         defaultsTo: false,
         negatable: false);
-
     parser.addOption(OVERLAY_STYLE_OPTION_NAME,
         help:
             'The style of interaction to use for analysis.updateContent requests',
@@ -158,6 +194,11 @@ class Driver {
           MULTIPLE_ADD_OVERLAY_STYLE: '<add>+ <remove>'
         },
         defaultsTo: 'change');
+    parser.addFlag(VERBOSE_FLAG_NAME,
+        abbr: 'v',
+        help: 'Produce verbose output for debugging',
+        defaultsTo: false,
+        negatable: false);
     return parser;
   }
 
@@ -168,7 +209,8 @@ class Driver {
     LineInfo info = fileEdit.lineInfo;
     for (DiffHunk hunk in blobDiff.hunks) {
       int srcStart = info.getOffsetOfLine(hunk.srcLine);
-      int srcEnd = info.getOffsetOfLine(hunk.srcLine + hunk.removeLines.length);
+      int srcEnd = info.getOffsetOfLine(
+          math.min(hunk.srcLine + hunk.removeLines.length, info.lineCount - 1));
       String addedText = _join(hunk.addLines);
       //
       // Create the source edits.
@@ -284,13 +326,18 @@ class Driver {
       overlayStyle = OverlayStyle.multipleAdd;
     }
 
-    List<String> arguments = results.arguments;
+    if (results[VERBOSE_FLAG_NAME]) {
+      verbose = true;
+      logger = new Logger(stdout);
+    }
+
+    List<String> arguments = results.rest;
     if (arguments.length < 2) {
       _showUsage(parser);
       return false;
     }
     repositoryPath = path.normalize(arguments[0]);
-    repository = new GitRepository(repositoryPath);
+    repository = new GitRepository(repositoryPath, logger: logger);
 
     analysisRoots = arguments
         .sublist(1)
@@ -310,61 +357,69 @@ class Driver {
   /**
    * Replay the changes in each commit.
    */
-  Future _replayChanges() async {
+  Future<Null> _replayChanges() async {
     //
     // Get the revision history of the repo.
     //
     LinearCommitHistory history = repository.getCommitHistory();
     statistics.commitCount = history.commitIds.length;
     LinearCommitHistoryIterator iterator = history.iterator();
-    //
-    // Iterate over the history, applying changes.
-    //
-    bool firstCheckout = true;
-    ErrorMap expectedErrors = null;
-    Iterable<String> changedPubspecs;
-    while (iterator.moveNext()) {
+    try {
       //
-      // Checkout the commit on which the changes are based.
+      // Iterate over the history, applying changes.
       //
-      String commit = iterator.srcCommit;
-      repository.checkout(commit);
-      if (expectedErrors != null) {
-        ErrorMap actualErrors =
-            await server.computeErrorMap(server.analyzedDartFiles);
-        String difference = expectedErrors.expectErrorMap(actualErrors);
-        if (difference != null) {
-          stdout.write('Mismatched errors after commit ');
-          stdout.writeln(commit);
-          stdout.writeln();
-          stdout.writeln(difference);
-          return;
+      bool firstCheckout = true;
+      ErrorMap expectedErrors = null;
+      Iterable<String> changedPubspecs;
+      while (iterator.moveNext()) {
+        //
+        // Checkout the commit on which the changes are based.
+        //
+        String commit = iterator.srcCommit;
+        repository.checkout(commit);
+        if (expectedErrors != null) {
+//          ErrorMap actualErrors =
+          await server.computeErrorMap(server.analyzedDartFiles);
+//          String difference = expectedErrors.expectErrorMap(actualErrors);
+//          if (difference != null) {
+//            stdout.write('Mismatched errors after commit ');
+//            stdout.writeln(commit);
+//            stdout.writeln();
+//            stdout.writeln(difference);
+//            return;
+//          }
         }
+        if (firstCheckout) {
+          changedPubspecs = _findPubspecsInAnalysisRoots();
+          server.sendAnalysisSetAnalysisRoots(analysisRoots, []);
+          firstCheckout = false;
+        } else {
+          server.removeAllOverlays();
+        }
+        await readServerOutput();
+        expectedErrors = await server.computeErrorMap(server.analyzedDartFiles);
+        for (String filePath in changedPubspecs) {
+          _runPub(filePath);
+        }
+        //
+        // Apply the changes.
+        //
+        CommitDelta commitDelta = iterator.next();
+        commitDelta.filterDiffs(analysisRoots, fileGlobs);
+        if (commitDelta.hasDiffs) {
+          statistics.commitsWithChangeInRootCount++;
+          await _replayDiff(commitDelta);
+        }
+        changedPubspecs = commitDelta.filesMatching(PUBSPEC_FILE_NAME);
       }
-      if (firstCheckout) {
-        changedPubspecs = _findPubspecsInAnalysisRoots();
-        server.sendAnalysisSetAnalysisRoots(analysisRoots, []);
-        firstCheckout = false;
-      } else {
-        server.removeAllOverlays();
+    } finally {
+      // Ensure that the repository is left at the most recent commit.
+      if (history.commitIds.length > 0) {
+        repository.checkout(history.commitIds[0]);
       }
-      expectedErrors = await server.computeErrorMap(server.analyzedDartFiles);
-      for (String filePath in changedPubspecs) {
-        _runPub(filePath);
-      }
-      //
-      // Apply the changes.
-      //
-      CommitDelta commitDelta = iterator.next();
-      commitDelta.filterDiffs(analysisRoots, fileGlobs);
-      if (commitDelta.hasDiffs) {
-        statistics.commitsWithChangeInRootCount++;
-        _replayDiff(commitDelta);
-      }
-      changedPubspecs = commitDelta.filesMatching(PUBSPEC_FILE_NAME);
-      stdout.write('.');
     }
     server.removeAllOverlays();
+    await readServerOutput();
     stdout.writeln();
   }
 
@@ -372,7 +427,7 @@ class Driver {
    * Replay the changes between two commits, as represented by the given
    * [commitDelta].
    */
-  void _replayDiff(CommitDelta commitDelta) {
+  Future<Null> _replayDiff(CommitDelta commitDelta) async {
     List<FileEdit> editList = <FileEdit>[];
     for (DiffRecord record in commitDelta.diffRecords) {
       FileEdit edit = new FileEdit(overlayStyle, record);
@@ -397,7 +452,9 @@ class Driver {
         AnalysisService.OVERRIDES: currentFile
       });
       for (ServerOperation operation in edit.getOperations()) {
+        statistics.editCount++;
         operation.perform(server);
+        await readServerOutput();
       }
     }
   }
@@ -417,7 +474,8 @@ class Driver {
   /**
    * Run the simulation by starting up a server and sending it requests.
    */
-  Future _runSimulation() async {
+  Future<Null> _runSimulation() async {
+    server = new Server(logger: logger);
     Stopwatch stopwatch = new Stopwatch();
     statistics.stopwatch = stopwatch;
     stopwatch.start();
@@ -436,6 +494,8 @@ class Driver {
     try {
       await _replayChanges();
     } finally {
+      // TODO(brianwilkerson) This needs to be moved into a Zone in order to
+      // ensure that it is always run.
       server.sendServerShutdown();
       repository.checkout('master');
     }
@@ -443,7 +503,7 @@ class Driver {
   }
 
   /**
-   * Display usage information, preceeded by the [errorMessage] if one is given.
+   * Display usage information, preceded by the [errorMessage] if one is given.
    */
   void _showUsage(ArgParser parser, [String errorMessage = null]) {
     if (errorMessage != null) {
@@ -462,7 +522,7 @@ repository.
 
 There must be at least one analysis root, and all of the analysis roots must be
 the absolute path of a directory contained within the repository directory. The
-analysis roots represent the portion of the repository that will be analyzed by
+analysis roots represent the portions of the repository that will be analyzed by
 the analysis server.
 
 OPTIONS:''');
@@ -597,6 +657,11 @@ class Statistics {
   int commitsWithChangeInRootCount = 0;
 
   /**
+   * The total number of edits that were applied.
+   */
+  int editCount = 0;
+
+  /**
    * Initialize a newly created set of statistics.
    */
   Statistics(this.driver);
@@ -615,6 +680,8 @@ class Statistics {
     stdout.writeln(commitCount);
     stdout.write('  number of commits with a change in an analysis root = ');
     stdout.writeln(commitsWithChangeInRootCount);
+    stdout.write('  number of edits = ');
+    stdout.writeln(editCount);
   }
 
   /**
@@ -632,10 +699,8 @@ class Statistics {
     if (hours > 0) {
       return '$hours:$minutes:$seconds.$milliseconds';
     } else if (minutes > 0) {
-      return '$minutes:$seconds.$milliseconds m';
-    } else if (seconds > 0) {
-      return '$seconds.$milliseconds s';
+      return '$minutes:$seconds.$milliseconds';
     }
-    return '$milliseconds ms';
+    return '$seconds.$milliseconds';
   }
 }

@@ -4,27 +4,45 @@
 
 library dart2js.serialization;
 
-import '../elements/elements.dart';
-import '../constants/expressions.dart';
-import '../dart_types.dart';
+import 'package:front_end/src/fasta/scanner/precedence.dart'
+    show PrecedenceInfo;
 
-import 'element_serialization.dart';
+import '../common.dart';
+import '../common/resolution.dart';
+import '../constants/expressions.dart';
+import '../elements/resolution_types.dart';
+import '../elements/elements.dart';
+import '../library_loader.dart' show LibraryProvider;
+import '../util/enumset.dart';
 import 'constant_serialization.dart';
-import 'type_serialization.dart';
-import 'keys.dart';
+import 'element_serialization.dart';
 import 'json_serializer.dart';
+import 'keys.dart';
+import 'type_serialization.dart';
 import 'values.dart';
+
+export 'task.dart' show LibraryDeserializer;
+
+final Map<String, String> canonicalNames = computeCanonicalNames();
+
+Map<String, String> computeCanonicalNames() {
+  Map<String, String> result = <String, String>{};
+  for (PrecedenceInfo info in PrecedenceInfo.all) {
+    result[info.value] = info.value;
+  }
+  return result;
+}
 
 /// An object that supports the encoding an [ObjectValue] for serialization.
 ///
 /// The [ObjectEncoder] ensures that nominality and circularities of
-/// non-primitive values like [Element], [DartType] and [ConstantExpression] are
-/// handled.
+/// non-primitive values like [Element], [ResolutionDartType] and
+/// [ConstantExpression] are handled.
 class ObjectEncoder extends AbstractEncoder<Key> {
   /// Creates an [ObjectEncoder] in the scope of [serializer] that uses [map]
   /// as its internal storage.
   ObjectEncoder(Serializer serializer, Map<dynamic, Value> map)
-        : super(serializer, map);
+      : super(serializer, map);
 
   String get _name => 'Object';
 }
@@ -32,8 +50,8 @@ class ObjectEncoder extends AbstractEncoder<Key> {
 /// An object that supports the encoding a [MapValue] for serialization.
 ///
 /// The [MapEncoder] ensures that nominality and circularities of
-/// non-primitive values like [Element], [DartType] and [ConstantExpression] are
-/// handled.
+/// non-primitive values like [Element], [ResolutionDartType] and
+/// [ConstantExpression] are handled.
 class MapEncoder extends AbstractEncoder<String> {
   /// Creates an [MapEncoder] in the scope of [serializer] that uses [map]
   /// as its internal storage.
@@ -47,8 +65,8 @@ class MapEncoder extends AbstractEncoder<String> {
 /// or [MapValue]s.
 ///
 /// The [ListEncoder] ensures that nominality and circularities of
-/// non-primitive values like [Element], [DartType] and [ConstantExpression] are
-/// handled.
+/// non-primitive values like [Element], [ResolutionDartType] and
+/// [ConstantExpression] are handled.
 class ListEncoder {
   final Serializer _serializer;
   final List<Value> _list;
@@ -88,10 +106,27 @@ abstract class AbstractEncoder<K> {
     }
   }
 
+  /// Maps the [key] entry to the [value] in the encoded object.
+  void setValue(K key, Value value) {
+    _checkKey(key);
+    _map[key] = value;
+  }
+
   /// Maps the [key] entry to the enum [value] in the encoded object.
   void setEnum(K key, var value) {
     _checkKey(key);
     _map[key] = new EnumValue(value);
+  }
+
+  /// Maps the [key] entry to the set of enum [values] in the encoded object.
+  void setEnums(K key, Iterable values) {
+    setEnumSet(key, new EnumSet.fromValues(values));
+  }
+
+  /// Maps the [key] entry to the enum [set] in the encoded object.
+  void setEnumSet(K key, EnumSet set) {
+    _checkKey(key);
+    _map[key] = new IntValue(set.value);
   }
 
   /// Maps the [key] entry to the [element] in the encoded object.
@@ -106,8 +141,8 @@ abstract class AbstractEncoder<K> {
   void setElements(K key, Iterable<Element> elements) {
     _checkKey(key);
     if (elements.isNotEmpty) {
-      _map[key] = new ListValue(
-          elements.map(_serializer.createElementValue).toList());
+      _map[key] =
+          new ListValue(elements.map(_serializer.createElementValue).toList());
     }
   }
 
@@ -129,7 +164,7 @@ abstract class AbstractEncoder<K> {
   }
 
   /// Maps the [key] entry to the [type] in the encoded object.
-  void setType(K key, DartType type) {
+  void setType(K key, ResolutionDartType type) {
     _checkKey(key);
     _map[key] = _serializer.createTypeValue(type);
   }
@@ -137,7 +172,7 @@ abstract class AbstractEncoder<K> {
   /// Maps the [key] entry to the [types] in the encoded object.
   ///
   /// If [types] is empty, it is skipped.
-  void setTypes(K key, Iterable<DartType> types) {
+  void setTypes(K key, Iterable<ResolutionDartType> types) {
     _checkKey(key);
     if (types.isNotEmpty) {
       _map[key] =
@@ -231,8 +266,7 @@ abstract class AbstractEncoder<K> {
 class ObjectDecoder extends AbstractDecoder<Key> {
   /// Creates an [ObjectDecoder] that decodes [map] into deserialized values
   /// using [deserializer] to create canonicalized values.
-  ObjectDecoder(Deserializer deserializer, Map map)
-      : super(deserializer, map);
+  ObjectDecoder(Deserializer deserializer, Map map) : super(deserializer, map);
 
   @override
   _getKeyValue(Key key) => _deserializer.decoder.getObjectPropertyValue(key);
@@ -312,6 +346,22 @@ abstract class AbstractDecoder<K> {
     return enumValues[value];
   }
 
+  /// Returns the set of enum values associated with [key] in the decoded
+  /// object.
+  ///
+  /// If no value is associated with [key], then if [isOptional] is `true`,
+  /// [defaultValue] is returned, otherwise an exception is thrown.
+  EnumSet getEnums(K key, {bool isOptional: false}) {
+    int value = _map[_getKeyValue(key)];
+    if (value == null) {
+      if (isOptional) {
+        return const EnumSet.fixed(0);
+      }
+      throw new StateError("enum values '$key' not found in $_map.");
+    }
+    return new EnumSet.fixed(value);
+  }
+
   /// Returns the [Element] value associated with [key] in the decoded object.
   ///
   /// If no value is associated with [key], then if [isOptional] is `true`,
@@ -375,11 +425,12 @@ abstract class AbstractDecoder<K> {
     return list.map(_deserializer.deserializeConstant).toList();
   }
 
-  /// Returns the [DartType] value associated with [key] in the decoded object.
+  /// Returns the [ResolutionDartType] value associated with [key] in the
+  /// decoded object.
   ///
   /// If no value is associated with [key], then if [isOptional] is `true`,
   /// `null` is returned, otherwise an exception is thrown.
-  DartType getType(K key, {bool isOptional: false}) {
+  ResolutionDartType getType(K key, {bool isOptional: false}) {
     int id = _map[_getKeyValue(key)];
     if (id == null) {
       if (isOptional) {
@@ -390,12 +441,12 @@ abstract class AbstractDecoder<K> {
     return _deserializer.deserializeType(id);
   }
 
-  /// Returns the list of [DartType] values associated with [key] in the decoded
-  /// object.
+  /// Returns the list of [ResolutionDartType] values associated with [key] in
+  /// the decoded object.
   ///
   /// If no value is associated with [key], then if [isOptional] is `true`,
   /// and empty [List] is returned, otherwise an exception is thrown.
-  List<DartType> getTypes(K key, {bool isOptional: false}) {
+  List<ResolutionDartType> getTypes(K key, {bool isOptional: false}) {
     List list = _map[_getKeyValue(key)];
     if (list == null) {
       if (isOptional) {
@@ -433,7 +484,7 @@ abstract class AbstractDecoder<K> {
       }
       throw new StateError("String value '$key' not found in $_map.");
     }
-    return value;
+    return canonicalNames[value] ?? value;
   }
 
   /// Returns the list of [String] values associated with [key] in the decoded
@@ -503,12 +554,20 @@ abstract class AbstractDecoder<K> {
   /// If no value is associated with [key], then if [isOptional] is `true`,
   /// [defaultValue] is returned, otherwise an exception is thrown.
   double getDouble(K key, {bool isOptional: false, double defaultValue}) {
-    double value = _map[_getKeyValue(key)];
+    var value = _map[_getKeyValue(key)];
     if (value == null) {
       if (isOptional || defaultValue != null) {
         return defaultValue;
       }
       throw new StateError("double value '$key' not found in $_map.");
+    }
+    // Support alternative encoding of NaN and +/- infinity for JSON.
+    if (value == 'NaN') {
+      return double.NAN;
+    } else if (value == '-Infinity') {
+      return double.NEGATIVE_INFINITY;
+    } else if (value == 'Infinity') {
+      return double.INFINITY;
     }
     return value;
   }
@@ -578,11 +637,16 @@ class DataObject {
   Map<Key, Value> get map => objectValue.map;
 }
 
+/// Function used to filter which element serialized.
+typedef bool ElementMatcher(Element element);
+
+bool includeAllElements(Element element) => true;
+
 /// Serializer for the transitive closure of a collection of libraries.
 ///
-/// The serializer creates an [ObjectValue] model of the [Element], [DartType]
-/// and [ConstantExpression] values in the transitive closure of the serialized
-/// libraries.
+/// The serializer creates an [ObjectValue] model of the [Element],
+/// [ResolutionDartType] and [ConstantExpression] values in the transitive
+/// closure of the serialized libraries.
 ///
 /// The model layout of the produced [objectValue] is:
 ///
@@ -604,26 +668,27 @@ class DataObject {
 ///       ],
 ///     }
 ///
-// TODO(johnniwinther): Support per-library serialization and dependencies
-// between serialized subcomponent.
+// TODO(johnniwinther): Support dependencies between serialized subcomponent.
 class Serializer {
-  final SerializationEncoder _encoder;
+  List<SerializerPlugin> plugins = <SerializerPlugin>[];
 
   Map<Element, DataObject> _elementMap = <Element, DataObject>{};
   Map<ConstantExpression, DataObject> _constantMap =
       <ConstantExpression, DataObject>{};
-  Map<DartType, DataObject> _typeMap = <DartType, DataObject>{};
+  Map<ResolutionDartType, DataObject> _typeMap =
+      <ResolutionDartType, DataObject>{};
   List _pendingList = [];
+  ElementMatcher shouldInclude;
 
-  Serializer(this._encoder);
+  // TODO(johnniwinther): Replace [includeElement] with a general strategy.
+  Serializer({this.shouldInclude: includeAllElements});
 
   /// Add the transitive closure of [library] to this serializer.
   void serialize(LibraryElement library) {
-    // Call [_getElementDataObject] for its side-effect: To create a
+    // Call [_getElementId] for its side-effect: To create a
     // [DataObject] for [library]. If not already created, this will
     // put the serialization of [library] in the work queue.
-    _getElementDataObject(library);
-    _emptyWorklist();
+    _getElementId(library);
   }
 
   void _emptyWorklist() {
@@ -632,35 +697,126 @@ class Serializer {
     }
   }
 
-  /// Returns the [DataObject] for [element].
+  /// Returns the id [Value] for [element].
   ///
-  /// If [constant] has no [DataObject], a new [DataObject] is created and
-  /// encoding the [ObjectValue] for [constant] is put into the work queue of
+  /// If [element] has no [DataObject], a new [DataObject] is created and
+  /// encoding the [ObjectValue] for [element] is put into the work queue of
   /// this serializer.
-  DataObject _getElementDataObject(Element element) {
+  Value _getElementId(Element element) {
     if (element == null) {
       throw new ArgumentError('Serializer._getElementDataObject(null)');
     }
-    return _elementMap.putIfAbsent(element, () {
-      // Run through [ELEMENT_SERIALIZERS] sequentially to find the one that
-      // deals with [element].
-      for (ElementSerializer serializer in ELEMENT_SERIALIZERS) {
-        SerializedElementKind kind = serializer.getSerializedKind(element);
-        if (kind != null) {
-          DataObject dataObject = new DataObject(
-              new IntValue(_elementMap.length), new EnumValue(kind));
-          // Delay the serialization of the element itself to avoid loops, and
-          // to keep the call stack small.
-          _pendingList.add(() {
-            serializer.serialize(
-                element, new ObjectEncoder(this, dataObject.map), kind);
-          });
-          return dataObject;
+    element = element.declaration;
+    DataObject dataObject = _elementMap[element];
+    if (dataObject == null) {
+      if (!shouldInclude(element)) {
+        /// Helper used to check that external references are serialized by
+        /// the right kind.
+        bool verifyElement(var found, var expected) {
+          if (found == null) return false;
+          found = found.declaration;
+          if (found == expected) return true;
+          if (found.isAbstractField && expected.isGetter) {
+            return found.getter == expected;
+          }
+          if (found.isAbstractField && expected.isSetter) {
+            return found.setter == expected;
+          }
+          return false;
+        }
+
+        if (element.isLibrary) {
+          LibraryElement library = element;
+          _elementMap[element] = dataObject = new DataObject(
+              new IntValue(_elementMap.length),
+              new EnumValue(SerializedElementKind.EXTERNAL_LIBRARY));
+          ObjectEncoder encoder = new ObjectEncoder(this, dataObject.map);
+          encoder.setUri(Key.URI, library.canonicalUri, library.canonicalUri);
+        } else if (element.isConstructor) {
+          assert(invariant(
+              element,
+              verifyElement(
+                  element.enclosingClass.implementation
+                      .lookupConstructor(element.name),
+                  element),
+              message: "Element $element is not found as a "
+                  "constructor of ${element.enclosingClass.implementation}."));
+          Value classId = _getElementId(element.enclosingClass);
+          _elementMap[element] = dataObject = new DataObject(
+              new IntValue(_elementMap.length),
+              new EnumValue(SerializedElementKind.EXTERNAL_CONSTRUCTOR));
+          ObjectEncoder encoder = new ObjectEncoder(this, dataObject.map);
+          encoder.setValue(Key.CLASS, classId);
+          encoder.setString(Key.NAME, element.name);
+        } else if (element.isClassMember) {
+          assert(invariant(
+              element,
+              verifyElement(
+                  element.enclosingClass.lookupLocalMember(element.name),
+                  element),
+              message: "Element $element is not found as a "
+                  "class member of ${element.enclosingClass}."));
+          Value classId = _getElementId(element.enclosingClass);
+          _elementMap[element] = dataObject = new DataObject(
+              new IntValue(_elementMap.length),
+              new EnumValue(SerializedElementKind.EXTERNAL_CLASS_MEMBER));
+          ObjectEncoder encoder = new ObjectEncoder(this, dataObject.map);
+          encoder.setValue(Key.CLASS, classId);
+          encoder.setString(Key.NAME, element.name);
+          if (element.isAccessor) {
+            encoder.setBool(Key.GETTER, element.isGetter);
+          }
+        } else {
+          assert(invariant(
+              element,
+              verifyElement(
+                  element.library.implementation.find(element.name), element),
+              message: "Element $element is not found as a "
+                  "library member of ${element.library.implementation}."));
+          Value libraryId = _getElementId(element.library);
+          _elementMap[element] = dataObject = new DataObject(
+              new IntValue(_elementMap.length),
+              new EnumValue(SerializedElementKind.EXTERNAL_LIBRARY_MEMBER));
+          ObjectEncoder encoder = new ObjectEncoder(this, dataObject.map);
+          encoder.setValue(Key.LIBRARY, libraryId);
+          encoder.setString(Key.NAME, element.name);
+          if (element.isAccessor) {
+            encoder.setBool(Key.GETTER, element.isGetter);
+          }
+        }
+      } else {
+        // Run through [ELEMENT_SERIALIZERS] sequentially to find the one that
+        // deals with [element].
+        for (ElementSerializer serializer in ELEMENT_SERIALIZERS) {
+          SerializedElementKind kind = serializer.getSerializedKind(element);
+          if (kind != null) {
+            _elementMap[element] = dataObject = new DataObject(
+                new IntValue(_elementMap.length), new EnumValue(kind));
+            // Delay the serialization of the element itself to avoid loops, and
+            // to keep the call stack small.
+            _pendingList.add(() {
+              ObjectEncoder encoder = new ObjectEncoder(this, dataObject.map);
+              serializer.serialize(element, encoder, kind);
+
+              MapEncoder pluginData;
+              for (SerializerPlugin plugin in plugins) {
+                plugin.onElement(element, (String tag) {
+                  if (pluginData == null) {
+                    pluginData = encoder.createMap(Key.DATA);
+                  }
+                  return pluginData.createObject(tag);
+                });
+              }
+            });
+          }
         }
       }
+    }
+    if (dataObject == null) {
       throw new UnsupportedError(
           'Unsupported element: $element (${element.kind})');
-    });
+    }
+    return dataObject.id;
   }
 
   /// Creates the [ElementValue] for [element].
@@ -668,15 +824,15 @@ class Serializer {
   /// If [element] has not already been serialized, it is added to the work
   /// queue of this serializer.
   ElementValue createElementValue(Element element) {
-    return new ElementValue(element, _getElementDataObject(element).id);
+    return new ElementValue(element, _getElementId(element));
   }
 
-  /// Returns the [DataObject] for [constant].
+  /// Returns the id [Value] for [constant].
   ///
   /// If [constant] has no [DataObject], a new [DataObject] is created and
   /// encoding the [ObjectValue] for [constant] is put into the work queue of
   /// this serializer.
-  DataObject _getConstantDataObject(ConstantExpression constant) {
+  Value _getConstantId(ConstantExpression constant) {
     return _constantMap.putIfAbsent(constant, () {
       DataObject dataObject = new DataObject(
           new IntValue(_constantMap.length), new EnumValue(constant.kind));
@@ -684,13 +840,13 @@ class Serializer {
       // keep the call stack small.
       _pendingList.add(() => _encodeConstant(constant, dataObject));
       return dataObject;
-    });
+    }).id;
   }
 
   /// Encodes [constant] into the [ObjectValue] of [dataObject].
   void _encodeConstant(ConstantExpression constant, DataObject dataObject) {
-    const ConstantSerializer().visit(constant,
-        new ObjectEncoder(this, dataObject.map));
+    const ConstantSerializer()
+        .visit(constant, new ObjectEncoder(this, dataObject.map));
   }
 
   /// Creates the [ConstantValue] for [constant].
@@ -698,27 +854,28 @@ class Serializer {
   /// If [constant] has not already been serialized, it is added to the work
   /// queue of this serializer.
   ConstantValue createConstantValue(ConstantExpression constant) {
-    return new ConstantValue(constant, _getConstantDataObject(constant).id);
+    return new ConstantValue(constant, _getConstantId(constant));
   }
 
-  /// Returns the [DataObject] for [type].
+  /// Returns the id [Value] for [type].
   ///
   /// If [type] has no [DataObject], a new [DataObject] is created and
   /// encoding the [ObjectValue] for [type] is put into the work queue of this
   /// serializer.
-  DataObject _getTypeDataObject(DartType type) {
-    return _typeMap.putIfAbsent(type, () {
-      DataObject dataObject = new DataObject(
+  Value _getTypeId(ResolutionDartType type) {
+    DataObject dataObject = _typeMap[type];
+    if (dataObject == null) {
+      _typeMap[type] = dataObject = new DataObject(
           new IntValue(_typeMap.length), new EnumValue(type.kind));
       // Delay the serialization of the type itself to avoid loops, and to keep
       // the call stack small.
       _pendingList.add(() => _encodeType(type, dataObject));
-      return dataObject;
-    });
+    }
+    return dataObject.id;
   }
 
   /// Encodes [type] into the [ObjectValue] of [dataObject].
-  void _encodeType(DartType type, DataObject dataObject) {
+  void _encodeType(ResolutionDartType type, DataObject dataObject) {
     const TypeSerializer().visit(type, new ObjectEncoder(this, dataObject.map));
   }
 
@@ -726,11 +883,13 @@ class Serializer {
   ///
   /// If [type] has not already been serialized, it is added to the work
   /// queue of this serializer.
-  TypeValue createTypeValue(DartType type) {
-    return new TypeValue(type, _getTypeDataObject(type).id);
+  TypeValue createTypeValue(ResolutionDartType type) {
+    return new TypeValue(type, _getTypeId(type));
   }
 
   ObjectValue get objectValue {
+    _emptyWorklist();
+
     Map<Key, Value> map = <Key, Value>{};
     map[Key.ELEMENTS] =
         new ListValue(_elementMap.values.map((l) => l.objectValue).toList());
@@ -745,8 +904,8 @@ class Serializer {
     return new ObjectValue(map);
   }
 
-  String toText() {
-    return _encoder.encode(objectValue);
+  String toText(SerializationEncoder encoder) {
+    return encoder.encode(objectValue);
   }
 
   String prettyPrint() {
@@ -755,20 +914,93 @@ class Serializer {
   }
 }
 
+/// Plugin for serializing additional data for an [Element].
+class SerializerPlugin {
+  const SerializerPlugin();
+
+  /// Called upon the serialization of [element].
+  ///
+  /// Use [creatorEncoder] to create a data object with id [tag] for storing
+  /// additional data for [element].
+  void onElement(Element element, ObjectEncoder createEncoder(String tag)) {}
+
+  /// Called to serialize custom [data].
+  void onData(var data, ObjectEncoder encoder) {}
+}
+
+/// Plugin for deserializing additional data for an [Element].
+class DeserializerPlugin {
+  const DeserializerPlugin();
+
+  /// Called upon the deserialization of [element].
+  ///
+  /// Use [getDecoder] to retrieve the data object with id [tag] stored for
+  /// [element]. If not object is stored for [tag], [getDecoder] returns `null`.
+  void onElement(Element element, ObjectDecoder getDecoder(String tag)) {}
+
+  /// Called to deserialize custom data from [decoder].
+  dynamic onData(ObjectDecoder decoder) {}
+}
+
+/// Context for parallel deserialization.
+class DeserializationContext {
+  final DiagnosticReporter reporter;
+  final Resolution resolution;
+  final LibraryProvider libraryProvider;
+  Map<Uri, LibraryElement> _uriMap = <Uri, LibraryElement>{};
+  List<Deserializer> deserializers = <Deserializer>[];
+  List<DeserializerPlugin> plugins = <DeserializerPlugin>[];
+
+  DeserializationContext(this.reporter, this.resolution, this.libraryProvider);
+
+  LibraryElement lookupLibrary(Uri uri) {
+    // TODO(johnniwinther): Move this to the library loader by making a
+    // [Deserializer] a [LibraryProvider].
+    return _uriMap.putIfAbsent(uri, () {
+      Uri foundUri;
+      LibraryElement foundLibrary;
+      for (Deserializer deserializer in deserializers) {
+        LibraryElement library = deserializer.lookupLibrary(uri);
+        if (library != null) {
+          if (foundLibrary != null) {
+            reporter.reportErrorMessage(NO_LOCATION_SPANNABLE,
+                MessageKind.DUPLICATE_SERIALIZED_LIBRARY, {
+              'libraryUri': uri,
+              'sourceUri1': foundUri,
+              'sourceUri2': deserializer.sourceUri
+            });
+          }
+          foundUri = deserializer.sourceUri;
+          foundLibrary = library;
+        }
+      }
+      return foundLibrary;
+    });
+  }
+
+  LibraryElement findLibrary(Uri uri) {
+    LibraryElement library = lookupLibrary(uri);
+    return library ?? libraryProvider.lookupLibrary(uri);
+  }
+}
+
 /// Deserializer for a closed collection of libraries.
 // TODO(johnniwinther): Support per-library deserialization and dependencies
 // between deserialized subcomponent.
 class Deserializer {
+  final DeserializationContext context;
   final SerializationDecoder decoder;
+  final Uri sourceUri;
   ObjectDecoder _headerObject;
   ListDecoder _elementList;
   ListDecoder _typeList;
   ListDecoder _constantList;
   Map<int, Element> _elementMap = {};
-  Map<int, DartType> _typeMap = {};
+  Map<int, ResolutionDartType> _typeMap = {};
   Map<int, ConstantExpression> _constantMap = {};
 
-  Deserializer.fromText(String text, this.decoder) {
+  Deserializer.fromText(
+      this.context, this.sourceUri, String text, this.decoder) {
     _headerObject = new ObjectDecoder(this, decoder.decode(text));
   }
 
@@ -780,7 +1012,8 @@ class Deserializer {
     return _elementList;
   }
 
-  /// Returns the [ListDecoder] for the [DartType]s in this deserializer.
+  /// Returns the [ListDecoder] for the [ResolutionDartType]s in this
+  /// deserializer.
   ListDecoder get types {
     if (_typeList == null) {
       _typeList = _headerObject.getList(Key.TYPES);
@@ -818,13 +1051,77 @@ class Deserializer {
   /// Returns the deserialized [Element] for [id].
   Element deserializeElement(int id) {
     if (id == null) throw new ArgumentError('Deserializer.getElement(null)');
-    return _elementMap.putIfAbsent(id, () {
-      return ElementDeserializer.deserialize(elements.getObject(id));
-    });
+    Element element = _elementMap[id];
+    if (element == null) {
+      ObjectDecoder decoder = elements.getObject(id);
+      SerializedElementKind elementKind =
+          decoder.getEnum(Key.KIND, SerializedElementKind.values);
+      if (elementKind == SerializedElementKind.EXTERNAL_LIBRARY) {
+        Uri uri = decoder.getUri(Key.URI);
+        element = context.findLibrary(uri);
+        if (element == null) {
+          throw new StateError("Missing library for $uri.");
+        }
+      } else if (elementKind == SerializedElementKind.EXTERNAL_LIBRARY_MEMBER) {
+        LibraryElement library = decoder.getElement(Key.LIBRARY);
+        String name = decoder.getString(Key.NAME);
+        bool isGetter = decoder.getBool(Key.GETTER, isOptional: true);
+        element = library.find(name);
+        if (element == null) {
+          throw new StateError("Missing library member for $name in $library.");
+        }
+        if (isGetter != null) {
+          AbstractFieldElement abstractField = element;
+          element = isGetter ? abstractField.getter : abstractField.setter;
+          if (element == null) {
+            throw new StateError(
+                "Missing ${isGetter ? 'getter' : 'setter'} for "
+                "$name in $library.");
+          }
+        }
+      } else if (elementKind == SerializedElementKind.EXTERNAL_CLASS_MEMBER) {
+        ClassElement cls = decoder.getElement(Key.CLASS);
+        cls.ensureResolved(context.resolution);
+        String name = decoder.getString(Key.NAME);
+        bool isGetter = decoder.getBool(Key.GETTER, isOptional: true);
+        element = cls.lookupLocalMember(name);
+        if (element == null) {
+          throw new StateError("Missing class member for $name in $cls.");
+        }
+        if (isGetter != null) {
+          AbstractFieldElement abstractField = element;
+          element = isGetter ? abstractField.getter : abstractField.setter;
+          if (element == null) {
+            throw new StateError(
+                "Missing ${isGetter ? 'getter' : 'setter'} for $name in $cls.");
+          }
+        }
+      } else if (elementKind == SerializedElementKind.EXTERNAL_CONSTRUCTOR) {
+        ClassElement cls = decoder.getElement(Key.CLASS);
+        cls.ensureResolved(context.resolution);
+        String name = decoder.getString(Key.NAME);
+        element = cls.lookupConstructor(name);
+        if (element == null) {
+          throw new StateError("Missing constructor for $name in $cls.");
+        }
+      } else {
+        element = ElementDeserializer.deserialize(decoder, elementKind);
+      }
+      _elementMap[id] = element;
+
+      MapDecoder pluginData = decoder.getMap(Key.DATA, isOptional: true);
+      // Call plugins even when there is no data, so they can take action in
+      // this case.
+      for (DeserializerPlugin plugin in context.plugins) {
+        plugin.onElement(element,
+            (String tag) => pluginData?.getObject(tag, isOptional: true));
+      }
+    }
+    return element;
   }
 
-  /// Returns the deserialized [DartType] for [id].
-  DartType deserializeType(int id) {
+  /// Returns the deserialized [ResolutionDartType] for [id].
+  ResolutionDartType deserializeType(int id) {
     if (id == null) throw new ArgumentError('Deserializer.getType(null)');
     return _typeMap.putIfAbsent(id, () {
       return TypeDeserializer.deserialize(types.getObject(id));

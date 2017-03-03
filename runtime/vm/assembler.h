@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_ASSEMBLER_H_
-#define VM_ASSEMBLER_H_
+#ifndef RUNTIME_VM_ASSEMBLER_H_
+#define RUNTIME_VM_ASSEMBLER_H_
 
 #include "platform/assert.h"
 #include "vm/allocation.h"
@@ -14,8 +14,7 @@
 
 namespace dart {
 
-#if defined(TARGET_ARCH_ARM) ||                                                \
-    defined(TARGET_ARCH_ARM64) ||                                              \
+#if defined(TARGET_ARCH_ARM) || defined(TARGET_ARCH_ARM64) ||                  \
     defined(TARGET_ARCH_MIPS)
 DECLARE_FLAG(bool, use_far_branches);
 #endif
@@ -78,29 +77,31 @@ class AssemblerBuffer : public ValueObject {
   ~AssemblerBuffer();
 
   // Basic support for emitting, loading, and storing.
-  template<typename T> void Emit(T value) {
+  template <typename T>
+  void Emit(T value) {
     ASSERT(HasEnsuredCapacity());
     *reinterpret_cast<T*>(cursor_) = value;
     cursor_ += sizeof(T);
   }
 
-  template<typename T> void Remit() {
+  template <typename T>
+  void Remit() {
     ASSERT(Size() >= static_cast<intptr_t>(sizeof(T)));
     cursor_ -= sizeof(T);
   }
 
   // Return address to code at |position| bytes.
-  uword Address(intptr_t position) {
-    return contents_ + position;
-  }
+  uword Address(intptr_t position) { return contents_ + position; }
 
-  template<typename T> T Load(intptr_t position) {
+  template <typename T>
+  T Load(intptr_t position) {
     ASSERT(position >= 0 &&
            position <= (Size() - static_cast<intptr_t>(sizeof(T))));
     return *reinterpret_cast<T*>(contents_ + position);
   }
 
-  template<typename T> void Store(intptr_t position, T value) {
+  template <typename T>
+  void Store(intptr_t position, T value) {
     ASSERT(position >= 0 &&
            position <= (Size() - static_cast<intptr_t>(sizeof(T))));
     *reinterpret_cast<T*>(contents_ + position) = value;
@@ -135,13 +136,13 @@ class AssemblerBuffer : public ValueObject {
   // and apply all fixups.
   void FinalizeInstructions(const MemoryRegion& region);
 
-  // To emit an instruction to the assembler buffer, the EnsureCapacity helper
-  // must be used to guarantee that the underlying data area is big enough to
-  // hold the emitted instruction. Usage:
-  //
-  //     AssemblerBuffer buffer;
-  //     AssemblerBuffer::EnsureCapacity ensured(&buffer);
-  //     ... emit bytes for single instruction ...
+// To emit an instruction to the assembler buffer, the EnsureCapacity helper
+// must be used to guarantee that the underlying data area is big enough to
+// hold the emitted instruction. Usage:
+//
+//     AssemblerBuffer buffer;
+//     AssemblerBuffer::EnsureCapacity ensured(&buffer);
+//     ... emit bytes for single instruction ...
 
 #if defined(DEBUG)
   class EnsureCapacity : public ValueObject {
@@ -174,6 +175,8 @@ class AssemblerBuffer : public ValueObject {
 
   // Returns the position in the instruction stream.
   intptr_t GetPosition() const { return cursor_ - contents_; }
+
+  void Reset() { cursor_ = contents_; }
 
  private:
   // The limit is set to kMinimumGap bytes before the end of the data area.
@@ -213,14 +216,13 @@ class AssemblerBuffer : public ValueObject {
 
 
 struct ObjectPoolWrapperEntry {
-  ObjectPoolWrapperEntry()
-    : raw_value_(), type_(), equivalence_() { }
+  ObjectPoolWrapperEntry() : raw_value_(), type_(), equivalence_() {}
   explicit ObjectPoolWrapperEntry(const Object* obj)
-    : obj_(obj), type_(ObjectPool::kTaggedObject), equivalence_(obj) { }
+      : obj_(obj), type_(ObjectPool::kTaggedObject), equivalence_(obj) {}
   explicit ObjectPoolWrapperEntry(const Object* obj, const Object* eqv)
-    : obj_(obj), type_(ObjectPool::kTaggedObject), equivalence_(eqv) { }
+      : obj_(obj), type_(ObjectPool::kTaggedObject), equivalence_(eqv) {}
   ObjectPoolWrapperEntry(uword value, ObjectPool::EntryType info)
-    : raw_value_(value), type_(info), equivalence_() { }
+      : raw_value_(value), type_(info), equivalence_() {}
 
   union {
     const Object* obj_;
@@ -241,22 +243,15 @@ class ObjIndexPair {
 
   static const intptr_t kNoIndex = -1;
 
-  ObjIndexPair() : key_(static_cast<uword>(NULL), ObjectPool::kTaggedObject),
-                   value_(kNoIndex) { }
+  ObjIndexPair()
+      : key_(static_cast<uword>(NULL), ObjectPool::kTaggedObject),
+        value_(kNoIndex) {}
 
   ObjIndexPair(Key key, Value value) : value_(value) {
     key_.type_ = key.type_;
     if (key.type_ == ObjectPool::kTaggedObject) {
-      if (key.obj_->IsNotTemporaryScopedHandle()) {
-        key_.obj_ = key.obj_;
-      } else {
-        key_.obj_ = &Object::ZoneHandle(key.obj_->raw());
-      }
-      if (key.equivalence_->IsNotTemporaryScopedHandle()) {
-        key_.equivalence_ = key.equivalence_;
-      } else {
-        key_.equivalence_ = &Object::ZoneHandle(key.equivalence_->raw());
-      }
+      key_.obj_ = key.obj_;
+      key_.equivalence_ = key.equivalence_;
     } else {
       key_.raw_value_ = key.raw_value_;
     }
@@ -273,20 +268,12 @@ class ObjIndexPair {
     if (key.obj_->IsSmi()) {
       return Smi::Cast(*key.obj_).Value();
     }
-    if (key.obj_->IsDouble()) {
-      return static_cast<intptr_t>(
-          bit_cast<int32_t, float>(
-              static_cast<float>(Double::Cast(*key.obj_).value())));
-    }
-    if (key.obj_->IsMint()) {
-      return static_cast<intptr_t>(Mint::Cast(*key.obj_).value());
-    }
-    if (key.obj_->IsString()) {
-      return String::Cast(*key.obj_).Hash();
-    }
-    // TODO(fschneider): Add hash function for other classes commonly used as
-    // compile-time constants.
-    return key.obj_->GetClassId();
+    // TODO(asiva) For now we assert that the object is from Old space
+    // and use the address of the raw object, once the weak_entry_table code
+    // in heap allows for multiple thread access we should switch this code
+    // to create a temporary raw obj => id mapping and use that.
+    ASSERT(key.obj_->IsOld());
+    return reinterpret_cast<intptr_t>(key.obj_->raw());
   }
 
   static inline bool IsKeyEqual(Pair kv, Key key) {
@@ -312,17 +299,14 @@ enum Patchability {
 
 class ObjectPoolWrapper : public ValueObject {
  public:
-  intptr_t AddObject(const Object& obj,
-                     Patchability patchable = kNotPatchable);
+  intptr_t AddObject(const Object& obj, Patchability patchable = kNotPatchable);
   intptr_t AddImmediate(uword imm);
 
   intptr_t FindObject(const Object& obj,
                       Patchability patchable = kNotPatchable);
-  intptr_t FindObject(const Object& obj,
-                      const Object& equivalence);
+  intptr_t FindObject(const Object& obj, const Object& equivalence);
   intptr_t FindImmediate(uword imm);
-  intptr_t FindNativeEntry(const ExternalLabel* label,
-                           Patchability patchable);
+  intptr_t FindNativeEntry(const ExternalLabel* label, Patchability patchable);
 
   RawObjectPool* MakeObjectPool();
 
@@ -338,10 +322,7 @@ class ObjectPoolWrapper : public ValueObject {
 };
 
 
-enum RestorePP {
-  kRestoreCallerPP,
-  kKeepCalleePP
-};
+enum RestorePP { kRestoreCallerPP, kKeepCalleePP };
 
 }  // namespace dart
 
@@ -356,8 +337,10 @@ enum RestorePP {
 #include "vm/assembler_arm64.h"
 #elif defined(TARGET_ARCH_MIPS)
 #include "vm/assembler_mips.h"
+#elif defined(TARGET_ARCH_DBC)
+#include "vm/assembler_dbc.h"
 #else
 #error Unknown architecture.
 #endif
 
-#endif  // VM_ASSEMBLER_H_
+#endif  // RUNTIME_VM_ASSEMBLER_H_

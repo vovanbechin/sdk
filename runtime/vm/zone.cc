@@ -6,6 +6,7 @@
 
 #include "platform/assert.h"
 #include "platform/utils.h"
+#include "vm/dart_api_state.h"
 #include "vm/flags.h"
 #include "vm/handles_impl.h"
 #include "vm/heap.h"
@@ -35,7 +36,7 @@ class Zone::Segment {
   // Computes the address of the nth byte in this segment.
   uword address(int n) { return reinterpret_cast<uword>(this) + n; }
 
-  static void Delete(Segment* segment) { delete[] segment; }
+  static void Delete(Segment* segment) { free(segment); }
 
   DISALLOW_IMPLICIT_CONSTRUCTORS(Segment);
 };
@@ -43,7 +44,14 @@ class Zone::Segment {
 
 void Zone::Segment::DeleteSegmentList(Segment* head) {
   Segment* current = head;
+  Thread* current_thread = Thread::Current();
   while (current != NULL) {
+    if (current_thread != NULL) {
+      current_thread->DecrementMemoryUsage(current->size());
+    } else if (ApiNativeScope::Current() != NULL) {
+      // If there is no current thread, we might be inside of a native scope.
+      ApiNativeScope::DecrementNativeScopeMemoryUsage(current->size());
+    }
     Segment* next = current->next();
 #ifdef DEBUG
     // Zap the entire current segment (including the header).
@@ -57,17 +65,60 @@ void Zone::Segment::DeleteSegmentList(Segment* head) {
 
 Zone::Segment* Zone::Segment::New(intptr_t size, Zone::Segment* next) {
   ASSERT(size >= 0);
-  Segment* result = reinterpret_cast<Segment*>(new uint8_t[size]);
+  Segment* result = reinterpret_cast<Segment*>(malloc(size));
+  if (result == NULL) {
+    OUT_OF_MEMORY();
+  }
   ASSERT(Utils::IsAligned(result->start(), Zone::kAlignment));
-  if (result != NULL) {
 #ifdef DEBUG
-    // Zap the entire allocated segment (including the header).
-    memset(result, kZapUninitializedByte, size);
+  // Zap the entire allocated segment (including the header).
+  memset(result, kZapUninitializedByte, size);
 #endif
-    result->next_ = next;
-    result->size_ = size;
+  result->next_ = next;
+  result->size_ = size;
+  Thread* current = Thread::Current();
+  if (current != NULL) {
+    current->IncrementMemoryUsage(size);
+  } else if (ApiNativeScope::Current() != NULL) {
+    // If there is no current thread, we might be inside of a native scope.
+    ApiNativeScope::IncrementNativeScopeMemoryUsage(size);
   }
   return result;
+}
+
+// TODO(bkonyi): We need to account for the initial chunk size when a new zone
+// is created within a new thread or ApiNativeScope when calculating high
+// watermarks or memory consumption.
+Zone::Zone()
+    : initial_buffer_(buffer_, kInitialChunkSize),
+      position_(initial_buffer_.start()),
+      limit_(initial_buffer_.end()),
+      head_(NULL),
+      large_segments_(NULL),
+      handles_(),
+      previous_(NULL) {
+  ASSERT(Utils::IsAligned(position_, kAlignment));
+  Thread* current = Thread::Current();
+  if (current != NULL) {
+    current->IncrementMemoryUsage(kInitialChunkSize);
+  }
+#ifdef DEBUG
+  // Zap the entire initial buffer.
+  memset(initial_buffer_.pointer(), kZapUninitializedByte,
+         initial_buffer_.size());
+#endif
+}
+
+
+Zone::~Zone() {
+  if (FLAG_trace_zones) {
+    DumpZoneSizes();
+  }
+  Thread* current = Thread::Current();
+  if (current != NULL) {
+    current->DecrementMemoryUsage(kInitialChunkSize);
+  }
+  DeleteAll();
 }
 
 
@@ -80,8 +131,7 @@ void Zone::DeleteAll() {
   if (large_segments_ != NULL) {
     Segment::DeleteSegmentList(large_segments_);
   }
-
-  // Reset zone state.
+// Reset zone state.
 #ifdef DEBUG
   memset(initial_buffer_.pointer(), kZapDeletedByte, initial_buffer_.size());
 #endif
@@ -110,6 +160,22 @@ intptr_t Zone::SizeInBytes() const {
 }
 
 
+intptr_t Zone::CapacityInBytes() const {
+  intptr_t size = 0;
+  for (Segment* s = large_segments_; s != NULL; s = s->next()) {
+    size += s->size();
+  }
+  if (head_ == NULL) {
+    return size + initial_buffer_.size();
+  }
+  size += initial_buffer_.size();
+  for (Segment* s = head_; s != NULL; s = s->next()) {
+    size += s->size();
+  }
+  return size;
+}
+
+
 uword Zone::AllocateExpand(intptr_t size) {
   ASSERT(size >= 0);
   if (FLAG_trace_zones) {
@@ -121,11 +187,11 @@ uword Zone::AllocateExpand(intptr_t size) {
   // there isn't enough room in the Zone to satisfy the request.
   ASSERT(Utils::IsAligned(size, kAlignment));
   intptr_t free_size = (limit_ - position_);
-  ASSERT(free_size <  size);
+  ASSERT(free_size < size);
 
   // First check to see if we should just chain it as a large segment.
-  intptr_t max_size = Utils::RoundDown(kSegmentSize - sizeof(Segment),
-                                       kAlignment);
+  intptr_t max_size =
+      Utils::RoundDown(kSegmentSize - sizeof(Segment), kAlignment);
   ASSERT(max_size > 0);
   if (size > max_size) {
     return AllocateLargeSegment(size);
@@ -149,7 +215,7 @@ uword Zone::AllocateLargeSegment(intptr_t size) {
   // there isn't enough room in the Zone to satisfy the request.
   ASSERT(Utils::IsAligned(size, kAlignment));
   intptr_t free_size = (limit_ - position_);
-  ASSERT(free_size <  size);
+  ASSERT(free_size < size);
 
   // Create a new large segment and chain it up.
   ASSERT(Utils::IsAligned(sizeof(Segment), kAlignment));
@@ -165,6 +231,21 @@ char* Zone::MakeCopyOfString(const char* str) {
   intptr_t len = strlen(str) + 1;  // '\0'-terminated.
   char* copy = Alloc<char>(len);
   strncpy(copy, str, len);
+  return copy;
+}
+
+
+char* Zone::MakeCopyOfStringN(const char* str, intptr_t len) {
+  ASSERT(len >= 0);
+  for (intptr_t i = 0; i < len; i++) {
+    if (str[i] == '\0') {
+      len = i;
+      break;
+    }
+  }
+  char* copy = Alloc<char>(len + 1);  // +1 for '\0'
+  strncpy(copy, str, len);
+  copy[len] = '\0';
   return copy;
 }
 
@@ -189,7 +270,8 @@ void Zone::DumpZoneSizes() {
   for (Segment* s = large_segments_; s != NULL; s = s->next()) {
     size += s->size();
   }
-  OS::PrintErr("***   Zone(0x%" Px ") size in bytes,"
+  OS::PrintErr("***   Zone(0x%" Px
+               ") size in bytes,"
                " Total = %" Pd " Large Segments = %" Pd "\n",
                reinterpret_cast<intptr_t>(this), SizeInBytes(), size);
 }
@@ -217,5 +299,38 @@ char* Zone::VPrint(const char* format, va_list args) {
   return OS::VSCreate(this, format, args);
 }
 
+
+#ifndef PRODUCT
+void Zone::PrintJSON(JSONStream* stream) const {
+  JSONObject jsobj(stream);
+  intptr_t capacity = CapacityInBytes();
+  intptr_t used_size = SizeInBytes();
+  jsobj.AddProperty("type", "_Zone");
+  jsobj.AddProperty("capacity", capacity);
+  jsobj.AddProperty("used", used_size);
+}
+#endif
+
+
+StackZone::StackZone(Thread* thread) : StackResource(thread), zone_() {
+  if (FLAG_trace_zones) {
+    OS::PrintErr("*** Starting a new Stack zone 0x%" Px "(0x%" Px ")\n",
+                 reinterpret_cast<intptr_t>(this),
+                 reinterpret_cast<intptr_t>(&zone_));
+  }
+  zone_.Link(thread->zone());
+  thread->set_zone(&zone_);
+}
+
+
+StackZone::~StackZone() {
+  ASSERT(thread()->zone() == &zone_);
+  thread()->set_zone(zone_.previous_);
+  if (FLAG_trace_zones) {
+    OS::PrintErr("*** Deleting Stack zone 0x%" Px "(0x%" Px ")\n",
+                 reinterpret_cast<intptr_t>(this),
+                 reinterpret_cast<intptr_t>(&zone_));
+  }
+}
 
 }  // namespace dart

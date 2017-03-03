@@ -79,9 +79,9 @@ class CodegenProtocolVisitor extends DartCodegenVisitor with CodeGenerator {
   final Map<String, ImpliedType> impliedTypes;
 
   CodegenProtocolVisitor(Api api)
-      : super(api),
-        toHtmlVisitor = new ToHtmlVisitor(api),
-        impliedTypes = computeImpliedTypes(api) {
+      : toHtmlVisitor = new ToHtmlVisitor(api),
+        impliedTypes = computeImpliedTypes(api),
+        super(api) {
     codeGeneratorSettings.commentLineLength = 79;
     codeGeneratorSettings.languageName = 'dart';
   }
@@ -216,7 +216,14 @@ class CodegenProtocolVisitor extends DartCodegenVisitor with CodeGenerator {
         toHtmlVisitor.write(disclaimer);
       });
     }));
-    writeln('class $className {');
+    write('class $className');
+    if (impliedType.kind == 'refactoringFeedback') {
+      writeln(' extends RefactoringFeedback {');
+    } else if (impliedType.kind == 'refactoringOptions') {
+      writeln(' extends RefactoringOptions {');
+    } else {
+      writeln(' {');
+    }
     indent(() {
       if (emitToRequestMember(impliedType)) {
         writeln();
@@ -260,7 +267,7 @@ class CodegenProtocolVisitor extends DartCodegenVisitor with CodeGenerator {
         }));
         String valueString = literalString(value.value);
         writeln(
-            'static const ${value.value} = const $className._($valueString);');
+            'static const $className ${value.value} = const $className._($valueString);');
         writeln();
       }
 
@@ -378,12 +385,12 @@ class CodegenProtocolVisitor extends DartCodegenVisitor with CodeGenerator {
     }));
     write('class $className');
     if (impliedType.kind == 'refactoringFeedback') {
-      write(' extends RefactoringFeedback');
+      writeln(' extends RefactoringFeedback {');
+    } else if (impliedType.kind == 'refactoringOptions') {
+      writeln(' extends RefactoringOptions {');
+    } else {
+      writeln(' implements HasToJson {');
     }
-    if (impliedType.kind == 'refactoringOptions') {
-      write(' extends RefactoringOptions');
-    }
-    writeln(' implements HasToJson {');
     indent(() {
       if (emitSpecialStaticMembers(className)) {
         writeln();

@@ -4,13 +4,16 @@
 
 library analysis_server.src.domain_diagnostic;
 
+import 'dart:async';
 import 'dart:collection';
-import 'dart:core' hide Resource;
+import 'dart:core';
 
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analysis_server/src/analysis_server.dart';
+import 'package:analysis_server/src/constants.dart';
 import 'package:analyzer/src/context/cache.dart';
 import 'package:analyzer/src/context/context.dart';
+import 'package:analyzer/src/dart/analysis/driver.dart' as nd;
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/utilities_collection.dart';
@@ -26,9 +29,6 @@ int _workItemCount(AnalysisContextImpl context) {
 /// Instances of the class [DiagnosticDomainHandler] implement a
 /// [RequestHandler] that handles requests in the `diagnostic` domain.
 class DiagnosticDomainHandler implements RequestHandler {
-  /// The name of the request used to get diagnostic information.
-  static const String DIAGNOSTICS = 'diagnostic.getDiagnostics';
-
   /// The analysis server that is using this handler to process requests.
   final AnalysisServer server;
 
@@ -36,17 +36,21 @@ class DiagnosticDomainHandler implements RequestHandler {
   /// [server].
   DiagnosticDomainHandler(this.server);
 
-  /// Answer the `diagnostic.diagnostics` request.
+  /// Answer the `diagnostic.getDiagnostics` request.
   Response computeDiagnostics(Request request) {
-    List<ContextData> infos = <ContextData>[];
-    for (AnalysisContext context in server.analysisContexts) {
-      infos.add(extractData(context));
+    List<ContextData> contexts = <ContextData>[];
+    if (server.options.enableNewAnalysisDriver) {
+      contexts = server.driverMap.values.map(extractDataFromDriver).toList();
+    } else {
+      for (AnalysisContext context in server.analysisContexts) {
+        contexts.add(extractDataFromContext(context));
+      }
     }
-    return new DiagnosticGetDiagnosticsResult(infos).toResponse(request.id);
+    return new DiagnosticGetDiagnosticsResult(contexts).toResponse(request.id);
   }
 
   /// Extract context data from the given [context].
-  ContextData extractData(AnalysisContext context) {
+  ContextData extractDataFromContext(AnalysisContext context) {
     int explicitFiles = 0;
     int implicitFiles = 0;
     int workItems = 0;
@@ -84,16 +88,40 @@ class DiagnosticDomainHandler implements RequestHandler {
         workItems, exceptions.toList());
   }
 
+  /// Extract context data from the given [driver].
+  ContextData extractDataFromDriver(nd.AnalysisDriver driver) {
+    int explicitFileCount = driver.addedFiles.length;
+    int knownFileCount = driver.knownFiles.length;
+    return new ContextData(driver.name, explicitFileCount,
+        knownFileCount - explicitFileCount, driver.numberOfFilesToAnalyze, []);
+  }
+
   @override
   Response handleRequest(Request request) {
     try {
       String requestName = request.method;
-      if (requestName == DIAGNOSTICS) {
+      if (requestName == DIAGNOSTIC_GET_DIAGNOSTICS) {
         return computeDiagnostics(request);
+      } else if (requestName == DIAGNOSTIC_GET_SERVER_PORT) {
+        handleGetServerPort(request);
+        return Response.DELAYED_RESPONSE;
       }
     } on RequestFailure catch (exception) {
       return exception.response;
     }
     return null;
+  }
+
+  /// Answer the `diagnostic.getServerPort` request.
+  Future handleGetServerPort(Request request) async {
+    try {
+      // Open a port (or return the existing one).
+      int port = await server.diagnosticServer.getServerPort();
+      server.sendResponse(
+          new DiagnosticGetServerPortResult(port).toResponse(request.id));
+    } catch (error) {
+      server
+          .sendResponse(new Response.debugPortCouldNotBeOpened(request, error));
+    }
   }
 }

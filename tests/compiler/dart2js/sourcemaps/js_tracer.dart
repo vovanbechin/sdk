@@ -7,6 +7,7 @@ library sourcemap.js_tracer;
 import 'package:compiler/src/io/source_information.dart';
 import 'package:compiler/src/io/position_information.dart';
 import 'package:compiler/src/js/js.dart' as js;
+import 'package:compiler/src/js/js_source_mapping.dart';
 import 'sourcemap_helper.dart';
 import 'trace_graph.dart';
 
@@ -17,7 +18,10 @@ TraceGraph createTraceGraph(SourceMapInfo info, Coverage coverage) {
   CodePositionMap codePositions =
       new CodePositionCoverage(info.jsCodePositions, coverage);
   JavaScriptTracer tracer = new JavaScriptTracer(
-      codePositions, [new CoverageListener(coverage), listener]);
+      codePositions, const SourceInformationReader(), [
+    new CoverageListener(coverage, const SourceInformationReader()),
+    listener
+  ]);
   info.node.accept(tracer);
   return graph;
 }
@@ -28,6 +32,8 @@ class StepTraceListener extends TraceListener
   final TraceGraph graph;
 
   StepTraceListener(this.graph);
+
+  SourceInformationReader get reader => const SourceInformationReader();
 
   @override
   void onStep(js.Node node, Offset offset, StepKind kind) {
@@ -82,42 +88,30 @@ class StepTraceListener extends TraceListener
         js.Switch switchNode = node;
         text = ['switch(', switchNode.key, ') ...'];
         break;
-
+      case StepKind.NO_INFO:
+        break;
     }
-    createTraceStep(
-        kind,
-        node,
+    createTraceStep(kind, node,
         offset: offset,
-        sourceLocation: getSourceLocation(
-            sourceInformation, sourcePositionKind),
+        sourceLocation:
+            getSourceLocation(sourceInformation, sourcePositionKind),
         text: text);
   }
 
-  void createTraceStep(
-      StepKind kind,
-      js.Node node,
-      {Offset offset,
-       List text,
-       String note,
-       SourceLocation sourceLocation}) {
+  void createTraceStep(StepKind kind, js.Node node,
+      {Offset offset, List text, String note, SourceLocation sourceLocation}) {
     int id = steppableMap.length;
 
     if (text == null) {
       text = [node];
     }
 
-    TraceStep step = new TraceStep(
-        kind,
-        id,
-        node,
-        offset,
-        text,
-        sourceLocation);
+    TraceStep step =
+        new TraceStep(kind, id, node, offset, text, sourceLocation);
     graph.addStep(step);
 
     steppableMap[node] = step;
   }
-
 
   void pushBranch(BranchKind kind, [value]) {
     var branch;

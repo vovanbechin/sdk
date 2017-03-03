@@ -4,29 +4,26 @@
 
 library analyzer_cli.src.analyzer_impl;
 
+import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
 import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/source/error_processor.dart';
-import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
-import 'package:analyzer/src/generated/java_engine.dart';
+import 'package:analyzer/error/error.dart';
+import 'package:analyzer/exception/exception.dart';
+import 'package:analyzer/src/dart/analysis/driver.dart';
+import 'package:analyzer/src/generated/engine.dart' hide AnalysisResult;
 import 'package:analyzer/src/generated/java_io.dart';
-import 'package:analyzer/src/generated/sdk_io.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/source_io.dart';
 import 'package:analyzer/src/generated/utilities_general.dart';
 import 'package:analyzer_cli/src/driver.dart';
 import 'package:analyzer_cli/src/error_formatter.dart';
+import 'package:analyzer_cli/src/error_severity.dart';
 import 'package:analyzer_cli/src/options.dart';
+import 'package:path/path.dart' as path;
 
-/// The maximum number of sources for which AST structures should be kept in the cache.
-const int _maxCacheSize = 512;
-
-DirectoryBasedDartSdk sdk;
-
-int currentTimeMillis() => new DateTime.now().millisecondsSinceEpoch;
+int get currentTimeMillis => new DateTime.now().millisecondsSinceEpoch;
 
 /// Analyzes single library [File].
 class AnalyzerImpl {
@@ -38,7 +35,12 @@ class AnalyzerImpl {
   final CommandLineOptions options;
   final int startTime;
 
+  final AnalysisOptions analysisOptions;
   final AnalysisContext context;
+  final AnalysisDriver analysisDriver;
+
+  /// Accumulated analysis statistics.
+  final AnalysisStats stats;
 
   final Source librarySource;
 
@@ -59,7 +61,8 @@ class AnalyzerImpl {
   /// specified the "--package-warnings" option.
   String _selfPackageName;
 
-  AnalyzerImpl(this.context, this.librarySource, this.options, this.startTime);
+  AnalyzerImpl(this.analysisOptions, this.context, this.analysisDriver,
+      this.librarySource, this.options, this.stats, this.startTime);
 
   /// Returns the maximal [ErrorSeverity] of the recorded errors.
   ErrorSeverity get maxErrorSeverity {
@@ -76,8 +79,8 @@ class AnalyzerImpl {
     return status;
   }
 
-  void addCompilationUnitSource(CompilationUnitElement unit,
-      Set<LibraryElement> libraries, Set<CompilationUnitElement> units) {
+  void addCompilationUnitSource(
+      CompilationUnitElement unit, Set<CompilationUnitElement> units) {
     if (unit == null || units.contains(unit)) {
       return;
     }
@@ -91,21 +94,13 @@ class AnalyzerImpl {
       return;
     }
     // Maybe skip library.
-    {
-      UriKind uriKind = library.source.uriKind;
-      // Optionally skip package: libraries.
-      if (!options.showPackageWarnings && _isOtherPackage(library.source.uri)) {
-        return;
-      }
-      // Optionally skip SDK libraries.
-      if (!options.showSdkWarnings && uriKind == UriKind.DART_URI) {
-        return;
-      }
+    if (!_isAnalyzedLibrary(library)) {
+      return;
     }
     // Add compilation units.
-    addCompilationUnitSource(library.definingCompilationUnit, libraries, units);
+    addCompilationUnitSource(library.definingCompilationUnit, units);
     for (CompilationUnitElement child in library.parts) {
-      addCompilationUnitSource(child, libraries, units);
+      addCompilationUnitSource(child, units);
     }
     // Add referenced libraries.
     for (LibraryElement child in library.importedLibraries) {
@@ -116,24 +111,34 @@ class AnalyzerImpl {
     }
   }
 
-  /// Treats the [sourcePath] as the top level library and analyzes it using a
-  /// synchronous algorithm over the analysis engine. If [printMode] is `0`,
-  /// then no error or performance information is printed. If [printMode] is `1`,
-  /// then both will be printed. If [printMode] is `2`, then only performance
-  /// information will be printed, and it will be marked as being for a cold VM.
-  ErrorSeverity analyzeSync({int printMode: 1}) {
+  /// Treats the [sourcePath] as the top level library and analyzes it using
+  /// the analysis engine. If [printMode] is `0`, then no error or performance
+  /// information is printed. If [printMode] is `1`, then errors will be printed.
+  /// If [printMode] is `2`, then performance information will be printed, and
+  /// it will be marked as being for a cold VM.
+  Future<ErrorSeverity> analyze({int printMode: 1}) async {
     setupForAnalysis();
-    return _analyzeSync(printMode);
+    return await _analyze(printMode);
   }
 
   /// Fills [errorInfos] using [sources].
-  void prepareErrors() {
-    return _prepareErrorsTag.makeCurrentWhile(() {
+  Future<Null> prepareErrors() async {
+    PerformanceTag previous = _prepareErrorsTag.makeCurrent();
+    try {
       for (Source source in sources) {
-        context.computeErrors(source);
-        errorInfos.add(context.getErrors(source));
+        if (analysisDriver != null) {
+          String path = source.fullName;
+          ErrorsResult errorsResult = await analysisDriver.getErrors(path);
+          errorInfos.add(new AnalysisErrorInfoImpl(
+              errorsResult.errors, errorsResult.lineInfo));
+        } else {
+          context.computeErrors(source);
+          errorInfos.add(context.getErrors(source));
+        }
       }
-    });
+    } finally {
+      previous.makeCurrent();
+    }
   }
 
   /// Fills [sources].
@@ -153,18 +158,21 @@ class AnalyzerImpl {
     }
   }
 
-  /// The sync version of analysis.
-  ErrorSeverity _analyzeSync(int printMode) {
+  Future<ErrorSeverity> _analyze(int printMode) async {
     // Don't try to analyze parts.
-    if (context.computeKindOf(librarySource) == SourceKind.PART) {
+    String path = librarySource.fullName;
+    SourceKind librarySourceKind = analysisDriver != null
+        ? await analysisDriver.getSourceKind(path)
+        : context.computeKindOf(librarySource);
+    if (librarySourceKind == SourceKind.PART) {
       stderr.writeln("Only libraries can be analyzed.");
-      stderr.writeln(
-          "${librarySource.fullName} is a part and can not be analyzed.");
+      stderr.writeln("${path} is a part and can not be analyzed.");
       return ErrorSeverity.ERROR;
     }
-    var libraryElement = _resolveLibrary();
+
+    LibraryElement libraryElement = await _resolveLibrary();
     prepareSources(libraryElement);
-    prepareErrors();
+    await prepareErrors();
 
     // Print errors and performance numbers.
     if (printMode == 1) {
@@ -181,23 +189,43 @@ class AnalyzerImpl {
     return status;
   }
 
-  /// Determine whether the given URI refers to a package other than the package
-  /// being analyzed.
-  bool _isOtherPackage(Uri uri) {
-    if (uri.scheme != 'package') {
-      return false;
+  /// Returns true if we want to report diagnostics for this library.
+  bool _isAnalyzedLibrary(LibraryElement library) {
+    Source source = library.source;
+    switch (source.uriKind) {
+      case UriKind.DART_URI:
+        return options.showSdkWarnings;
+      case UriKind.PACKAGE_URI:
+        if (_isPathInPubCache(source.fullName)) {
+          return false;
+        }
+        return _isAnalyzedPackage(source.uri);
+      default:
+        return true;
     }
-    if (_selfPackageName != null &&
-        uri.pathSegments.length > 0 &&
-        uri.pathSegments[0] == _selfPackageName) {
-      return false;
-    }
-    return true;
   }
 
-  _printColdPerf() {
+  /// Determine whether the given URI refers to a package being analyzed.
+  bool _isAnalyzedPackage(Uri uri) {
+    if (uri.scheme != 'package' || uri.pathSegments.isEmpty) {
+      return false;
+    }
+    String packageName = uri.pathSegments.first;
+    if (packageName == _selfPackageName) {
+      return true;
+    } else if (!options.showPackageWarnings) {
+      return false;
+    } else if (options.showPackageWarningsPrefix == null) {
+      return true;
+    } else {
+      return packageName.startsWith(options.showPackageWarningsPrefix);
+    }
+  }
+
+  // TODO(devoncarew): This is never called.
+  void _printColdPerf() {
     // Print cold VM performance numbers.
-    int totalTime = currentTimeMillis() - startTime;
+    int totalTime = currentTimeMillis - startTime;
     int otherTime = totalTime;
     for (PerformanceTag tag in PerformanceTag.all) {
       if (tag != PerformanceTag.UNKNOWN) {
@@ -210,7 +238,7 @@ class AnalyzerImpl {
     outSink.writeln("total-cold:$totalTime");
   }
 
-  _printErrors() {
+  void _printErrors() {
     // The following is a hack. We currently print out to stderr to ensure that
     // when in batch mode we print to stderr, this is because the prints from
     // batch are made to stderr. The reason that options.shouldBatch isn't used
@@ -220,44 +248,29 @@ class AnalyzerImpl {
     StringSink sink = options.machineFormat ? errorSink : outSink;
 
     // Print errors.
-    ErrorFormatter formatter = new ErrorFormatter(sink, options, _processError);
+    ErrorFormatter formatter =
+        new ErrorFormatter(sink, options, stats, _processError);
     formatter.formatErrors(errorInfos);
   }
 
   ProcessedSeverity _processError(AnalysisError error) =>
-      processError(error, options, context);
+      processError(error, options, analysisOptions);
 
-  LibraryElement _resolveLibrary() {
-    return _resolveLibraryTag.makeCurrentWhile(() {
-      return context.computeLibraryElement(librarySource);
-    });
-  }
-
-  /// Compute the severity of the error; however:
-  ///   * if [options.enableTypeChecks] is false, then de-escalate checked-mode
-  ///   compile time errors to a severity of [ErrorSeverity.INFO].
-  ///   * if [options.hintsAreFatal] is true, escalate hints to errors.
-  static ErrorSeverity computeSeverity(
-      AnalysisError error, CommandLineOptions options,
-      [AnalysisContext context]) {
-    if (context != null) {
-      ErrorProcessor processor = ErrorProcessor.getProcessor(context, error);
-      // If there is a processor for this error, defer to it.
-      if (processor != null) {
-        return processor.severity;
+  Future<LibraryElement> _resolveLibrary() async {
+    PerformanceTag previous = _resolveLibraryTag.makeCurrent();
+    try {
+      if (analysisDriver != null) {
+        String path = librarySource.fullName;
+        analysisDriver.priorityFiles = [path];
+        UnitElementResult elementResult =
+            await analysisDriver.getUnitElement(path);
+        return elementResult.element.library;
+      } else {
+        return context.computeLibraryElement(librarySource);
       }
+    } finally {
+      previous.makeCurrent();
     }
-
-    if (!options.enableTypeChecks &&
-        error.errorCode.type == ErrorType.CHECKED_MODE_COMPILE_TIME_ERROR) {
-      return ErrorSeverity.INFO;
-    }
-
-    if (options.hintsAreFatal && error.errorCode is HintCode) {
-      return ErrorSeverity.ERROR;
-    }
-
-    return error.errorCode.errorSeverity;
   }
 
   /// Return the corresponding package directory or `null` if none is found.
@@ -277,35 +290,18 @@ class AnalyzerImpl {
     return null;
   }
 
-  /// Check various configuration options to get a desired severity for this
-  /// [error] (or `null` if it's to be suppressed).
-  static ProcessedSeverity processError(AnalysisError error,
-      CommandLineOptions options, AnalysisContext context) {
-    ErrorSeverity severity = computeSeverity(error, options, context);
-    bool isOverridden = false;
-
-    // First check for a filter.
-    if (severity == null) {
-      // Null severity means the error has been explicitly ignored.
-      return null;
-    } else {
-      isOverridden = true;
+  /// Return `true` if the given [pathName] is in the Pub cache.
+  static bool _isPathInPubCache(String pathName) {
+    List<String> parts = path.split(pathName);
+    if (parts.contains('.pub-cache')) {
+      return true;
     }
-
-    // If not overridden, some "natural" severities get globally filtered.
-    if (!isOverridden) {
-      // Check for global hint filtering.
-      if (severity == ErrorSeverity.INFO && options.disableHints) {
-        return null;
-      }
-
-      // Skip TODOs.
-      if (severity == ErrorType.TODO) {
-        return null;
+    for (int i = 0; i < parts.length - 2; i++) {
+      if (parts[i] == 'Pub' && parts[i + 1] == 'Cache') {
+        return true;
       }
     }
-
-    return new ProcessedSeverity(severity, isOverridden);
+    return false;
   }
 }
 

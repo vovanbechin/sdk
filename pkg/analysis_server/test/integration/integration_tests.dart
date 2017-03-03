@@ -12,14 +12,14 @@ import 'dart:io';
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analysis_server/src/constants.dart';
 import 'package:path/path.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 
 import 'integration_test_methods.dart';
 import 'protocol_matchers.dart';
 
-const Matcher isBool = const isInstanceOf<bool>('bool');
+const Matcher isBool = const isInstanceOf<bool>();
 
-const Matcher isInt = const isInstanceOf<int>('int');
+const Matcher isInt = const isInstanceOf<int>();
 
 const Matcher isNotification = const MatchesJsonObject(
     'notification', const {'event': isString},
@@ -27,7 +27,7 @@ const Matcher isNotification = const MatchesJsonObject(
 
 const Matcher isObject = isMap;
 
-const Matcher isString = const isInstanceOf<String>('String');
+const Matcher isString = const isInstanceOf<String>();
 
 final Matcher isResponse = new MatchesJsonObject('response', {'id': isString},
     optionalFields: {'result': anything, 'error': isRequestError});
@@ -38,6 +38,38 @@ Matcher isMapOf(Matcher keyMatcher, Matcher valueMatcher) =>
     new _MapOf(keyMatcher, valueMatcher);
 
 Matcher isOneOf(List<Matcher> choiceMatchers) => new _OneOf(choiceMatchers);
+
+/**
+ * Assert that [actual] matches [matcher].
+ */
+void outOfTestExpect(actual, matcher,
+    {String reason, skip, bool verbose: false}) {
+  var matchState = {};
+  try {
+    if (matcher.matches(actual, matchState)) return;
+  } catch (e, trace) {
+    if (reason == null) {
+      reason = '${(e is String) ? e : e.toString()} at $trace';
+    }
+  }
+  fail(_defaultFailFormatter(actual, matcher, reason, matchState, verbose));
+}
+
+String _defaultFailFormatter(
+    actual, Matcher matcher, String reason, Map matchState, bool verbose) {
+  var description = new StringDescription();
+  description.add('Expected: ').addDescriptionOf(matcher).add('\n');
+  description.add('  Actual: ').addDescriptionOf(actual).add('\n');
+
+  var mismatchDescription = new StringDescription();
+  matcher.describeMismatch(actual, mismatchDescription, matchState, verbose);
+
+  if (mismatchDescription.length > 0) {
+    description.add('   Which: $mismatchDescription\n');
+  }
+  if (reason != null) description.add(reason).add('\n');
+  return description.toString();
+}
 
 /**
  * Type of closures used by LazyMatcher.
@@ -93,6 +125,8 @@ abstract class AbstractAnalysisServerIntegrationTest
    */
   bool _subscribedToServerStatus = false;
 
+  List<AnalysisError> getErrors(String pathname) => currentAnalysisErrors[pathname];
+
   AbstractAnalysisServerIntegrationTest() {
     initializeInttestMixin();
   }
@@ -111,7 +145,7 @@ abstract class AbstractAnalysisServerIntegrationTest
     StreamSubscription subscription;
     // This will only work if the caller has already subscribed to
     // SERVER_STATUS (e.g. using sendServerSetSubscriptions(['STATUS']))
-    expect(_subscribedToServerStatus, isTrue);
+    outOfTestExpect(_subscribedToServerStatus, isTrue);
     subscription = onServerStatus.listen((ServerStatusParams params) {
       if (params.analysis != null && !params.analysis.isAnalyzing) {
         completer.complete(params);
@@ -120,6 +154,11 @@ abstract class AbstractAnalysisServerIntegrationTest
     });
     return completer.future;
   }
+
+  /**
+   * Return `true` if the new analysis driver should be used by these tests.
+   */
+  bool get enableNewAnalysisDriver => false;
 
   /**
    * Print out any messages exchanged with the server.  If some messages have
@@ -139,28 +178,29 @@ abstract class AbstractAnalysisServerIntegrationTest
    * The server is automatically started before every test, and a temporary
    * [sourceDirectory] is created.
    */
-  Future setUp() {
-    sourceDirectory = Directory.systemTemp.createTempSync('analysisServer');
+  Future setUp() async {
+    sourceDirectory = new Directory(Directory.systemTemp
+        .createTempSync('analysisServer')
+        .resolveSymbolicLinksSync());
 
     onAnalysisErrors.listen((AnalysisErrorsParams params) {
       currentAnalysisErrors[params.file] = params.errors;
     });
     Completer serverConnected = new Completer();
     onServerConnected.listen((_) {
-      expect(serverConnected.isCompleted, isFalse);
+      outOfTestExpect(serverConnected.isCompleted, isFalse);
       serverConnected.complete();
     });
     onServerError.listen((ServerErrorParams params) {
       // A server error should never happen during an integration test.
       fail('${params.message}\n${params.stackTrace}');
     });
-    return startServer().then((_) {
-      server.listenToOutput(dispatchNotification);
-      server.exitCode.then((_) {
-        skipShutdown = true;
-      });
-      return serverConnected.future;
+    await startServer();
+    server.listenToOutput(dispatchNotification);
+    server.exitCode.then((_) {
+      skipShutdown = true;
     });
+    return serverConnected.future;
   }
 
   /**
@@ -205,7 +245,13 @@ abstract class AbstractAnalysisServerIntegrationTest
   /**
    * Start [server].
    */
-  Future startServer() => server.start();
+  Future startServer(
+          {bool checked: true, int diagnosticPort, int servicesPort}) =>
+      server.start(
+          checked: checked,
+          diagnosticPort: diagnosticPort,
+          enableNewAnalysisDriver: enableNewAnalysisDriver,
+          servicesPort: servicesPort);
 
   /**
    * After every test, the server is stopped and [sourceDirectory] is deleted.
@@ -232,6 +278,24 @@ abstract class AbstractAnalysisServerIntegrationTest
     file.writeAsStringSync(contents);
     return file.resolveSymbolicLinksSync();
   }
+
+  /**
+   * Read a source file with the given absolute [pathname].
+   */
+  String readFile(String pathname) => new File(pathname).readAsStringSync();
+}
+
+/**
+ * An error result from a server request.
+ */
+class ServerErrorMessage {
+  final Map message;
+
+  ServerErrorMessage(this.message);
+
+  dynamic get error => message['error'];
+
+  String toString() => message.toString();
 }
 
 /**
@@ -404,7 +468,7 @@ class Server {
    * the [Completer] objects which should be completed when acknowledgement is
    * received.
    */
-  final HashMap<String, Completer> _pendingCommands = <String, Completer>{};
+  final Map<String, Completer> _pendingCommands = <String, Completer>{};
 
   /**
    * Number which should be used to compute the 'id' to send in the next command
@@ -509,6 +573,9 @@ class Server {
         .listen((String line) {
       lastCommunicationTime = currentElapseTime;
       String trimmedLine = line.trim();
+      if (trimmedLine.startsWith('Observatory listening on ')) {
+        return;
+      }
       _recordStdio('RECV: $trimmedLine');
       var message;
       try {
@@ -517,10 +584,10 @@ class Server {
         _badDataFromServer('JSON decode failure: $exception');
         return;
       }
-      expect(message, isMap);
+      outOfTestExpect(message, isMap);
       Map messageAsMap = message;
       if (messageAsMap.containsKey('id')) {
-        expect(messageAsMap['id'], isString);
+        outOfTestExpect(messageAsMap['id'], isString);
         String id = message['id'];
         Completer completer = _pendingCommands[id];
         if (completer == null) {
@@ -529,26 +596,24 @@ class Server {
           _pendingCommands.remove(id);
         }
         if (messageAsMap.containsKey('error')) {
-          // TODO(paulberry): propagate the error info to the completer.
-          completer.completeError(new UnimplementedError(
-              'Server responded with an error: ${JSON.encode(message)}'));
+          completer.completeError(new ServerErrorMessage(messageAsMap));
         } else {
           completer.complete(messageAsMap['result']);
         }
         // Check that the message is well-formed.  We do this after calling
         // completer.complete() or completer.completeError() so that we don't
         // stall the test in the event of an error.
-        expect(message, isResponse);
+        outOfTestExpect(message, isResponse);
       } else {
         // Message is a notification.  It should have an event and possibly
         // params.
-        expect(messageAsMap, contains('event'));
-        expect(messageAsMap['event'], isString);
+        outOfTestExpect(messageAsMap, contains('event'));
+        outOfTestExpect(messageAsMap['event'], isString);
         notificationProcessor(messageAsMap['event'], messageAsMap['params']);
         // Check that the message is well-formed.  We do this after calling
         // notificationController.add() so that we don't stall the test in the
         // event of an error.
-        expect(message, isNotification);
+        outOfTestExpect(message, isNotification);
       }
     });
     _process.stderr
@@ -587,15 +652,17 @@ class Server {
   }
 
   /**
-   * Start the server.  If [debugServer] is `true`, the server will be started
-   * with "--debug", allowing a debugger to be attached. If [profileServer] is
-   * `true`, the server will be started with "--observe" and
-   * "--pause-isolates-on-exit", allowing the observatory to be used.
+   * Start the server. If [profileServer] is `true`, the server will be started
+   * with "--observe" and "--pause-isolates-on-exit", allowing the observatory
+   * to be used.
    */
   Future start(
-      {bool debugServer: false,
+      {bool checked: true,
       int diagnosticPort,
+      bool enableNewAnalysisDriver: false,
       bool profileServer: false,
+      String sdkPath,
+      int servicesPort,
       bool useAnalysisHighlight2: false}) {
     if (_process != null) {
       throw new Exception('Process already started');
@@ -606,27 +673,53 @@ class Server {
         findRoot(Platform.script.toFilePath(windows: Platform.isWindows));
     String serverPath = normalize(join(rootDir, 'bin', 'server.dart'));
     List<String> arguments = [];
-    if (debugServer) {
-      arguments.add('--debug');
-    }
+    //
+    // Add VM arguments.
+    //
     if (profileServer) {
-      arguments.add('--observe');
+      if (servicesPort == null) {
+        arguments.add('--observe');
+      } else {
+        arguments.add('--observe=$servicesPort');
+      }
       arguments.add('--pause-isolates-on-exit');
+    } else if (servicesPort != null) {
+      arguments.add('--enable-vm-service=$servicesPort');
     }
     if (Platform.packageRoot != null) {
       arguments.add('--package-root=${Platform.packageRoot}');
     }
-    arguments.add('--checked');
+    if (Platform.packageConfig != null) {
+      arguments.add('--packages=${Platform.packageConfig}');
+    }
+    if (checked) {
+      arguments.add('--checked');
+    }
+    //
+    // Add the server executable.
+    //
     arguments.add(serverPath);
+    //
+    // Add server arguments.
+    //
     if (diagnosticPort != null) {
       arguments.add('--port');
       arguments.add(diagnosticPort.toString());
     }
+    if (sdkPath != null) {
+      arguments.add('--sdk=$sdkPath');
+    }
     if (useAnalysisHighlight2) {
       arguments.add('--useAnalysisHighlight2');
     }
+    if (!enableNewAnalysisDriver) {
+      arguments.add('--disable-new-analysis-driver');
+    }
 //    print('Launching $serverPath');
 //    print('$dartBinary ${arguments.join(' ')}');
+    // TODO(devoncarew): We could experiment with instead launching the analysis
+    // server in a separate isolate. This would make it easier to debug the
+    // integration tests, and would like speed the tests up as well.
     return Process.start(dartBinary, arguments).then((Process process) {
       _process = process;
       process.exitCode.then((int code) {
@@ -655,7 +748,7 @@ class Server {
     // and is outputting a stacktrace, because it ensures that we see the
     // entire stacktrace.  Use expectAsync() to prevent the test from
     // ending during this 1 second.
-    new Future.delayed(new Duration(seconds: 1), expectAsync(() {
+    new Future.delayed(new Duration(seconds: 1), expectAsync0(() {
       fail('Bad data received from server: $details');
     }));
   }
@@ -844,7 +937,8 @@ abstract class _RecursiveMatcher extends Matcher {
   @override
   Description describeMismatch(
       item, Description mismatchDescription, Map matchState, bool verbose) {
-    List<MismatchDescriber> mismatches = matchState['mismatches'];
+    List<MismatchDescriber> mismatches =
+        matchState['mismatches'] as List<MismatchDescriber>;
     if (mismatches != null) {
       for (int i = 0; i < mismatches.length; i++) {
         MismatchDescriber mismatch = mismatches[i];

@@ -4646,12 +4646,8 @@ class StyleElement extends SvgElement {
   @Experimental() // untriaged
   final StyleSheet sheet;
 
-  // Shadowing definition.
-  String get title => JS("String", "#.title", this);
-
-  set title(String value) {
-    JS("void", "#.title = #", this, value);
-  }
+  // Use implementation from Element.
+  // final String title;
 
   @DomName('SVGStyleElement.type')
   @DocsEditable()
@@ -4726,14 +4722,14 @@ class SvgElement extends Element implements GlobalEventHandlers {
   }
 
   String get outerHtml {
-    final container = new Element.tag("div");
+    final container = new DivElement();
     final SvgElement cloned = this.clone(true);
     container.children.add(cloned);
     return container.innerHtml;
   }
 
   String get innerHtml {
-    final container = new Element.tag("div");
+    final container = new DivElement();
     final SvgElement cloned = this.clone(true);
     container.children.addAll(cloned.children);
     return container.innerHtml;
@@ -5085,12 +5081,8 @@ class SvgElement extends Element implements GlobalEventHandlers {
   // Use implementation from Element.
   // final CssStyleDeclaration style;
 
-  // Shadowing definition.
-  int get tabIndex => JS("int", "#.tabIndex", this);
-
-  set tabIndex(int value) {
-    JS("void", "#.tabIndex = #", this, value);
-  }
+  // Use implementation from Element.
+  // final int tabIndex;
 
   @DomName('SVGElement.viewportElement')
   @DocsEditable()

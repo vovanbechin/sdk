@@ -6,15 +6,17 @@ library analyzer_cli.test.formatter;
 
 import 'package:analyzer/analyzer.dart';
 import 'package:analyzer_cli/src/error_formatter.dart';
+import 'package:test/test.dart' hide ErrorFormatter;
 import 'package:typed_mock/typed_mock.dart';
-import 'package:unittest/unittest.dart' hide ErrorFormatter;
 
 import 'mocks.dart';
 
 main() {
   group('reporter', () {
     var out = new StringBuffer();
+    var stats = new AnalysisStats();
 
+    setUp(() => stats.init());
     tearDown(() => out.clear());
 
     // Options
@@ -22,29 +24,34 @@ main() {
     when(options.enableTypeChecks).thenReturn(false);
     when(options.hintsAreFatal).thenReturn(false);
     when(options.machineFormat).thenReturn(false);
+    when(options.verbose).thenReturn(false);
 
-    var reporter = new ErrorFormatter(out, options);
+    var reporter = new ErrorFormatter(out, options, stats);
 
     test('error', () {
       var error = mockError(ErrorType.SYNTACTIC_ERROR, ErrorSeverity.ERROR);
       reporter.formatErrors([error]);
 
-      expect(
-          out.toString(),
-          '''[error] MSG (/foo/bar/baz.dart, line 3, col 3)
-1 error found.
-''');
+      expect(out.toString().trim(),
+          '[error] MSG at /foo/bar/baz.dart:3:3 (mock_code).');
     });
 
     test('hint', () {
       var error = mockError(ErrorType.HINT, ErrorSeverity.INFO);
       reporter.formatErrors([error]);
 
+      expect(out.toString().trim(),
+          '[hint] MSG at /foo/bar/baz.dart:3:3 (mock_code).');
+    });
+
+    test('stats', () {
+      var error = mockError(ErrorType.HINT, ErrorSeverity.INFO);
+      reporter.formatErrors([error]);
+      stats.print(out);
       expect(
-          out.toString(),
-          '''[hint] MSG (/foo/bar/baz.dart, line 3, col 3)
-1 hint found.
-''');
+          out.toString().trim(),
+          '[hint] MSG at /foo/bar/baz.dart:3:3 (mock_code).\n'
+          '1 hint found.');
     });
   });
 }

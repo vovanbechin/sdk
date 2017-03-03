@@ -25,12 +25,13 @@ import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
+import 'package:analyzer/source/package_map_resolver.dart';
 import 'package:analyzer/src/codegen/tools.dart';
+import 'package:analyzer/src/context/builder.dart';
+import 'package:analyzer/src/dart/sdk/sdk.dart';
 import 'package:analyzer/src/generated/constant.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/java_io.dart';
 import 'package:analyzer/src/generated/sdk.dart';
-import 'package:analyzer/src/generated/sdk_io.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/source_io.dart';
 import 'package:path/path.dart' as path;
@@ -42,8 +43,11 @@ import 'package:path/path.dart';
 main() {
   String script = Platform.script.toFilePath(windows: Platform.isWindows);
   String pkgPath = normalize(join(dirname(script), '..', '..'));
-  GeneratedContent.generateAll(pkgPath, <GeneratedContent>[target]);
+  GeneratedContent.generateAll(pkgPath, <GeneratedContent>[target, htmlTarget]);
 }
+
+final GeneratedFile htmlTarget = new GeneratedFile(
+    'doc/tasks.html', (String pkgPath) => new Driver(pkgPath).generateHtml());
 
 final GeneratedFile target = new GeneratedFile(
     'tool/task_dependency_graph/tasks.dot',
@@ -52,6 +56,7 @@ final GeneratedFile target = new GeneratedFile(
 typedef void GetterFinderCallback(PropertyAccessorElement element);
 
 class Driver {
+  static bool hasInitializedPlugins = false;
   PhysicalResourceProvider resourceProvider;
   AnalysisContext context;
   InterfaceType resultDescriptorType;
@@ -59,6 +64,7 @@ class Driver {
   ClassElement enginePluginClass;
   CompilationUnitElement taskUnitElement;
   InterfaceType extensionPointIdType;
+
   final String rootDir;
 
   Driver(String pkgPath) : rootDir = new Directory(pkgPath).absolute.path;
@@ -121,22 +127,51 @@ class Driver {
    * Generate the task dependency graph and return it as a [String].
    */
   String generateFileContents() {
-    AnalysisEngine.instance.processRequiredPlugins();
+    return '''
+// Copyright (c) 2015, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+//
+// This file has been automatically generated.  Please do not edit it manually.
+// To regenerate the file, use the script
+// "pkg/analyzer/tool/task_dependency_graph/generate.dart".
+//
+// To render this graph using Graphviz (www.graphviz.org) use the command:
+// "dot tasks.dot -Tpdf -O".
+digraph G {
+${generateGraphData()}
+}
+''';
+  }
+
+  String generateGraphData() {
+    if (!hasInitializedPlugins) {
+      AnalysisEngine.instance.processRequiredPlugins();
+      hasInitializedPlugins = true;
+    }
     List<String> lines = <String>[];
     resourceProvider = PhysicalResourceProvider.INSTANCE;
-    DartSdk sdk = DirectoryBasedDartSdk.defaultSdk;
+    DartSdk sdk = new FolderBasedDartSdk(resourceProvider,
+        FolderBasedDartSdk.defaultSdkDirectory(resourceProvider));
     context = AnalysisEngine.instance.createAnalysisContext();
-    String packageRootPath;
+    ContextBuilderOptions builderOptions = new ContextBuilderOptions();
     if (Platform.packageRoot != null) {
-      packageRootPath = Uri.parse(Platform.packageRoot).toFilePath();
+      builderOptions.defaultPackagesDirectoryPath =
+          Uri.parse(Platform.packageRoot).toFilePath();
+    } else if (Platform.packageConfig != null) {
+      builderOptions.defaultPackageFilePath =
+          Uri.parse(Platform.packageConfig).toFilePath();
     } else {
-      packageRootPath = path.join(rootDir, 'packages');
+      // Let the context builder use the default algorithm for package
+      // resolution.
     }
-    JavaFile packagesDir = new JavaFile(packageRootPath);
+    ContextBuilder builder = new ContextBuilder(resourceProvider, null, null,
+        options: builderOptions);
     List<UriResolver> uriResolvers = [
       new DartUriResolver(sdk),
-      new PackageUriResolver(<JavaFile>[packagesDir]),
-      new FileUriResolver()
+      new PackageMapUriResolver(resourceProvider,
+          builder.convertPackagesToMap(builder.createPackageMap(''))),
+      new ResourceUriResolver(PhysicalResourceProvider.INSTANCE)
     ];
     context.sourceFactory = new SourceFactory(uriResolvers);
     Source dartDartSource =
@@ -154,41 +189,57 @@ class Driver {
         .instantiate([dynamicType]);
     listOfResultDescriptorType =
         context.typeProvider.listType.instantiate([resultDescriptorType]);
-    CompilationUnitElement enginePluginUnitElement =
-        getUnit(enginePluginSource).element;
-    enginePluginClass = enginePluginUnitElement.getType('EnginePlugin');
+    CompilationUnit enginePluginUnit = getUnit(enginePluginSource);
+    enginePluginClass = enginePluginUnit.element.getType('EnginePlugin');
     extensionPointIdType =
-        enginePluginUnitElement.getType('ExtensionPointId').type;
+        enginePluginUnit.element.getType('ExtensionPointId').type;
     CompilationUnit dartDartUnit = getUnit(dartDartSource);
-    CompilationUnitElement dartDartUnitElement = dartDartUnit.element;
     CompilationUnit taskUnit = getUnit(taskSource);
     taskUnitElement = taskUnit.element;
     Set<String> results = new Set<String>();
     Set<String> resultLists = new Set<String>();
-    for (ClassElement cls in dartDartUnitElement.types) {
-      if (!cls.isAbstract && cls.type.isSubtypeOf(analysisTaskType)) {
-        String task = cls.name;
-        AstNode buildInputsAst = cls.getMethod('buildInputs').computeNode();
-        findResultDescriptors(buildInputsAst, (String input) {
-          results.add(input);
-          lines.add('  $input -> $task');
-        });
-        findResultDescriptorLists(buildInputsAst, (String input) {
-          resultLists.add(input);
-          lines.add('  $input -> $task');
-        });
-        findResultDescriptors(cls.getField('DESCRIPTOR').computeNode(),
-            (String out) {
-          results.add(out);
-          lines.add('  $task -> $out');
-        });
+    for (CompilationUnitMember dartUnitMember in dartDartUnit.declarations) {
+      if (dartUnitMember is ClassDeclaration) {
+        ClassDeclaration clazz = dartUnitMember;
+        if (!clazz.isAbstract &&
+            clazz.element.type.isSubtypeOf(analysisTaskType)) {
+          String task = clazz.name.name;
+
+          MethodDeclaration buildInputsAst;
+          VariableDeclaration descriptorField;
+          for (ClassMember classMember in clazz.members) {
+            if (classMember is MethodDeclaration &&
+                classMember.name.name == 'buildInputs') {
+              buildInputsAst = classMember;
+            }
+            if (classMember is FieldDeclaration) {
+              for (VariableDeclaration field in classMember.fields.variables) {
+                if (field.name.name == 'DESCRIPTOR') {
+                  descriptorField = field;
+                }
+              }
+            }
+          }
+
+          findResultDescriptors(buildInputsAst, (String input) {
+            results.add(input);
+            lines.add('  $input -> $task');
+          });
+          findResultDescriptorLists(buildInputsAst, (String input) {
+            resultLists.add(input);
+            lines.add('  $input -> $task');
+          });
+          findResultDescriptors(descriptorField, (String out) {
+            results.add(out);
+            lines.add('  $task -> $out');
+          });
+        }
       }
     }
-    AstNode enginePluginAst = enginePluginUnitElement.computeNode();
     for (String resultList in resultLists) {
       lines.add('  $resultList [shape=hexagon]');
       TopLevelVariableElement extensionIdVariable = _getExtensionId(resultList);
-      findExtensions(enginePluginAst, extensionIdVariable, (String extension) {
+      findExtensions(enginePluginUnit, extensionIdVariable, (String extension) {
         results.add(extension);
         lines.add('  $extension -> $resultList');
       });
@@ -197,20 +248,32 @@ class Driver {
       lines.add('  $result [shape=box]');
     }
     lines.sort();
+    return lines.join('\n');
+  }
+
+  String generateHtml() {
     return '''
-// Copyright (c) 2015, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-//
-// This file has been automatically generated.  Please do not edit it manually.
-// To regenerate the file, use the script
-// "pkg/analyzer/tool/task_dependency_graph/generate.dart".
-//
-// To render this graph using Graphviz (www.graphviz.org) use the command:
-// "dot tasks.dot -Tpdf -O".
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Analysis Task Dependency Graph</title>
+    <link rel="stylesheet" href="support/style.css">
+    <script src="support/viz.js"></script>
+    <script type="application/dart" src="support/web_app.dart.js"></script>
+    <script src="support/dart.js"></script>
+</head>
+<body>
+<button id="zoomBtn">Zoom</button>
+<script type="text/vnd.graphviz" id="dot">
 digraph G {
-${lines.join('\n')}
+  tooltip="Analysis Task Dependency Graph";
+  node [fontname=Helvetica];
+  edge [fontname=Helvetica, fontcolor=gray];
+${generateGraphData()}
 }
+</script>
+</body>
+</html>
 ''';
   }
 

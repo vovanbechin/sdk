@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_THREAD_INTERRUPTER_H_
-#define VM_THREAD_INTERRUPTER_H_
+#ifndef RUNTIME_VM_THREAD_INTERRUPTER_H_
+#define RUNTIME_VM_THREAD_INTERRUPTER_H_
 
 #include "vm/allocation.h"
 #include "vm/signal_handler.h"
@@ -48,6 +48,8 @@ class ThreadInterrupter : public AllStatic {
   static intptr_t interrupt_period_;
   static intptr_t current_wait_time_;
 
+  static bool IsDebuggerAttached();
+
   static bool InDeepSleep() {
     return current_wait_time_ == Monitor::kNoTimeout;
   }
@@ -63,4 +65,4 @@ class ThreadInterrupter : public AllStatic {
 
 }  // namespace dart
 
-#endif  // VM_THREAD_INTERRUPTER_H_
+#endif  // RUNTIME_VM_THREAD_INTERRUPTER_H_

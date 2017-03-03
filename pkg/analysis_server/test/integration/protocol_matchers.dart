@@ -11,7 +11,7 @@
  */
 library test.integration.protocol.matchers;
 
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 
 import 'integration_tests.dart';
 
@@ -65,11 +65,16 @@ final Matcher isServerSetSubscriptionsResult = isNull;
  *
  * {
  *   "version": String
+ *   "pid": int
+ *   "sessionId": optional String
  * }
  */
 final Matcher isServerConnectedParams = new LazyMatcher(() => new MatchesJsonObject(
   "server.connected params", {
-    "version": isString
+    "version": isString,
+    "pid": isInt
+  }, optionalFields: {
+    "sessionId": isString
   }));
 
 /**
@@ -1048,6 +1053,23 @@ final Matcher isDiagnosticGetDiagnosticsResult = new LazyMatcher(() => new Match
   }));
 
 /**
+ * diagnostic.getServerPort params
+ */
+final Matcher isDiagnosticGetServerPortParams = isNull;
+
+/**
+ * diagnostic.getServerPort result
+ *
+ * {
+ *   "port": int
+ * }
+ */
+final Matcher isDiagnosticGetServerPortResult = new LazyMatcher(() => new MatchesJsonObject(
+  "diagnostic.getServerPort result", {
+    "port": isInt
+  }));
+
+/**
  * AddContentOverlay
  *
  * {
@@ -1241,6 +1263,8 @@ final Matcher isCompletionId = isString;
  *   "docSummary": optional String
  *   "docComplete": optional String
  *   "declaringType": optional String
+ *   "defaultArgumentListString": optional String
+ *   "defaultArgumentListTextRanges": optional List<int>
  *   "element": optional Element
  *   "returnType": optional String
  *   "parameterNames": optional List<String>
@@ -1265,6 +1289,8 @@ final Matcher isCompletionSuggestion = new LazyMatcher(() => new MatchesJsonObje
     "docSummary": isString,
     "docComplete": isString,
     "declaringType": isString,
+    "defaultArgumentListString": isString,
+    "defaultArgumentListTextRanges": isListOf(isInt),
     "element": isElement,
     "returnType": isString,
     "parameterNames": isListOf(isString),
@@ -1699,6 +1725,7 @@ final Matcher isHighlightRegionType = new MatchesEnum("HighlightRegionType", [
  *   "dartdoc": optional String
  *   "elementDescription": optional String
  *   "elementKind": optional String
+ *   "isDeprecated": optional bool
  *   "parameter": optional String
  *   "propagatedType": optional String
  *   "staticType": optional String
@@ -1715,6 +1742,7 @@ final Matcher isHoverInformation = new LazyMatcher(() => new MatchesJsonObject(
     "dartdoc": isString,
     "elementDescription": isString,
     "elementKind": isString,
+    "isDeprecated": isBool,
     "parameter": isString,
     "propagatedType": isString,
     "staticType": isString
@@ -2096,6 +2124,7 @@ final Matcher isRequestError = new LazyMatcher(() => new MatchesJsonObject(
  *
  * enum {
  *   CONTENT_MODIFIED
+ *   DEBUG_PORT_COULD_NOT_BE_OPENED
  *   FILE_NOT_ANALYZED
  *   FORMAT_INVALID_FILE
  *   FORMAT_WITH_ERRORS
@@ -2123,6 +2152,7 @@ final Matcher isRequestError = new LazyMatcher(() => new MatchesJsonObject(
  */
 final Matcher isRequestErrorCode = new MatchesEnum("RequestErrorCode", [
   "CONTENT_MODIFIED",
+  "DEBUG_PORT_COULD_NOT_BE_OPENED",
   "FILE_NOT_ANALYZED",
   "FORMAT_INVALID_FILE",
   "FORMAT_WITH_ERRORS",

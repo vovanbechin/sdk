@@ -5,81 +5,30 @@
 library analyzer.test.generated.simple_resolver_test;
 
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/standard_resolution_map.dart';
 import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
+import 'package:analyzer/exception/exception.dart';
+import 'package:analyzer/src/error/codes.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
-import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/source_io.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
+import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import '../reflective_tests.dart';
 import '../utils.dart';
 import 'resolver_test_case.dart';
 import 'test_support.dart';
 
 main() {
-  initializeTestEnvironment();
-  runReflectiveTests(SimpleResolverTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(SimpleResolverTest);
+  });
 }
 
 @reflectiveTest
 class SimpleResolverTest extends ResolverTestCase {
-  void fail_getter_and_setter_fromMixins_property_access() {
-    // TODO(paulberry): it appears that auxiliaryElements isn't properly set on
-    // a SimpleIdentifier that's inside a property access.  This bug should be
-    // fixed.
-    Source source = addSource('''
-class B {}
-class M1 {
-  get x => null;
-  set x(value) {}
-}
-class M2 {
-  get x => null;
-  set x(value) {}
-}
-class C extends B with M1, M2 {}
-void main() {
-  new C().x += 1;
-}
-''');
-    LibraryElement library = resolve2(source);
-    assertNoErrors(source);
-    verify([source]);
-    // Verify that both the getter and setter for "x" in "new C().x" refer to
-    // the accessors defined in M2.
-    FunctionDeclaration main =
-    library.definingCompilationUnit.functions[0].computeNode();
-    BlockFunctionBody body = main.functionExpression.body;
-    ExpressionStatement stmt = body.block.statements[0];
-    AssignmentExpression assignment = stmt.expression;
-    PropertyAccess propertyAccess = assignment.leftHandSide;
-    expect(
-        propertyAccess.propertyName.staticElement.enclosingElement.name, 'M2');
-    expect(
-        propertyAccess
-            .propertyName.auxiliaryElements.staticElement.enclosingElement.name,
-        'M2');
-  }
-
-  void fail_staticInvocation() {
-    Source source = addSource(r'''
-class A {
-  static int get g => (a,b) => 0;
-}
-class B {
-  f() {
-    A.g(1,0);
-  }
-}''');
-    computeLibrarySourceErrors(source);
-    assertNoErrors(source);
-    verify([source]);
-  }
-
-  void test_argumentResolution_required_matching() {
+  test_argumentResolution_required_matching() async {
     Source source = addSource(r'''
 class A {
   void f() {
@@ -90,7 +39,7 @@ class A {
     _validateArgumentResolution(source, [0, 1, 2]);
   }
 
-  void test_argumentResolution_required_tooFew() {
+  test_argumentResolution_required_tooFew() async {
     Source source = addSource(r'''
 class A {
   void f() {
@@ -101,7 +50,7 @@ class A {
     _validateArgumentResolution(source, [0, 1]);
   }
 
-  void test_argumentResolution_required_tooMany() {
+  test_argumentResolution_required_tooMany() async {
     Source source = addSource(r'''
 class A {
   void f() {
@@ -112,7 +61,7 @@ class A {
     _validateArgumentResolution(source, [0, 1, -1]);
   }
 
-  void test_argumentResolution_requiredAndNamed_extra() {
+  test_argumentResolution_requiredAndNamed_extra() async {
     Source source = addSource(r'''
 class A {
   void f() {
@@ -123,7 +72,7 @@ class A {
     _validateArgumentResolution(source, [0, 1, 2, -1]);
   }
 
-  void test_argumentResolution_requiredAndNamed_matching() {
+  test_argumentResolution_requiredAndNamed_matching() async {
     Source source = addSource(r'''
 class A {
   void f() {
@@ -134,7 +83,7 @@ class A {
     _validateArgumentResolution(source, [0, 1, 2]);
   }
 
-  void test_argumentResolution_requiredAndNamed_missing() {
+  test_argumentResolution_requiredAndNamed_missing() async {
     Source source = addSource(r'''
 class A {
   void f() {
@@ -145,7 +94,7 @@ class A {
     _validateArgumentResolution(source, [0, 1, 3]);
   }
 
-  void test_argumentResolution_requiredAndPositional_fewer() {
+  test_argumentResolution_requiredAndPositional_fewer() async {
     Source source = addSource(r'''
 class A {
   void f() {
@@ -156,7 +105,7 @@ class A {
     _validateArgumentResolution(source, [0, 1, 2]);
   }
 
-  void test_argumentResolution_requiredAndPositional_matching() {
+  test_argumentResolution_requiredAndPositional_matching() async {
     Source source = addSource(r'''
 class A {
   void f() {
@@ -167,7 +116,7 @@ class A {
     _validateArgumentResolution(source, [0, 1, 2, 3]);
   }
 
-  void test_argumentResolution_requiredAndPositional_more() {
+  test_argumentResolution_requiredAndPositional_more() async {
     Source source = addSource(r'''
 class A {
   void f() {
@@ -178,8 +127,8 @@ class A {
     _validateArgumentResolution(source, [0, 1, 2, -1]);
   }
 
-  void test_argumentResolution_setter_propagated() {
-    Source source = addSource(r'''
+  test_argumentResolution_setter_propagated() async {
+    CompilationUnit unit = await resolveSource(r'''
 main() {
   var a = new A();
   a.sss = 0;
@@ -187,17 +136,12 @@ main() {
 class A {
   set sss(x) {}
 }''');
-    LibraryElement library = resolve2(source);
-    CompilationUnitElement unit = library.definingCompilationUnit;
     // find "a.sss = 0"
     AssignmentExpression assignment;
     {
-      FunctionElement mainElement = unit.functions[0];
-      FunctionBody mainBody = mainElement.computeNode().functionExpression.body;
-      Statement statement = (mainBody as BlockFunctionBody).block.statements[1];
-      ExpressionStatement expressionStatement =
-      statement as ExpressionStatement;
-      assignment = expressionStatement.expression as AssignmentExpression;
+      var statements = AstFinder.getStatementsInTopLevelFunction(unit, 'main');
+      var statement = statements[1] as ExpressionStatement;
+      assignment = statement.expression as AssignmentExpression;
     }
     // get parameter
     Expression rhs = assignment.rightHandSide;
@@ -206,13 +150,13 @@ class A {
     expect(parameter, isNotNull);
     expect(parameter.displayName, "x");
     // validate
-    ClassElement classA = unit.types[0];
+    ClassElement classA = unit.element.types[0];
     PropertyAccessorElement setter = classA.accessors[0];
     expect(setter.parameters[0], same(parameter));
   }
 
-  void test_argumentResolution_setter_propagated_propertyAccess() {
-    Source source = addSource(r'''
+  test_argumentResolution_setter_propagated_propertyAccess() async {
+    CompilationUnit unit = await resolveSource(r'''
 main() {
   var a = new A();
   a.b.sss = 0;
@@ -223,17 +167,12 @@ class A {
 class B {
   set sss(x) {}
 }''');
-    LibraryElement library = resolve2(source);
-    CompilationUnitElement unit = library.definingCompilationUnit;
     // find "a.b.sss = 0"
     AssignmentExpression assignment;
     {
-      FunctionElement mainElement = unit.functions[0];
-      FunctionBody mainBody = mainElement.computeNode().functionExpression.body;
-      Statement statement = (mainBody as BlockFunctionBody).block.statements[1];
-      ExpressionStatement expressionStatement =
-      statement as ExpressionStatement;
-      assignment = expressionStatement.expression as AssignmentExpression;
+      var statements = AstFinder.getStatementsInTopLevelFunction(unit, 'main');
+      var statement = statements[1] as ExpressionStatement;
+      assignment = statement.expression as AssignmentExpression;
     }
     // get parameter
     Expression rhs = assignment.rightHandSide;
@@ -242,13 +181,13 @@ class B {
     expect(parameter, isNotNull);
     expect(parameter.displayName, "x");
     // validate
-    ClassElement classB = unit.types[1];
+    ClassElement classB = unit.element.types[1];
     PropertyAccessorElement setter = classB.accessors[0];
     expect(setter.parameters[0], same(parameter));
   }
 
-  void test_argumentResolution_setter_static() {
-    Source source = addSource(r'''
+  test_argumentResolution_setter_static() async {
+    CompilationUnit unit = await resolveSource(r'''
 main() {
   A a = new A();
   a.sss = 0;
@@ -256,17 +195,12 @@ main() {
 class A {
   set sss(x) {}
 }''');
-    LibraryElement library = resolve2(source);
-    CompilationUnitElement unit = library.definingCompilationUnit;
     // find "a.sss = 0"
     AssignmentExpression assignment;
     {
-      FunctionElement mainElement = unit.functions[0];
-      FunctionBody mainBody = mainElement.computeNode().functionExpression.body;
-      Statement statement = (mainBody as BlockFunctionBody).block.statements[1];
-      ExpressionStatement expressionStatement =
-      statement as ExpressionStatement;
-      assignment = expressionStatement.expression as AssignmentExpression;
+      var statements = AstFinder.getStatementsInTopLevelFunction(unit, 'main');
+      var statement = statements[1] as ExpressionStatement;
+      assignment = statement.expression as AssignmentExpression;
     }
     // get parameter
     Expression rhs = assignment.rightHandSide;
@@ -274,13 +208,13 @@ class A {
     expect(parameter, isNotNull);
     expect(parameter.displayName, "x");
     // validate
-    ClassElement classA = unit.types[0];
+    ClassElement classA = unit.element.types[0];
     PropertyAccessorElement setter = classA.accessors[0];
     expect(setter.parameters[0], same(parameter));
   }
 
-  void test_argumentResolution_setter_static_propertyAccess() {
-    Source source = addSource(r'''
+  test_argumentResolution_setter_static_propertyAccess() async {
+    CompilationUnit unit = await resolveSource(r'''
 main() {
   A a = new A();
   a.b.sss = 0;
@@ -291,17 +225,12 @@ class A {
 class B {
   set sss(x) {}
 }''');
-    LibraryElement library = resolve2(source);
-    CompilationUnitElement unit = library.definingCompilationUnit;
     // find "a.b.sss = 0"
     AssignmentExpression assignment;
     {
-      FunctionElement mainElement = unit.functions[0];
-      FunctionBody mainBody = mainElement.computeNode().functionExpression.body;
-      Statement statement = (mainBody as BlockFunctionBody).block.statements[1];
-      ExpressionStatement expressionStatement =
-      statement as ExpressionStatement;
-      assignment = expressionStatement.expression as AssignmentExpression;
+      var statements = AstFinder.getStatementsInTopLevelFunction(unit, 'main');
+      var statement = statements[1] as ExpressionStatement;
+      assignment = statement.expression as AssignmentExpression;
     }
     // get parameter
     Expression rhs = assignment.rightHandSide;
@@ -309,12 +238,12 @@ class B {
     expect(parameter, isNotNull);
     expect(parameter.displayName, "x");
     // validate
-    ClassElement classB = unit.types[1];
+    ClassElement classB = unit.element.types[1];
     PropertyAccessorElement setter = classB.accessors[0];
     expect(setter.parameters[0], same(parameter));
   }
 
-  void test_breakTarget_labeled() {
+  test_breakTarget_labeled() async {
     // Verify that the target of the label is correctly found and is recorded
     // as the unlabeled portion of the statement.
     String text = r'''
@@ -327,11 +256,11 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     WhileStatement whileStatement = EngineTestCase.findNode(
         unit, text, 'while (true)', (n) => n is WhileStatement);
     ForStatement forStatement =
-    EngineTestCase.findNode(unit, text, 'for', (n) => n is ForStatement);
+        EngineTestCase.findNode(unit, text, 'for', (n) => n is ForStatement);
     BreakStatement break1 = EngineTestCase.findNode(
         unit, text, 'break loop1', (n) => n is BreakStatement);
     BreakStatement break2 = EngineTestCase.findNode(
@@ -340,7 +269,7 @@ void f() {
     expect(break2.target, same(forStatement));
   }
 
-  void test_breakTarget_unlabeledBreakFromDo() {
+  test_breakTarget_unlabeledBreakFromDo() async {
     String text = r'''
 void f() {
   do {
@@ -348,15 +277,15 @@ void f() {
   } while (true);
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     DoStatement doStatement =
-    EngineTestCase.findNode(unit, text, 'do', (n) => n is DoStatement);
+        EngineTestCase.findNode(unit, text, 'do', (n) => n is DoStatement);
     BreakStatement breakStatement = EngineTestCase.findNode(
         unit, text, 'break', (n) => n is BreakStatement);
     expect(breakStatement.target, same(doStatement));
   }
 
-  void test_breakTarget_unlabeledBreakFromFor() {
+  test_breakTarget_unlabeledBreakFromFor() async {
     String text = r'''
 void f() {
   for (int i = 0; i < 10; i++) {
@@ -364,15 +293,15 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     ForStatement forStatement =
-    EngineTestCase.findNode(unit, text, 'for', (n) => n is ForStatement);
+        EngineTestCase.findNode(unit, text, 'for', (n) => n is ForStatement);
     BreakStatement breakStatement = EngineTestCase.findNode(
         unit, text, 'break', (n) => n is BreakStatement);
     expect(breakStatement.target, same(forStatement));
   }
 
-  void test_breakTarget_unlabeledBreakFromForEach() {
+  test_breakTarget_unlabeledBreakFromForEach() async {
     String text = r'''
 void f() {
   for (x in []) {
@@ -380,7 +309,7 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     ForEachStatement forStatement = EngineTestCase.findNode(
         unit, text, 'for', (n) => n is ForEachStatement);
     BreakStatement breakStatement = EngineTestCase.findNode(
@@ -388,7 +317,7 @@ void f() {
     expect(breakStatement.target, same(forStatement));
   }
 
-  void test_breakTarget_unlabeledBreakFromSwitch() {
+  test_breakTarget_unlabeledBreakFromSwitch() async {
     String text = r'''
 void f() {
   while (true) {
@@ -399,7 +328,7 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     SwitchStatement switchStatement = EngineTestCase.findNode(
         unit, text, 'switch', (n) => n is SwitchStatement);
     BreakStatement breakStatement = EngineTestCase.findNode(
@@ -407,7 +336,7 @@ void f() {
     expect(breakStatement.target, same(switchStatement));
   }
 
-  void test_breakTarget_unlabeledBreakFromWhile() {
+  test_breakTarget_unlabeledBreakFromWhile() async {
     String text = r'''
 void f() {
   while (true) {
@@ -415,7 +344,7 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     WhileStatement whileStatement = EngineTestCase.findNode(
         unit, text, 'while', (n) => n is WhileStatement);
     BreakStatement breakStatement = EngineTestCase.findNode(
@@ -423,7 +352,7 @@ void f() {
     expect(breakStatement.target, same(whileStatement));
   }
 
-  void test_breakTarget_unlabeledBreakToOuterFunction() {
+  test_breakTarget_unlabeledBreakToOuterFunction() async {
     // Verify that unlabeled break statements can't resolve to loops in an
     // outer function.
     String text = r'''
@@ -435,13 +364,13 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     BreakStatement breakStatement = EngineTestCase.findNode(
         unit, text, 'break', (n) => n is BreakStatement);
     expect(breakStatement.target, isNull);
   }
 
-  void test_class_definesCall() {
+  test_class_definesCall() async {
     Source source = addSource(r'''
 class A {
   int call(int x) { return x; }
@@ -449,22 +378,22 @@ class A {
 int f(A a) {
   return a(0);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_class_extends_implements() {
+  test_class_extends_implements() async {
     Source source = addSource(r'''
 class A extends B implements C {}
 class B {}
 class C {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_commentReference_class() {
+  test_commentReference_class() async {
     Source source = addSource(r'''
 f() {}
 /** [A] [new A] [A.n] [new A.n] [m] [f] */
@@ -473,12 +402,12 @@ class A {
   A.n() {}
   m() {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_commentReference_parameter() {
+  test_commentReference_parameter() async {
     Source source = addSource(r'''
 class A {
   A() {}
@@ -486,21 +415,21 @@ class A {
   /** [e] [f] */
   m(e, f()) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_commentReference_singleLine() {
+  test_commentReference_singleLine() async {
     Source source = addSource(r'''
 /// [A]
 class A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_continueTarget_labeled() {
+  test_continueTarget_labeled() async {
     // Verify that the target of the label is correctly found and is recorded
     // as the unlabeled portion of the statement.
     String text = r'''
@@ -513,11 +442,11 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     WhileStatement whileStatement = EngineTestCase.findNode(
         unit, text, 'while (true)', (n) => n is WhileStatement);
     ForStatement forStatement =
-    EngineTestCase.findNode(unit, text, 'for', (n) => n is ForStatement);
+        EngineTestCase.findNode(unit, text, 'for', (n) => n is ForStatement);
     ContinueStatement continue1 = EngineTestCase.findNode(
         unit, text, 'continue loop1', (n) => n is ContinueStatement);
     ContinueStatement continue2 = EngineTestCase.findNode(
@@ -526,7 +455,7 @@ void f() {
     expect(continue2.target, same(forStatement));
   }
 
-  void test_continueTarget_unlabeledContinueFromDo() {
+  test_continueTarget_unlabeledContinueFromDo() async {
     String text = r'''
 void f() {
   do {
@@ -534,15 +463,15 @@ void f() {
   } while (true);
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     DoStatement doStatement =
-    EngineTestCase.findNode(unit, text, 'do', (n) => n is DoStatement);
+        EngineTestCase.findNode(unit, text, 'do', (n) => n is DoStatement);
     ContinueStatement continueStatement = EngineTestCase.findNode(
         unit, text, 'continue', (n) => n is ContinueStatement);
     expect(continueStatement.target, same(doStatement));
   }
 
-  void test_continueTarget_unlabeledContinueFromFor() {
+  test_continueTarget_unlabeledContinueFromFor() async {
     String text = r'''
 void f() {
   for (int i = 0; i < 10; i++) {
@@ -550,15 +479,15 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     ForStatement forStatement =
-    EngineTestCase.findNode(unit, text, 'for', (n) => n is ForStatement);
+        EngineTestCase.findNode(unit, text, 'for', (n) => n is ForStatement);
     ContinueStatement continueStatement = EngineTestCase.findNode(
         unit, text, 'continue', (n) => n is ContinueStatement);
     expect(continueStatement.target, same(forStatement));
   }
 
-  void test_continueTarget_unlabeledContinueFromForEach() {
+  test_continueTarget_unlabeledContinueFromForEach() async {
     String text = r'''
 void f() {
   for (x in []) {
@@ -566,7 +495,7 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     ForEachStatement forStatement = EngineTestCase.findNode(
         unit, text, 'for', (n) => n is ForEachStatement);
     ContinueStatement continueStatement = EngineTestCase.findNode(
@@ -574,7 +503,7 @@ void f() {
     expect(continueStatement.target, same(forStatement));
   }
 
-  void test_continueTarget_unlabeledContinueFromWhile() {
+  test_continueTarget_unlabeledContinueFromWhile() async {
     String text = r'''
 void f() {
   while (true) {
@@ -582,7 +511,7 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     WhileStatement whileStatement = EngineTestCase.findNode(
         unit, text, 'while', (n) => n is WhileStatement);
     ContinueStatement continueStatement = EngineTestCase.findNode(
@@ -590,7 +519,7 @@ void f() {
     expect(continueStatement.target, same(whileStatement));
   }
 
-  void test_continueTarget_unlabeledContinueSkipsSwitch() {
+  test_continueTarget_unlabeledContinueSkipsSwitch() async {
     String text = r'''
 void f() {
   while (true) {
@@ -601,7 +530,7 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     WhileStatement whileStatement = EngineTestCase.findNode(
         unit, text, 'while', (n) => n is WhileStatement);
     ContinueStatement continueStatement = EngineTestCase.findNode(
@@ -609,7 +538,7 @@ void f() {
     expect(continueStatement.target, same(whileStatement));
   }
 
-  void test_continueTarget_unlabeledContinueToOuterFunction() {
+  test_continueTarget_unlabeledContinueToOuterFunction() async {
     // Verify that unlabeled continue statements can't resolve to loops in an
     // outer function.
     String text = r'''
@@ -621,20 +550,20 @@ void f() {
   }
 }
 ''';
-    CompilationUnit unit = resolveSource(text);
+    CompilationUnit unit = await resolveSource(text);
     ContinueStatement continueStatement = EngineTestCase.findNode(
         unit, text, 'continue', (n) => n is ContinueStatement);
     expect(continueStatement.target, isNull);
   }
 
-  void test_empty() {
+  test_empty() async {
     Source source = addSource("");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_entryPoint_exported() {
+  test_entryPoint_exported() async {
     addNamedSource(
         "/two.dart",
         r'''
@@ -650,11 +579,12 @@ export 'two.dart';''');
     FunctionElement main = library.entryPoint;
     expect(main, isNotNull);
     expect(main.library, isNot(same(library)));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_entryPoint_local() {
+  test_entryPoint_local() async {
     Source source = addNamedSource(
         "/one.dart",
         r'''
@@ -665,20 +595,22 @@ main() {}''');
     FunctionElement main = library.entryPoint;
     expect(main, isNotNull);
     expect(main.library, same(library));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_entryPoint_none() {
+  test_entryPoint_none() async {
     Source source = addNamedSource("/one.dart", "library one;");
     LibraryElement library = resolve2(source);
     expect(library, isNotNull);
     expect(library.entryPoint, isNull);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_enum_externalLibrary() {
+  test_enum_externalLibrary() async {
     addNamedSource(
         "/my_lib.dart",
         r'''
@@ -689,12 +621,12 @@ import 'my_lib.dart';
 main() {
   EEE e = null;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_extractedMethodAsConstant() {
+  test_extractedMethodAsConstant() async {
     Source source = addSource(r'''
 abstract class Comparable<T> {
   int compareTo(T other);
@@ -703,35 +635,50 @@ abstract class Comparable<T> {
 class A {
   void sort([compare = Comparable.compare]) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_fieldFormalParameter() {
+  test_fieldFormalParameter() async {
     Source source = addSource(r'''
 class A {
   int x;
-  A(this.x) {}
+  int y;
+  A(this.x) : y = x {}
 }''');
-    computeLibrarySourceErrors(source);
+    CompilationUnit unit =
+        analysisContext2.resolveCompilationUnit2(source, source);
+    ClassDeclaration classA = unit.declarations[0];
+    FieldDeclaration field = classA.members[0];
+    ConstructorDeclaration constructor = classA.members[2];
+    ParameterElement paramElement =
+        constructor.parameters.parameters[0].element;
+    expect(paramElement, new isInstanceOf<FieldFormalParameterElement>());
+    expect((paramElement as FieldFormalParameterElement).field,
+        field.fields.variables[0].element);
+    ConstructorFieldInitializer initializer = constructor.initializers[0];
+    SimpleIdentifier identifierX = initializer.expression;
+    expect(identifierX.staticElement, paramElement);
+
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_forEachLoops_nonConflicting() {
+  test_forEachLoops_nonConflicting() async {
     Source source = addSource(r'''
 f() {
   List list = [1,2,3];
   for (int x in list) {}
   for (int x in list) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_forLoops_nonConflicting() {
+  test_forLoops_nonConflicting() async {
     Source source = addSource(r'''
 f() {
   for (int i = 0; i < 3; i++) {
@@ -739,12 +686,12 @@ f() {
   for (int i = 0; i < 3; i++) {
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_functionTypeAlias() {
+  test_functionTypeAlias() async {
     Source source = addSource(r'''
 typedef bool P(e);
 class A {
@@ -753,12 +700,12 @@ class A {
     if (p(e)) {}
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_getter_and_setter_fromMixins_bare_identifier() {
+  test_getter_and_setter_fromMixins_bare_identifier() async {
     Source source = addSource('''
 class B {}
 class M1 {
@@ -775,23 +722,69 @@ class C extends B with M1, M2 {
   }
 }
 ''');
-    LibraryElement library = resolve2(source);
+    var analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     // Verify that both the getter and setter for "x" in C.f() refer to the
     // accessors defined in M2.
-    ClassElement classC = library.definingCompilationUnit.types[3];
-    MethodDeclaration f = classC.getMethod('f').computeNode();
-    BlockFunctionBody body = f.body;
-    ExpressionStatement stmt = body.block.statements[0];
-    AssignmentExpression assignment = stmt.expression;
+    List<Statement> statements =
+        AstFinder.getStatementsInMethod(analysisResult.unit, 'C', 'f');
+    var statement = statements[0] as ExpressionStatement;
+    AssignmentExpression assignment = statement.expression;
     SimpleIdentifier leftHandSide = assignment.leftHandSide;
-    expect(leftHandSide.staticElement.enclosingElement.name, 'M2');
+    expect(
+        resolutionMap
+            .staticElementForIdentifier(leftHandSide)
+            .enclosingElement
+            .name,
+        'M2');
     expect(leftHandSide.auxiliaryElements.staticElement.enclosingElement.name,
         'M2');
   }
 
-  void test_getter_fromMixins_bare_identifier() {
+  @failingTest
+  test_getter_and_setter_fromMixins_property_access() async {
+    // TODO(paulberry): it appears that auxiliaryElements isn't properly set on
+    // a SimpleIdentifier that's inside a property access.  This bug should be
+    // fixed.
+    Source source = addSource(r'''
+class B {}
+class M1 {
+  get x => null;
+  set x(value) {}
+}
+class M2 {
+  get x => null;
+  set x(value) {}
+}
+class C extends B with M1, M2 {}
+void main() {
+  new C().x += 1;
+}
+''');
+    var analysisResult = await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+    // Verify that both the getter and setter for "x" in "new C().x" refer to
+    // the accessors defined in M2.
+    List<Statement> statements =
+        AstFinder.getStatementsInTopLevelFunction(analysisResult.unit, 'main');
+    var statement = statements[0] as ExpressionStatement;
+    AssignmentExpression assignment = statement.expression;
+    PropertyAccess propertyAccess = assignment.leftHandSide;
+    expect(
+        resolutionMap
+            .staticElementForIdentifier(propertyAccess.propertyName)
+            .enclosingElement
+            .name,
+        'M2');
+    expect(
+        propertyAccess
+            .propertyName.auxiliaryElements.staticElement.enclosingElement.name,
+        'M2');
+  }
+
+  test_getter_fromMixins_bare_identifier() async {
     Source source = addSource('''
 class B {}
 class M1 {
@@ -806,20 +799,20 @@ class C extends B with M1, M2 {
   }
 }
 ''');
-    LibraryElement library = resolve2(source);
+    var analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     // Verify that the getter for "x" in C.f() refers to the getter defined in
     // M2.
-    ClassElement classC = library.definingCompilationUnit.types[3];
-    MethodDeclaration f = classC.getMethod('f').computeNode();
-    BlockFunctionBody body = f.body;
-    ReturnStatement stmt = body.block.statements[0];
-    SimpleIdentifier x = stmt.expression;
-    expect(x.staticElement.enclosingElement.name, 'M2');
+    var statements =
+        AstFinder.getStatementsInMethod(analysisResult.unit, 'C', 'f');
+    var statement = statements[0] as ReturnStatement;
+    SimpleIdentifier x = statement.expression;
+    expect(resolutionMap.staticElementForIdentifier(x).enclosingElement.name,
+        'M2');
   }
 
-  void test_getter_fromMixins_property_access() {
+  test_getter_fromMixins_property_access() async {
     Source source = addSource('''
 class B {}
 class M1 {
@@ -833,21 +826,25 @@ void main() {
   var y = new C().x;
 }
 ''');
-    LibraryElement library = resolve2(source);
+    var analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     // Verify that the getter for "x" in "new C().x" refers to the getter
     // defined in M2.
-    FunctionDeclaration main =
-    library.definingCompilationUnit.functions[0].computeNode();
-    BlockFunctionBody body = main.functionExpression.body;
-    VariableDeclarationStatement stmt = body.block.statements[0];
-    PropertyAccess propertyAccess = stmt.variables.variables[0].initializer;
+    List<Statement> statements =
+        AstFinder.getStatementsInTopLevelFunction(analysisResult.unit, 'main');
+    var statement = statements[0] as VariableDeclarationStatement;
+    PropertyAccess propertyAccess =
+        statement.variables.variables[0].initializer;
     expect(
-        propertyAccess.propertyName.staticElement.enclosingElement.name, 'M2');
+        resolutionMap
+            .staticElementForIdentifier(propertyAccess.propertyName)
+            .enclosingElement
+            .name,
+        'M2');
   }
 
-  void test_getterAndSetterWithDifferentTypes() {
+  test_getterAndSetterWithDifferentTypes() async {
     Source source = addSource(r'''
 class A {
   int get f => 0;
@@ -856,13 +853,13 @@ class A {
 g (A a) {
   a.f = a.f.toString();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(
         source, [StaticWarningCode.MISMATCHED_GETTER_AND_SETTER_TYPES]);
     verify([source]);
   }
 
-  void test_hasReferenceToSuper() {
+  test_hasReferenceToSuper() async {
     Source source = addSource(r'''
 class A {}
 class B {toString() => super.toString();}''');
@@ -874,11 +871,12 @@ class B {toString() => super.toString();}''');
     expect(classes, hasLength(2));
     expect(classes[0].hasReferenceToSuper, isFalse);
     expect(classes[1].hasReferenceToSuper, isTrue);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_import_hide() {
+  test_import_hide() async {
     addNamedSource(
         "/lib1.dart",
         r'''
@@ -900,12 +898,12 @@ main() {
   foo = 0;
 }
 A a;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_import_prefix() {
+  test_import_prefix() async {
     addNamedSource(
         "/two.dart",
         r'''
@@ -921,12 +919,72 @@ import 'two.dart' as _two;
 main() {
   _two.f(0);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_import_spaceInUri() {
+  test_import_prefix_doesNotExist() async {
+    //
+    // The primary purpose of this test is to ensure that we are only getting a
+    // single error generated when the only problem is that an imported file
+    // does not exist.
+    //
+    Source source = addNamedSource(
+        "/a.dart",
+        r'''
+import 'missing.dart' as p;
+int a = p.q + p.r.s;
+String b = p.t(a) + p.u(v: 0);
+p.T c = new p.T();
+class D<E> extends p.T {
+  D(int i) : super(i);
+  p.U f = new p.V();
+}
+class F implements p.T {
+  p.T m(p.U u) => null;
+}
+class G extends Object with p.V {}
+class H extends D<p.W> {
+  H(int i) : super(i);
+}
+''');
+    await computeAnalysisResult(source);
+    assertErrors(source, [CompileTimeErrorCode.URI_DOES_NOT_EXIST]);
+    verify([source]);
+  }
+
+  test_import_show_doesNotExist() async {
+    //
+    // The primary purpose of this test is to ensure that we are only getting a
+    // single error generated when the only problem is that an imported file
+    // does not exist.
+    //
+    Source source = addNamedSource(
+        "/a.dart",
+        r'''
+import 'missing.dart' show q, r, t, u, T, U, V, W;
+int a = q + r.s;
+String b = t(a) + u(v: 0);
+T c = new T();
+class D<E> extends T {
+  D(int i) : super(i);
+  U f = new V();
+}
+class F implements T {
+  T m(U u) => null;
+}
+class G extends Object with V {}
+class H extends D<W> {
+  H(int i) : super(i);
+}
+''');
+    await computeAnalysisResult(source);
+    assertErrors(source, [CompileTimeErrorCode.URI_DOES_NOT_EXIST]);
+    verify([source]);
+  }
+
+  test_import_spaceInUri() async {
     addNamedSource(
         "/sub folder/lib.dart",
         r'''
@@ -940,12 +998,12 @@ import 'sub folder/lib.dart';
 main() {
   foo();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_indexExpression_typeParameters() {
+  test_indexExpression_typeParameters() async {
     Source source = addSource(r'''
 f() {
   List<int> a;
@@ -955,23 +1013,23 @@ f() {
   List<List<List<int>>> c;
   c[0][0][0];
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_indexExpression_typeParameters_invalidAssignmentWarning() {
+  test_indexExpression_typeParameters_invalidAssignmentWarning() async {
     Source source = addSource(r'''
 f() {
   List<List<int>> b;
   b[0][0] = 'hi';
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [StaticTypeWarningCode.INVALID_ASSIGNMENT]);
     verify([source]);
   }
 
-  void test_indirectOperatorThroughCall() {
+  test_indirectOperatorThroughCall() async {
     Source source = addSource(r'''
 class A {
   B call() { return new B(); }
@@ -988,12 +1046,12 @@ g(int x) {}
 main() {
   g(f()[0]);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_invoke_dynamicThroughGetter() {
+  test_invoke_dynamicThroughGetter() async {
     Source source = addSource(r'''
 class A {
   List get X => [() => 0];
@@ -1001,12 +1059,12 @@ class A {
     X.last;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_isValidMixin_badSuperclass() {
+  test_isValidMixin_badSuperclass() async {
     Source source = addSource(r'''
 class A extends B {}
 class B {}
@@ -1017,12 +1075,13 @@ class C = Object with A;''');
     expect(unit, isNotNull);
     ClassElement a = unit.getType('A');
     expect(a.isValidMixin, isFalse);
+    await computeAnalysisResult(source);
     assertErrors(source, [CompileTimeErrorCode.MIXIN_INHERITS_FROM_NOT_OBJECT]);
     verify([source]);
   }
 
-  void test_isValidMixin_badSuperclass_withSuperMixins() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableSuperMixins = true);
+  test_isValidMixin_badSuperclass_withSuperMixins() async {
+    resetWith(options: new AnalysisOptionsImpl()..enableSuperMixins = true);
     Source source = addSource(r'''
 class A extends B {}
 class B {}
@@ -1033,11 +1092,12 @@ class C = Object with A;''');
     expect(unit, isNotNull);
     ClassElement a = unit.getType('A');
     expect(a.isValidMixin, isTrue);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_isValidMixin_constructor() {
+  test_isValidMixin_constructor() async {
     Source source = addSource(r'''
 class A {
   A() {}
@@ -1049,12 +1109,13 @@ class C = Object with A;''');
     expect(unit, isNotNull);
     ClassElement a = unit.getType('A');
     expect(a.isValidMixin, isFalse);
+    await computeAnalysisResult(source);
     assertErrors(source, [CompileTimeErrorCode.MIXIN_DECLARES_CONSTRUCTOR]);
     verify([source]);
   }
 
-  void test_isValidMixin_constructor_withSuperMixins() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableSuperMixins = true);
+  test_isValidMixin_constructor_withSuperMixins() async {
+    resetWith(options: new AnalysisOptionsImpl()..enableSuperMixins = true);
     Source source = addSource(r'''
 class A {
   A() {}
@@ -1066,11 +1127,12 @@ class C = Object with A;''');
     expect(unit, isNotNull);
     ClassElement a = unit.getType('A');
     expect(a.isValidMixin, isFalse);
+    await computeAnalysisResult(source);
     assertErrors(source, [CompileTimeErrorCode.MIXIN_DECLARES_CONSTRUCTOR]);
     verify([source]);
   }
 
-  void test_isValidMixin_factoryConstructor() {
+  test_isValidMixin_factoryConstructor() async {
     Source source = addSource(r'''
 class A {
   factory A() => null;
@@ -1082,12 +1144,13 @@ class C = Object with A;''');
     expect(unit, isNotNull);
     ClassElement a = unit.getType('A');
     expect(a.isValidMixin, isTrue);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_isValidMixin_factoryConstructor_withSuperMixins() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableSuperMixins = true);
+  test_isValidMixin_factoryConstructor_withSuperMixins() async {
+    resetWith(options: new AnalysisOptionsImpl()..enableSuperMixins = true);
     Source source = addSource(r'''
 class A {
   factory A() => null;
@@ -1099,11 +1162,12 @@ class C = Object with A;''');
     expect(unit, isNotNull);
     ClassElement a = unit.getType('A');
     expect(a.isValidMixin, isTrue);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_isValidMixin_super() {
+  test_isValidMixin_super() async {
     Source source = addSource(r'''
 class A {
   toString() {
@@ -1117,12 +1181,13 @@ class C = Object with A;''');
     expect(unit, isNotNull);
     ClassElement a = unit.getType('A');
     expect(a.isValidMixin, isFalse);
+    await computeAnalysisResult(source);
     assertErrors(source, [CompileTimeErrorCode.MIXIN_REFERENCES_SUPER]);
     verify([source]);
   }
 
-  void test_isValidMixin_super_withSuperMixins() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableSuperMixins = true);
+  test_isValidMixin_super_withSuperMixins() async {
+    resetWith(options: new AnalysisOptionsImpl()..enableSuperMixins = true);
     Source source = addSource(r'''
 class A {
   toString() {
@@ -1136,11 +1201,12 @@ class C = Object with A;''');
     expect(unit, isNotNull);
     ClassElement a = unit.getType('A');
     expect(a.isValidMixin, isTrue);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_isValidMixin_valid() {
+  test_isValidMixin_valid() async {
     Source source = addSource('''
 class A {}
 class C = Object with A;''');
@@ -1150,12 +1216,13 @@ class C = Object with A;''');
     expect(unit, isNotNull);
     ClassElement a = unit.getType('A');
     expect(a.isValidMixin, isTrue);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_isValidMixin_valid_withSuperMixins() {
-    resetWithOptions(new AnalysisOptionsImpl()..enableSuperMixins = true);
+  test_isValidMixin_valid_withSuperMixins() async {
+    resetWith(options: new AnalysisOptionsImpl()..enableSuperMixins = true);
     Source source = addSource('''
 class A {}
 class C = Object with A;''');
@@ -1165,11 +1232,12 @@ class C = Object with A;''');
     expect(unit, isNotNull);
     ClassElement a = unit.getType('A');
     expect(a.isValidMixin, isTrue);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_labels_switch() {
+  test_labels_switch() async {
     Source source = addSource(r'''
 void doSwitch(int target) {
   switch (target) {
@@ -1183,11 +1251,12 @@ void doSwitch(int target) {
 }''');
     LibraryElement library = resolve2(source);
     expect(library, isNotNull);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_localVariable_types_invoked() {
+  test_localVariable_types_invoked() async {
     Source source = addSource(r'''
 const A = null;
 main() {
@@ -1197,7 +1266,7 @@ main() {
     LibraryElement library = resolve2(source);
     expect(library, isNotNull);
     CompilationUnit unit =
-    analysisContext.resolveCompilationUnit(source, library);
+        analysisContext.resolveCompilationUnit(source, library);
     expect(unit, isNotNull);
     List<bool> found = [false];
     List<CaughtException> thrownException = new List<CaughtException>(1);
@@ -1210,7 +1279,7 @@ main() {
     expect(found[0], isTrue);
   }
 
-  void test_metadata_class() {
+  test_metadata_class() async {
     Source source = addSource(r'''
 const A = null;
 @A class C<A> {}''');
@@ -1222,6 +1291,7 @@ const A = null;
     expect(classes, hasLength(1));
     List<ElementAnnotation> annotations = classes[0].metadata;
     expect(annotations, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     CompilationUnit unit = resolveCompilationUnit(source, library);
@@ -1240,7 +1310,7 @@ const A = null;
     expect(actualElement, same(expectedElement));
   }
 
-  void test_metadata_field() {
+  test_metadata_field() async {
     Source source = addSource(r'''
 const A = null;
 class C {
@@ -1255,11 +1325,12 @@ class C {
     FieldElement field = classes[0].fields[0];
     List<ElementAnnotation> annotations = field.metadata;
     expect(annotations, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_metadata_fieldFormalParameter() {
+  test_metadata_fieldFormalParameter() async {
     Source source = addSource(r'''
 const A = null;
 class C {
@@ -1278,11 +1349,12 @@ class C {
     expect(parameters, hasLength(1));
     List<ElementAnnotation> annotations = parameters[0].metadata;
     expect(annotations, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_metadata_function() {
+  test_metadata_function() async {
     Source source = addSource(r'''
 const A = null;
 @A f() {}''');
@@ -1294,11 +1366,12 @@ const A = null;
     expect(functions, hasLength(1));
     List<ElementAnnotation> annotations = functions[0].metadata;
     expect(annotations, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_metadata_functionTypedParameter() {
+  test_metadata_functionTypedParameter() async {
     Source source = addSource(r'''
 const A = null;
 f(@A int p(int x)) {}''');
@@ -1312,11 +1385,12 @@ f(@A int p(int x)) {}''');
     expect(parameters, hasLength(1));
     List<ElementAnnotation> annotations1 = parameters[0].metadata;
     expect(annotations1, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_metadata_libraryDirective() {
+  test_metadata_libraryDirective() async {
     Source source = addSource(r'''
 @A library lib;
 const A = null;''');
@@ -1324,11 +1398,12 @@ const A = null;''');
     expect(library, isNotNull);
     List<ElementAnnotation> annotations = library.metadata;
     expect(annotations, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_metadata_method() {
+  test_metadata_method() async {
     Source source = addSource(r'''
 const A = null;
 class C {
@@ -1343,11 +1418,12 @@ class C {
     MethodElement method = classes[0].methods[0];
     List<ElementAnnotation> annotations = method.metadata;
     expect(annotations, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_metadata_namedParameter() {
+  test_metadata_namedParameter() async {
     Source source = addSource(r'''
 const A = null;
 f({@A int p : 0}) {}''');
@@ -1361,11 +1437,12 @@ f({@A int p : 0}) {}''');
     expect(parameters, hasLength(1));
     List<ElementAnnotation> annotations1 = parameters[0].metadata;
     expect(annotations1, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_metadata_positionalParameter() {
+  test_metadata_positionalParameter() async {
     Source source = addSource(r'''
 const A = null;
 f([@A int p = 0]) {}''');
@@ -1379,11 +1456,12 @@ f([@A int p = 0]) {}''');
     expect(parameters, hasLength(1));
     List<ElementAnnotation> annotations1 = parameters[0].metadata;
     expect(annotations1, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_metadata_simpleParameter() {
+  test_metadata_simpleParameter() async {
     Source source = addSource(r'''
 const A = null;
 f(@A p1, @A int p2) {}''');
@@ -1399,11 +1477,12 @@ f(@A p1, @A int p2) {}''');
     expect(annotations1, hasLength(1));
     List<ElementAnnotation> annotations2 = parameters[1].metadata;
     expect(annotations2, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_metadata_typedef() {
+  test_metadata_typedef() async {
     Source source = addSource(r'''
 const A = null;
 @A typedef F<A>();''');
@@ -1415,6 +1494,7 @@ const A = null;
     expect(aliases, hasLength(1));
     List<ElementAnnotation> annotations = aliases[0].metadata;
     expect(annotations, hasLength(1));
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     CompilationUnit unit = resolveCompilationUnit(source, library);
@@ -1433,7 +1513,7 @@ const A = null;
     expect(actualElement, same(expectedElement));
   }
 
-  void test_method_fromMixin() {
+  test_method_fromMixin() async {
     Source source = addSource(r'''
 class B {
   bar() => 1;
@@ -1446,12 +1526,12 @@ class C extends B with A {
   bar() => super.bar();
   foo() => super.foo();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_method_fromMixins() {
+  test_method_fromMixins() async {
     Source source = addSource('''
 class B {}
 class M1 {
@@ -1465,19 +1545,23 @@ void main() {
   new C().f();
 }
 ''');
-    LibraryElement library = resolve2(source);
+    var analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     // Verify that the "f" in "new C().f()" refers to the "f" defined in M2.
-    FunctionDeclaration main =
-    library.definingCompilationUnit.functions[0].computeNode();
-    BlockFunctionBody body = main.functionExpression.body;
-    ExpressionStatement stmt = body.block.statements[0];
-    MethodInvocation expr = stmt.expression;
-    expect(expr.methodName.staticElement.enclosingElement.name, 'M2');
+    List<Statement> statements =
+        AstFinder.getStatementsInTopLevelFunction(analysisResult.unit, 'main');
+    var statement = statements[0] as ExpressionStatement;
+    MethodInvocation expr = statement.expression;
+    expect(
+        resolutionMap
+            .staticElementForIdentifier(expr.methodName)
+            .enclosingElement
+            .name,
+        'M2');
   }
 
-  void test_method_fromMixins_bare_identifier() {
+  test_method_fromMixins_bare_identifier() async {
     Source source = addSource('''
 class B {}
 class M1 {
@@ -1492,20 +1576,24 @@ class C extends B with M1, M2 {
   }
 }
 ''');
-    LibraryElement library = resolve2(source);
+    var analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     // Verify that the call to f() in C.g() refers to the method defined in M2.
-    ClassElement classC = library.definingCompilationUnit.types[3];
-    MethodDeclaration g = classC.getMethod('g').computeNode();
-    BlockFunctionBody body = g.body;
-    ExpressionStatement stmt = body.block.statements[0];
-    MethodInvocation invocation = stmt.expression;
+    List<Statement> statements =
+        AstFinder.getStatementsInMethod(analysisResult.unit, 'C', 'g');
+    var statement = statements[0] as ExpressionStatement;
+    MethodInvocation invocation = statement.expression;
     SimpleIdentifier methodName = invocation.methodName;
-    expect(methodName.staticElement.enclosingElement.name, 'M2');
+    expect(
+        resolutionMap
+            .staticElementForIdentifier(methodName)
+            .enclosingElement
+            .name,
+        'M2');
   }
 
-  void test_method_fromMixins_invked_from_outside_class() {
+  test_method_fromMixins_invoked_from_outside_class() async {
     Source source = addSource('''
 class B {}
 class M1 {
@@ -1519,20 +1607,24 @@ void main() {
   new C().f();
 }
 ''');
-    LibraryElement library = resolve2(source);
+    var analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     // Verify that the call to f() in "new C().f()" refers to the method
     // defined in M2.
-    FunctionDeclaration main =
-    library.definingCompilationUnit.functions[0].computeNode();
-    BlockFunctionBody body = main.functionExpression.body;
-    ExpressionStatement stmt = body.block.statements[0];
-    MethodInvocation invocation = stmt.expression;
-    expect(invocation.methodName.staticElement.enclosingElement.name, 'M2');
+    List<Statement> statements =
+        AstFinder.getStatementsInTopLevelFunction(analysisResult.unit, 'main');
+    var statement = statements[0] as ExpressionStatement;
+    MethodInvocation invocation = statement.expression;
+    expect(
+        resolutionMap
+            .staticElementForIdentifier(invocation.methodName)
+            .enclosingElement
+            .name,
+        'M2');
   }
 
-  void test_method_fromSuperclassMixin() {
+  test_method_fromSuperclassMixin() async {
     Source source = addSource(r'''
 class A {
   void m1() {}
@@ -1544,12 +1636,12 @@ class C extends B {
 f(C c) {
   c.m1();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_methodCascades() {
+  test_methodCascades() async {
     Source source = addSource(r'''
 class A {
   void m1() {}
@@ -1560,12 +1652,12 @@ class A {
      ..m2();
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_methodCascades_withSetter() {
+  test_methodCascades_withSetter() async {
     Source source = addSource(r'''
 class A {
   String name;
@@ -1578,22 +1670,22 @@ class A {
      ..m2();
   }
 }''');
-    computeLibrarySourceErrors(source);
     // failing with error code: INVOCATION_OF_NON_FUNCTION
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_resolveAgainstNull() {
+  test_resolveAgainstNull() async {
     Source source = addSource(r'''
 f(var p) {
   return null == p;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_setter_fromMixins_bare_identifier() {
+  test_setter_fromMixins_bare_identifier() async {
     Source source = addSource('''
 class B {}
 class M1 {
@@ -1608,21 +1700,25 @@ class C extends B with M1, M2 {
   }
 }
 ''');
-    LibraryElement library = resolve2(source);
+    var analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     // Verify that the setter for "x" in C.f() refers to the setter defined in
     // M2.
-    ClassElement classC = library.definingCompilationUnit.types[3];
-    MethodDeclaration f = classC.getMethod('f').computeNode();
-    BlockFunctionBody body = f.body;
-    ExpressionStatement stmt = body.block.statements[0];
-    AssignmentExpression assignment = stmt.expression;
+    List<Statement> statements =
+        AstFinder.getStatementsInMethod(analysisResult.unit, 'C', 'f');
+    var statement = statements[0] as ExpressionStatement;
+    AssignmentExpression assignment = statement.expression;
     SimpleIdentifier leftHandSide = assignment.leftHandSide;
-    expect(leftHandSide.staticElement.enclosingElement.name, 'M2');
+    expect(
+        resolutionMap
+            .staticElementForIdentifier(leftHandSide)
+            .enclosingElement
+            .name,
+        'M2');
   }
 
-  void test_setter_fromMixins_property_access() {
+  test_setter_fromMixins_property_access() async {
     Source source = addSource('''
 class B {}
 class M1 {
@@ -1636,22 +1732,25 @@ void main() {
   new C().x = 1;
 }
 ''');
-    LibraryElement library = resolve2(source);
+    var analysisResult = await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
     // Verify that the setter for "x" in "new C().x" refers to the setter
     // defined in M2.
-    FunctionDeclaration main =
-    library.definingCompilationUnit.functions[0].computeNode();
-    BlockFunctionBody body = main.functionExpression.body;
-    ExpressionStatement stmt = body.block.statements[0];
-    AssignmentExpression assignment = stmt.expression;
+    List<Statement> statements =
+        AstFinder.getStatementsInTopLevelFunction(analysisResult.unit, 'main');
+    var statement = statements[0] as ExpressionStatement;
+    AssignmentExpression assignment = statement.expression;
     PropertyAccess propertyAccess = assignment.leftHandSide;
     expect(
-        propertyAccess.propertyName.staticElement.enclosingElement.name, 'M2');
+        resolutionMap
+            .staticElementForIdentifier(propertyAccess.propertyName)
+            .enclosingElement
+            .name,
+        'M2');
   }
 
-  void test_setter_inherited() {
+  test_setter_inherited() async {
     Source source = addSource(r'''
 class A {
   int get x => 0;
@@ -1661,12 +1760,12 @@ class B extends A {
   int get x => super.x == null ? 0 : super.x;
   int f() => x = 1;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_setter_static() {
+  test_setter_static() async {
     Source source = addSource(r'''
 set s(x) {
 }
@@ -1674,7 +1773,23 @@ set s(x) {
 main() {
   s = 123;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  @failingTest
+  test_staticInvocation() async {
+    Source source = addSource(r'''
+class A {
+  static int get g => (a,b) => 0;
+}
+class B {
+  f() {
+    A.g(1,0);
+  }
+}''');
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
@@ -1708,9 +1823,9 @@ main() {
     CompilationUnit unit = resolveCompilationUnit(source, library);
     expect(unit, isNotNull);
     ClassDeclaration classDeclaration =
-    unit.declarations[0] as ClassDeclaration;
+        unit.declarations[0] as ClassDeclaration;
     MethodDeclaration methodDeclaration =
-    classDeclaration.members[0] as MethodDeclaration;
+        classDeclaration.members[0] as MethodDeclaration;
     Block block = (methodDeclaration.body as BlockFunctionBody).block;
     ExpressionStatement statement = block.statements[0] as ExpressionStatement;
     MethodInvocation invocation = statement.expression as MethodInvocation;

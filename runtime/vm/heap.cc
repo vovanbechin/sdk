@@ -17,6 +17,7 @@
 #include "vm/scavenger.h"
 #include "vm/service.h"
 #include "vm/service_event.h"
+#include "vm/service_isolate.h"
 #include "vm/stack_frame.h"
 #include "vm/tags.h"
 #include "vm/timeline.h"
@@ -31,17 +32,15 @@ Heap::Heap(Isolate* isolate,
            intptr_t max_old_gen_words,
            intptr_t max_external_words)
     : isolate_(isolate),
-      barrier_(new Monitor()),
-      barrier_done_(new Monitor()),
       new_space_(this, max_new_gen_semi_words, kNewObjectAlignmentOffset),
       old_space_(this, max_old_gen_words, max_external_words),
+      barrier_(new Monitor()),
+      barrier_done_(new Monitor()),
       read_only_(false),
       gc_new_space_in_progress_(false),
-      gc_old_space_in_progress_(false),
-      pretenure_policy_(0) {
-  for (int sel = 0;
-       sel < kNumWeakSelectors;
-       sel++) {
+      gc_old_space_in_progress_(false) {
+  UpdateGlobalMaxUsed();
+  for (int sel = 0; sel < kNumWeakSelectors; sel++) {
     new_weak_tables_[sel] = new WeakTable();
     old_weak_tables_[sel] = new WeakTable();
   }
@@ -53,9 +52,7 @@ Heap::~Heap() {
   delete barrier_;
   delete barrier_done_;
 
-  for (int sel = 0;
-       sel < kNumWeakSelectors;
-       sel++) {
+  for (int sel = 0; sel < kNumWeakSelectors; sel++) {
     delete new_weak_tables_[sel];
     delete old_weak_tables_[sel];
   }
@@ -90,18 +87,13 @@ uword Heap::AllocateOld(intptr_t size, HeapPage::PageType type) {
   // If we are in the process of running a sweep, wait for the sweeper to free
   // memory.
   Thread* thread = Thread::Current();
-  {
-    MonitorLocker ml(old_space_.tasks_lock());
-    addr = old_space_.TryAllocate(size, type);
-    while ((addr == 0) && (old_space_.tasks() > 0)) {
-      ml.WaitWithSafepointCheck(thread);
-      addr = old_space_.TryAllocate(size, type);
-    }
-  }
-  if (addr != 0) {
-    return addr;
-  }
   if (thread->CanCollectGarbage()) {
+    // Wait for any GC tasks that are in progress.
+    WaitForSweeperTasks(thread);
+    addr = old_space_.TryAllocate(size, type);
+    if (addr != 0) {
+      return addr;
+    }
     // All GC tasks finished without allocating successfully. Run a full GC.
     CollectAllGarbage();
     addr = old_space_.TryAllocate(size, type);
@@ -109,14 +101,8 @@ uword Heap::AllocateOld(intptr_t size, HeapPage::PageType type) {
       return addr;
     }
     // Wait for all of the concurrent tasks to finish before giving up.
-    {
-      MonitorLocker ml(old_space_.tasks_lock());
-      addr = old_space_.TryAllocate(size, type);
-      while ((addr == 0) && (old_space_.tasks() > 0)) {
-        ml.WaitWithSafepointCheck(thread);
-        addr = old_space_.TryAllocate(size, type);
-      }
-    }
+    WaitForSweeperTasks(thread);
+    addr = old_space_.TryAllocate(size, type);
     if (addr != 0) {
       return addr;
     }
@@ -127,29 +113,16 @@ uword Heap::AllocateOld(intptr_t size, HeapPage::PageType type) {
     }
     // Before throwing an out-of-memory error try a synchronous GC.
     CollectAllGarbage();
-    {
-      MonitorLocker ml(old_space_.tasks_lock());
-      while (old_space_.tasks() > 0) {
-        ml.WaitWithSafepointCheck(thread);
-      }
-    }
+    WaitForSweeperTasks(thread);
   }
   addr = old_space_.TryAllocate(size, type, PageSpace::kForceGrowth);
   if (addr != 0) {
     return addr;
   }
   // Give up allocating this object.
-  OS::PrintErr(
-      "Exhausted heap space, trying to allocate %" Pd " bytes.\n", size);
+  OS::PrintErr("Exhausted heap space, trying to allocate %" Pd " bytes.\n",
+               size);
   return 0;
-}
-
-
-uword Heap::AllocatePretenured(intptr_t size) {
-  ASSERT(Thread::Current()->no_safepoint_scope_depth() == 0);
-  uword addr = old_space_.TryAllocateDataBump(size, PageSpace::kControlGrowth);
-  if (addr != 0) return addr;
-  return AllocateOld(size, HeapPage::kData);
 }
 
 
@@ -187,8 +160,7 @@ void Heap::PromoteExternal(intptr_t size) {
 }
 
 bool Heap::Contains(uword addr) const {
-  return new_space_.Contains(addr) ||
-      old_space_.Contains(addr);
+  return new_space_.Contains(addr) || old_space_.Contains(addr);
 }
 
 
@@ -207,34 +179,61 @@ bool Heap::CodeContains(uword addr) const {
 }
 
 
+bool Heap::DataContains(uword addr) const {
+  return old_space_.DataContains(addr);
+}
+
+
 void Heap::VisitObjects(ObjectVisitor* visitor) const {
   new_space_.VisitObjects(visitor);
   old_space_.VisitObjects(visitor);
 }
 
 
-HeapIterationScope::HeapIterationScope()
+void Heap::VisitObjectsNoImagePages(ObjectVisitor* visitor) const {
+  new_space_.VisitObjects(visitor);
+  old_space_.VisitObjectsNoImagePages(visitor);
+}
+
+
+void Heap::VisitObjectsImagePages(ObjectVisitor* visitor) const {
+  old_space_.VisitObjectsImagePages(visitor);
+}
+
+
+HeapIterationScope::HeapIterationScope(bool writable)
     : StackResource(Thread::Current()),
-      old_space_(isolate()->heap()->old_space()) {
-  // It's not yet safe to iterate over a paged space while it's concurrently
-  // sweeping, so wait for any such task to complete first.
-  MonitorLocker ml(old_space_->tasks_lock());
+      old_space_(isolate()->heap()->old_space()),
+      writable_(writable) {
+  {
+    // It's not yet safe to iterate over a paged space while it's concurrently
+    // sweeping, so wait for any such task to complete first.
+    MonitorLocker ml(old_space_->tasks_lock());
 #if defined(DEBUG)
-  // We currently don't support nesting of HeapIterationScopes.
-  ASSERT(old_space_->iterating_thread_ != thread());
+    // We currently don't support nesting of HeapIterationScopes.
+    ASSERT(old_space_->iterating_thread_ != thread());
 #endif
-  while (old_space_->tasks() > 0) {
-    ml.Wait();
+    while (old_space_->tasks() > 0) {
+      ml.WaitWithSafepointCheck(thread());
+    }
+#if defined(DEBUG)
+    ASSERT(old_space_->iterating_thread_ == NULL);
+    old_space_->iterating_thread_ = thread();
+#endif
+    old_space_->set_tasks(1);
   }
-#if defined(DEBUG)
-  ASSERT(old_space_->iterating_thread_ == NULL);
-  old_space_->iterating_thread_ = thread();
-#endif
-  old_space_->set_tasks(1);
+
+  if (writable_) {
+    thread()->heap()->WriteProtectCode(false);
+  }
 }
 
 
 HeapIterationScope::~HeapIterationScope() {
+  if (writable_) {
+    thread()->heap()->WriteProtectCode(true);
+  }
+
   MonitorLocker ml(old_space_->tasks_lock());
 #if defined(DEBUG)
   ASSERT(old_space_->iterating_thread_ == thread());
@@ -242,7 +241,7 @@ HeapIterationScope::~HeapIterationScope() {
 #endif
   ASSERT(old_space_->tasks() == 1);
   old_space_->set_tasks(0);
-  ml.Notify();
+  ml.NotifyAll();
 }
 
 
@@ -257,6 +256,12 @@ void Heap::IterateObjects(ObjectVisitor* visitor) const {
 void Heap::IterateOldObjects(ObjectVisitor* visitor) const {
   HeapIterationScope heap_iteration_scope;
   old_space_.VisitObjects(visitor);
+}
+
+
+void Heap::IterateOldObjectsNoImagePages(ObjectVisitor* visitor) const {
+  HeapIterationScope heap_iteration_scope;
+  old_space_.VisitObjectsNoImagePages(visitor);
 }
 
 
@@ -305,8 +310,7 @@ RawObject* Heap::FindObject(FindObjectVisitor* visitor) const {
 bool Heap::BeginNewSpaceGC(Thread* thread) {
   MonitorLocker ml(&gc_in_progress_monitor_);
   bool start_gc_on_thread = true;
-  while (gc_new_space_in_progress_ ||
-         gc_old_space_in_progress_) {
+  while (gc_new_space_in_progress_ || gc_old_space_in_progress_) {
     start_gc_on_thread = !gc_new_space_in_progress_;
     ml.WaitWithSafepointCheck(thread);
   }
@@ -329,8 +333,7 @@ void Heap::EndNewSpaceGC() {
 bool Heap::BeginOldSpaceGC(Thread* thread) {
   MonitorLocker ml(&gc_in_progress_monitor_);
   bool start_gc_on_thread = true;
-  while (gc_new_space_in_progress_ ||
-         gc_old_space_in_progress_) {
+  while (gc_new_space_in_progress_ || gc_old_space_in_progress_) {
     start_gc_on_thread = !gc_old_space_in_progress_;
     ml.WaitWithSafepointCheck(thread);
   }
@@ -350,6 +353,7 @@ void Heap::EndOldSpaceGC() {
 }
 
 
+#ifndef PRODUCT
 void Heap::UpdateClassHeapStatsBeforeGC(Heap::Space space) {
   ClassTable* class_table = isolate()->class_table();
   if (space == kNew) {
@@ -358,28 +362,26 @@ void Heap::UpdateClassHeapStatsBeforeGC(Heap::Space space) {
     class_table->ResetCountersOld();
   }
 }
+#endif
 
 
 void Heap::CollectNewSpaceGarbage(Thread* thread,
                                   ApiCallbacks api_callbacks,
                                   GCReason reason) {
+  ASSERT((reason == kNewSpace) || (reason == kFull));
   if (BeginNewSpaceGC(thread)) {
     bool invoke_api_callbacks = (api_callbacks == kInvokeApiCallbacks);
     RecordBeforeGC(kNew, reason);
     VMTagScope tagScope(thread, VMTag::kGCNewSpaceTagId);
-#ifndef PRODUCT
-    TimelineDurationScope tds(thread,
-                              isolate()->GetGCStream(),
-                              "CollectNewGeneration");
-#endif  // !PRODUCT
-    UpdateClassHeapStatsBeforeGC(kNew);
+    TIMELINE_FUNCTION_GC_DURATION(thread, "CollectNewGeneration");
+    NOT_IN_PRODUCT(UpdateClassHeapStatsBeforeGC(kNew));
     new_space_.Scavenge(invoke_api_callbacks);
-    isolate()->class_table()->UpdatePromoted();
-    UpdatePretenurePolicy();
+    NOT_IN_PRODUCT(isolate()->class_table()->UpdatePromoted());
     RecordAfterGC(kNew);
     PrintStats();
+    NOT_IN_PRODUCT(PrintStatsToTimeline(&tds));
     EndNewSpaceGC();
-    if (old_space_.NeedsGarbageCollection()) {
+    if ((reason == kNewSpace) && old_space_.NeedsGarbageCollection()) {
       // Old collections should call the API callbacks.
       CollectOldSpaceGarbage(thread, kInvokeApiCallbacks, kPromotion);
     }
@@ -390,19 +392,19 @@ void Heap::CollectNewSpaceGarbage(Thread* thread,
 void Heap::CollectOldSpaceGarbage(Thread* thread,
                                   ApiCallbacks api_callbacks,
                                   GCReason reason) {
+  ASSERT((reason != kNewSpace));
   if (BeginOldSpaceGC(thread)) {
     bool invoke_api_callbacks = (api_callbacks == kInvokeApiCallbacks);
     RecordBeforeGC(kOld, reason);
     VMTagScope tagScope(thread, VMTag::kGCOldSpaceTagId);
-#ifndef PRODUCT
-    TimelineDurationScope tds(thread,
-                              isolate()->GetGCStream(),
-                              "CollectOldGeneration");
-#endif  // !PRODUCT
-    UpdateClassHeapStatsBeforeGC(kOld);
+    TIMELINE_FUNCTION_GC_DURATION(thread, "CollectOldGeneration");
+    NOT_IN_PRODUCT(UpdateClassHeapStatsBeforeGC(kOld));
     old_space_.MarkSweep(invoke_api_callbacks);
     RecordAfterGC(kOld);
     PrintStats();
+    NOT_IN_PRODUCT(PrintStatsToTimeline(&tds));
+    // Some Code objects may have been collected so invalidate handler cache.
+    thread->isolate()->handler_info_cache()->Clear();
     EndOldSpaceGC();
   }
 }
@@ -446,50 +448,10 @@ void Heap::CollectAllGarbage() {
 }
 
 
-#if defined(DEBUG)
-void Heap::WaitForSweeperTasks() {
-  Thread* thread = Thread::Current();
-  {
-    MonitorLocker ml(old_space_.tasks_lock());
-    while (old_space_.tasks() > 0) {
-      ml.WaitWithSafepointCheck(thread);
-    }
-  }
-}
-#endif
-
-
-bool Heap::ShouldPretenure(intptr_t class_id) const {
-  if (class_id == kOneByteStringCid) {
-    return pretenure_policy_ > 0;
-  } else {
-    return false;
-  }
-}
-
-
-void Heap::UpdatePretenurePolicy() {
-  if (FLAG_disable_alloc_stubs_after_gc) {
-    ClassTable* table = isolate_->class_table();
-    Zone* zone = Thread::Current()->zone();
-    for (intptr_t cid = 1; cid < table->NumCids(); ++cid) {
-      if (((cid >= kNumPredefinedCids) || (cid == kArrayCid)) &&
-          table->IsValidIndex(cid) &&
-          table->HasValidClassAt(cid)) {
-        const Class& cls = Class::Handle(zone, table->At(cid));
-        cls.DisableAllocationStub();
-      }
-    }
-  }
-  ClassHeapStats* stats =
-      isolate_->class_table()->StatsWithUpdatedSize(kOneByteStringCid);
-  int allocated = stats->pre_gc.new_count;
-  int promo_percent = (allocated == 0) ? 0 :
-      (100 * stats->promoted_count) / allocated;
-  if (promo_percent >= FLAG_pretenure_threshold) {
-    pretenure_policy_ += FLAG_pretenure_interval;
-  } else {
-    pretenure_policy_ = Utils::Maximum(0, pretenure_policy_ - 1);
+void Heap::WaitForSweeperTasks(Thread* thread) {
+  MonitorLocker ml(old_space_.tasks_lock());
+  while (old_space_.tasks() > 0) {
+    ml.WaitWithSafepointCheck(thread);
   }
 }
 
@@ -519,15 +481,10 @@ bool Heap::GrowthControlState() {
 }
 
 
-void Heap::WriteProtect(bool read_only, bool include_code_pages) {
+void Heap::WriteProtect(bool read_only) {
   read_only_ = read_only;
   new_space_.WriteProtect(read_only);
-  old_space_.WriteProtect(read_only, include_code_pages);
-}
-
-
-Heap::Space Heap::SpaceForAllocation(intptr_t cid) {
-  return FLAG_pretenure_all ? kPretenured : kNew;
+  old_space_.WriteProtect(read_only);
 }
 
 
@@ -535,7 +492,7 @@ intptr_t Heap::TopOffset(Heap::Space space) {
   if (space == kNew) {
     return OFFSET_OF(Heap, new_space_) + Scavenger::top_offset();
   } else {
-    ASSERT(space == kPretenured);
+    ASSERT(space == kOld);
     return OFFSET_OF(Heap, old_space_) + PageSpace::top_offset();
   }
 }
@@ -545,7 +502,7 @@ intptr_t Heap::EndOffset(Heap::Space space) {
   if (space == kNew) {
     return OFFSET_OF(Heap, new_space_) + Scavenger::end_offset();
   } else {
-    ASSERT(space == kPretenured);
+    ASSERT(space == kOld);
     return OFFSET_OF(Heap, old_space_) + PageSpace::end_offset();
   }
 }
@@ -556,53 +513,44 @@ void Heap::Init(Isolate* isolate,
                 intptr_t max_old_gen_words,
                 intptr_t max_external_words) {
   ASSERT(isolate->heap() == NULL);
-  Heap* heap = new Heap(isolate,
-                        max_new_gen_words,
-                        max_old_gen_words,
+  Heap* heap = new Heap(isolate, max_new_gen_words, max_old_gen_words,
                         max_external_words);
   isolate->set_heap(heap);
 }
 
 
-void Heap::GetMergedAddressRange(uword* start, uword* end) const {
-  if (new_space_.CapacityInWords() != 0) {
-    uword new_start;
-    uword new_end;
-    new_space_.StartEndAddress(&new_start, &new_end);
-    *start = Utils::Minimum(new_start, *start);
-    *end = Utils::Maximum(new_end, *end);
-  }
-  if (old_space_.CapacityInWords() != 0) {
-    uword old_start;
-    uword old_end;
-    old_space_.StartEndAddress(&old_start, &old_end);
-    *start = Utils::Minimum(old_start, *start);
-    *end = Utils::Maximum(old_end, *end);
-  }
-  ASSERT(*start <= *end);
+void Heap::AddRegionsToObjectSet(ObjectSet* set) const {
+  new_space_.AddRegionsToObjectSet(set);
+  old_space_.AddRegionsToObjectSet(set);
 }
 
 
 ObjectSet* Heap::CreateAllocatedObjectSet(
+    Zone* zone,
     MarkExpectation mark_expectation) const {
-  uword start = static_cast<uword>(-1);
-  uword end = 0;
-  Isolate* vm_isolate = Dart::vm_isolate();
-  vm_isolate->heap()->GetMergedAddressRange(&start, &end);
-  this->GetMergedAddressRange(&start, &end);
+  ObjectSet* allocated_set = new (zone) ObjectSet(zone);
 
-  ObjectSet* allocated_set = new ObjectSet(start, end);
+  this->AddRegionsToObjectSet(allocated_set);
   {
-    VerifyObjectVisitor object_visitor(
-        isolate(), allocated_set, mark_expectation);
-    this->VisitObjects(&object_visitor);
+    VerifyObjectVisitor object_visitor(isolate(), allocated_set,
+                                       mark_expectation);
+    this->VisitObjectsNoImagePages(&object_visitor);
   }
+  {
+    VerifyObjectVisitor object_visitor(isolate(), allocated_set,
+                                       kRequireMarked);
+    this->VisitObjectsImagePages(&object_visitor);
+  }
+
+  Isolate* vm_isolate = Dart::vm_isolate();
+  vm_isolate->heap()->AddRegionsToObjectSet(allocated_set);
   {
     // VM isolate heap is premarked.
-    VerifyObjectVisitor vm_object_visitor(
-        isolate(), allocated_set, kRequireMarked);
+    VerifyObjectVisitor vm_object_visitor(isolate(), allocated_set,
+                                          kRequireMarked);
     vm_isolate->heap()->VisitObjects(&vm_object_visitor);
   }
+
   return allocated_set;
 }
 
@@ -614,22 +562,24 @@ bool Heap::Verify(MarkExpectation mark_expectation) const {
 
 
 bool Heap::VerifyGC(MarkExpectation mark_expectation) const {
-  ObjectSet* allocated_set = CreateAllocatedObjectSet(mark_expectation);
+  StackZone stack_zone(Thread::Current());
+  ObjectSet* allocated_set =
+      CreateAllocatedObjectSet(stack_zone.GetZone(), mark_expectation);
   VerifyPointersVisitor visitor(isolate(), allocated_set);
   VisitObjectPointers(&visitor);
-  delete allocated_set;
+
   // Only returning a value so that Heap::Validate can be called from an ASSERT.
   return true;
 }
 
 
 void Heap::PrintSizes() const {
-  OS::PrintErr("New space (%" Pd64 "k of %" Pd64 "k) "
-               "Old space (%" Pd64 "k of %" Pd64 "k)\n",
-               (UsedInWords(kNew) / KBInWords),
-               (CapacityInWords(kNew) / KBInWords),
-               (UsedInWords(kOld) / KBInWords),
-               (CapacityInWords(kOld) / KBInWords));
+  OS::PrintErr(
+      "New space (%" Pd64 "k of %" Pd64
+      "k) "
+      "Old space (%" Pd64 "k of %" Pd64 "k)\n",
+      (UsedInWords(kNew) / KBInWords), (CapacityInWords(kNew) / KBInWords),
+      (UsedInWords(kOld) / KBInWords), (CapacityInWords(kOld) / KBInWords));
 }
 
 
@@ -639,14 +589,14 @@ int64_t Heap::UsedInWords(Space space) const {
 
 
 int64_t Heap::CapacityInWords(Space space) const {
-  return space == kNew ? new_space_.CapacityInWords() :
-                         old_space_.CapacityInWords();
+  return space == kNew ? new_space_.CapacityInWords()
+                       : old_space_.CapacityInWords();
 }
 
 
 int64_t Heap::ExternalInWords(Space space) const {
-  return space == kNew ? new_space_.ExternalInWords() :
-                         old_space_.ExternalInWords();
+  return space == kNew ? new_space_.ExternalInWords()
+                       : old_space_.ExternalInWords();
 }
 
 
@@ -694,13 +644,13 @@ int64_t Heap::PeerCount() const {
 
 int64_t Heap::HashCount() const {
   return new_weak_tables_[kHashes]->count() +
-      old_weak_tables_[kHashes]->count();
+         old_weak_tables_[kHashes]->count();
 }
 
 
 int64_t Heap::ObjectIdCount() const {
   return new_weak_tables_[kObjectIds]->count() +
-      old_weak_tables_[kObjectIds]->count();
+         old_weak_tables_[kObjectIds]->count();
 }
 
 
@@ -729,6 +679,7 @@ void Heap::SetWeakEntry(RawObject* raw_obj, WeakSelector sel, intptr_t val) {
 }
 
 
+#ifndef PRODUCT
 void Heap::PrintToJSONObject(Space space, JSONObject* object) const {
   if (space == kNew) {
     new_space_.PrintToJSONObject(object);
@@ -736,6 +687,7 @@ void Heap::PrintToJSONObject(Space space, JSONObject* object) const {
     old_space_.PrintToJSONObject(object);
   }
 }
+#endif  // PRODUCT
 
 
 void Heap::RecordBeforeGC(Space space, GCReason reason) {
@@ -744,7 +696,7 @@ void Heap::RecordBeforeGC(Space space, GCReason reason) {
   stats_.num_++;
   stats_.space_ = space;
   stats_.reason_ = reason;
-  stats_.before_.micros_ = OS::GetCurrentTimeMicros();
+  stats_.before_.micros_ = OS::GetCurrentMonotonicMicros();
   stats_.before_.new_ = new_space_.GetCurrentUsage();
   stats_.before_.old_ = old_space_.GetCurrentUsage();
   stats_.times_[0] = 0;
@@ -759,7 +711,7 @@ void Heap::RecordBeforeGC(Space space, GCReason reason) {
 
 
 void Heap::RecordAfterGC(Space space) {
-  stats_.after_.micros_ = OS::GetCurrentTimeMicros();
+  stats_.after_.micros_ = OS::GetCurrentMonotonicMicros();
   int64_t delta = stats_.after_.micros_ - stats_.before_.micros_;
   if (stats_.space_ == kNew) {
     new_space_.AddGCTime(delta);
@@ -772,11 +724,14 @@ void Heap::RecordAfterGC(Space space) {
   stats_.after_.old_ = old_space_.GetCurrentUsage();
   ASSERT((space == kNew && gc_new_space_in_progress_) ||
          (space == kOld && gc_old_space_in_progress_));
-  if (FLAG_support_service && Service::gc_stream.enabled()) {
+#ifndef PRODUCT
+  if (FLAG_support_service && Service::gc_stream.enabled() &&
+      !ServiceIsolate::IsServiceIsolateDescendant(Isolate::Current())) {
     ServiceEvent event(Isolate::Current(), ServiceEvent::kGC);
     event.set_gc_stats(&stats_);
     Service::HandleEvent(&event);
   }
+#endif  // !PRODUCT
 }
 
 
@@ -785,12 +740,14 @@ void Heap::PrintStats() {
 
   if ((FLAG_verbose_gc_hdr != 0) &&
       (((stats_.num_ - 1) % FLAG_verbose_gc_hdr) == 0)) {
-    OS::PrintErr("[    GC    |  space  | count | start | gc time | "
-                 "new gen (KB) | old gen (KB) | timers | data ]\n"
-                 "[ (isolate)| (reason)|       |  (s)  |   (ms)  | "
-                 "used,cap,ext | used,cap,ext |  (ms)  |      ]\n");
+    OS::PrintErr(
+        "[    GC    |  space  | count | start | gc time | "
+        "new gen (KB) | old gen (KB) | timers | data ]\n"
+        "[ (isolate)| (reason)|       |  (s)  |   (ms)  | "
+        "used,cap,ext | used,cap,ext |  (ms)  |      ]\n");
   }
 
+  // clang-format off
   const char* space_str = stats_.space_ == kNew ? "Scavenge" : "Mark-Sweep";
   OS::PrintErr(
     "[ GC(%" Pd64 "): %s(%s), "  // GC(isolate), space(reason)
@@ -808,7 +765,7 @@ void Heap::PrintStats() {
     "]\n",  // End with a comma to make it easier to import in spreadsheets.
     isolate()->main_port(), space_str, GCReasonToString(stats_.reason_),
     stats_.num_,
-    MicrosecondsToSeconds(stats_.before_.micros_ - isolate()->start_time()),
+    MicrosecondsToSeconds(isolate()->UptimeMicros()),
     MicrosecondsToMilliseconds(stats_.after_.micros_ -
                                     stats_.before_.micros_),
     RoundWordsToKB(stats_.before_.new_.used_in_words),
@@ -831,33 +788,69 @@ void Heap::PrintStats() {
     stats_.data_[1],
     stats_.data_[2],
     stats_.data_[3]);
+  // clang-format on
+}
+
+
+void Heap::PrintStatsToTimeline(TimelineEventScope* event) {
+#if !defined(PRODUCT)
+  if ((event == NULL) || !event->enabled()) {
+    return;
+  }
+  event->SetNumArguments(12);
+  event->FormatArgument(0, "Before.New.Used (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.before_.new_.used_in_words));
+  event->FormatArgument(1, "After.New.Used (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.after_.new_.used_in_words));
+  event->FormatArgument(2, "Before.Old.Used (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.before_.old_.used_in_words));
+  event->FormatArgument(3, "After.Old.Used (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.after_.old_.used_in_words));
+
+  event->FormatArgument(4, "Before.New.Capacity (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.before_.new_.capacity_in_words));
+  event->FormatArgument(5, "After.New.Capacity (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.after_.new_.capacity_in_words));
+  event->FormatArgument(6, "Before.Old.Capacity (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.before_.old_.capacity_in_words));
+  event->FormatArgument(7, "After.Old.Capacity (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.after_.old_.capacity_in_words));
+
+  event->FormatArgument(8, "Before.New.External (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.before_.new_.external_in_words));
+  event->FormatArgument(9, "After.New.External (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.after_.new_.external_in_words));
+  event->FormatArgument(10, "Before.Old.External (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.before_.old_.external_in_words));
+  event->FormatArgument(11, "After.Old.External (kB)", "%" Pd "",
+                        RoundWordsToKB(stats_.after_.old_.external_in_words));
+#endif  // !defined(PRODUCT)
 }
 
 
 NoHeapGrowthControlScope::NoHeapGrowthControlScope()
     : StackResource(Thread::Current()) {
-    Heap* heap = reinterpret_cast<Isolate*>(isolate())->heap();
-    current_growth_controller_state_ = heap->GrowthControlState();
-    heap->DisableGrowthControl();
+  Heap* heap = reinterpret_cast<Isolate*>(isolate())->heap();
+  current_growth_controller_state_ = heap->GrowthControlState();
+  heap->DisableGrowthControl();
 }
 
 
 NoHeapGrowthControlScope::~NoHeapGrowthControlScope() {
-    Heap* heap = reinterpret_cast<Isolate*>(isolate())->heap();
-    heap->SetGrowthControlState(current_growth_controller_state_);
+  Heap* heap = reinterpret_cast<Isolate*>(isolate())->heap();
+  heap->SetGrowthControlState(current_growth_controller_state_);
 }
 
 
-WritableVMIsolateScope::WritableVMIsolateScope(Thread* thread,
-                                               bool include_code_pages)
-    : StackResource(thread), include_code_pages_(include_code_pages) {
-  Dart::vm_isolate()->heap()->WriteProtect(false, include_code_pages_);
+WritableVMIsolateScope::WritableVMIsolateScope(Thread* thread)
+    : StackResource(thread) {
+  Dart::vm_isolate()->heap()->WriteProtect(false);
 }
 
 
 WritableVMIsolateScope::~WritableVMIsolateScope() {
   ASSERT(Dart::vm_isolate()->heap()->UsedInWords(Heap::kNew) == 0);
-  Dart::vm_isolate()->heap()->WriteProtect(true, include_code_pages_);
+  Dart::vm_isolate()->heap()->WriteProtect(true);
 }
 
 }  // namespace dart

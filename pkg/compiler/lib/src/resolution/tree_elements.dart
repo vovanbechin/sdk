@@ -6,19 +6,13 @@ library dart2js.resolution.tree_elements;
 
 import '../common.dart';
 import '../constants/expressions.dart';
-import '../dart_types.dart';
+import '../elements/resolution_types.dart';
 import '../diagnostics/source_span.dart';
 import '../elements/elements.dart';
-import '../types/types.dart' show
-    TypeMask;
 import '../tree/tree.dart';
+import '../universe/selector.dart' show Selector;
 import '../util/util.dart';
-import '../universe/selector.dart' show
-    Selector;
-
-import 'secret_tree_element.dart' show
-    getTreeElement,
-    setTreeElement;
+import 'secret_tree_element.dart' show getTreeElement, setTreeElement;
 import 'send_structure.dart';
 
 abstract class TreeElements {
@@ -27,8 +21,8 @@ abstract class TreeElements {
 
   void forEachConstantNode(f(Node n, ConstantExpression c));
 
-  Element operator[](Node node);
-  Map<Node, DartType> get typesCache;
+  Element operator [](Node node);
+  Map<Node, ResolutionDartType> get typesCache;
 
   /// Returns the [SendStructure] that describes the semantics of [node].
   SendStructure getSendStructure(Send node);
@@ -40,22 +34,10 @@ abstract class TreeElements {
   Selector getSelector(Node node);
   Selector getGetterSelectorInComplexSendSet(SendSet node);
   Selector getOperatorSelectorInComplexSendSet(SendSet node);
-  DartType getType(Node node);
-  TypeMask getTypeMask(Node node);
-  TypeMask getGetterTypeMaskInComplexSendSet(SendSet node);
-  TypeMask getOperatorTypeMaskInComplexSendSet(SendSet node);
-  void setTypeMask(Node node, TypeMask mask);
-  void setGetterTypeMaskInComplexSendSet(SendSet node, TypeMask mask);
-  void setOperatorTypeMaskInComplexSendSet(SendSet node, TypeMask mask);
+  ResolutionDartType getType(Node node);
 
   /// Returns the for-in loop variable for [node].
   Element getForInVariable(ForIn node);
-  TypeMask getIteratorTypeMask(ForIn node);
-  TypeMask getMoveNextTypeMask(ForIn node);
-  TypeMask getCurrentTypeMask(ForIn node);
-  void setIteratorTypeMask(ForIn node, TypeMask mask);
-  void setMoveNextTypeMask(ForIn node, TypeMask mask);
-  void setCurrentTypeMask(ForIn node, TypeMask mask);
   void setConstant(Node node, ConstantExpression constant);
   ConstantExpression getConstant(Node node);
 
@@ -75,7 +57,7 @@ abstract class TreeElements {
   bool isTypeLiteral(Send node);
 
   /// Returns the type that the type literal [node] refers to.
-  DartType getTypeLiteralType(Send node);
+  ResolutionDartType getTypeLiteralType(Send node);
 
   /// Returns a list of nodes that potentially mutate [element] anywhere in its
   /// scope.
@@ -104,16 +86,19 @@ abstract class TreeElements {
 
   /// `true` if the [analyzedElement]'s source code contains a [TryStatement].
   bool get containsTryStatement;
+
+  /// Returns native data stored with [node].
+  getNativeData(Node node);
 }
 
 class TreeElementMapping extends TreeElements {
   final AnalyzableElement analyzedElement;
   Map<Spannable, Selector> _selectors;
-  Map<Spannable, TypeMask> _typeMasks;
-  Map<Node, DartType> _types;
+  Map<Node, ResolutionDartType> _types;
 
-  Map<Node, DartType> _typesCache;
-  Map<Node, DartType> get typesCache => _typesCache ??= <Node, DartType>{};
+  Map<Node, ResolutionDartType> _typesCache;
+  Map<Node, ResolutionDartType> get typesCache =>
+      _typesCache ??= <Node, ResolutionDartType>{};
 
   Setlet<SourceSpan> _superUses;
   Map<Node, ConstantExpression> _constants;
@@ -137,7 +122,10 @@ class TreeElementMapping extends TreeElements {
   /// Map from labeled goto statements to the labels they target.
   Map<GotoStatement, LabelDefinition> _targetLabels;
 
-  final int hashCode = ++_hashCodeCounter;
+  /// Map from nodes to native data.
+  Map<Node, dynamic> _nativeData;
+
+  final int hashCode = _hashCodeCounter = (_hashCodeCounter + 1).toUnsigned(30);
   static int _hashCodeCounter = 0;
 
   TreeElementMapping(this.analyzedElement);
@@ -160,8 +148,10 @@ class TreeElementMapping extends TreeElements {
     setTreeElement(node, element);
   }
 
+  @override
   operator [](Node node) => getTreeElement(node);
 
+  @override
   SendStructure getSendStructure(Send node) {
     if (_sendStructureMap == null) return null;
     return _sendStructureMap[node];
@@ -174,6 +164,7 @@ class TreeElementMapping extends TreeElements {
     _sendStructureMap[node] = sendStructure;
   }
 
+  @override
   NewStructure getNewStructure(NewExpression node) {
     if (_newStructureMap == null) return null;
     return _newStructureMap[node];
@@ -186,15 +177,17 @@ class TreeElementMapping extends TreeElements {
     _newStructureMap[node] = newStructure;
   }
 
-  void setType(Node node, DartType type) {
+  void setType(Node node, ResolutionDartType type) {
     if (_types == null) {
-      _types = new Maplet<Node, DartType>();
+      _types = new Maplet<Node, ResolutionDartType>();
     }
     _types[node] = type;
   }
 
-  DartType getType(Node node) => _types != null ? _types[node] : null;
+  @override
+  ResolutionDartType getType(Node node) => _types != null ? _types[node] : null;
 
+  @override
   Iterable<SourceSpan> get superUses {
     return _superUses != null ? _superUses : const <SourceSpan>[];
   }
@@ -221,6 +214,7 @@ class TreeElementMapping extends TreeElements {
     _setSelector(node, selector);
   }
 
+  @override
   Selector getSelector(Node node) => _getSelector(node);
 
   int getSelectorCount() => _selectors == null ? 0 : _selectors.length;
@@ -229,6 +223,7 @@ class TreeElementMapping extends TreeElements {
     _setSelector(node.selector, selector);
   }
 
+  @override
   Selector getGetterSelectorInComplexSendSet(SendSet node) {
     return _getSelector(node.selector);
   }
@@ -237,14 +232,17 @@ class TreeElementMapping extends TreeElements {
     _setSelector(node.assignmentOperator, selector);
   }
 
+  @override
   Selector getOperatorSelectorInComplexSendSet(SendSet node) {
     return _getSelector(node.assignmentOperator);
   }
 
+  @override
   Element getForInVariable(ForIn node) {
     return this[node];
   }
 
+  @override
   void setConstant(Node node, ConstantExpression constant) {
     if (_constants == null) {
       _constants = new Maplet<Node, ConstantExpression>();
@@ -252,18 +250,22 @@ class TreeElementMapping extends TreeElements {
     _constants[node] = constant;
   }
 
+  @override
   ConstantExpression getConstant(Node node) {
     return _constants != null ? _constants[node] : null;
   }
 
+  @override
   bool isTypeLiteral(Send node) {
     return getType(node) != null;
   }
 
-  DartType getTypeLiteralType(Send node) {
+  @override
+  ResolutionDartType getTypeLiteralType(Send node) {
     return getType(node);
   }
 
+  @override
   List<Node> getPotentialMutations(VariableElement element) {
     if (_potentiallyMutated == null) return const <Node>[];
     List<Node> mutations = _potentiallyMutated[element];
@@ -278,6 +280,7 @@ class TreeElementMapping extends TreeElements {
     _potentiallyMutated.putIfAbsent(element, () => <Node>[]).add(mutationNode);
   }
 
+  @override
   List<Node> getPotentialMutationsIn(Node node, VariableElement element) {
     if (_potentiallyMutatedIn == null) return const <Node>[];
     Map<VariableElement, List<Node>> mutationsIn = _potentiallyMutatedIn[node];
@@ -287,18 +290,19 @@ class TreeElementMapping extends TreeElements {
     return mutations;
   }
 
-  void registerPotentialMutationIn(Node contextNode, VariableElement element,
-                                    Node mutationNode) {
+  void registerPotentialMutationIn(
+      Node contextNode, VariableElement element, Node mutationNode) {
     if (_potentiallyMutatedIn == null) {
       _potentiallyMutatedIn =
           new Maplet<Node, Map<VariableElement, List<Node>>>();
     }
     Map<VariableElement, List<Node>> mutationMap =
-        _potentiallyMutatedIn.putIfAbsent(contextNode,
-          () => new Maplet<VariableElement, List<Node>>());
+        _potentiallyMutatedIn.putIfAbsent(
+            contextNode, () => new Maplet<VariableElement, List<Node>>());
     mutationMap.putIfAbsent(element, () => <Node>[]).add(mutationNode);
   }
 
+  @override
   List<Node> getPotentialMutationsInClosure(VariableElement element) {
     if (_potentiallyMutatedInClosure == null) return const <Node>[];
     List<Node> mutations = _potentiallyMutatedInClosure[element];
@@ -306,15 +310,17 @@ class TreeElementMapping extends TreeElements {
     return mutations;
   }
 
-  void registerPotentialMutationInClosure(VariableElement element,
-                                          Node mutationNode) {
+  void registerPotentialMutationInClosure(
+      VariableElement element, Node mutationNode) {
     if (_potentiallyMutatedInClosure == null) {
       _potentiallyMutatedInClosure = new Maplet<VariableElement, List<Node>>();
     }
-    _potentiallyMutatedInClosure.putIfAbsent(
-        element, () => <Node>[]).add(mutationNode);
+    _potentiallyMutatedInClosure
+        .putIfAbsent(element, () => <Node>[])
+        .add(mutationNode);
   }
 
+  @override
   List<Node> getAccessesByClosureIn(Node node, VariableElement element) {
     if (_accessedByClosureIn == null) return const <Node>[];
     Map<VariableElement, List<Node>> accessesIn = _accessedByClosureIn[node];
@@ -324,38 +330,39 @@ class TreeElementMapping extends TreeElements {
     return accesses;
   }
 
-  void setAccessedByClosureIn(Node contextNode, VariableElement element,
-                              Node accessNode) {
+  void setAccessedByClosureIn(
+      Node contextNode, VariableElement element, Node accessNode) {
     if (_accessedByClosureIn == null) {
       _accessedByClosureIn = new Map<Node, Map<VariableElement, List<Node>>>();
     }
     Map<VariableElement, List<Node>> accessMap =
-        _accessedByClosureIn.putIfAbsent(contextNode,
-          () => new Maplet<VariableElement, List<Node>>());
+        _accessedByClosureIn.putIfAbsent(
+            contextNode, () => new Maplet<VariableElement, List<Node>>());
     accessMap.putIfAbsent(element, () => <Node>[]).add(accessNode);
   }
 
   String toString() => 'TreeElementMapping($analyzedElement)';
 
+  @override
   void forEachConstantNode(f(Node n, ConstantExpression c)) {
     if (_constants != null) {
       _constants.forEach(f);
     }
   }
 
-  FunctionElement getFunctionDefinition(FunctionExpression node) {
+  @override
+  Element getFunctionDefinition(FunctionExpression node) {
     return this[node];
   }
 
+  @override
   ConstructorElement getRedirectingTargetConstructor(
       RedirectingFactoryBody node) {
     return this[node];
   }
 
   void defineTarget(Node node, JumpTarget target) {
-    if (_definedTargets == null) {
-      _definedTargets = new Maplet<Node, JumpTarget>();
-    }
+    _definedTargets ??= new Maplet<Node, JumpTarget>();
     _definedTargets[node] = target;
   }
 
@@ -368,25 +375,23 @@ class TreeElementMapping extends TreeElements {
     }
   }
 
+  @override
   JumpTarget getTargetDefinition(Node node) {
     return _definedTargets != null ? _definedTargets[node] : null;
   }
 
   void registerTargetOf(GotoStatement node, JumpTarget target) {
-    if (_usedTargets == null) {
-      _usedTargets = new Maplet<GotoStatement, JumpTarget>();
-    }
+    _usedTargets ??= new Maplet<GotoStatement, JumpTarget>();
     _usedTargets[node] = target;
   }
 
+  @override
   JumpTarget getTargetOf(GotoStatement node) {
     return _usedTargets != null ? _usedTargets[node] : null;
   }
 
   void defineLabel(Label label, LabelDefinition target) {
-    if (_definedLabels == null) {
-      _definedLabels = new Maplet<Label, LabelDefinition>();
-    }
+    _definedLabels ??= new Maplet<Label, LabelDefinition>();
     _definedLabels[label] = target;
   }
 
@@ -399,6 +404,7 @@ class TreeElementMapping extends TreeElements {
     }
   }
 
+  @override
   LabelDefinition getLabelDefinition(Label label) {
     return _definedLabels != null ? _definedLabels[label] : null;
   }
@@ -411,69 +417,21 @@ class TreeElementMapping extends TreeElements {
     _targetLabels[node] = label;
   }
 
+  @override
   LabelDefinition getTargetLabel(GotoStatement node) {
     assert(node.target != null);
     return _targetLabels != null ? _targetLabels[node] : null;
   }
 
-  TypeMask _getTypeMask(Spannable node) {
-    return _typeMasks != null ? _typeMasks[node] : null;
-  }
-
-  void _setTypeMask(Spannable node, TypeMask mask) {
-    if (_typeMasks == null) {
-      _typeMasks = new Maplet<Spannable, TypeMask>();
+  void registerNativeData(Node node, dynamic nativeData) {
+    if (_nativeData == null) {
+      _nativeData = <Node, dynamic>{};
     }
-    _typeMasks[node] = mask;
+    _nativeData[node] = nativeData;
   }
 
-  void setTypeMask(Node node, TypeMask mask) {
-    _setTypeMask(node, mask);
-  }
-
-  TypeMask getTypeMask(Node node) => _getTypeMask(node);
-
-  void setGetterTypeMaskInComplexSendSet(SendSet node, TypeMask mask) {
-    _setTypeMask(node.selector, mask);
-  }
-
-  TypeMask getGetterTypeMaskInComplexSendSet(SendSet node) {
-    return _getTypeMask(node.selector);
-  }
-
-  void setOperatorTypeMaskInComplexSendSet(SendSet node, TypeMask mask) {
-    _setTypeMask(node.assignmentOperator, mask);
-  }
-
-  TypeMask getOperatorTypeMaskInComplexSendSet(SendSet node) {
-    return _getTypeMask(node.assignmentOperator);
-  }
-
-  // The following methods set selectors on the "for in" node. Since
-  // we're using three selectors, we need to use children of the node,
-  // and we arbitrarily choose which ones.
-
-  void setIteratorTypeMask(ForIn node, TypeMask mask) {
-    _setTypeMask(node, mask);
-  }
-
-  TypeMask getIteratorTypeMask(ForIn node) {
-    return _getTypeMask(node);
-  }
-
-  void setMoveNextTypeMask(ForIn node, TypeMask mask) {
-    _setTypeMask(node.forToken, mask);
-  }
-
-  TypeMask getMoveNextTypeMask(ForIn node) {
-    return _getTypeMask(node.forToken);
-  }
-
-  void setCurrentTypeMask(ForIn node, TypeMask mask) {
-    _setTypeMask(node.inToken, mask);
-  }
-
-  TypeMask getCurrentTypeMask(ForIn node) {
-    return _getTypeMask(node.inToken);
+  @override
+  dynamic getNativeData(Node node) {
+    return _nativeData != null ? _nativeData[node] : null;
   }
 }

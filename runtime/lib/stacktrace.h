@@ -2,20 +2,24 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef LIB_STACKTRACE_H_
-#define LIB_STACKTRACE_H_
+#ifndef RUNTIME_LIB_STACKTRACE_H_
+#define RUNTIME_LIB_STACKTRACE_H_
 
 namespace dart {
 
-class Stacktrace;
+class StackTrace;
+class RawStackTrace;
 
-// Creates a Stacktrace object from the current stack.  Skips the
+// Creates a StackTrace object from the current stack.  Skips the
 // first skip_frames Dart frames.
 //
 // This function is exposed to provide stack trace printing in
 // assertion failures, etc.
-const Stacktrace& GetCurrentStacktrace(int skip_frames);
+const StackTrace& GetCurrentStackTrace(int skip_frames);
+
+// Creates a StackTrace object to be attached to an exception.
+RawStackTrace* GetStackTraceForException();
 
 }  // namespace dart
 
-#endif  // LIB_STACKTRACE_H_
+#endif  // RUNTIME_LIB_STACKTRACE_H_

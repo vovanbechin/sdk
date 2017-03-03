@@ -5,29 +5,25 @@
 /// Analysis to determine how to generate code for `LookupMap`s.
 library compiler.src.js_backend.lookup_map_analysis;
 
-import '../common.dart';
-import '../common/registry.dart' show Registry;
-import '../compiler.dart' show Compiler;
-import '../constants/values.dart' show
-    ConstantValue,
-    ConstructedConstantValue,
-    ListConstantValue,
-    NullConstantValue,
-    StringConstantValue,
-    TypeConstantValue;
-import '../dart_types.dart' show DartType;
-import '../elements/elements.dart' show
-    ClassElement,
-    Element,
-    Elements,
-    FieldElement,
-    FunctionElement,
-    FunctionSignature,
-    LibraryElement,
-    VariableElement;
-import 'js_backend.dart' show JavaScriptBackend;
-import '../dart_types.dart' show DynamicType, InterfaceType;
 import 'package:pub_semver/pub_semver.dart';
+
+import '../common.dart';
+import '../compiler.dart' show Compiler;
+import '../constants/values.dart'
+    show
+        ConstantValue,
+        ConstructedConstantValue,
+        ListConstantValue,
+        NullConstantValue,
+        StringConstantValue,
+        TypeConstantValue;
+import '../elements/resolution_types.dart' show ResolutionInterfaceType;
+import '../elements/elements.dart'
+    show ClassElement, FieldElement, LibraryElement, VariableElement;
+import '../universe/use.dart' show StaticUse;
+import '../universe/world_impact.dart'
+    show WorldImpact, StagedWorldImpactBuilder;
+import 'js_backend.dart' show JavaScriptBackend;
 
 /// An analysis and optimization to remove unused entries from a `LookupMap`.
 ///
@@ -123,10 +119,24 @@ class LookupMapAnalysis {
   /// entry with that key.
   final _pending = <ConstantValue, List<_LookupMapInfo>>{};
 
+  final StagedWorldImpactBuilder impactBuilderForResolution =
+      new StagedWorldImpactBuilder();
+  final StagedWorldImpactBuilder impactBuilderForCodegen =
+      new StagedWorldImpactBuilder();
+
   /// Whether the backend is currently processing the codegen queue.
   bool _inCodegen = false;
 
   LookupMapAnalysis(this.backend, this.reporter);
+
+  /// Compute the [WorldImpact] for the constants registered since last flush.
+  WorldImpact flush({bool forResolution}) {
+    if (forResolution) {
+      return impactBuilderForResolution.flush();
+    } else {
+      return impactBuilderForCodegen.flush();
+    }
+  }
 
   /// Whether this analysis and optimization is enabled.
   bool get _isEnabled {
@@ -143,11 +153,11 @@ class LookupMapAnalysis {
     // the lookup_map package. We otherwise produce a warning.
     lookupMapVersionVariable = library.implementation.findLocal('_version');
     if (lookupMapVersionVariable == null) {
-      reporter.reportInfo(library,
-          MessageKind.UNRECOGNIZED_VERSION_OF_LOOKUP_MAP);
+      reporter.reportInfo(
+          library, MessageKind.UNRECOGNIZED_VERSION_OF_LOOKUP_MAP);
     } else {
-      backend.compiler.enqueuer.resolution.addToWorkList(
-          lookupMapVersionVariable);
+      impactBuilderForResolution.registerStaticUse(
+          new StaticUse.foreignUse(lookupMapVersionVariable));
     }
   }
 
@@ -160,7 +170,7 @@ class LookupMapAnalysis {
     // At this point, the lookupMapVersionVariable should be resolved and it's
     // constant value should be available.
     StringConstantValue value =
-        backend.constants.getConstantValueForVariable(lookupMapVersionVariable);
+        backend.constants.getConstantValue(lookupMapVersionVariable.constant);
     if (value == null) {
       reporter.reportInfo(lookupMapVersionVariable,
           MessageKind.UNRECOGNIZED_VERSION_OF_LOOKUP_MAP);
@@ -190,25 +200,28 @@ class LookupMapAnalysis {
   }
 
   /// Whether [constant] is an instance of a `LookupMap`.
-  bool isLookupMap(ConstantValue constant) =>
-      _isEnabled &&
-      constant is ConstructedConstantValue &&
-      constant.type.asRaw().element.isSubclassOf(typeLookupMapClass);
+  bool isLookupMap(ConstantValue constant) {
+    if (_isEnabled && constant is ConstructedConstantValue) {
+      ResolutionInterfaceType type = constant.type;
+      return type.element.isSubclassOf(typeLookupMapClass);
+    }
+    return false;
+  }
 
   /// Registers an instance of a lookup-map with the analysis.
   void registerLookupMapReference(ConstantValue lookupMap) {
     if (!_isEnabled || !_inCodegen) return;
     assert(isLookupMap(lookupMap));
-    _lookupMaps.putIfAbsent(lookupMap,
-        () => new _LookupMapInfo(lookupMap, this).._updateUsed());
+    _lookupMaps.putIfAbsent(
+        lookupMap, () => new _LookupMapInfo(lookupMap, this).._updateUsed());
   }
 
   /// Whether [key] is a constant value whose type overrides equals.
   bool _overridesEquals(ConstantValue key) {
     if (key is ConstructedConstantValue) {
       ClassElement element = key.type.element;
-      return _typesWithEquals.putIfAbsent(element, () =>
-          !element.lookupMember('==').enclosingClass.isObject);
+      return _typesWithEquals.putIfAbsent(
+          element, () => !element.lookupMember('==').enclosingClass.isObject);
     }
     return false;
   }
@@ -220,8 +233,10 @@ class LookupMapAnalysis {
       key.isPrimitive || _inUse.contains(key) || _overridesEquals(key);
 
   void _addClassUse(ClassElement cls) {
-    ConstantValue key = _typeConstants.putIfAbsent(cls,
-        () => backend.constantSystem.createType(backend.compiler, cls.rawType));
+    ConstantValue key = _typeConstants.putIfAbsent(
+        cls,
+        () => backend.constantSystem.createType(
+            backend.commonElements, backend.backendClasses, cls.rawType));
     _addUse(key);
   }
 
@@ -235,13 +250,12 @@ class LookupMapAnalysis {
 
   /// If [key] is a type, cache it in [_typeConstants].
   _registerTypeKey(ConstantValue key) {
-    if (key is TypeConstantValue) {
-      ClassElement cls = key.representedType.element;
-      if (cls == null || !cls.isClass) {
-        // TODO(sigmund): report error?
-        return;
-      }
-      _typeConstants[cls] = key;
+    if (key is TypeConstantValue &&
+        key.representedType is ResolutionInterfaceType) {
+      ResolutionInterfaceType type = key.representedType;
+      _typeConstants[type.element] = key;
+    } else {
+      // TODO(sigmund): report error?
     }
   }
 
@@ -253,27 +267,27 @@ class LookupMapAnalysis {
   }
 
   /// Callback from the enqueuer, invoked when [type] is instantiated.
-  void registerInstantiatedType(InterfaceType type, Registry registry) {
+  void registerInstantiatedType(ResolutionInterfaceType type) {
     if (!_isEnabled || !_inCodegen) return;
     // TODO(sigmund): only add if .runtimeType is ever used
     _addClassUse(type.element);
     // TODO(sigmund): only do this when type-argument expressions are used?
-    _addGenerics(type, registry);
+    _addGenerics(type);
   }
 
   /// Records generic type arguments in [type], in case they are retrieved and
   /// returned using a type-argument expression.
-  void _addGenerics(InterfaceType type, Registry registry) {
+  void _addGenerics(ResolutionInterfaceType type) {
     if (!type.isGeneric) return;
     for (var arg in type.typeArguments) {
-      if (arg is InterfaceType) {
+      if (arg is ResolutionInterfaceType) {
         _addClassUse(arg.element);
         // Note: this call was needed to generate correct code for
         // type_lookup_map/generic_type_test
         // TODO(sigmund): can we get rid of this?
-        backend.registerInstantiatedConstantType(
-            backend.typeImplementation.rawType, registry);
-        _addGenerics(arg, registry);
+        backend.computeImpactForInstantiatedConstantType(
+            backend.backendClasses.typeType, impactBuilderForCodegen);
+        _addGenerics(arg);
       }
     }
   }
@@ -299,7 +313,7 @@ class LookupMapAnalysis {
     if (!_isEnabled || !_inCodegen) return;
 
     _lookupMaps.values.forEach((info) {
-      assert (!info.emitted);
+      assert(!info.emitted);
       info.emitted = true;
       info._prepareForEmission();
     });
@@ -307,13 +321,13 @@ class LookupMapAnalysis {
     // When --verbose is passed, we show the total number and set of keys that
     // were tree-shaken from lookup maps.
     Compiler compiler = backend.compiler;
-    if (compiler.verbose) {
+    if (compiler.options.verbose) {
       var sb = new StringBuffer();
       int count = 0;
       for (var info in _lookupMaps.values) {
         for (var key in info.unusedEntries.keys) {
           if (count != 0) sb.write(',');
-          sb.write(key.unparse());
+          sb.write(key.toDartText());
           count++;
         }
       }
@@ -356,11 +370,11 @@ class _LookupMapInfo {
   /// Entries in the lookup map whose keys have not been seen in the rest of the
   /// program.
   Map<ConstantValue, ConstantValue> unusedEntries =
-      <ConstantValue, ConstantValue> {};
+      <ConstantValue, ConstantValue>{};
 
   /// Entries that have been used, and thus will be part of the generated code.
   Map<ConstantValue, ConstantValue> usedEntries =
-      <ConstantValue, ConstantValue> {};
+      <ConstantValue, ConstantValue>{};
 
   /// Creates and initializes the information containing all keys of the
   /// original map marked as unused.
@@ -412,14 +426,14 @@ class _LookupMapInfo {
     assert(!usedEntries.containsKey(key));
     ConstantValue constant = unusedEntries.remove(key);
     usedEntries[key] = constant;
-    analysis.backend.registerCompileTimeConstant(constant,
-        analysis.backend.compiler.globalDependencies);
+    analysis.backend.computeImpactForCompileTimeConstant(
+        constant, analysis.impactBuilderForCodegen, false);
   }
 
   /// Restores [original] to contain all of the entries marked as possibly used.
   void _prepareForEmission() {
     ListConstantValue originalEntries = original.fields[analysis.entriesField];
-    DartType listType = originalEntries.type;
+    ResolutionInterfaceType listType = originalEntries.type;
     List<ConstantValue> keyValuePairs = <ConstantValue>[];
     usedEntries.forEach((key, value) {
       keyValuePairs.add(key);
@@ -428,7 +442,7 @@ class _LookupMapInfo {
 
     // Note: we are restoring the entries here, see comment in [original].
     if (singlePair) {
-      assert (keyValuePairs.length == 0 || keyValuePairs.length == 2);
+      assert(keyValuePairs.length == 0 || keyValuePairs.length == 2);
       if (keyValuePairs.length == 2) {
         original.fields[analysis.keyField] = keyValuePairs[0];
         original.fields[analysis.valueField] = keyValuePairs[1];
@@ -440,5 +454,4 @@ class _LookupMapInfo {
   }
 }
 
-final _validLookupMapVersionConstraint =
-    new VersionConstraint.parse('^0.0.1');
+final _validLookupMapVersionConstraint = new VersionConstraint.parse('^0.0.1');

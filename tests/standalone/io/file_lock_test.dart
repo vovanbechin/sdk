@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// OtherResources=file_lock_script.dart
+
 import 'dart:async';
 import 'dart:io';
 
@@ -36,11 +38,11 @@ check(String path, int start, int end, FileLock mode, {bool locked}) {
 }
 
 checkLocked(String path,
-            [int start, int end, FileLock mode = FileLock.EXCLUSIVE]) =>
+    [int start = 0, int end = -1, FileLock mode = FileLock.EXCLUSIVE]) =>
     check(path, start, end, mode, locked: true);
 
 checkNotLocked(String path,
-               [int start, int end, FileLock mode = FileLock.EXCLUSIVE]) =>
+    [int start = 0, int end = -1, FileLock mode = FileLock.EXCLUSIVE]) =>
     check(path, start, end, mode, locked: false);
 
 void testLockWholeFile() {

@@ -4,28 +4,32 @@
 
 library compiler.src.inferrer.closure_tracer;
 
-import '../types/types.dart' show TypeMask;
 import '../common/names.dart' show Names;
 import '../elements/elements.dart';
+import '../js_backend/backend_helpers.dart';
+import '../types/types.dart' show TypeMask;
 import '../universe/selector.dart' show Selector;
+import 'debug.dart' as debug;
+import 'inferrer_engine.dart';
 import 'node_tracer.dart';
 import 'type_graph_nodes.dart';
-import 'debug.dart' as debug;
 
-
-class ClosureTracerVisitor extends TracerVisitor<ApplyableTypeInformation> {
+class ClosureTracerVisitor extends TracerVisitor {
   final Iterable<FunctionElement> tracedElements;
   final List<CallSiteTypeInformation> _callsToAnalyze =
       new List<CallSiteTypeInformation>();
 
-  ClosureTracerVisitor(this.tracedElements, tracedType, inferrer)
+  ClosureTracerVisitor(this.tracedElements, ApplyableTypeInformation tracedType,
+      InferrerEngine inferrer)
       : super(tracedType, inferrer);
+
+  ApplyableTypeInformation get tracedType => super.tracedType;
 
   void run() {
     analyze();
     if (!continueAnalyzing) return;
     _callsToAnalyze.forEach(_analyzeCall);
-    for(FunctionElement e in tracedElements) {
+    for (FunctionElement e in tracedElements) {
       e.functionSignature.forEachParameter((Element parameter) {
         ElementTypeInformation info =
             inferrer.types.getInferredTypeOf(parameter);
@@ -49,9 +53,12 @@ class ClosureTracerVisitor extends TracerVisitor<ApplyableTypeInformation> {
     Selector selector = info.selector;
     TypeMask mask = info.mask;
     tracedElements.forEach((FunctionElement functionElement) {
-      if (!selector.signatureApplies(functionElement)) return;
-      inferrer.updateParameterAssignments(info, functionElement, info.arguments,
-          selector, mask, remove: false, addToQueue: false);
+      if (!selector.callStructure.signatureApplies(functionElement.type)) {
+        return;
+      }
+      inferrer.updateParameterAssignments(
+          info, functionElement, info.arguments, selector, mask,
+          remove: false, addToQueue: false);
     });
   }
 
@@ -71,14 +78,14 @@ class ClosureTracerVisitor extends TracerVisitor<ApplyableTypeInformation> {
     Element called = info.calledElement;
     if (compiler.backend.isForeign(called)) {
       String name = called.name;
-      if (name == 'JS' || name == 'DART_CLOSURE_TO_JS') {
+      if (name == BackendHelpers.JS || name == 'DART_CLOSURE_TO_JS') {
         bailout('Used in JS ${info.call}');
       }
     }
-    if (called.isGetter
-        && info.selector != null
-        && info.selector.isCall
-        && inferrer.types.getInferredTypeOf(called) == currentUser) {
+    if (called.isGetter &&
+        info.selector != null &&
+        info.selector.isCall &&
+        inferrer.types.getInferredTypeOf(called) == currentUser) {
       // This node can be a closure call as well. For example, `foo()`
       // where `foo` is a getter.
       _registerCallForLaterAnalysis(info);
@@ -93,8 +100,10 @@ class ClosureTracerVisitor extends TracerVisitor<ApplyableTypeInformation> {
   bool _checkIfCurrentUser(element) =>
       inferrer.types.getInferredTypeOf(element) == currentUser;
 
-  bool _checkIfFunctionApply(element) =>
-      compiler.functionApplyMethod == element;
+  bool _checkIfFunctionApply(Element element) {
+    return element is MemberElement &&
+        compiler.commonElements.isFunctionApplyMethod(element);
+  }
 
   @override
   visitDynamicCallSiteTypeInformation(DynamicCallSiteTypeInformation info) {
@@ -125,9 +134,9 @@ class StaticTearOffClosureTracerVisitor extends ClosureTracerVisitor {
   @override
   visitStaticCallSiteTypeInformation(StaticCallSiteTypeInformation info) {
     super.visitStaticCallSiteTypeInformation(info);
-    if (info.calledElement == tracedElements.first
-        && info.selector != null
-        && info.selector.isGetter) {
+    if (info.calledElement == tracedElements.first &&
+        info.selector != null &&
+        info.selector.isGetter) {
       addNewEscapeInformation(info);
     }
   }

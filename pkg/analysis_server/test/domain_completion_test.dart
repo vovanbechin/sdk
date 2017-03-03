@@ -12,22 +12,163 @@ import 'package:analysis_server/src/provisional/completion/completion_core.dart'
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/completion_manager.dart';
 import 'package:analysis_server/src/services/completion/dart/contribution_sorter.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
 import 'analysis_abstract.dart';
 import 'domain_completion_util.dart';
 import 'mocks.dart' show pumpEventQueue;
-import 'utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(CompletionDomainHandlerTest);
-  defineReflectiveTests(_NoSearchEngine);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(CompletionDomainHandlerTest);
+    defineReflectiveTests(_NoSearchEngine);
+  });
 }
 
 @reflectiveTest
 class CompletionDomainHandlerTest extends AbstractCompletionDomainTest {
+  test_ArgumentList_constructor_named_param_label() async {
+    addTestFile('main() { new A(^);}'
+        'class A { A({one, two}) {} }');
+    await getSuggestions();
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'one: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'two: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    expect(suggestions, hasLength(2));
+  }
+
+  test_ArgumentList_factory_named_param_label() async {
+    addTestFile('main() { new A(^);}'
+        'class A { factory A({one, two}) => null; }');
+    await getSuggestions();
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'one: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'two: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    expect(suggestions, hasLength(2));
+  }
+
+  test_ArgumentList_imported_function_named_param() async {
+    addTestFile('main() { int.parse("16", ^);}');
+    await getSuggestions();
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'radix: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'onError: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    expect(suggestions, hasLength(2));
+  }
+
+  test_ArgumentList_imported_function_named_param1() async {
+    addTestFile('main() { foo(o^);} foo({one, two}) {}');
+    await getSuggestions();
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'one: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'two: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    expect(suggestions, hasLength(2));
+  }
+
+  test_ArgumentList_imported_function_named_param2() async {
+    addTestFile('mainx() {A a = new A(); a.foo(one: 7, ^);}'
+        'class A { foo({one, two}) {} }');
+    await getSuggestions();
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'two: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    expect(suggestions, hasLength(1));
+  }
+
+  test_ArgumentList_imported_function_named_param_label1() async {
+    addTestFile('main() { int.parse("16", r^: 16);}');
+    await getSuggestions();
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'radix',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'onError',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    expect(suggestions, hasLength(2));
+  }
+
+  test_ArgumentList_imported_function_named_param_label3() async {
+    addTestFile('main() { int.parse("16", ^: 16);}');
+    await getSuggestions();
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'radix: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    assertHasResult(CompletionSuggestionKind.NAMED_ARGUMENT, 'onError: ',
+        relevance: DART_RELEVANCE_NAMED_PARAMETER);
+    expect(suggestions, hasLength(2));
+  }
+
+  test_catch() async {
+    addTestFile('main() {try {} ^}');
+    await getSuggestions();
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'on',
+        relevance: DART_RELEVANCE_KEYWORD);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'catch',
+        relevance: DART_RELEVANCE_KEYWORD);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'finally',
+        relevance: DART_RELEVANCE_KEYWORD);
+    expect(suggestions, hasLength(3));
+  }
+
+  test_catch2() async {
+    addTestFile('main() {try {} on Foo {} ^}');
+    await getSuggestions();
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'on',
+        relevance: DART_RELEVANCE_KEYWORD);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'catch',
+        relevance: DART_RELEVANCE_KEYWORD);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'finally',
+        relevance: DART_RELEVANCE_KEYWORD);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'for',
+        relevance: DART_RELEVANCE_KEYWORD);
+    suggestions.firstWhere(
+        (CompletionSuggestion suggestion) =>
+            suggestion.kind != CompletionSuggestionKind.KEYWORD, orElse: () {
+      fail('Expected suggestions other than keyword suggestions');
+    });
+  }
+
+  test_catch3() async {
+    addTestFile('main() {try {} catch (e) {} finally {} ^}');
+    await getSuggestions();
+    assertNoResult('on');
+    assertNoResult('catch');
+    assertNoResult('finally');
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'for',
+        relevance: DART_RELEVANCE_KEYWORD);
+    suggestions.firstWhere(
+        (CompletionSuggestion suggestion) =>
+            suggestion.kind != CompletionSuggestionKind.KEYWORD, orElse: () {
+      fail('Expected suggestions other than keyword suggestions');
+    });
+  }
+
+  test_catch4() async {
+    addTestFile('main() {try {} finally {} ^}');
+    await getSuggestions();
+    assertNoResult('on');
+    assertNoResult('catch');
+    assertNoResult('finally');
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'for',
+        relevance: DART_RELEVANCE_KEYWORD);
+    suggestions.firstWhere(
+        (CompletionSuggestion suggestion) =>
+            suggestion.kind != CompletionSuggestionKind.KEYWORD, orElse: () {
+      fail('Expected suggestions other than keyword suggestions');
+    });
+  }
+
+  test_catch5() async {
+    addTestFile('main() {try {} ^ finally {}}');
+    await getSuggestions();
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'on',
+        relevance: DART_RELEVANCE_KEYWORD);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'catch',
+        relevance: DART_RELEVANCE_KEYWORD);
+    expect(suggestions, hasLength(2));
+  }
+
   test_html() {
     testFile = '/project/web/test.html';
     addTestFile('''
@@ -37,6 +178,20 @@ class CompletionDomainHandlerTest extends AbstractCompletionDomainTest {
       expect(replacementOffset, equals(completionOffset));
       expect(replacementLength, equals(0));
       expect(suggestions, hasLength(0));
+    });
+  }
+
+  test_import_uri_with_trailing() {
+    addFile('/project/bin/testA.dart', 'library libA;');
+    addTestFile('''
+      import '/project/bin/t^.dart';
+      main() {}''');
+    return getSuggestions().then((_) {
+      expect(replacementOffset, equals(completionOffset - 14));
+      expect(replacementLength, equals(5 + 14));
+      assertHasResult(
+          CompletionSuggestionKind.IMPORT, '/project/bin/testA.dart');
+      assertNoResult('test');
     });
   }
 
@@ -60,13 +215,13 @@ class CompletionDomainHandlerTest extends AbstractCompletionDomainTest {
         c^''');
 
     // Make a request for suggestions
-    Request request =
+    Request request1 =
         new CompletionGetSuggestionsParams(testFile, completionOffset)
             .toRequest('7');
-    Response response = handleSuccessfulRequest(request);
-    var result1 = new CompletionGetSuggestionsResult.fromResponse(response);
+    Response response1 = await waitResponse(request1);
+    var result1 = new CompletionGetSuggestionsResult.fromResponse(response1);
     var completionId1 = result1.id;
-    assertValidId(response.id);
+    assertValidId(completionId1);
 
     // Perform some analysis but assert that no suggestions have yet been made
     completionId = completionId1;
@@ -78,7 +233,7 @@ class CompletionDomainHandlerTest extends AbstractCompletionDomainTest {
     Request request2 =
         new CompletionGetSuggestionsParams(testFile, completionOffset)
             .toRequest('8');
-    Response response2 = handleSuccessfulRequest(request2);
+    Response response2 = await waitResponse(request2);
     var result2 = new CompletionGetSuggestionsResult.fromResponse(response2);
     var completionId2 = result2.id;
     assertValidId(completionId2);
@@ -101,7 +256,7 @@ class CompletionDomainHandlerTest extends AbstractCompletionDomainTest {
     Request request =
         new CompletionGetSuggestionsParams(testFile, completionOffset)
             .toRequest('0');
-    Response response = handleSuccessfulRequest(request);
+    Response response = await waitResponse(request);
     completionId = response.id;
     assertValidId(completionId);
 
@@ -140,10 +295,10 @@ class CompletionDomainHandlerTest extends AbstractCompletionDomainTest {
     await getSuggestions();
     expect(replacementOffset, completionOffset - 3);
     expect(replacementLength, 3);
-    assertHasResult(CompletionSuggestionKind.KEYWORD, 'export',
-        relevance: DART_RELEVANCE_HIGH);
-    assertHasResult(CompletionSuggestionKind.KEYWORD, 'import',
-        relevance: DART_RELEVANCE_HIGH);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'export \'\';',
+        selectionOffset: 8, relevance: DART_RELEVANCE_HIGH);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'import \'\';',
+        selectionOffset: 8, relevance: DART_RELEVANCE_HIGH);
     assertNoResult('extends');
     assertNoResult('library');
   }
@@ -164,7 +319,7 @@ class CompletionDomainHandlerTest extends AbstractCompletionDomainTest {
         {testFile: new AddContentOverlay(revisedContent)}).toRequest('add1'));
 
     // Request code completion immediately after edit
-    Response response = handleSuccessfulRequest(
+    Response response = await waitResponse(
         new CompletionGetSuggestionsParams(testFile, completionOffset)
             .toRequest('0'));
     completionId = response.id;
@@ -174,12 +329,12 @@ class CompletionDomainHandlerTest extends AbstractCompletionDomainTest {
     expect(replacementLength, 1);
     assertHasResult(CompletionSuggestionKind.KEYWORD, 'library',
         relevance: DART_RELEVANCE_HIGH);
-    assertHasResult(CompletionSuggestionKind.KEYWORD, 'import',
-        relevance: DART_RELEVANCE_HIGH);
-    assertHasResult(CompletionSuggestionKind.KEYWORD, 'export',
-        relevance: DART_RELEVANCE_HIGH);
-    assertHasResult(CompletionSuggestionKind.KEYWORD, 'part',
-        relevance: DART_RELEVANCE_HIGH);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'import \'\';',
+        selectionOffset: 8, relevance: DART_RELEVANCE_HIGH);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'export \'\';',
+        selectionOffset: 8, relevance: DART_RELEVANCE_HIGH);
+    assertHasResult(CompletionSuggestionKind.KEYWORD, 'part \'\';',
+        selectionOffset: 6, relevance: DART_RELEVANCE_HIGH);
     assertNoResult('extends');
   }
 
@@ -208,47 +363,6 @@ class CompletionDomainHandlerTest extends AbstractCompletionDomainTest {
       expect(replacementLength, equals(0));
       assertHasResult(CompletionSuggestionKind.INVOCATION, 'HtmlElement');
       assertNoResult('test');
-    });
-  }
-
-  test_invocation() {
-    addTestFile('class A {b() {}} main() {A a; a.^}');
-    return getSuggestions().then((_) {
-      expect(replacementOffset, equals(completionOffset));
-      expect(replacementLength, equals(0));
-      assertHasResult(CompletionSuggestionKind.INVOCATION, 'b');
-    });
-  }
-
-  test_invocation_sdk_relevancy_off() {
-    var originalSorter = DartCompletionManager.contributionSorter;
-    var mockSorter = new MockRelevancySorter();
-    DartCompletionManager.contributionSorter = mockSorter;
-    addTestFile('main() {Map m; m.^}');
-    return getSuggestions().then((_) {
-      // Assert that the CommonUsageComputer has been replaced
-      expect(suggestions.any((s) => s.relevance == DART_RELEVANCE_COMMON_USAGE),
-          isFalse);
-      DartCompletionManager.contributionSorter = originalSorter;
-      mockSorter.enabled = false;
-    });
-  }
-
-  test_invocation_sdk_relevancy_on() {
-    addTestFile('main() {Map m; m.^}');
-    return getSuggestions().then((_) {
-      // Assert that the CommonUsageComputer is working
-      expect(suggestions.any((s) => s.relevance == DART_RELEVANCE_COMMON_USAGE),
-          isTrue);
-    });
-  }
-
-  test_invocation_withTrailingStmt() {
-    addTestFile('class A {b() {}} main() {A a; a.^ int x = 7;}');
-    return getSuggestions().then((_) {
-      expect(replacementOffset, equals(completionOffset));
-      expect(replacementLength, equals(0));
-      assertHasResult(CompletionSuggestionKind.INVOCATION, 'b');
     });
   }
 
@@ -348,13 +462,54 @@ class B extends A {
     });
   }
 
+  test_invocation() {
+    addTestFile('class A {b() {}} main() {A a; a.^}');
+    return getSuggestions().then((_) {
+      expect(replacementOffset, equals(completionOffset));
+      expect(replacementLength, equals(0));
+      assertHasResult(CompletionSuggestionKind.INVOCATION, 'b');
+    });
+  }
+
+  test_invocation_sdk_relevancy_off() {
+    var originalSorter = DartCompletionManager.contributionSorter;
+    var mockSorter = new MockRelevancySorter();
+    DartCompletionManager.contributionSorter = mockSorter;
+    addTestFile('main() {Map m; m.^}');
+    return getSuggestions().then((_) {
+      // Assert that the CommonUsageComputer has been replaced
+      expect(suggestions.any((s) => s.relevance == DART_RELEVANCE_COMMON_USAGE),
+          isFalse);
+      DartCompletionManager.contributionSorter = originalSorter;
+      mockSorter.enabled = false;
+    });
+  }
+
+  test_invocation_sdk_relevancy_on() {
+    addTestFile('main() {Map m; m.^}');
+    return getSuggestions().then((_) {
+      // Assert that the CommonUsageComputer is working
+      expect(suggestions.any((s) => s.relevance == DART_RELEVANCE_COMMON_USAGE),
+          isTrue);
+    });
+  }
+
+  test_invocation_withTrailingStmt() {
+    addTestFile('class A {b() {}} main() {A a; a.^ int x = 7;}');
+    return getSuggestions().then((_) {
+      expect(replacementOffset, equals(completionOffset));
+      expect(replacementLength, equals(0));
+      assertHasResult(CompletionSuggestionKind.INVOCATION, 'b');
+    });
+  }
+
   test_keyword() {
     addTestFile('library A; cl^');
     return getSuggestions().then((_) {
       expect(replacementOffset, equals(completionOffset - 2));
       expect(replacementLength, equals(2));
-      assertHasResult(CompletionSuggestionKind.KEYWORD, 'export',
-          relevance: DART_RELEVANCE_HIGH);
+      assertHasResult(CompletionSuggestionKind.KEYWORD, 'export \'\';',
+          selectionOffset: 8, relevance: DART_RELEVANCE_HIGH);
       assertHasResult(CompletionSuggestionKind.KEYWORD, 'class',
           relevance: DART_RELEVANCE_HIGH);
     });
@@ -403,12 +558,12 @@ class B extends A {
     });
   }
 
-  test_offset_past_eof() {
+  test_offset_past_eof() async {
     addTestFile('main() { }', offset: 300);
     Request request =
         new CompletionGetSuggestionsParams(testFile, completionOffset)
             .toRequest('0');
-    Response response = handler.handleRequest(request);
+    Response response = await waitResponse(request);
     expect(response.id, '0');
     expect(response.error.code, RequestErrorCode.INVALID_PARAMETER);
   }

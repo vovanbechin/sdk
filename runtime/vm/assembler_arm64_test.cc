@@ -13,8 +13,6 @@
 
 namespace dart {
 
-static const intptr_t kTestStackSpace = 512 * kWordSize;
-
 #define __ assembler->
 
 ASSEMBLER_TEST_GENERATE(Simple, assembler) {
@@ -139,8 +137,8 @@ ASSEMBLER_TEST_GENERATE(Movk0, assembler) {
 
 ASSEMBLER_TEST_RUN(Movk0, test) {
   typedef int64_t (*Int64Return)() DART_UNUSED;
-  EXPECT_EQ(
-      42LL | (1LL << 48), EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
+  EXPECT_EQ(42LL | (1LL << 48),
+            EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
 }
 
 
@@ -153,8 +151,8 @@ ASSEMBLER_TEST_GENERATE(Movk1, assembler) {
 
 ASSEMBLER_TEST_RUN(Movk1, test) {
   typedef int64_t (*Int64Return)() DART_UNUSED;
-  EXPECT_EQ(
-      (42LL << 16) | 1, EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
+  EXPECT_EQ((42LL << 16) | 1,
+            EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
 }
 
 
@@ -167,8 +165,8 @@ ASSEMBLER_TEST_GENERATE(Movk2, assembler) {
 
 ASSEMBLER_TEST_RUN(Movk2, test) {
   typedef int64_t (*Int64Return)() DART_UNUSED;
-  EXPECT_EQ(
-      (42LL << 32) | 1, EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
+  EXPECT_EQ((42LL << 32) | 1,
+            EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
 }
 
 
@@ -181,8 +179,8 @@ ASSEMBLER_TEST_GENERATE(Movk3, assembler) {
 
 ASSEMBLER_TEST_RUN(Movk3, test) {
   typedef int64_t (*Int64Return)() DART_UNUSED;
-  EXPECT_EQ(
-      (42LL << 48) | 1, EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
+  EXPECT_EQ((42LL << 48) | 1,
+            EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
 }
 
 
@@ -257,7 +255,7 @@ ASSEMBLER_TEST_RUN(AddASRReg, test) {
 
 ASSEMBLER_TEST_GENERATE(AddASRNegReg, assembler) {
   __ movz(R0, Immediate(43), 0);
-  __ movn(R1, Immediate(0), 0);  // R1 <- -1
+  __ movn(R1, Immediate(0), 0);         // R1 <- -1
   __ add(R1, ZR, Operand(R1, LSL, 3));  // R1 <- -8
   __ add(R0, R0, Operand(R1, ASR, 3));  // R0 <- 43 + (-8 >> 3)
   __ ret();
@@ -274,7 +272,7 @@ ASSEMBLER_TEST_RUN(AddASRNegReg, test) {
 ASSEMBLER_TEST_GENERATE(AddExtReg, assembler) {
   __ movz(R0, Immediate(43), 0);
   __ movz(R1, Immediate(0xffff), 0);
-  __ movk(R1, Immediate(0xffff), 1);  // R1 <- -1 (32-bit)
+  __ movk(R1, Immediate(0xffff), 1);     // R1 <- -1 (32-bit)
   __ add(R0, R0, Operand(R1, SXTW, 0));  // R0 <- R0 + (sign extended R1)
   __ ret();
 }
@@ -291,8 +289,8 @@ ASSEMBLER_TEST_GENERATE(AddCarryInOut, assembler) {
   __ LoadImmediate(R1, 1);
   __ LoadImmediate(R0, 0);
   __ adds(IP0, R2, Operand(R1));  // c_out = 1.
-  __ adcs(IP0, R2, R0);  // c_in = 1, c_out = 1.
-  __ adc(R0, R0, R0);  // c_in = 1.
+  __ adcs(IP0, R2, R0);           // c_in = 1, c_out = 1.
+  __ adc(R0, R0, R0);             // c_in = 1.
   __ ret();
 }
 
@@ -307,8 +305,8 @@ ASSEMBLER_TEST_GENERATE(SubCarryInOut, assembler) {
   __ LoadImmediate(R1, 1);
   __ LoadImmediate(R0, 0);
   __ subs(IP0, R0, Operand(R1));  // c_out = 1.
-  __ sbcs(IP0, R0, R0);  // c_in = 1, c_out = 1.
-  __ sbc(R0, R0, R0);  // c_in = 1.
+  __ sbcs(IP0, R0, R0);           // c_in = 1, c_out = 1.
+  __ sbc(R0, R0, R0);             // c_in = 1.
   __ ret();
 }
 
@@ -325,8 +323,8 @@ ASSEMBLER_TEST_GENERATE(Overflow, assembler) {
   __ LoadImmediate(R2, 0xFFFFFFFFFFFFFFFF);
   __ LoadImmediate(R3, 0x7FFFFFFFFFFFFFFF);
   __ adds(IP0, R2, Operand(R1));  // c_out = 1.
-  __ adcs(IP0, R3, R0);  // c_in = 1, c_out = 1, v = 1.
-  __ csinc(R0, R0, R0, VS);  // R0 = v ? R0 : R0 + 1.
+  __ adcs(IP0, R3, R0);           // c_in = 1, c_out = 1, v = 1.
+  __ csinc(R0, R0, R0, VS);       // R0 = v ? R0 : R0 + 1.
   __ ret();
 }
 
@@ -342,8 +340,8 @@ ASSEMBLER_TEST_GENERATE(WordAddCarryInOut, assembler) {
   __ LoadImmediate(R1, 1);
   __ LoadImmediate(R0, 0);
   __ addsw(IP0, R2, Operand(R1));  // c_out = 1.
-  __ adcsw(IP0, R2, R0);  // c_in = 1, c_out = 1.
-  __ adcw(R0, R0, R0);  // c_in = 1.
+  __ adcsw(IP0, R2, R0);           // c_in = 1, c_out = 1.
+  __ adcw(R0, R0, R0);             // c_in = 1.
   __ ret();
 }
 
@@ -358,8 +356,8 @@ ASSEMBLER_TEST_GENERATE(WordSubCarryInOut, assembler) {
   __ LoadImmediate(R1, 1);
   __ LoadImmediate(R0, 0);
   __ subsw(IP0, R0, Operand(R1));  // c_out = 1.
-  __ sbcsw(IP0, R0, R0);  // c_in = 1, c_out = 1.
-  __ sbcw(R0, R0, R0);  // c_in = 1.
+  __ sbcsw(IP0, R0, R0);           // c_in = 1, c_out = 1.
+  __ sbcw(R0, R0, R0);             // c_in = 1.
   __ ret();
 }
 
@@ -376,8 +374,8 @@ ASSEMBLER_TEST_GENERATE(WordOverflow, assembler) {
   __ LoadImmediate(R2, 0xFFFFFFFF);
   __ LoadImmediate(R3, 0x7FFFFFFF);
   __ addsw(IP0, R2, Operand(R1));  // c_out = 1.
-  __ adcsw(IP0, R3, R0);  // c_in = 1, c_out = 1, v = 1.
-  __ csinc(R0, R0, R0, VS);  // R0 = v ? R0 : R0 + 1.
+  __ adcsw(IP0, R3, R0);           // c_in = 1, c_out = 1, v = 1.
+  __ csinc(R0, R0, R0, VS);        // R0 = v ? R0 : R0 + 1.
   __ ret();
 }
 
@@ -390,12 +388,12 @@ ASSEMBLER_TEST_RUN(WordOverflow, test) {
 
 // Loads and Stores.
 ASSEMBLER_TEST_GENERATE(SimpleLoadStore, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ movz(R0, Immediate(43), 0);
   __ movz(R1, Immediate(42), 0);
-  __ str(R1, Address(SP, -1*kWordSize, Address::PreIndex));
-  __ ldr(R0, Address(SP, 1*kWordSize, Address::PostIndex));
-  __ mov(CSP, SP);
+  __ str(R1, Address(SP, -1 * kWordSize, Address::PreIndex));
+  __ ldr(R0, Address(SP, 1 * kWordSize, Address::PostIndex));
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -407,13 +405,13 @@ ASSEMBLER_TEST_RUN(SimpleLoadStore, test) {
 
 
 ASSEMBLER_TEST_GENERATE(SimpleLoadStoreHeapTag, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ movz(R0, Immediate(43), 0);
   __ movz(R1, Immediate(42), 0);
   __ add(R2, SP, Operand(1));
   __ str(R1, Address(R2, -1));
   __ ldr(R0, Address(R2, -1));
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -425,16 +423,16 @@ ASSEMBLER_TEST_RUN(SimpleLoadStoreHeapTag, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadStoreLargeIndex, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ movz(R0, Immediate(43), 0);
   __ movz(R1, Immediate(42), 0);
   // Largest negative offset that can fit in the signed 9-bit immediate field.
-  __ str(R1, Address(SP, -32*kWordSize, Address::PreIndex));
+  __ str(R1, Address(SP, -32 * kWordSize, Address::PreIndex));
   // Largest positive kWordSize aligned offset that we can fit.
-  __ ldr(R0, Address(SP, 31*kWordSize, Address::PostIndex));
+  __ ldr(R0, Address(SP, 31 * kWordSize, Address::PostIndex));
   // Correction.
   __ add(SP, SP, Operand(kWordSize));  // Restore SP.
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -446,14 +444,14 @@ ASSEMBLER_TEST_RUN(LoadStoreLargeIndex, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadStoreLargeOffset, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ movz(R0, Immediate(43), 0);
   __ movz(R1, Immediate(42), 0);
-  __ sub(SP, SP, Operand(512*kWordSize));
-  __ str(R1, Address(SP, 512*kWordSize, Address::Offset));
-  __ add(SP, SP, Operand(512*kWordSize));
+  __ sub(SP, SP, Operand(512 * kWordSize));
+  __ str(R1, Address(SP, 512 * kWordSize, Address::Offset));
+  __ add(SP, SP, Operand(512 * kWordSize));
   __ ldr(R0, Address(SP));
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -465,7 +463,7 @@ ASSEMBLER_TEST_RUN(LoadStoreLargeOffset, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadStoreExtReg, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ movz(R0, Immediate(43), 0);
   __ movz(R1, Immediate(42), 0);
   __ movz(R2, Immediate(0xfff8), 0);
@@ -476,7 +474,7 @@ ASSEMBLER_TEST_GENERATE(LoadStoreExtReg, assembler) {
   __ sub(SP, SP, Operand(kWordSize));
   __ ldr(R0, Address(SP));
   __ add(SP, SP, Operand(kWordSize));
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -488,16 +486,16 @@ ASSEMBLER_TEST_RUN(LoadStoreExtReg, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadStoreScaledReg, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ movz(R0, Immediate(43), 0);
   __ movz(R1, Immediate(42), 0);
   __ movz(R2, Immediate(10), 0);
-  __ sub(SP, SP, Operand(10*kWordSize));
+  __ sub(SP, SP, Operand(10 * kWordSize));
   // Store R1 into SP + R2 * kWordSize.
   __ str(R1, Address(SP, R2, UXTX, Address::Scaled));
   __ ldr(R0, Address(SP, R2, UXTX, Address::Scaled));
-  __ add(SP, SP, Operand(10*kWordSize));
-  __ mov(CSP, SP);
+  __ add(SP, SP, Operand(10 * kWordSize));
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -509,12 +507,12 @@ ASSEMBLER_TEST_RUN(LoadStoreScaledReg, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadSigned32Bit, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadImmediate(R1, 0xffffffff);
   __ str(R1, Address(SP, -4, Address::PreIndex, kWord), kWord);
   __ ldr(R0, Address(SP), kWord);
   __ ldr(R1, Address(SP, 4, Address::PostIndex, kWord), kWord);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -526,13 +524,13 @@ ASSEMBLER_TEST_RUN(LoadSigned32Bit, test) {
 
 
 ASSEMBLER_TEST_GENERATE(SimpleLoadStorePair, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadImmediate(R2, 43);
   __ LoadImmediate(R3, 42);
-  __ stp(R2, R3, Address(SP, -2*kWordSize, Address::PairPreIndex));
-  __ ldp(R0, R1, Address(SP, 2*kWordSize, Address::PairPostIndex));
+  __ stp(R2, R3, Address(SP, -2 * kWordSize, Address::PairPreIndex));
+  __ ldp(R0, R1, Address(SP, 2 * kWordSize, Address::PairPostIndex));
   __ sub(R0, R0, Operand(R1));
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -544,7 +542,7 @@ ASSEMBLER_TEST_RUN(SimpleLoadStorePair, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadStorePairOffset, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadImmediate(R2, 43);
   __ LoadImmediate(R3, 42);
   __ sub(SP, SP, Operand(4 * kWordSize));
@@ -552,7 +550,7 @@ ASSEMBLER_TEST_GENERATE(LoadStorePairOffset, assembler) {
   __ ldp(R0, R1, Address::Pair(SP, 2 * kWordSize));
   __ add(SP, SP, Operand(4 * kWordSize));
   __ sub(R0, R0, Operand(R1));
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -564,7 +562,7 @@ ASSEMBLER_TEST_RUN(LoadStorePairOffset, test) {
 
 
 ASSEMBLER_TEST_GENERATE(Semaphore, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ movz(R0, Immediate(40), 0);
   __ movz(R1, Immediate(42), 0);
   __ Push(R0);
@@ -574,8 +572,8 @@ ASSEMBLER_TEST_GENERATE(Semaphore, assembler) {
   __ stxr(TMP, R1, SP);  // IP == 0, success
   __ cmp(TMP, Operand(0));
   __ b(&retry, NE);  // NE if context switch occurred between ldrex and strex.
-  __ Pop(R0);  // 42
-  __ mov(CSP, SP);
+  __ Pop(R0);        // 42
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -588,16 +586,16 @@ ASSEMBLER_TEST_RUN(Semaphore, test) {
 
 
 ASSEMBLER_TEST_GENERATE(FailedSemaphore, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ movz(R0, Immediate(40), 0);
   __ movz(R1, Immediate(42), 0);
   __ Push(R0);
   __ ldxr(R0, SP);
-  __ clrex();  // Simulate a context switch.
+  __ clrex();            // Simulate a context switch.
   __ stxr(TMP, R1, SP);  // IP == 1, failure
-  __ Pop(R0);  // 40
+  __ Pop(R0);            // 40
   __ add(R0, R0, Operand(TMP));
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -668,7 +666,7 @@ ASSEMBLER_TEST_RUN(OrrRegs, test) {
 
 ASSEMBLER_TEST_GENERATE(OrnRegs, assembler) {
   __ movz(R1, Immediate(32), 0);
-  __ movn(R2, Immediate(0), 0);  // R2 <- 0xffffffffffffffff.
+  __ movn(R2, Immediate(0), 0);       // R2 <- 0xffffffffffffffff.
   __ movk(R2, Immediate(0xffd5), 0);  // R2 <- 0xffffffffffffffe5.
   __ orn(R0, R1, Operand(R2));
   __ ret();
@@ -720,6 +718,24 @@ ASSEMBLER_TEST_GENERATE(AndImm, assembler) {
 ASSEMBLER_TEST_RUN(AndImm, test) {
   typedef int64_t (*Int64Return)() DART_UNUSED;
   EXPECT_EQ(42, EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
+}
+
+
+ASSEMBLER_TEST_GENERATE(AndImmCsp, assembler) {
+  // Note we must maintain the ARM64 ABI invariants on CSP here.
+  __ mov(TMP, CSP);
+  __ sub(TMP2, CSP, Operand(31));
+  __ andi(CSP, TMP2, Immediate(~15));
+  __ mov(R0, CSP);
+  __ sub(R0, TMP, Operand(R0));
+  __ mov(CSP, TMP);
+  __ ret();
+}
+
+
+ASSEMBLER_TEST_RUN(AndImmCsp, test) {
+  typedef int64_t (*Int64Return)() DART_UNUSED;
+  EXPECT_EQ(32, EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
 }
 
 
@@ -1380,7 +1396,7 @@ ASSEMBLER_TEST_RUN(Sdiv_zero, test) {
 
 ASSEMBLER_TEST_GENERATE(Udiv_corner, assembler) {
   __ movz(R0, Immediate(0x8000), 3);  // R0 <- 0x8000000000000000
-  __ movn(R1, Immediate(0), 0);  // R1 <- 0xffffffffffffffff
+  __ movn(R1, Immediate(0), 0);       // R1 <- 0xffffffffffffffff
   __ udiv(R2, R0, R1);
   __ mov(R0, R2);
   __ ret();
@@ -1396,7 +1412,7 @@ ASSEMBLER_TEST_RUN(Udiv_corner, test) {
 
 ASSEMBLER_TEST_GENERATE(Sdiv_corner, assembler) {
   __ movz(R3, Immediate(0x8000), 3);  // R0 <- 0x8000000000000000
-  __ movn(R1, Immediate(0), 0);  // R1 <- 0xffffffffffffffff
+  __ movn(R1, Immediate(0), 0);       // R1 <- 0xffffffffffffffff
   __ sdiv(R2, R3, R1);
   __ mov(R0, R2);
   __ ret();
@@ -1529,8 +1545,8 @@ ASSEMBLER_TEST_RUN(Smulh_neg, test) {
 
 ASSEMBLER_TEST_GENERATE(Umulh, assembler) {
   __ movz(R1, Immediate(-1), 3);  // 0xffff000000000000
-  __ movz(R2, Immediate(7), 3);  // 0x0007000000000000
-  __ umulh(R0, R1, R2);  // 0x0006fff900000000
+  __ movz(R2, Immediate(7), 3);   // 0x0007000000000000
+  __ umulh(R0, R1, R2);           // 0x0006fff900000000
   __ ret();
 }
 
@@ -1546,7 +1562,7 @@ ASSEMBLER_TEST_GENERATE(Umaddl, assembler) {
   __ movn(R1, Immediate(0), 0);  // W1 = 0xffffffff.
   __ movz(R2, Immediate(7), 0);  // W2 = 7.
   __ movz(R3, Immediate(8), 0);  // X3 = 8.
-  __ umaddl(R0, R1, R2, R3);  // X0 = W1*W2 + X3 = 0x700000001.
+  __ umaddl(R0, R1, R2, R3);     // X0 = W1*W2 + X3 = 0x700000001.
   __ ret();
 }
 
@@ -1590,8 +1606,8 @@ ASSEMBLER_TEST_GENERATE(LoadImmediateMed2, assembler) {
 
 ASSEMBLER_TEST_RUN(LoadImmediateMed2, test) {
   typedef int64_t (*Int64Return)() DART_UNUSED;
-  EXPECT_EQ(
-      0x4321f1234123, EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
+  EXPECT_EQ(0x4321f1234123,
+            EXECUTE_TEST_CODE_INT64(Int64Return, test->entry()));
 }
 
 
@@ -1668,6 +1684,163 @@ ASSEMBLER_TEST_RUN(LoadImmediateMedNeg4, test) {
 }
 
 
+ASSEMBLER_TEST_GENERATE(LoadHalfWordUnaligned, assembler) {
+  __ LoadUnaligned(R1, R0, TMP, kHalfword);
+  __ mov(R0, R1);
+  __ ret();
+}
+
+
+ASSEMBLER_TEST_RUN(LoadHalfWordUnaligned, test) {
+  EXPECT(test != NULL);
+  typedef intptr_t (*LoadHalfWordUnaligned)(intptr_t) DART_UNUSED;
+  uint8_t buffer[4] = {
+      0x89, 0xAB, 0xCD, 0xEF,
+  };
+
+  EXPECT_EQ(
+      static_cast<int16_t>(static_cast<uint16_t>(0xAB89)),
+      EXECUTE_TEST_CODE_INTPTR_INTPTR(LoadHalfWordUnaligned, test->entry(),
+                                      reinterpret_cast<intptr_t>(&buffer[0])));
+  EXPECT_EQ(
+      static_cast<int16_t>(static_cast<uint16_t>(0xCDAB)),
+      EXECUTE_TEST_CODE_INTPTR_INTPTR(LoadHalfWordUnaligned, test->entry(),
+                                      reinterpret_cast<intptr_t>(&buffer[1])));
+}
+
+
+ASSEMBLER_TEST_GENERATE(LoadHalfWordUnsignedUnaligned, assembler) {
+  __ LoadUnaligned(R1, R0, TMP, kUnsignedHalfword);
+  __ mov(R0, R1);
+  __ ret();
+}
+
+
+ASSEMBLER_TEST_RUN(LoadHalfWordUnsignedUnaligned, test) {
+  EXPECT(test != NULL);
+  typedef intptr_t (*LoadHalfWordUnsignedUnaligned)(intptr_t) DART_UNUSED;
+  uint8_t buffer[4] = {
+      0x89, 0xAB, 0xCD, 0xEF,
+  };
+
+  EXPECT_EQ(0xAB89, EXECUTE_TEST_CODE_INTPTR_INTPTR(
+                        LoadHalfWordUnsignedUnaligned, test->entry(),
+                        reinterpret_cast<intptr_t>(&buffer[0])));
+  EXPECT_EQ(0xCDAB, EXECUTE_TEST_CODE_INTPTR_INTPTR(
+                        LoadHalfWordUnsignedUnaligned, test->entry(),
+                        reinterpret_cast<intptr_t>(&buffer[1])));
+}
+
+
+ASSEMBLER_TEST_GENERATE(StoreHalfWordUnaligned, assembler) {
+  __ LoadImmediate(R1, 0xABCD);
+  __ StoreUnaligned(R1, R0, TMP, kHalfword);
+  __ mov(R0, R1);
+  __ ret();
+}
+
+
+ASSEMBLER_TEST_RUN(StoreHalfWordUnaligned, test) {
+  EXPECT(test != NULL);
+  typedef intptr_t (*StoreHalfWordUnaligned)(intptr_t) DART_UNUSED;
+  uint8_t buffer[4] = {
+      0, 0, 0, 0,
+  };
+
+  EXPECT_EQ(0xABCD, EXECUTE_TEST_CODE_INTPTR_INTPTR(
+                        StoreHalfWordUnaligned, test->entry(),
+                        reinterpret_cast<intptr_t>(&buffer[0])));
+  EXPECT_EQ(0xCD, buffer[0]);
+  EXPECT_EQ(0xAB, buffer[1]);
+  EXPECT_EQ(0, buffer[2]);
+
+  EXPECT_EQ(0xABCD, EXECUTE_TEST_CODE_INTPTR_INTPTR(
+                        StoreHalfWordUnaligned, test->entry(),
+                        reinterpret_cast<intptr_t>(&buffer[1])));
+  EXPECT_EQ(0xCD, buffer[1]);
+  EXPECT_EQ(0xAB, buffer[2]);
+  EXPECT_EQ(0, buffer[3]);
+}
+
+
+ASSEMBLER_TEST_GENERATE(LoadWordUnaligned, assembler) {
+  __ LoadUnaligned(R1, R0, TMP, kUnsignedWord);
+  __ mov(R0, R1);
+  __ ret();
+}
+
+
+ASSEMBLER_TEST_RUN(LoadWordUnaligned, test) {
+  EXPECT(test != NULL);
+  typedef int32_t (*LoadWordUnaligned)(intptr_t) DART_UNUSED;
+  uint8_t buffer[8] = {0x12, 0x34, 0x56, 0x78, 0x9A, 0xBC, 0xDE, 0xF0};
+
+  EXPECT_EQ(
+      static_cast<int32_t>(0x78563412),
+      EXECUTE_TEST_CODE_INT32_INTPTR(LoadWordUnaligned, test->entry(),
+                                     reinterpret_cast<intptr_t>(&buffer[0])));
+  EXPECT_EQ(
+      static_cast<int32_t>(0x9A785634),
+      EXECUTE_TEST_CODE_INT32_INTPTR(LoadWordUnaligned, test->entry(),
+                                     reinterpret_cast<intptr_t>(&buffer[1])));
+  EXPECT_EQ(
+      static_cast<int32_t>(0xBC9A7856),
+      EXECUTE_TEST_CODE_INT32_INTPTR(LoadWordUnaligned, test->entry(),
+                                     reinterpret_cast<intptr_t>(&buffer[2])));
+  EXPECT_EQ(
+      static_cast<int32_t>(0xDEBC9A78),
+      EXECUTE_TEST_CODE_INT32_INTPTR(LoadWordUnaligned, test->entry(),
+                                     reinterpret_cast<intptr_t>(&buffer[3])));
+}
+
+
+ASSEMBLER_TEST_GENERATE(StoreWordUnaligned, assembler) {
+  __ LoadImmediate(R1, 0x12345678);
+  __ StoreUnaligned(R1, R0, TMP, kUnsignedWord);
+  __ mov(R0, R1);
+  __ ret();
+}
+
+
+ASSEMBLER_TEST_RUN(StoreWordUnaligned, test) {
+  EXPECT(test != NULL);
+  typedef intptr_t (*StoreWordUnaligned)(intptr_t) DART_UNUSED;
+  uint8_t buffer[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+  EXPECT_EQ(0x12345678, EXECUTE_TEST_CODE_INTPTR_INTPTR(
+                            StoreWordUnaligned, test->entry(),
+                            reinterpret_cast<intptr_t>(&buffer[0])));
+  EXPECT_EQ(0x78, buffer[0]);
+  EXPECT_EQ(0x56, buffer[1]);
+  EXPECT_EQ(0x34, buffer[2]);
+  EXPECT_EQ(0x12, buffer[3]);
+
+  EXPECT_EQ(0x12345678, EXECUTE_TEST_CODE_INTPTR_INTPTR(
+                            StoreWordUnaligned, test->entry(),
+                            reinterpret_cast<intptr_t>(&buffer[1])));
+  EXPECT_EQ(0x78, buffer[1]);
+  EXPECT_EQ(0x56, buffer[2]);
+  EXPECT_EQ(0x34, buffer[3]);
+  EXPECT_EQ(0x12, buffer[4]);
+
+  EXPECT_EQ(0x12345678, EXECUTE_TEST_CODE_INTPTR_INTPTR(
+                            StoreWordUnaligned, test->entry(),
+                            reinterpret_cast<intptr_t>(&buffer[2])));
+  EXPECT_EQ(0x78, buffer[2]);
+  EXPECT_EQ(0x56, buffer[3]);
+  EXPECT_EQ(0x34, buffer[4]);
+  EXPECT_EQ(0x12, buffer[5]);
+
+  EXPECT_EQ(0x12345678, EXECUTE_TEST_CODE_INTPTR_INTPTR(
+                            StoreWordUnaligned, test->entry(),
+                            reinterpret_cast<intptr_t>(&buffer[3])));
+  EXPECT_EQ(0x78, buffer[3]);
+  EXPECT_EQ(0x56, buffer[4]);
+  EXPECT_EQ(0x34, buffer[5]);
+  EXPECT_EQ(0x12, buffer[6]);
+}
+
+
 static void EnterTestFrame(Assembler* assembler) {
   __ EnterFrame(0);
   __ Push(CODE_REG);
@@ -1687,15 +1860,13 @@ static void LeaveTestFrame(Assembler* assembler) {
 }
 
 
-
-
 // Loading immediate values with the object pool.
 ASSEMBLER_TEST_GENERATE(LoadImmediatePPSmall, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   EnterTestFrame(assembler);
   __ LoadImmediate(R0, 42);
   LeaveTestFrame(assembler);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -1706,11 +1877,11 @@ ASSEMBLER_TEST_RUN(LoadImmediatePPSmall, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadImmediatePPMed, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   EnterTestFrame(assembler);
   __ LoadImmediate(R0, 0xf1234123);
   LeaveTestFrame(assembler);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -1721,11 +1892,11 @@ ASSEMBLER_TEST_RUN(LoadImmediatePPMed, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadImmediatePPMed2, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   EnterTestFrame(assembler);
   __ LoadImmediate(R0, 0x4321f1234124);
   LeaveTestFrame(assembler);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -1736,11 +1907,11 @@ ASSEMBLER_TEST_RUN(LoadImmediatePPMed2, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadImmediatePPLarge, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   EnterTestFrame(assembler);
   __ LoadImmediate(R0, 0x9287436598237465);
   LeaveTestFrame(assembler);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -1753,11 +1924,11 @@ ASSEMBLER_TEST_RUN(LoadImmediatePPLarge, test) {
 
 // LoadObject null.
 ASSEMBLER_TEST_GENERATE(LoadObjectNull, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   EnterTestFrame(assembler);
   __ LoadObject(R0, Object::null_object());
   LeaveTestFrame(assembler);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -1768,11 +1939,11 @@ ASSEMBLER_TEST_RUN(LoadObjectNull, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadObjectTrue, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   EnterTestFrame(assembler);
   __ LoadObject(R0, Bool::True());
   LeaveTestFrame(assembler);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -1783,11 +1954,11 @@ ASSEMBLER_TEST_RUN(LoadObjectTrue, test) {
 
 
 ASSEMBLER_TEST_GENERATE(LoadObjectFalse, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   EnterTestFrame(assembler);
   __ LoadObject(R0, Bool::False());
   LeaveTestFrame(assembler);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -1909,7 +2080,8 @@ ASSEMBLER_TEST_GENERATE(Fmovdi2, assembler) {
 ASSEMBLER_TEST_RUN(Fmovdi2, test) {
   typedef double (*DoubleReturn)() DART_UNUSED;
   EXPECT_FLOAT_EQ(123412983.1324524315,
-      EXECUTE_TEST_CODE_DOUBLE(DoubleReturn, test->entry()), 0.0001f);
+                  EXECUTE_TEST_CODE_DOUBLE(DoubleReturn, test->entry()),
+                  0.0001f);
 }
 
 
@@ -1942,11 +2114,11 @@ ASSEMBLER_TEST_RUN(Fmovdr, test) {
 
 
 ASSEMBLER_TEST_GENERATE(FldrdFstrdPrePostIndex, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V1, 42.0);
-  __ fstrd(V1, Address(SP, -1*kWordSize, Address::PreIndex));
-  __ fldrd(V0, Address(SP, 1*kWordSize, Address::PostIndex));
-  __ mov(CSP, SP);
+  __ fstrd(V1, Address(SP, -1 * kWordSize, Address::PreIndex));
+  __ fldrd(V0, Address(SP, 1 * kWordSize, Address::PostIndex));
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -1958,13 +2130,13 @@ ASSEMBLER_TEST_RUN(FldrdFstrdPrePostIndex, test) {
 
 
 ASSEMBLER_TEST_GENERATE(FldrsFstrsPrePostIndex, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V1, 42.0);
   __ fcvtsd(V2, V1);
-  __ fstrs(V2, Address(SP, -1*kWordSize, Address::PreIndex));
-  __ fldrs(V3, Address(SP, 1*kWordSize, Address::PostIndex));
+  __ fstrs(V2, Address(SP, -1 * kWordSize, Address::PreIndex));
+  __ fldrs(V3, Address(SP, 1 * kWordSize, Address::PostIndex));
   __ fcvtds(V0, V3);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -1976,7 +2148,7 @@ ASSEMBLER_TEST_RUN(FldrsFstrsPrePostIndex, test) {
 
 
 ASSEMBLER_TEST_GENERATE(FldrqFstrqPrePostIndex, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V1, 21.0);
   __ LoadDImmediate(V2, 21.0);
   __ LoadImmediate(R1, 42);
@@ -1989,7 +2161,7 @@ ASSEMBLER_TEST_GENERATE(FldrqFstrqPrePostIndex, assembler) {
   __ PopDouble(V0);
   __ PopDouble(V1);
   __ faddd(V0, V0, V1);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -2162,7 +2334,7 @@ ASSEMBLER_TEST_RUN(Fsubd, test) {
 
 
 ASSEMBLER_TEST_GENERATE(FldrdFstrdHeapTag, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V0, 43.0);
   __ LoadDImmediate(V1, 42.0);
   __ AddImmediate(SP, SP, -1 * kWordSize);
@@ -2170,7 +2342,7 @@ ASSEMBLER_TEST_GENERATE(FldrdFstrdHeapTag, assembler) {
   __ fstrd(V1, Address(R2, -1));
   __ fldrd(V0, Address(R2, -1));
   __ AddImmediate(SP, SP, 1 * kWordSize);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -2182,16 +2354,16 @@ ASSEMBLER_TEST_RUN(FldrdFstrdHeapTag, test) {
 
 
 ASSEMBLER_TEST_GENERATE(FldrdFstrdLargeIndex, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V0, 43.0);
   __ LoadDImmediate(V1, 42.0);
   // Largest negative offset that can fit in the signed 9-bit immediate field.
-  __ fstrd(V1, Address(SP, -32*kWordSize, Address::PreIndex));
+  __ fstrd(V1, Address(SP, -32 * kWordSize, Address::PreIndex));
   // Largest positive kWordSize aligned offset that we can fit.
-  __ fldrd(V0, Address(SP, 31*kWordSize, Address::PostIndex));
+  __ fldrd(V0, Address(SP, 31 * kWordSize, Address::PostIndex));
   // Correction.
   __ add(SP, SP, Operand(kWordSize));  // Restore SP.
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -2203,14 +2375,14 @@ ASSEMBLER_TEST_RUN(FldrdFstrdLargeIndex, test) {
 
 
 ASSEMBLER_TEST_GENERATE(FldrdFstrdLargeOffset, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V0, 43.0);
   __ LoadDImmediate(V1, 42.0);
-  __ sub(SP, SP, Operand(512*kWordSize));
-  __ fstrd(V1, Address(SP, 512*kWordSize, Address::Offset));
-  __ add(SP, SP, Operand(512*kWordSize));
+  __ sub(SP, SP, Operand(512 * kWordSize));
+  __ fstrd(V1, Address(SP, 512 * kWordSize, Address::Offset));
+  __ add(SP, SP, Operand(512 * kWordSize));
   __ fldrd(V0, Address(SP));
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -2222,7 +2394,7 @@ ASSEMBLER_TEST_RUN(FldrdFstrdLargeOffset, test) {
 
 
 ASSEMBLER_TEST_GENERATE(FldrdFstrdExtReg, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V0, 43.0);
   __ LoadDImmediate(V1, 42.0);
   __ movz(R2, Immediate(0xfff8), 0);
@@ -2233,7 +2405,7 @@ ASSEMBLER_TEST_GENERATE(FldrdFstrdExtReg, assembler) {
   __ sub(SP, SP, Operand(kWordSize));
   __ fldrd(V0, Address(SP));
   __ add(SP, SP, Operand(kWordSize));
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -2245,16 +2417,16 @@ ASSEMBLER_TEST_RUN(FldrdFstrdExtReg, test) {
 
 
 ASSEMBLER_TEST_GENERATE(FldrdFstrdScaledReg, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V0, 43.0);
   __ LoadDImmediate(V1, 42.0);
   __ movz(R2, Immediate(10), 0);
-  __ sub(SP, SP, Operand(10*kWordSize));
+  __ sub(SP, SP, Operand(10 * kWordSize));
   // Store V1 into SP + R2 * kWordSize.
   __ fstrd(V1, Address(SP, R2, UXTX, Address::Scaled));
   __ fldrd(V0, Address(SP, R2, UXTX, Address::Scaled));
-  __ add(SP, SP, Operand(10*kWordSize));
-  __ mov(CSP, SP);
+  __ add(SP, SP, Operand(10 * kWordSize));
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -2709,7 +2881,7 @@ ASSEMBLER_TEST_RUN(Vdivd, test) {
 
 
 ASSEMBLER_TEST_GENERATE(Vdupd, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V0, 21.0);
   __ vdupd(V1, V0, 0);
 
@@ -2721,7 +2893,7 @@ ASSEMBLER_TEST_GENERATE(Vdupd, assembler) {
   __ fldrd(V3, Address(SP, 1 * dword_bytes, Address::PostIndex));
 
   __ faddd(V0, V2, V3);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -2733,7 +2905,7 @@ ASSEMBLER_TEST_RUN(Vdupd, test) {
 
 
 ASSEMBLER_TEST_GENERATE(Vdups, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V0, 21.0);
   __ fcvtsd(V0, V0);
   __ vdups(V1, V0, 0);
@@ -2755,7 +2927,7 @@ ASSEMBLER_TEST_GENERATE(Vdups, assembler) {
   __ faddd(V0, V1, V1);
   __ faddd(V0, V0, V2);
   __ faddd(V0, V0, V3);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -2767,7 +2939,7 @@ ASSEMBLER_TEST_RUN(Vdups, test) {
 
 
 ASSEMBLER_TEST_GENERATE(Vinsd, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V5, 42.0);
   __ vinsd(V1, 1, V5, 0);  // V1[1] <- V0[0].
 
@@ -2779,7 +2951,7 @@ ASSEMBLER_TEST_GENERATE(Vinsd, assembler) {
   __ fldrd(V3, Address(SP, 1 * dword_bytes, Address::PostIndex));
 
   __ fmovdd(V0, V3);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -2791,7 +2963,7 @@ ASSEMBLER_TEST_RUN(Vinsd, test) {
 
 
 ASSEMBLER_TEST_GENERATE(Vinss, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ LoadDImmediate(V0, 21.0);
   __ fcvtsd(V0, V0);
   __ vinss(V1, 3, V0, 0);
@@ -2814,7 +2986,7 @@ ASSEMBLER_TEST_GENERATE(Vinss, assembler) {
   __ faddd(V0, V0, V1);
   __ faddd(V0, V0, V2);
   __ faddd(V0, V0, V3);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
 
@@ -3379,9 +3551,12 @@ ASSEMBLER_TEST_RUN(Vsqrtd, test) {
 // This is the same function as in the Simulator.
 static float arm_recip_estimate(float a) {
   // From the ARM Architecture Reference Manual A2-85.
-  if (isinf(a) || (fabs(a) >= exp2f(126))) return 0.0;
-  else if (a == 0.0) return kPosInfinity;
-  else if (isnan(a)) return a;
+  if (isinf(a) || (fabs(a) >= exp2f(126)))
+    return 0.0;
+  else if (a == 0.0)
+    return kPosInfinity;
+  else if (isnan(a))
+    return a;
 
   uint32_t a_bits = bit_cast<uint32_t, float>(a);
   // scaled = '0011 1111 1110' : a<22:0> : Zeros(29)
@@ -3401,7 +3576,7 @@ static float arm_recip_estimate(float a) {
   // r in units of 1/256 rounded to nearest.
   int32_t s = static_cast<int32_t>(256.0 * r + 0.5);
   double estimate = static_cast<double>(s) / 256.0;
-  ASSERT((estimate >= 1.0) && (estimate <= (511.0/256.0)));
+  ASSERT((estimate >= 1.0) && (estimate <= (511.0 / 256.0)));
 
   // result = sign : result_exp<7:0> : estimate<51:29>
   int32_t result_bits =
@@ -3488,9 +3663,12 @@ ASSEMBLER_TEST_RUN(VRecps, test) {
 
 static float arm_reciprocal_sqrt_estimate(float a) {
   // From the ARM Architecture Reference Manual A2-87.
-  if (isinf(a) || (fabs(a) >= exp2f(126))) return 0.0;
-  else if (a == 0.0) return kPosInfinity;
-  else if (isnan(a)) return a;
+  if (isinf(a) || (fabs(a) >= exp2f(126)))
+    return 0.0;
+  else if (a == 0.0)
+    return kPosInfinity;
+  else if (isnan(a))
+    return a;
 
   uint32_t a_bits = bit_cast<uint32_t, float>(a);
   uint64_t scaled;
@@ -3528,10 +3706,11 @@ static float arm_reciprocal_sqrt_estimate(float a) {
   // r in units of 1/256 rounded to nearest.
   int32_t s = static_cast<int>(256.0 * r + 0.5);
   double estimate = static_cast<double>(s) / 256.0;
-  ASSERT((estimate >= 1.0) && (estimate <= (511.0/256.0)));
+  ASSERT((estimate >= 1.0) && (estimate <= (511.0 / 256.0)));
 
   // result = 0 : result_exp<7:0> : estimate<51:29>
-  int32_t result_bits = ((result_exp & 0xff) << 23) |
+  int32_t result_bits =
+      ((result_exp & 0xff) << 23) |
       ((bit_cast<uint64_t, double>(estimate) >> 29) & 0x7fffff);
   return bit_cast<float, int32_t>(result_bits);
 }
@@ -3557,16 +3736,16 @@ ASSEMBLER_TEST_RUN(Vrsqrtes, test) {
 
 
 ASSEMBLER_TEST_GENERATE(Vrsqrtss, assembler) {
-    __ LoadDImmediate(V1, 5.0);
-    __ LoadDImmediate(V2, 10.0);
+  __ LoadDImmediate(V1, 5.0);
+  __ LoadDImmediate(V2, 10.0);
 
-    __ fcvtsd(V1, V1);
-    __ fcvtsd(V2, V2);
+  __ fcvtsd(V1, V1);
+  __ fcvtsd(V2, V2);
 
-    __ vrsqrtss(V0, V1, V2);
+  __ vrsqrtss(V0, V1, V2);
 
-    __ fcvtds(V0, V0);
-    __ ret();
+  __ fcvtds(V0, V0);
+  __ ret();
 }
 
 
@@ -3574,18 +3753,18 @@ ASSEMBLER_TEST_RUN(Vrsqrtss, test) {
   EXPECT(test != NULL);
   typedef double (*DoubleReturn)() DART_UNUSED;
   double res = EXECUTE_TEST_CODE_DOUBLE(DoubleReturn, test->entry());
-  EXPECT_FLOAT_EQ((3.0 - 10.0 * 5.0)/2.0, res, 0.0001);
+  EXPECT_FLOAT_EQ((3.0 - 10.0 * 5.0) / 2.0, res, 0.0001);
 }
 
 
 ASSEMBLER_TEST_GENERATE(ReciprocalSqrt, assembler) {
-    __ LoadDImmediate(V1, 147000.0);
-    __ fcvtsd(V1, V1);
+  __ LoadDImmediate(V1, 147000.0);
+  __ fcvtsd(V1, V1);
 
-    __ VRSqrts(V0, V1);
+  __ VRSqrts(V0, V1);
 
-    __ fcvtds(V0, V0);
-    __ ret();
+  __ fcvtds(V0, V0);
+  __ ret();
 }
 
 
@@ -3593,7 +3772,7 @@ ASSEMBLER_TEST_RUN(ReciprocalSqrt, test) {
   EXPECT(test != NULL);
   typedef double (*DoubleReturn)() DART_UNUSED;
   double res = EXECUTE_TEST_CODE_DOUBLE(DoubleReturn, test->entry());
-  EXPECT_FLOAT_EQ(1.0/sqrt(147000.0), res, 0.0001);
+  EXPECT_FLOAT_EQ(1.0 / sqrt(147000.0), res, 0.0001);
 }
 
 
@@ -3603,82 +3782,19 @@ ASSEMBLER_TEST_RUN(ReciprocalSqrt, test) {
 // R1: growable array.
 // R2: current thread.
 ASSEMBLER_TEST_GENERATE(StoreIntoObject, assembler) {
-  __ SetupDartSP(kTestStackSpace);
+  __ SetupDartSP();
   __ Push(CODE_REG);
   __ Push(THR);
   __ Push(LR);
   __ mov(THR, R2);
-  __ StoreIntoObject(R1,
-                     FieldAddress(R1, GrowableObjectArray::data_offset()),
+  __ StoreIntoObject(R1, FieldAddress(R1, GrowableObjectArray::data_offset()),
                      R0);
   __ Pop(LR);
   __ Pop(THR);
   __ Pop(CODE_REG);
-  __ mov(CSP, SP);
+  __ RestoreCSP();
   __ ret();
 }
-
-
-ASSEMBLER_TEST_GENERATE(ComputeRange, assembler) {
-  __ SetupDartSP(kTestStackSpace);
-  EnterTestFrame(assembler);
-  Label miss, done;
-  __ ComputeRange(R0, R2, R3, &miss);
-  __ b(&done);
-
-  __ Bind(&miss);
-  __ LoadImmediate(R0, -1);
-
-  __ Bind(&done);
-  LeaveTestFrame(assembler);
-  __ mov(CSP, SP);
-  __ ret();
-}
-
-
-ASSEMBLER_TEST_RUN(ComputeRange, test) {
-#define RANGE_OF(arg_type, v)                                                  \
-  test->InvokeWithCodeAndThread<intptr_t, arg_type>(v)
-
-  EXPECT_EQ(ICData::kInt32RangeBit, RANGE_OF(RawSmi*, Smi::New(0)));
-  EXPECT_EQ(ICData::kInt32RangeBit, RANGE_OF(RawSmi*, Smi::New(1)));
-  EXPECT_EQ(ICData::kInt32RangeBit, RANGE_OF(RawSmi*, Smi::New(kMaxInt32)));
-  EXPECT_EQ(ICData::kInt32RangeBit | ICData::kSignedRangeBit,
-            RANGE_OF(RawSmi*, Smi::New(-1)));
-  EXPECT_EQ(ICData::kInt32RangeBit | ICData::kSignedRangeBit,
-            RANGE_OF(RawSmi*, Smi::New(kMinInt32)));
-
-  EXPECT_EQ(ICData::kUint32RangeBit,
-            RANGE_OF(RawSmi*, Smi::New(static_cast<int64_t>(kMaxInt32) + 1)));
-  EXPECT_EQ(ICData::kUint32RangeBit,
-            RANGE_OF(RawSmi*, Smi::New(kMaxUint32)));
-
-  // On 64-bit platforms we don't track the sign of the smis outside of
-  // int32 range because it is not needed to distinguish kInt32Range from
-  // kUint32Range.
-  EXPECT_EQ(ICData::kSignedRangeBit,
-            RANGE_OF(RawSmi*, Smi::New(static_cast<int64_t>(kMinInt32) - 1)));
-  EXPECT_EQ(ICData::kSignedRangeBit,
-            RANGE_OF(RawSmi*, Smi::New(static_cast<int64_t>(kMaxUint32) + 1)));
-  EXPECT_EQ(ICData::kSignedRangeBit,
-            RANGE_OF(RawSmi*, Smi::New(Smi::kMaxValue)));
-  EXPECT_EQ(ICData::kSignedRangeBit, RANGE_OF(RawSmi*,
-            Smi::New(Smi::kMinValue)));
-
-  EXPECT_EQ(ICData::kInt64RangeBit,
-            RANGE_OF(RawInteger*, Integer::New(Smi::kMaxValue + 1)));
-  EXPECT_EQ(ICData::kInt64RangeBit,
-            RANGE_OF(RawInteger*, Integer::New(Smi::kMinValue - 1)));
-  EXPECT_EQ(ICData::kInt64RangeBit,
-            RANGE_OF(RawInteger*, Integer::New(kMaxInt64)));
-  EXPECT_EQ(ICData::kInt64RangeBit,
-            RANGE_OF(RawInteger*, Integer::New(kMinInt64)));
-
-  EXPECT_EQ(-1, RANGE_OF(RawBool*, Bool::True().raw()));
-
-#undef RANGE_OF
-}
-
 
 }  // namespace dart
 

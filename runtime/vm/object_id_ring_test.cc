@@ -15,7 +15,8 @@ namespace dart {
 
 class ObjectIdRingTestHelper {
  public:
-  static void SetCapacityAndMaxSerial(ObjectIdRing* ring, int32_t capacity,
+  static void SetCapacityAndMaxSerial(ObjectIdRing* ring,
+                                      int32_t capacity,
                                       int32_t max_serial) {
     ring->SetCapacityAndMaxSerial(capacity, max_serial);
   }
@@ -37,7 +38,7 @@ class ObjectIdRingTestHelper {
   }
 
   static RawObject* MakeString(const char* s) {
-    return Symbols::New(s);
+    return Symbols::New(Thread::Current(), s);
   }
 
   static void ExpectString(RawObject* obj, const char* s) {
@@ -49,7 +50,7 @@ class ObjectIdRingTestHelper {
 
 
 // Test that serial number wrapping works.
-VM_TEST_CASE(ObjectIdRingSerialWrapTest) {
+ISOLATE_UNIT_TEST_CASE(ObjectIdRingSerialWrapTest) {
   Isolate* isolate = Isolate::Current();
   ObjectIdRing* ring = isolate->object_id_ring();
   ObjectIdRingTestHelper::SetCapacityAndMaxSerial(ring, 2, 4);
@@ -123,9 +124,9 @@ VM_TEST_CASE(ObjectIdRingSerialWrapTest) {
 // Test that the ring table is updated when the scavenger moves an object.
 TEST_CASE(ObjectIdRingScavengeMoveTest) {
   const char* kScriptChars =
-  "main() {\n"
-  "  return [1, 2, 3];\n"
-  "}\n";
+      "main() {\n"
+      "  return [1, 2, 3];\n"
+      "}\n";
   Dart_Handle lib = TestCase::LoadTestScript(kScriptChars, NULL);
   Dart_Handle result = Dart_Invoke(lib, NewString("main"), 0, NULL);
   intptr_t list_length = 0;
@@ -145,14 +146,12 @@ TEST_CASE(ObjectIdRingScavengeMoveTest) {
   intptr_t raw_obj_id1 = ring->GetIdForObject(raw_obj);
   EXPECT_EQ(0, raw_obj_id1);
   // Get id 0 again.
-  EXPECT_EQ(raw_obj_id1,
-      ring->GetIdForObject(raw_obj, ObjectIdRing::kReuseId));
+  EXPECT_EQ(raw_obj_id1, ring->GetIdForObject(raw_obj, ObjectIdRing::kReuseId));
   // Add to ring a second time.
   intptr_t raw_obj_id2 = ring->GetIdForObject(raw_obj);
   EXPECT_EQ(1, raw_obj_id2);
   // Get id 0 again.
-  EXPECT_EQ(raw_obj_id1,
-      ring->GetIdForObject(raw_obj, ObjectIdRing::kReuseId));
+  EXPECT_EQ(raw_obj_id1, ring->GetIdForObject(raw_obj, ObjectIdRing::kReuseId));
   RawObject* raw_obj1 = ring->GetObjectForId(raw_obj_id1, &kind);
   EXPECT_EQ(ObjectIdRing::kValid, kind);
   RawObject* raw_obj2 = ring->GetObjectForId(raw_obj_id2, &kind);
@@ -186,12 +185,12 @@ TEST_CASE(ObjectIdRingScavengeMoveTest) {
   EXPECT_EQ(3, list_length);
   // Test id reuse.
   EXPECT_EQ(raw_obj_id1,
-      ring->GetIdForObject(raw_object_moved1, ObjectIdRing::kReuseId));
+            ring->GetIdForObject(raw_object_moved1, ObjectIdRing::kReuseId));
 }
 
 
 // Test that the ring table is updated with nulls when the old GC collects.
-VM_TEST_CASE(ObjectIdRingOldGCTest) {
+ISOLATE_UNIT_TEST_CASE(ObjectIdRingOldGCTest) {
   Isolate* isolate = thread->isolate();
   Heap* heap = isolate->heap();
   ObjectIdRing* ring = isolate->object_id_ring();
@@ -245,7 +244,7 @@ VM_TEST_CASE(ObjectIdRingOldGCTest) {
 
 // Test that the ring table correctly reports an entry as expired when it is
 // overridden by new entries.
-VM_TEST_CASE(ObjectIdRingExpiredEntryTest) {
+ISOLATE_UNIT_TEST_CASE(ObjectIdRingExpiredEntryTest) {
   Isolate* isolate = Isolate::Current();
   ObjectIdRing* ring = isolate->object_id_ring();
 

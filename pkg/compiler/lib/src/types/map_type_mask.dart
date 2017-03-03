@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of types;
+part of masks;
 
 /**
  * A [MapTypeMask] is a [TypeMask] for a specific allocation
@@ -15,8 +15,8 @@ class MapTypeMask extends ForwardingTypeMask {
   // The [Node] where this type mask was created.
   final Node allocationNode;
 
-  // The [Element] where this type mask was created.
-  final Element allocationElement;
+  // The [Entity] where this type mask was created.
+  final Entity allocationElement;
 
   // The value type of this map.
   final TypeMask valueType;
@@ -24,29 +24,20 @@ class MapTypeMask extends ForwardingTypeMask {
   // The key type of this map.
   final TypeMask keyType;
 
-  MapTypeMask(this.forwardTo,
-              this.allocationNode,
-              this.allocationElement,
-              this.keyType,
-              this.valueType);
+  MapTypeMask(this.forwardTo, this.allocationNode, this.allocationElement,
+      this.keyType, this.valueType);
 
   TypeMask nullable() {
     return isNullable
         ? this
-        : new MapTypeMask(forwardTo.nullable(),
-                          allocationNode,
-                          allocationElement,
-                          keyType,
-                          valueType);
+        : new MapTypeMask(forwardTo.nullable(), allocationNode,
+            allocationElement, keyType, valueType);
   }
 
   TypeMask nonNullable() {
     return isNullable
-        ? new MapTypeMask(forwardTo.nonNullable(),
-                          allocationNode,
-                          allocationElement,
-                          keyType,
-                          valueType)
+        ? new MapTypeMask(forwardTo.nonNullable(), allocationNode,
+            allocationElement, keyType, valueType)
         : this;
   }
 
@@ -62,15 +53,13 @@ class MapTypeMask extends ForwardingTypeMask {
         valueType == other.valueType;
   }
 
-  TypeMask intersection(TypeMask other, ClassWorld classWorld) {
-    TypeMask forwardIntersection = forwardTo.intersection(other, classWorld);
+  TypeMask intersection(TypeMask other, ClosedWorld closedWorld) {
+    TypeMask forwardIntersection = forwardTo.intersection(other, closedWorld);
     if (forwardIntersection.isEmptyOrNull) return forwardIntersection;
-    return forwardIntersection.isNullable
-        ? nullable()
-        : nonNullable();
+    return forwardIntersection.isNullable ? nullable() : nonNullable();
   }
 
-  TypeMask union(other, ClassWorld classWorld) {
+  TypeMask union(other, ClosedWorld closedWorld) {
     if (this == other) {
       return this;
     } else if (equalsDisregardNull(other)) {
@@ -78,36 +67,40 @@ class MapTypeMask extends ForwardingTypeMask {
     } else if (other.isEmptyOrNull) {
       return other.isNullable ? this.nullable() : this;
     } else if (other.isMap &&
-               keyType != null &&
-               other.keyType != null &&
-               valueType != null &&
-               other.valueType != null) {
-      TypeMask newKeyType =
-          keyType.union(other.keyType, classWorld);
-      TypeMask newValueType =
-          valueType.union(other.valueType, classWorld);
-      TypeMask newForwardTo = forwardTo.union(other.forwardTo, classWorld);
+        keyType != null &&
+        other.keyType != null &&
+        valueType != null &&
+        other.valueType != null) {
+      TypeMask newKeyType = keyType.union(other.keyType, closedWorld);
+      TypeMask newValueType = valueType.union(other.valueType, closedWorld);
+      TypeMask newForwardTo = forwardTo.union(other.forwardTo, closedWorld);
       return new MapTypeMask(
           newForwardTo, null, null, newKeyType, newValueType);
     } else if (other.isDictionary) {
-      assert(other.keyType == classWorld.compiler.typesTask.stringType);
-      TypeMask newKeyType = keyType.union(other.keyType, classWorld);
+      // TODO(johnniwinther): Find another way to check this invariant that
+      // doesn't need the compiler.
+      assert(other.keyType ==
+          new TypeMask.nonNullExact(
+              closedWorld.backendClasses.stringClass, closedWorld));
+      TypeMask newKeyType = keyType.union(other.keyType, closedWorld);
       TypeMask newValueType =
-          other.typeMap.values.fold(keyType, (p,n) => p.union(n, classWorld));
-      TypeMask newForwardTo = forwardTo.union(other.forwardTo, classWorld);
+          other.typeMap.values.fold(keyType, (p, n) => p.union(n, closedWorld));
+      TypeMask newForwardTo = forwardTo.union(other.forwardTo, closedWorld);
       MapTypeMask newMapTypeMask = new MapTypeMask(
           newForwardTo,
           allocationNode == other.allocationNode ? allocationNode : null,
-          allocationElement == other.allocationElement ? allocationElement
-                                                       : null,
-          newKeyType, newValueType);
+          allocationElement == other.allocationElement
+              ? allocationElement
+              : null,
+          newKeyType,
+          newValueType);
       return newMapTypeMask;
     } else {
-      return forwardTo.union(other, classWorld);
+      return forwardTo.union(other, closedWorld);
     }
   }
 
-  bool operator==(other) => super == other;
+  bool operator ==(other) => super == other;
 
   int get hashCode {
     return computeHashCode(

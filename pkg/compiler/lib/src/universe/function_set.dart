@@ -4,39 +4,21 @@
 
 library universe.function_set;
 
-import '../common/names.dart' show
-    Identifiers,
-    Selectors;
-import '../compiler.dart' show
-    Compiler;
-import '../elements/elements.dart';
+import '../common/names.dart' show Identifiers, Selectors;
+import '../elements/elements.dart' show MemberElement;
+import '../elements/entities.dart';
 import '../types/types.dart';
-import '../util/util.dart' show
-    Hashing,
-    Setlet;
-import '../world.dart' show
-    ClassWorld;
+import '../util/util.dart' show Hashing, Setlet;
+import '../world.dart' show ClosedWorld;
+import 'selector.dart' show Selector;
+import 'world_builder.dart' show ReceiverConstraint;
 
-import 'selector.dart' show
-    Selector;
-import 'universe.dart' show
-    ReceiverConstraint;
+class FunctionSetBuilder {
+  final Map<String, FunctionSetNode> nodes = new Map<String, FunctionSetNode>();
 
-// TODO(kasperl): This actually holds getters and setters just fine
-// too and stricly they aren't functions. Maybe this needs a better
-// name -- something like ElementSet seems a bit too generic.
-class FunctionSet {
-  final Compiler compiler;
-  final Map<String, FunctionSetNode> nodes =
-      new Map<String, FunctionSetNode>();
-  FunctionSet(this.compiler);
+  FunctionSetNode newNode(String name) => new FunctionSetNode(name);
 
-  ClassWorld get classWorld => compiler.world;
-
-  FunctionSetNode newNode(String name)
-      => new FunctionSetNode(name);
-
-  void add(Element element) {
+  void add(MemberElement element) {
     assert(element.isInstanceMember);
     assert(!element.isAbstract);
     String name = element.name;
@@ -44,7 +26,7 @@ class FunctionSet {
     node.add(element);
   }
 
-  void remove(Element element) {
+  void remove(MemberElement element) {
     assert(element.isInstanceMember);
     assert(!element.isAbstract);
     String name = element.name;
@@ -54,19 +36,34 @@ class FunctionSet {
     }
   }
 
-  bool contains(Element element) {
+  FunctionSet close(ClosedWorld closedWorld) {
+    return new FunctionSet(closedWorld, nodes);
+  }
+}
+
+// TODO(kasperl): This actually holds getters and setters just fine
+// too and stricly they aren't functions. Maybe this needs a better
+// name -- something like ElementSet seems a bit too generic.
+class FunctionSet {
+  final ClosedWorld closedWorld;
+  final Map<String, FunctionSetNode> nodes;
+
+  FunctionSet(this.closedWorld, this.nodes);
+
+  bool contains(MemberElement element) {
     assert(element.isInstanceMember);
     assert(!element.isAbstract);
     String name = element.name;
     FunctionSetNode node = nodes[name];
-    return (node != null)
-        ? node.contains(element)
-        : false;
+    return (node != null) ? node.contains(element) : false;
   }
 
-  /// Returns an object that allows iterating over all the functions
-  /// that may be invoked with the given [selector].
-  Iterable<Element> filter(Selector selector, ReceiverConstraint constraint) {
+  /// Returns all the functions that may be invoked with the [selector] on a
+  /// receiver with the given [constraint]. The returned elements may include
+  /// noSuchMethod handlers that are potential targets indirectly through the
+  /// noSuchMethod mechanism.
+  Iterable<MemberElement> filter(
+      Selector selector, ReceiverConstraint constraint) {
     return query(selector, constraint).functions;
   }
 
@@ -77,15 +74,17 @@ class FunctionSet {
   /// set of classes that actually implement the selected member or implement
   /// the handling 'noSuchMethod' where the selected member is unimplemented.
   TypeMask receiverType(Selector selector, ReceiverConstraint constraint) {
-    return query(selector, constraint).computeMask(classWorld);
+    return query(selector, constraint).computeMask(closedWorld);
   }
 
-  SelectorMask _createSelectorMask(
-      Selector selector, ReceiverConstraint constraint, ClassWorld classWorld) {
+  SelectorMask _createSelectorMask(Selector selector,
+      ReceiverConstraint constraint, ClosedWorld closedWorld) {
     return constraint != null
         ? new SelectorMask(selector, constraint)
-        : new SelectorMask(selector,
-            new TypeMask.subclass(classWorld.objectClass, classWorld));
+        : new SelectorMask(
+            selector,
+            new TypeMask.subclass(
+                closedWorld.commonElements.objectClass, closedWorld));
   }
 
   /// Returns the set of functions that can be the target of a call to
@@ -94,21 +93,21 @@ class FunctionSet {
   FunctionSetQuery query(Selector selector, ReceiverConstraint constraint) {
     String name = selector.name;
     SelectorMask selectorMask =
-        _createSelectorMask(selector, constraint, classWorld);
+        _createSelectorMask(selector, constraint, closedWorld);
     SelectorMask noSuchMethodMask =
         new SelectorMask(Selectors.noSuchMethod_, selectorMask.constraint);
     FunctionSetNode node = nodes[name];
     FunctionSetNode noSuchMethods = nodes[Identifiers.noSuchMethod_];
     if (node != null) {
       return node.query(
-          selectorMask, classWorld, noSuchMethods, noSuchMethodMask);
+          selectorMask, closedWorld, noSuchMethods, noSuchMethodMask);
     }
     // If there is no method that matches [selector] we know we can
     // only hit [:noSuchMethod:].
     if (noSuchMethods == null) {
       return const EmptyFunctionSetQuery();
     }
-    return noSuchMethods.query(noSuchMethodMask, classWorld);
+    return noSuchMethods.query(noSuchMethodMask, closedWorld);
   }
 
   void forEach(Function action) {
@@ -135,13 +134,13 @@ class SelectorMask {
 
   String get name => selector.name;
 
-  bool applies(Element element, ClassWorld classWorld) {
-    if (!selector.appliesUnnamed(element, classWorld)) return false;
-    return constraint.canHit(element, selector, classWorld);
+  bool applies(MemberEntity element, ClosedWorld closedWorld) {
+    if (!selector.appliesUnnamed(element)) return false;
+    return constraint.canHit(element, selector, closedWorld);
   }
 
-  bool needsNoSuchMethodHandling(ClassWorld classWorld) {
-    return constraint.needsNoSuchMethodHandling(selector, classWorld);
+  bool needsNoSuchMethodHandling(ClosedWorld closedWorld) {
+    return constraint.needsNoSuchMethodHandling(selector, closedWorld);
   }
 
   bool operator ==(other) {
@@ -163,12 +162,12 @@ class FunctionSetNode {
   // compact than a hash set. Once we get enough elements, we change
   // the representation to be a set to get faster contains checks.
   static const int MAX_ELEMENTS_IN_LIST = 8;
-  var elements = <Element>[];
+  var elements = <MemberElement>[];
   bool isList = true;
 
   FunctionSetNode(this.name);
 
-  void add(Element element) {
+  void add(MemberElement element) {
     assert(element.name == name);
     // We try to avoid clearing the cache unless we have to. For that
     // reason we keep the explicit contains check even though the add
@@ -183,13 +182,13 @@ class FunctionSetNode {
     }
   }
 
-  void remove(Element element) {
+  void remove(MemberElement element) {
     assert(element.name == name);
     if (isList) {
       List list = elements;
       int index = list.indexOf(element);
       if (index < 0) return;
-      Element last = list.removeLast();
+      MemberElement last = list.removeLast();
       if (index != list.length) {
         list[index] = last;
       }
@@ -205,7 +204,7 @@ class FunctionSetNode {
     }
   }
 
-  bool contains(Element element) {
+  bool contains(MemberElement element) {
     assert(element.name == name);
     return elements.contains(element);
   }
@@ -216,22 +215,20 @@ class FunctionSetNode {
 
   /// Returns the set of functions that can be the target of [selectorMask]
   /// including no such method handling where applicable.
-  FunctionSetQuery query(SelectorMask selectorMask,
-                         ClassWorld classWorld,
-                         [FunctionSetNode noSuchMethods,
-                          SelectorMask noSuchMethodMask]) {
+  FunctionSetQuery query(SelectorMask selectorMask, ClosedWorld closedWorld,
+      [FunctionSetNode noSuchMethods, SelectorMask noSuchMethodMask]) {
     assert(selectorMask.name == name);
     FunctionSetQuery result = cache[selectorMask];
     if (result != null) return result;
 
-    Setlet<Element> functions;
-    for (Element element in elements) {
-      if (selectorMask.applies(element, classWorld)) {
+    Setlet<MemberElement> functions;
+    for (MemberElement element in elements) {
+      if (selectorMask.applies(element, closedWorld)) {
         if (functions == null) {
           // Defer the allocation of the functions set until we are
           // sure we need it. This allows us to return immutable empty
           // lists when the filtering produced no results.
-          functions = new Setlet<Element>();
+          functions = new Setlet<MemberElement>();
         }
         functions.add(element);
       }
@@ -241,12 +238,13 @@ class FunctionSetNode {
     // add [noSuchMethod] implementations that apply to [mask] as
     // potential targets.
     if (noSuchMethods != null &&
-        selectorMask.needsNoSuchMethodHandling(classWorld)) {
+        selectorMask.needsNoSuchMethodHandling(closedWorld)) {
       FunctionSetQuery noSuchMethodQuery =
-          noSuchMethods.query(noSuchMethodMask, classWorld);
+          noSuchMethods.query(noSuchMethodMask, closedWorld);
       if (!noSuchMethodQuery.functions.isEmpty) {
         if (functions == null) {
-          functions = new Setlet<Element>.from(noSuchMethodQuery.functions);
+          functions =
+              new Setlet<MemberElement>.from(noSuchMethodQuery.functions);
         } else {
           functions.addAll(noSuchMethodQuery.functions);
         }
@@ -265,49 +263,50 @@ abstract class FunctionSetQuery {
   const FunctionSetQuery();
 
   /// Compute the type of all potential receivers of this function set.
-  TypeMask computeMask(ClassWorld classWorld);
+  TypeMask computeMask(ClosedWorld closedWorld);
 
   /// Returns all potential targets of this function set.
-  Iterable<Element> get functions;
+  Iterable<MemberElement> get functions;
 }
 
 class EmptyFunctionSetQuery implements FunctionSetQuery {
   const EmptyFunctionSetQuery();
 
   @override
-  TypeMask computeMask(ClassWorld classWorld) => const TypeMask.nonNullEmpty();
+  TypeMask computeMask(ClosedWorld closedWorld) =>
+      const TypeMask.nonNullEmpty();
 
   @override
-  Iterable<Element> get functions => const <Element>[];
+  Iterable<MemberElement> get functions => const <MemberElement>[];
 }
 
 class FullFunctionSetQuery implements FunctionSetQuery {
   @override
-  final Iterable<Element> functions;
+  final Iterable<MemberElement> functions;
 
   TypeMask _mask;
 
   FullFunctionSetQuery(this.functions);
 
   @override
-  TypeMask computeMask(ClassWorld classWorld) {
-    assert(classWorld.hasAnyStrictSubclass(classWorld.objectClass));
+  TypeMask computeMask(ClosedWorld closedWorld) {
+    assert(closedWorld
+        .hasAnyStrictSubclass(closedWorld.commonElements.objectClass));
     if (_mask != null) return _mask;
-    return _mask = new TypeMask.unionOf(functions
-        .expand((element) {
-          ClassElement cls = element.enclosingClass;
-          return [cls]..addAll(classWorld.mixinUsesOf(cls));
-        })
-        .map((cls) {
-          if (classWorld.backend.isNullImplementation(cls)) {
+    return _mask = new TypeMask.unionOf(
+        functions.expand((MemberElement element) {
+          ClassEntity cls = element.enclosingClass;
+          return [cls]..addAll(closedWorld.mixinUsesOf(cls));
+        }).map((cls) {
+          if (closedWorld.backendClasses.nullClass == cls) {
             return const TypeMask.empty();
-          } else if (classWorld.isInstantiated(cls.declaration)) {
-            return new TypeMask.nonNullSubclass(cls.declaration, classWorld);
+          } else if (closedWorld.isInstantiated(cls)) {
+            return new TypeMask.nonNullSubclass(cls, closedWorld);
           } else {
             // TODO(johnniwinther): Avoid the need for this case.
             return const TypeMask.empty();
           }
         }),
-        classWorld);
+        closedWorld);
   }
 }

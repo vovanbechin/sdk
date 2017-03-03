@@ -7,28 +7,22 @@ library dart2js.analyze_helpers.test;
 import 'dart:io';
 
 import 'package:async_helper/async_helper.dart';
-import 'package:compiler/compiler_new.dart' show
-    Diagnostic;
-import 'package:compiler/src/apiimpl.dart' show
-    CompilerImpl;
+import 'package:compiler/compiler_new.dart' show Diagnostic;
+import 'package:compiler/src/apiimpl.dart' show CompilerImpl;
 import 'package:compiler/src/commandline_options.dart';
-import 'package:compiler/src/constants/expressions.dart' show
-    ConstructedConstantExpression;
-import 'package:compiler/src/dart_types.dart' show
-    InterfaceType;
-import 'package:compiler/src/diagnostics/source_span.dart' show
-    SourceSpan;
+import 'package:compiler/src/constants/expressions.dart'
+    show ConstructedConstantExpression;
+import 'package:compiler/src/elements/resolution_types.dart'
+    show ResolutionInterfaceType;
+import 'package:compiler/src/diagnostics/source_span.dart' show SourceSpan;
 import 'package:compiler/src/elements/elements.dart';
-import 'package:compiler/src/filenames.dart' show
-    nativeToUriPath;
+import 'package:compiler/src/filenames.dart' show nativeToUriPath;
 import 'package:compiler/src/resolution/semantic_visitor.dart';
-import 'package:compiler/src/resolution/tree_elements.dart' show
-    TreeElements;
-import 'package:compiler/src/source_file_provider.dart' show
-    FormattingDiagnosticHandler;
+import 'package:compiler/src/resolution/tree_elements.dart' show TreeElements;
+import 'package:compiler/src/source_file_provider.dart'
+    show FormattingDiagnosticHandler;
 import 'package:compiler/src/tree/tree.dart';
-import 'package:compiler/src/universe/call_structure.dart' show
-    CallStructure;
+import 'package:compiler/src/universe/call_structure.dart' show CallStructure;
 import 'package:expect/expect.dart';
 
 import 'memory_compiler.dart';
@@ -39,18 +33,21 @@ main(List<String> arguments) {
   List<String> options = <String>[
     Flags.analyzeOnly,
     Flags.analyzeMain,
-    '--categories=Client,Server'];
+    '--categories=Client,Server'
+  ];
   if (verbose) {
     options.add(Flags.verbose);
   }
   asyncTest(() async {
-    CompilerImpl compiler = compilerFor(
-        options: options, showDiagnostics: verbose);
+    CompilerImpl compiler =
+        compilerFor(options: options, showDiagnostics: verbose);
     FormattingDiagnosticHandler diagnostics =
         new FormattingDiagnosticHandler(compiler.provider);
-    HelperAnalyzer analyzer = new HelperAnalyzer(diagnostics);
     Directory dir =
         new Directory.fromUri(Uri.base.resolve('pkg/compiler/lib/'));
+    String helpersUriPrefix = dir.uri.resolve('src/helpers/').toString();
+    HelperAnalyzer analyzer = new HelperAnalyzer(diagnostics, helpersUriPrefix);
+    LibraryElement helperLibrary;
     for (FileSystemEntity entity in dir.listSync(recursive: true)) {
       if (entity is File && entity.path.endsWith('.dart')) {
         Uri file = Uri.base.resolve(nativeToUriPath(entity.path));
@@ -59,6 +56,9 @@ main(List<String> arguments) {
         }
         LibraryElement library = await compiler.analyzeUri(file);
         if (library != null) {
+          if (library.libraryName == 'dart2js.helpers') {
+            helperLibrary = library;
+          }
           library.forEachLocalMember((Element element) {
             if (element is ClassElement) {
               element.forEachLocalMember((AstElement member) {
@@ -71,12 +71,16 @@ main(List<String> arguments) {
         }
       }
     }
+    Expect.isNotNull(helperLibrary, 'Helper library not found');
+    Expect.isTrue(analyzer.isHelper(helperLibrary),
+        "Helper library $helperLibrary is not considered a helper.");
     Expect.isTrue(analyzer.errors.isEmpty, "Errors found.");
   });
 }
 
 class HelperAnalyzer extends TraversalVisitor {
   final FormattingDiagnosticHandler diagnostics;
+  final String helpersUriPrefix;
   List<SourceSpan> errors = <SourceSpan>[];
 
   ResolvedAst resolvedAst;
@@ -86,7 +90,7 @@ class HelperAnalyzer extends TraversalVisitor {
 
   AnalyzableElement get analyzedElement => resolvedAst.element;
 
-  HelperAnalyzer(this.diagnostics) : super(null);
+  HelperAnalyzer(this.diagnostics, this.helpersUriPrefix) : super(null);
 
   @override
   void apply(Node node, [_]) {
@@ -94,7 +98,7 @@ class HelperAnalyzer extends TraversalVisitor {
   }
 
   void analyze(ResolvedAst resolvedAst) {
-    if (resolvedAst.node == null) {
+    if (resolvedAst.kind != ResolvedAstKind.PARSED) {
       // Skip synthesized members.
       return;
     }
@@ -105,7 +109,7 @@ class HelperAnalyzer extends TraversalVisitor {
 
   bool isHelper(Element element) {
     Uri uri = element.library.canonicalUri;
-    return '$uri'.startsWith('package:compiler/src/helpers/');
+    return '$uri'.startsWith(helpersUriPrefix);
   }
 
   void checkAccess(Node node, MemberElement element) {
@@ -113,66 +117,44 @@ class HelperAnalyzer extends TraversalVisitor {
       Uri uri = analyzedElement.implementation.sourcePosition.uri;
       SourceSpan span = new SourceSpan.fromNode(uri, node);
       diagnostics.report(null, span.uri, span.begin, span.end,
-          "Helper used in production code.",
-          Diagnostic.ERROR);
+          "Helper used in production code.", Diagnostic.ERROR);
       errors.add(span);
     }
   }
 
   @override
-  void visitTopLevelFieldInvoke(
-      Send node,
-      FieldElement field,
-      NodeList arguments,
-      CallStructure callStructure,
-      _) {
+  void visitTopLevelFieldInvoke(Send node, FieldElement field,
+      NodeList arguments, CallStructure callStructure, _) {
     checkAccess(node, field);
     apply(arguments);
   }
 
   @override
-  void visitTopLevelGetterInvoke(
-      Send node,
-      GetterElement getter,
-      NodeList arguments,
-      CallStructure callStructure,
-      _) {
+  void visitTopLevelGetterInvoke(Send node, GetterElement getter,
+      NodeList arguments, CallStructure callStructure, _) {
     checkAccess(node, getter);
     apply(arguments);
   }
 
   @override
-  void visitTopLevelFunctionInvoke(
-      Send node,
-      MethodElement method,
-      NodeList arguments,
-      CallStructure callStructure,
-      _) {
+  void visitTopLevelFunctionInvoke(Send node, MethodElement method,
+      NodeList arguments, CallStructure callStructure, _) {
     checkAccess(node, method);
     apply(arguments);
   }
 
   @override
-  void visitTopLevelFieldGet(
-      Send node,
-      FieldElement field,
-      _) {
+  void visitTopLevelFieldGet(Send node, FieldElement field, _) {
     checkAccess(node, field);
   }
 
   @override
-  void visitTopLevelGetterGet(
-      Send node,
-      GetterElement getter,
-      _) {
+  void visitTopLevelGetterGet(Send node, GetterElement getter, _) {
     checkAccess(node, getter);
   }
 
   @override
-  void visitTopLevelFunctionGet(
-      Send node,
-      MethodElement method,
-      _) {
+  void visitTopLevelFunctionGet(Send node, MethodElement method, _) {
     checkAccess(node, method);
   }
 
@@ -180,7 +162,7 @@ class HelperAnalyzer extends TraversalVisitor {
   void visitGenerativeConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
-      InterfaceType type,
+      ResolutionInterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
@@ -192,7 +174,7 @@ class HelperAnalyzer extends TraversalVisitor {
   void visitRedirectingGenerativeConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
-      InterfaceType type,
+      ResolutionInterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
@@ -204,7 +186,7 @@ class HelperAnalyzer extends TraversalVisitor {
   void visitFactoryConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
-      InterfaceType type,
+      ResolutionInterfaceType type,
       NodeList arguments,
       CallStructure callStructure,
       _) {
@@ -216,9 +198,9 @@ class HelperAnalyzer extends TraversalVisitor {
   void visitRedirectingFactoryConstructorInvoke(
       NewExpression node,
       ConstructorElement constructor,
-      InterfaceType type,
+      ResolutionInterfaceType type,
       ConstructorElement effectiveTarget,
-      InterfaceType effectiveTargetType,
+      ResolutionInterfaceType effectiveTargetType,
       NodeList arguments,
       CallStructure callStructure,
       _) {
@@ -228,9 +210,8 @@ class HelperAnalyzer extends TraversalVisitor {
 
   @override
   void visitConstConstructorInvoke(
-      NewExpression node,
-      ConstructedConstantExpression constant,
-      _) {
-    checkAccess(node, constant.target);
+      NewExpression node, ConstructedConstantExpression constant, _) {
+    ConstructorElement constructor = constant.target;
+    checkAccess(node, constructor);
   }
 }

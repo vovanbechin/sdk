@@ -5,47 +5,29 @@
 library elements.modelx;
 
 import '../common.dart';
-import '../common/resolution.dart' show
-    Resolution,
-    Parsing;
-import '../compiler.dart' show
-    Compiler;
+import '../common/names.dart' show Identifiers;
+import '../common/resolution.dart' show Resolution, ParsingContext;
+import '../compiler.dart' show Compiler;
 import '../constants/constant_constructors.dart';
 import '../constants/constructors.dart';
 import '../constants/expressions.dart';
-import '../core_types.dart' show
-    CoreClasses;
-import '../dart_types.dart';
-import '../diagnostics/messages.dart' show
-    MessageTemplate;
-import '../ordered_typeset.dart' show
-    OrderedTypeSet;
-import '../resolution/class_members.dart' show
-    ClassMemberMixin;
-import '../resolution/scope.dart' show
-    ClassScope,
-    LibraryScope,
-    Scope,
-    TypeDeclarationScope;
-import '../resolution/resolution.dart' show
-    AnalyzableElementX;
-import '../resolution/tree_elements.dart' show
-    TreeElements;
-import '../resolution/typedefs.dart' show
-    TypedefCyclicVisitor;
+import '../diagnostics/messages.dart' show MessageTemplate;
+import '../ordered_typeset.dart' show OrderedTypeSet;
+import '../resolution/class_members.dart' show ClassMemberMixin;
+import '../resolution/resolution.dart' show AnalyzableElementX;
+import '../resolution/scope.dart'
+    show ClassScope, LibraryScope, Scope, TypeDeclarationScope;
+import '../resolution/tree_elements.dart' show TreeElements;
+import '../resolution/typedefs.dart' show TypedefCyclicVisitor;
 import '../script.dart';
-import '../tokens/token.dart' show
-    ErrorToken,
-    Token;
-import '../tokens/token_constants.dart' as Tokens show
-    EOF_TOKEN;
+import 'package:front_end/src/fasta/scanner.dart' show ErrorToken, Token;
+import 'package:front_end/src/fasta/scanner.dart' as Tokens show EOF_TOKEN;
 import '../tree/tree.dart';
 import '../util/util.dart';
-
 import 'common.dart';
 import 'elements.dart';
-import 'visitor.dart' show
-    ElementVisitor;
+import 'resolution_types.dart';
+import 'visitor.dart' show ElementVisitor;
 
 /// Object that identifies a declaration site.
 ///
@@ -53,16 +35,17 @@ import 'visitor.dart' show
 /// where multi-declarations like `var a, b, c` are allowed, the declaration
 /// site is a separate object.
 // TODO(johnniwinther): Add [beginToken] and [endToken] getters.
-abstract class DeclarationSite {
-}
+abstract class DeclarationSite {}
 
 abstract class ElementX extends Element with ElementCommon {
-  static int elementHashCode = 0;
+  static int _elementHashCode = 0;
+  static int newHashCode() =>
+      _elementHashCode = (_elementHashCode + 1).toUnsigned(30);
 
   final String name;
   final ElementKind kind;
   final Element enclosingElement;
-  final int hashCode = ++elementHashCode;
+  final int hashCode = newHashCode();
   List<MetadataAnnotation> metadataInternal;
 
   ElementX(this.name, this.kind, this.enclosingElement) {
@@ -71,9 +54,8 @@ abstract class ElementX extends Element with ElementCommon {
 
   Modifiers get modifiers => Modifiers.EMPTY;
 
-  Node parseNode(Parsing parsing) {
-    parsing.reporter.internalError(this,
-        'parseNode not implemented on $this.');
+  Node parseNode(ParsingContext parsing) {
+    parsing.reporter.internalError(this, 'parseNode not implemented on $this.');
     return null;
   }
 
@@ -92,12 +74,13 @@ abstract class ElementX extends Element with ElementCommon {
         return metadataInternal;
       } else {
         return <MetadataAnnotation>[]
-            ..addAll(origin.metadata)
-            ..addAll(metadataInternal);
+          ..addAll(origin.metadata)
+          ..addAll(metadataInternal);
       }
     }
     return metadataInternal != null
-        ? metadataInternal : const <MetadataAnnotation>[];
+        ? metadataInternal
+        : const <MetadataAnnotation>[];
   }
 
   bool get isClosure => false;
@@ -105,6 +88,7 @@ abstract class ElementX extends Element with ElementCommon {
     // Check that this element is defined in the scope of a Class.
     return enclosingElement != null && enclosingElement.isClass;
   }
+
   bool get isInstanceMember => false;
   bool get isDeferredLoaderGetter => false;
 
@@ -127,27 +111,23 @@ abstract class ElementX extends Element with ElementCommon {
     return enclosingElement != null && enclosingElement.isCompilationUnit;
   }
 
-  bool get isAssignable {
-    if (isFinal || isConst) return false;
-    if (isFunction || isConstructor) return false;
-    return true;
-  }
+  @override
+  int get sourceOffset => position?.charOffset;
 
   Token get position => null;
 
   SourceSpan get sourcePosition {
     if (position == null) return null;
     Uri uri = compilationUnit.script.resourceUri;
-    return new SourceSpan(
-        uri, position.charOffset, position.charOffset + position.charCount);
+    return new SourceSpan(uri, position.charOffset, position.charEnd);
   }
 
   Token findMyName(Token token) {
     return findNameToken(token, isConstructor, name, enclosingElement.name);
   }
 
-  static Token findNameToken(Token token, bool isConstructor, String name,
-                             String enclosingClassName) {
+  static Token findNameToken(
+      Token token, bool isConstructor, String name, String enclosingClassName) {
     // We search for the token that has the name of this element.
     // For constructors, that doesn't work because they may have
     // named formed out of multiple tokens (named constructors) so
@@ -156,7 +136,7 @@ abstract class ElementX extends Element with ElementCommon {
     // The unary '-' operator has a special element name (specified).
     if (needle == 'unary-') needle = '-';
     for (Token t = token; Tokens.EOF_TOKEN != t.kind; t = t.next) {
-      if (t is !ErrorToken && needle == t.value) return t;
+      if (t is! ErrorToken && needle == t.value) return t;
     }
     return token;
   }
@@ -173,7 +153,7 @@ abstract class ElementX extends Element with ElementCommon {
 
   Name get memberName => new Name(name, library);
 
-  LibraryElementX get implementationLibrary {
+  LibraryElement get implementationLibrary {
     Element element = this;
     while (!identical(element.kind, ElementKind.LIBRARY)) {
       element = element.enclosingElement;
@@ -183,41 +163,9 @@ abstract class ElementX extends Element with ElementCommon {
 
   ClassElement get enclosingClass {
     for (Element e = this; e != null; e = e.enclosingElement) {
-      if (e.isClass) return e;
+      if (e.isClass) return e.declaration;
     }
     return null;
-  }
-
-  Element get enclosingClassOrCompilationUnit {
-   for (Element e = this; e != null; e = e.enclosingElement) {
-      if (e.isClass || e.isCompilationUnit) return e;
-    }
-    return null;
-  }
-
-  Element get outermostEnclosingMemberOrTopLevel {
-    // TODO(lrn): Why is this called "Outermost"?
-    // TODO(johnniwinther): Clean up this method: This method does not return
-    // the outermost for elements in closure classses, but some call-sites rely
-    // on that behavior.
-    for (Element e = this; e != null; e = e.enclosingElement) {
-      if (e.isClassMember || e.isTopLevel) {
-        return e;
-      }
-    }
-    return null;
-  }
-
-  ClassElement get contextClass {
-    ClassElement cls;
-    for (Element e = this; e != null; e = e.enclosingElement) {
-      if (e.isClass) {
-        // Record [e] instead of returning it directly. We need the last class
-        // in the chain since the first classes might be closure classes.
-        cls = e.declaration;
-      }
-    }
-    return cls;
   }
 
   /**
@@ -260,12 +208,14 @@ abstract class ElementX extends Element with ElementCommon {
   }
 }
 
-class ErroneousElementX extends ElementX implements ErroneousElement {
+class ErroneousElementX extends ElementX
+    with ConstructorElementCommon
+    implements ErroneousElement {
   final MessageKind messageKind;
   final Map messageArguments;
 
-  ErroneousElementX(this.messageKind, this.messageArguments,
-                    String name, Element enclosing)
+  ErroneousElementX(
+      this.messageKind, this.messageArguments, String name, Element enclosing)
       : super(name, ElementKind.ERROR, enclosing);
 
   bool get isTopLevel => false;
@@ -273,6 +223,8 @@ class ErroneousElementX extends ElementX implements ErroneousElement {
   bool get isSynthesized => true;
 
   bool get isCyclicRedirection => false;
+
+  bool get isDefaultConstructor => false;
 
   bool get isMalformed => true;
 
@@ -310,9 +262,11 @@ class ErroneousElementX extends ElementX implements ErroneousElement {
 
   bool get hasFunctionSignature => false;
 
+  bool get hasEffectiveTarget => true;
+
   get effectiveTarget => this;
 
-  computeEffectiveTargetType(InterfaceType newType) => unsupported();
+  computeEffectiveTargetType(ResolutionInterfaceType newType) => unsupported();
 
   get definingConstructor => null;
 
@@ -320,7 +274,8 @@ class ErroneousElementX extends ElementX implements ErroneousElement {
 
   String get message {
     return MessageTemplate.TEMPLATES[messageKind]
-        .message(messageArguments).toString();
+        .message(messageArguments)
+        .toString();
   }
 
   String toString() => '<$name: $message>';
@@ -335,30 +290,30 @@ class ErroneousElementX extends ElementX implements ErroneousElement {
   }
 
   @override
-  bool get isFromEnvironmentConstructor => false;
+  List<ResolutionDartType> get typeVariables => unsupported();
 }
 
 /// A constructor that was synthesized to recover from a compile-time error.
 class ErroneousConstructorElementX extends ErroneousElementX
-    with PatchMixin<FunctionElement>,
-         AnalyzableElementX,
-         ConstantConstructorMixin
+    with
+        PatchMixin<FunctionElement>,
+        AnalyzableElementX,
+        ConstantConstructorMixin
     implements ConstructorElementX {
   // TODO(ahe): Instead of subclassing [ErroneousElementX], this class should
   // be more like [ErroneousFieldElementX]. In particular, its kind should be
   // [ElementKind.GENERATIVE_CONSTRUCTOR], and it shouldn't throw as much.
 
-  ErroneousConstructorElementX(
-      MessageKind messageKind,
-      Map messageArguments,
-      String name,
-      Element enclosing)
+  ErroneousConstructorElementX(MessageKind messageKind, Map messageArguments,
+      String name, Element enclosing)
       : super(messageKind, messageArguments, name, enclosing);
 
   @override
   bool get isRedirectingGenerative => false;
 
   @override
+  bool isRedirectingGenerativeInternal;
+
   void set isRedirectingGenerative(_) {
     throw new UnsupportedError("isRedirectingGenerative");
   }
@@ -422,9 +377,9 @@ class ErroneousConstructorElementX extends ErroneousElementX
   }
 
   @override
-  void setEffectiveTarget(ConstructorElement target,
-                            InterfaceType type,
-                            {bool isMalformed: false}) {
+  void setEffectiveTarget(
+      ConstructorElement target, ResolutionInterfaceType type,
+      {bool isMalformed: false}) {
     throw new UnsupportedError("setEffectiveTarget");
   }
 
@@ -449,8 +404,18 @@ class ErroneousConstructorElementX extends ErroneousElementX
   }
 
   @override
-  set immediateRedirectionTarget(_) {
-    throw new UnsupportedError("immediateRedirectionTarget=");
+  get _immediateRedirectionTarget {
+    throw new UnsupportedError("_immediateRedirectionTarget");
+  }
+
+  @override
+  set _immediateRedirectionTarget(_) {
+    throw new UnsupportedError("_immediateRedirectionTarget=");
+  }
+
+  @override
+  setImmediateRedirectionTarget(a, b) {
+    throw new UnsupportedError("setImmediateRedirectionTarget");
   }
 
   @override
@@ -479,8 +444,13 @@ class ErroneousConstructorElementX extends ErroneousElementX
   }
 
   @override
-  set redirectionDeferredPrefix(_) {
-    throw new UnsupportedError("redirectionDeferredPrefix=");
+  get _redirectionDeferredPrefix {
+    throw new UnsupportedError("_redirectionDeferredPrefix");
+  }
+
+  @override
+  set _redirectionDeferredPrefix(_) {
+    throw new UnsupportedError("_redirectionDeferredPrefix=");
   }
 }
 
@@ -488,7 +458,7 @@ class ErroneousConstructorElementX extends ErroneousElementX
 class WrappedMessage {
   /// The message position. If [:null:] the position of the reference to the
   /// [WarnOnUseElementX] is used.
-  final Spannable spannable;
+  final SourceSpan sourceSpan;
 
   /**
    * The message to report on resolving a wrapped element.
@@ -500,7 +470,7 @@ class WrappedMessage {
    */
   final Map messageArguments;
 
-  WrappedMessage(this.spannable, this.messageKind, this.messageArguments);
+  WrappedMessage(this.sourceSpan, this.messageKind, this.messageArguments);
 }
 
 class WarnOnUseElementX extends ElementX implements WarnOnUseElement {
@@ -513,21 +483,21 @@ class WarnOnUseElementX extends ElementX implements WarnOnUseElement {
   /// The element whose usage cause a warning.
   final Element wrappedElement;
 
-  WarnOnUseElementX(WrappedMessage this.warning, WrappedMessage this.info,
-                    Element enclosingElement, Element wrappedElement)
+  WarnOnUseElementX(
+      this.warning, this.info, Element enclosingElement, Element wrappedElement)
       : this.wrappedElement = wrappedElement,
         super(wrappedElement.name, ElementKind.WARN_ON_USE, enclosingElement);
 
   Element unwrap(DiagnosticReporter reporter, Spannable usageSpannable) {
     var unwrapped = wrappedElement;
     if (warning != null) {
-      Spannable spannable = warning.spannable;
+      Spannable spannable = warning.sourceSpan;
       if (spannable == null) spannable = usageSpannable;
       DiagnosticMessage warningMessage = reporter.createMessage(
           spannable, warning.messageKind, warning.messageArguments);
       List<DiagnosticMessage> infos = <DiagnosticMessage>[];
       if (info != null) {
-        Spannable spannable = info.spannable;
+        Spannable spannable = info.sourceSpan;
         if (spannable == null) spannable = usageSpannable;
         infos.add(reporter.createMessage(
             spannable, info.messageKind, info.messageArguments));
@@ -584,8 +554,8 @@ abstract class AmbiguousElementX extends ElementX implements AmbiguousElement {
     return set;
   }
 
-  List<DiagnosticMessage> computeInfos(Element context,
-                                       DiagnosticReporter reporter) {
+  List<DiagnosticMessage> computeInfos(
+      Element context, DiagnosticReporter reporter) {
     return const <DiagnosticMessage>[];
   }
 
@@ -595,25 +565,23 @@ abstract class AmbiguousElementX extends ElementX implements AmbiguousElement {
 
   bool get isTopLevel => false;
 
-  DynamicType get type => const DynamicType();
+  ResolutionDynamicType get type => const ResolutionDynamicType();
 }
 
 /// Element synthesized to diagnose an ambiguous import.
 class AmbiguousImportX extends AmbiguousElementX {
-  AmbiguousImportX(
-      MessageKind messageKind,
-      Map messageArguments,
+  AmbiguousImportX(MessageKind messageKind, Map messageArguments,
       Element enclosingElement, Element existingElement, Element newElement)
       : super(messageKind, messageArguments, enclosingElement, existingElement,
-              newElement);
+            newElement);
 
   List<DiagnosticMessage> computeInfos(
-      Element context,
-      DiagnosticReporter reporter) {
+      Element context, DiagnosticReporter reporter) {
     List<DiagnosticMessage> infos = <DiagnosticMessage>[];
     Setlet ambiguousElements = flatten();
     MessageKind code = (ambiguousElements.length == 1)
-        ? MessageKind.AMBIGUOUS_REEXPORT : MessageKind.AMBIGUOUS_LOCATION;
+        ? MessageKind.AMBIGUOUS_REEXPORT
+        : MessageKind.AMBIGUOUS_LOCATION;
     LibraryElementX importer = context.library;
     for (Element element in ambiguousElements) {
       Map arguments = {'name': element.name};
@@ -631,12 +599,10 @@ class AmbiguousImportX extends AmbiguousElementX {
 
 /// Element synthesized to recover from a duplicated member of an element.
 class DuplicatedElementX extends AmbiguousElementX {
-  DuplicatedElementX(
-      MessageKind messageKind,
-      Map messageArguments,
+  DuplicatedElementX(MessageKind messageKind, Map messageArguments,
       Element enclosingElement, Element existingElement, Element newElement)
       : super(messageKind, messageArguments, enclosingElement, existingElement,
-              newElement);
+            newElement);
 
   bool get isMalformed => true;
 }
@@ -660,14 +626,10 @@ class ScopeX {
       if (!identical(existing, element)) {
         reporter.reportError(
             reporter.createMessage(
-                element,
-                MessageKind.DUPLICATE_DEFINITION,
-                {'name': name}),
+                element, MessageKind.DUPLICATE_DEFINITION, {'name': name}),
             <DiagnosticMessage>[
-                reporter.createMessage(
-                    existing,
-                    MessageKind.EXISTING_DEFINITION,
-                    {'name': name}),
+              reporter.createMessage(
+                  existing, MessageKind.EXISTING_DEFINITION, {'name': name}),
             ]);
       }
     }
@@ -686,25 +648,23 @@ class ScopeX {
    * element, they are enclosed by the class or compilation unit, as is the
    * abstract field.
    */
-  void addAccessor(AccessorElementX accessor,
-                   Element existing,
-                   DiagnosticReporter reporter) {
+  void addAccessor(AccessorElementX accessor, Element existing,
+      DiagnosticReporter reporter) {
     void reportError(Element other) {
       reporter.reportError(
-          reporter.createMessage(
-              accessor,
-              MessageKind.DUPLICATE_DEFINITION,
+          reporter.createMessage(accessor, MessageKind.DUPLICATE_DEFINITION,
               {'name': accessor.name}),
           <DiagnosticMessage>[
-              reporter.createMessage(
-                  other,
-                  MessageKind.EXISTING_DEFINITION,
-                  {'name': accessor.name}),
+            reporter.createMessage(other, MessageKind.EXISTING_DEFINITION,
+                {'name': accessor.name}),
           ]);
 
       contents[accessor.name] = new DuplicatedElementX(
-          MessageKind.DUPLICATE_DEFINITION, {'name': accessor.name},
-          accessor.memberContext.enclosingElement, other, accessor);
+          MessageKind.DUPLICATE_DEFINITION,
+          {'name': accessor.name},
+          accessor.memberContext.enclosingElement,
+          other,
+          accessor);
     }
 
     if (existing != null) {
@@ -752,10 +712,8 @@ class CompilationUnitElementX extends ElementX
   Link<Element> localMembers = const Link<Element>();
 
   CompilationUnitElementX(Script script, LibraryElementX library)
-    : this.script = script,
-      super(script.name,
-            ElementKind.COMPILATION_UNIT,
-            library) {
+      : this.script = script,
+        super(script.name, ElementKind.COMPILATION_UNIT, library) {
     library.addCompilationUnit(this);
   }
 
@@ -784,7 +742,8 @@ class CompilationUnitElementX extends ElementX
     localMembers = localMembers.prepend(element);
     // Provide the member to the library to build scope.
     if (enclosingElement.isPatch) {
-      implementationLibrary.addMember(element, reporter);
+      LibraryElementX library = implementationLibrary;
+      library.addMember(element, reporter);
     } else {
       library.addMember(element, reporter);
     }
@@ -799,8 +758,7 @@ class CompilationUnitElementX extends ElementX
       return;
     }
     if (!localMembers.isEmpty) {
-      reporter.reportErrorMessage(
-          tag, MessageKind.BEFORE_TOP_LEVEL);
+      reporter.reportErrorMessage(tag, MessageKind.BEFORE_TOP_LEVEL);
       return;
     }
     if (partTag != null) {
@@ -813,21 +771,16 @@ class CompilationUnitElementX extends ElementX
     if (libraryTag != null) {
       String expectedName = libraryTag.name.toString();
       if (expectedName != actualName) {
-        reporter.reportWarningMessage(
-            tag.name,
-            MessageKind.LIBRARY_NAME_MISMATCH,
-            {'libraryName': expectedName});
+        reporter.reportWarningMessage(tag.name,
+            MessageKind.LIBRARY_NAME_MISMATCH, {'libraryName': expectedName});
       }
     } else {
       reporter.reportWarning(
-          reporter.createMessage(
-              library,
-              MessageKind.MISSING_LIBRARY_NAME,
+          reporter.createMessage(library, MessageKind.MISSING_LIBRARY_NAME,
               {'libraryName': actualName}),
           <DiagnosticMessage>[
-              reporter.createMessage(
-                  tag.name,
-                  MessageKind.THIS_IS_THE_PART_OF_TAG),
+            reporter.createMessage(
+                tag.name, MessageKind.THIS_IS_THE_PART_OF_TAG),
           ]);
     }
   }
@@ -848,7 +801,7 @@ class Importers {
   Map<Element, List<ImportElement>> importers =
       new Map<Element, List<ImportElement>>();
 
-  /// Returns the the list of [ImportElement]s through which [element] was
+  /// Returns the list of [ImportElement]s through which [element] was
   /// imported.
   List<ImportElement> getImports(Element element) {
     List<ImportElement> imports = importers[element];
@@ -871,8 +824,7 @@ class ImportScope {
    * Addition to the map is performed by [addImport]. Lookup is done trough
    * [find].
    */
-  final Map<String, Element> importScope =
-      new Map<String, Element>();
+  final Map<String, Element> importScope = new Map<String, Element>();
 
   /**
    * Adds [element] to the import scope of this library.
@@ -881,10 +833,8 @@ class ImportScope {
    * [ErroneousElement] will be put in the imported scope, allowing for
    * detection of ambiguous uses of imported names.
    */
-  void addImport(Element enclosingElement,
-                 Element element,
-                 ImportElement import,
-                 DiagnosticReporter reporter) {
+  void addImport(Element enclosingElement, Element element,
+      ImportElement import, DiagnosticReporter reporter) {
     LibraryElementX library = enclosingElement.library;
     Importers importers = library.importers;
 
@@ -898,10 +848,8 @@ class ImportScope {
     Element existing = importScope.putIfAbsent(name, () => element);
     importers.registerImport(element, import);
 
-    void registerWarnOnUseElement(ImportElement import,
-                                  MessageKind messageKind,
-                                  Element hidingElement,
-                                  Element hiddenElement) {
+    void registerWarnOnUseElement(ImportElement import, MessageKind messageKind,
+        Element hidingElement, Element hiddenElement) {
       Uri hiddenUri = hiddenElement.library.canonicalUri;
       Uri hidingUri = hidingElement.library.canonicalUri;
       Element element = new WarnOnUseElementX(
@@ -909,11 +857,10 @@ class ImportScope {
               null, // Report on reference to [hidingElement].
               messageKind,
               {'name': name, 'hiddenUri': hiddenUri, 'hidingUri': hidingUri}),
-          new WrappedMessage(
-              reporter.spanFromSpannable(import),
-              MessageKind.IMPORTED_HERE,
-              {'name': name}),
-          enclosingElement, hidingElement);
+          new WrappedMessage(reporter.spanFromSpannable(import),
+              MessageKind.IMPORTED_HERE, {'name': name}),
+          enclosingElement,
+          hidingElement);
       importScope[name] = element;
       importers.registerImport(element, import);
     }
@@ -926,21 +873,23 @@ class ImportScope {
         registerWarnOnUseElement(
             import, MessageKind.HIDDEN_IMPORT, element, existing);
       } else if (!existing.library.isPlatformLibrary &&
-                 element.library.isPlatformLibrary) {
+          element.library.isPlatformLibrary) {
         // [element] is implicitly hidden.
         if (import.isSynthesized) {
           // [element] is imported implicitly (probably through dart:core).
-          registerWarnOnUseElement(
-              existingImport, MessageKind.HIDDEN_IMPLICIT_IMPORT,
-              existing, element);
+          registerWarnOnUseElement(existingImport,
+              MessageKind.HIDDEN_IMPLICIT_IMPORT, existing, element);
         } else {
           registerWarnOnUseElement(
               import, MessageKind.HIDDEN_IMPORT, existing, element);
         }
       } else {
         Element ambiguousElement = new AmbiguousImportX(
-            MessageKind.DUPLICATE_IMPORT, {'name': name},
-            enclosingElement, existing, element);
+            MessageKind.DUPLICATE_IMPORT,
+            {'name': name},
+            enclosingElement,
+            existing,
+            element);
         importScope[name] = ambiguousElement;
         importers.registerImport(ambiguousElement, import);
         importers.registerImport(ambiguousElement, existingImport);
@@ -959,9 +908,7 @@ abstract class LibraryDependencyElementX extends ElementX {
   LibraryElement libraryDependency;
 
   LibraryDependencyElementX(CompilationUnitElement enclosingElement,
-                            ElementKind kind,
-                            this.node,
-                            this.uri)
+      ElementKind kind, this.node, this.uri)
       : super('', kind, enclosingElement);
 
   @override
@@ -1004,8 +951,11 @@ class ImportElementX extends LibraryDependencyElementX
 }
 
 class SyntheticImportElement extends ImportElementX {
-  SyntheticImportElement(CompilationUnitElement enclosingElement, Uri uri)
-      : super(enclosingElement, null, uri);
+  SyntheticImportElement(CompilationUnitElement enclosingElement, Uri uri,
+      LibraryElement libraryDependency)
+      : super(enclosingElement, null, uri) {
+    this.libraryDependency = libraryDependency;
+  }
 
   @override
   Token get position => library.position;
@@ -1023,10 +973,8 @@ class SyntheticImportElement extends ImportElementX {
   SourceSpan get sourcePosition => library.sourcePosition;
 }
 
-
 class ExportElementX extends LibraryDependencyElementX
     implements ExportElement {
-
   ExportElementX(CompilationUnitElement enclosingElement, Export node, Uri uri)
       : super(enclosingElement, ElementKind.EXPORT, node, uri);
 
@@ -1039,11 +987,8 @@ class ExportElementX extends LibraryDependencyElementX
   accept(ElementVisitor visitor, arg) => visitor.visitExportElement(this, arg);
 }
 
-class LibraryElementX
-    extends ElementX
-    with LibraryElementCommon,
-         AnalyzableElementX,
-         PatchMixin<LibraryElementX>
+class LibraryElementX extends ElementX
+    with LibraryElementCommon, AnalyzableElementX, PatchMixin<LibraryElementX>
     implements LibraryElement {
   final Uri canonicalUri;
 
@@ -1079,12 +1024,11 @@ class LibraryElementX
   final Map<LibraryDependency, LibraryElement> tagMapping =
       new Map<LibraryDependency, LibraryElement>();
 
-  LibraryElementX(Script script,
-                  [Uri canonicalUri, LibraryElementX origin])
-    : this.canonicalUri =
-          ((canonicalUri == null) ? script.readableUri : canonicalUri),
-      this.isSynthesized = script.isSynthesized,
-      super(script.name, ElementKind.LIBRARY, null) {
+  LibraryElementX(Script script, [Uri canonicalUri, LibraryElementX origin])
+      : this.canonicalUri =
+            ((canonicalUri == null) ? script.readableUri : canonicalUri),
+        this.isSynthesized = script.isSynthesized,
+        super(script.name, ElementKind.LIBRARY, null) {
     entryCompilationUnit = new CompilationUnitElementX(script, this);
     if (origin != null) {
       origin.applyPatch(this);
@@ -1113,8 +1057,8 @@ class LibraryElementX
 
   void addTag(LibraryTag tag, DiagnosticReporter reporter) {
     if (tagsCache != null) {
-      reporter.internalError(tag,
-          "Library tags for $this have already been computed.");
+      reporter.internalError(
+          tag, "Library tags for $this have already been computed.");
     }
     tagsBuilder.addLast(tag);
   }
@@ -1146,9 +1090,8 @@ class LibraryElementX
    * [ErroneousElement] will be put in the imported scope, allowing for
    * detection of ambiguous uses of imported names.
    */
-  void addImport(Element element,
-                 ImportElement import,
-                 DiagnosticReporter reporter) {
+  void addImport(
+      Element element, ImportElement import, DiagnosticReporter reporter) {
     importScope.addImport(this, element, import, reporter);
   }
 
@@ -1227,7 +1170,7 @@ class LibraryElementX
 
   Element findExported(String elementName) {
     assert(invariant(this, exportsHandled,
-                     message: 'Exports not handled on $this'));
+        message: 'Exports not handled on $this'));
     for (Link link = slotForExports; !link.isEmpty; link = link.tail) {
       Element element = link.head;
       if (element.name == elementName) return element;
@@ -1237,7 +1180,7 @@ class LibraryElementX
 
   void forEachExport(f(Element element)) {
     assert(invariant(this, exportsHandled,
-                     message: 'Exports not handled on $this'));
+        message: 'Exports not handled on $this'));
     slotForExports.forEach((Element e) => f(e));
   }
 
@@ -1258,6 +1201,7 @@ class LibraryElementX
           f(element);
         }
       }
+
       localMembers.forEach(filterPatch);
     } else {
       localMembers.forEach(f);
@@ -1277,16 +1221,6 @@ class LibraryElementX
   String get libraryName {
     if (libraryTag == null) return '';
     return libraryTag.name.toString();
-  }
-
-  String get libraryOrScriptName {
-    if (libraryTag != null) {
-      return libraryTag.name.toString();
-    } else {
-      // Use the file name as script name.
-      String path = canonicalUri.path;
-      return path.substring(path.lastIndexOf('/') + 1);
-    }
   }
 
   Scope buildScope() => new LibraryScope(this);
@@ -1320,23 +1254,23 @@ class PrefixElementX extends ElementX implements PrefixElement {
   // Only needed for deferred imports.
   final ImportElement deferredImport;
 
-  PrefixElementX(String prefix,
-                 Element enclosing,
-                 this.firstPosition,
-                 this.deferredImport)
+  PrefixElementX(
+      String prefix, Element enclosing, this.firstPosition, this.deferredImport)
       : super(prefix, ElementKind.PREFIX, enclosing);
 
   bool get isTopLevel => false;
 
   Element lookupLocalMember(String memberName) => importScope[memberName];
 
-  DartType computeType(Resolution resolution) => const DynamicType();
+  void forEachLocalMember(f(Element member)) => importScope.forEach(f);
+
+  ResolutionDartType computeType(Resolution resolution) =>
+      const ResolutionDynamicType();
 
   Token get position => firstPosition;
 
-  void addImport(Element element,
-                 ImportElement import,
-                 DiagnosticReporter reporter) {
+  void addImport(
+      Element element, ImportElement import, DiagnosticReporter reporter) {
     importScope.addImport(this, element, import, reporter);
   }
 
@@ -1344,22 +1278,28 @@ class PrefixElementX extends ElementX implements PrefixElement {
     return visitor.visitPrefixElement(this, arg);
   }
 
+  @override
+  GetterElement get loadLibrary {
+    return isDeferred ? lookupLocalMember(Identifiers.loadLibrary) : null;
+  }
+
   String toString() => '$kind($name)';
 }
 
 class TypedefElementX extends ElementX
-    with AstElementMixin,
-         AnalyzableElementX,
-         TypeDeclarationElementX<TypedefType>
+    with
+        AstElementMixin,
+        AnalyzableElementX,
+        TypeDeclarationElementX<ResolutionTypedefType>
     implements TypedefElement {
   Typedef cachedNode;
 
   /**
    * The type annotation which defines this typedef.
    */
-  DartType aliasCache;
+  ResolutionDartType aliasCache;
 
-  DartType get alias {
+  ResolutionDartType get alias {
     assert(invariant(this, hasBeenCheckedForCycles,
         message: "$this has not been checked for cycles."));
     return aliasCache;
@@ -1391,10 +1331,10 @@ class TypedefElementX extends ElementX
    */
   FunctionSignature functionSignature;
 
-  TypedefType computeType(Resolution resolution) {
+  ResolutionTypedefType computeType(Resolution resolution) {
     if (thisTypeCache != null) return thisTypeCache;
-    Typedef node = parseNode(resolution.parsing);
-    setThisAndRawTypes(createTypeVariables(node.typeParameters));
+    Typedef node = parseNode(resolution.parsingContext);
+    setThisAndRawTypes(createTypeVariables(node.templateParameters));
     ensureResolved(resolution);
     return thisTypeCache;
   }
@@ -1405,8 +1345,8 @@ class TypedefElementX extends ElementX
     }
   }
 
-  TypedefType createType(List<DartType> typeArguments) {
-    return new TypedefType(this, typeArguments);
+  ResolutionTypedefType createType(List<ResolutionDartType> typeArguments) {
+    return new ResolutionTypedefType(this, typeArguments);
   }
 
   Scope buildScope() {
@@ -1434,7 +1374,7 @@ class TypedefElementX extends ElementX
 // forwards its [computeType] and [parseNode] methods to this class.
 class VariableList implements DeclarationSite {
   VariableDefinitions definitions;
-  DartType type;
+  ResolutionDartType type;
   final Modifiers modifiers;
   List<MetadataAnnotation> metadataInternal;
 
@@ -1448,7 +1388,8 @@ class VariableList implements DeclarationSite {
 
   Iterable<MetadataAnnotation> get metadata {
     return metadataInternal != null
-        ? metadataInternal : const <MetadataAnnotation>[];
+        ? metadataInternal
+        : const <MetadataAnnotation>[];
   }
 
   void set metadata(List<MetadataAnnotation> metadata) {
@@ -1465,22 +1406,28 @@ class VariableList implements DeclarationSite {
     metadataInternal = metadata;
   }
 
-  VariableDefinitions parseNode(Element element, Parsing parsing) {
+  VariableDefinitions parseNode(Element element, ParsingContext parsing) {
     return definitions;
   }
 
-  DartType computeType(Element element, Resolution resolution) => type;
+  ResolutionDartType computeType(Element element, Resolution resolution) =>
+      type;
 }
 
 abstract class ConstantVariableMixin implements VariableElement {
   ConstantExpression constantCache;
+
+  // TODO(johnniwinther): Update the on `constant = ...` when evaluation of
+  // constant expression can handle references to unanalyzed constant variables.
+  @override
+  bool get hasConstant => false;
 
   ConstantExpression get constant {
     if (isPatch) {
       ConstantVariableMixin originVariable = origin;
       return originVariable.constant;
     }
-    assert(invariant(this, constantCache != null,
+    assert(invariant(this, !isConst || constantCache != null,
         message: "Constant has not been computed for $this."));
     return constantCache;
   }
@@ -1491,12 +1438,28 @@ abstract class ConstantVariableMixin implements VariableElement {
       originVariable.constant = value;
       return;
     }
-    assert(invariant(
-        this, constantCache == null || constantCache == value,
-        message: "Constant has already been computed for $this. "
-                 "Existing constant: "
-                 "${constantCache != null ? constantCache.getText() : ''}, "
-                 "New constant: ${value != null ? value.getText() : ''}."));
+    if (constantCache != null &&
+        constantCache.kind == ConstantExpressionKind.ERRONEOUS) {
+      // TODO(johnniwinther): Find out why we sometimes compute a non-erroneous
+      // constant for a variable already known to be erroneous.
+      return;
+    }
+    if (constantCache != null && constantCache != value) {
+      // Allow setting the constant as erroneous. Constants computed during
+      // resolution are locally valid but might be effectively erroneous. For
+      // instance `a ? true : false` where a is `const a = m()`. Since `a` is
+      // declared to be constant, the conditional is assumed valid, but when
+      // computing the value we see that it isn't.
+      // TODO(johnniwinther): Remove this exception when all constant
+      // expressions are computed during resolution.
+      assert(invariant(
+          this, value == null || value.kind == ConstantExpressionKind.ERRONEOUS,
+          message: "Constant has already been computed for $this. "
+              "Existing constant: "
+              "${constantCache != null ? constantCache.toStructuredText() : ''}"
+              ", New constant: "
+              "${value != null ? value.toStructuredText() : ''}."));
+    }
     constantCache = value;
   }
 }
@@ -1507,17 +1470,15 @@ abstract class VariableElementX extends ElementX
   final Token token;
   final VariableList variables;
   VariableDefinitions definitionsCache;
+  Expression definitionCache;
   Expression initializerCache;
 
   Modifiers get modifiers => variables.modifiers;
 
-  VariableElementX(String name,
-                   ElementKind kind,
-                   Element enclosingElement,
-                   VariableList variables,
-                   this.token)
-    : this.variables = variables,
-      super(name, kind, enclosingElement);
+  VariableElementX(String name, ElementKind kind, Element enclosingElement,
+      VariableList variables, this.token)
+      : this.variables = variables,
+        super(name, kind, enclosingElement);
 
   // TODO(johnniwinther): Ensure that the [TreeElements] for this variable hold
   // the mappings for all its metadata.
@@ -1542,13 +1503,23 @@ abstract class VariableElementX extends ElementX
     return definitionsCache;
   }
 
+  /// Returns the node that defines this field.
+  ///
+  /// For instance in `var a, b = true`, the definitions nodes for fields 'a'
+  /// and 'b' are the nodes for `a` and `b = true`, respectively.
+  Expression get definition {
+    assert(invariant(this, definitionCache != null,
+        message: "Definition node has not been computed for $this."));
+    return definitionCache;
+  }
+
   Expression get initializer {
     assert(invariant(this, definitionsCache != null,
         message: "Initializer has not been computed for $this."));
     return initializerCache;
   }
 
-  Node parseNode(Parsing parsing) {
+  Node parseNode(ParsingContext parsing) {
     if (definitionsCache != null) return definitionsCache;
 
     VariableDefinitions definitions = variables.parseNode(this, parsing);
@@ -1559,47 +1530,36 @@ abstract class VariableElementX extends ElementX
   void createDefinitions(VariableDefinitions definitions) {
     assert(invariant(this, definitionsCache == null,
         message: "VariableDefinitions has already been computed for $this."));
-    Expression node;
-    int count = 0;
     for (Link<Node> link = definitions.definitions.nodes;
-         !link.isEmpty; link = link.tail) {
+        !link.isEmpty;
+        link = link.tail) {
       Expression initializedIdentifier = link.head;
       Identifier identifier = initializedIdentifier.asIdentifier();
       if (identifier == null) {
         SendSet sendSet = initializedIdentifier.asSendSet();
         identifier = sendSet.selector.asIdentifier();
         if (identical(name, identifier.source)) {
-          node = initializedIdentifier;
+          definitionCache = initializedIdentifier;
           initializerCache = sendSet.arguments.first;
         }
       } else if (identical(name, identifier.source)) {
-        node = initializedIdentifier;
+        definitionCache = initializedIdentifier;
       }
-      count++;
     }
-    invariant(definitions, node != null, message: "Could not find '$name'.");
-    if (count == 1) {
-      definitionsCache = definitions;
-    } else {
-      // Create a [VariableDefinitions] node for the single definition of
-      // [node].
-      definitionsCache = new VariableDefinitions(definitions.type,
-          definitions.modifiers, new NodeList(
-              definitions.definitions.beginToken,
-              const Link<Node>().prepend(node),
-              definitions.definitions.endToken));
-    }
+    invariant(definitions, definitionCache != null,
+        message: "Could not find '$name'.");
+    definitionsCache = definitions;
   }
 
-  DartType computeType(Resolution resolution) {
+  ResolutionDartType computeType(Resolution resolution) {
     if (variables.type != null) return variables.type;
     // Call [parseNode] to ensure that [definitionsCache] and [initializerCache]
     // are set as a consequence of calling [computeType].
-    parseNode(resolution.parsing);
+    parseNode(resolution.parsingContext);
     return variables.computeType(this, resolution);
   }
 
-  DartType get type {
+  ResolutionDartType get type {
     assert(invariant(this, variables.type != null,
         message: "Type has not been computed for $this."));
     return variables.type;
@@ -1611,19 +1571,13 @@ abstract class VariableElementX extends ElementX
   // cases, for example, for function typed parameters.
   Token get position => token;
 
-  accept(ElementVisitor visitor, arg) {
-    return visitor.visitVariableElement(this, arg);
-  }
-
   DeclarationSite get declarationSite => variables;
 }
 
 class LocalVariableElementX extends VariableElementX
     implements LocalVariableElement {
-  LocalVariableElementX(String name,
-                        ExecutableElement enclosingElement,
-                        VariableList variables,
-                        Token token)
+  LocalVariableElementX(String name, ExecutableElement enclosingElement,
+      VariableList variables, Token token)
       : super(name, ElementKind.VARIABLE, enclosingElement, variables, token) {
     createDefinitions(variables.definitions);
   }
@@ -1633,17 +1587,21 @@ class LocalVariableElementX extends VariableElementX
   MemberElement get memberContext => executableContext.memberContext;
 
   bool get isLocal => true;
+
+  accept(ElementVisitor visitor, arg) {
+    return visitor.visitLocalVariableElement(this, arg);
+  }
 }
 
 class FieldElementX extends VariableElementX
-    with AnalyzableElementX implements FieldElement {
+    with AnalyzableElementX
+    implements FieldElement {
   List<FunctionElement> nestedClosures = new List<FunctionElement>();
 
-  FieldElementX(Identifier name,
-                Element enclosingElement,
-                VariableList variables)
-    : super(name.source, ElementKind.FIELD, enclosingElement,
-            variables, name.token);
+  FieldElementX(
+      Identifier name, Element enclosingElement, VariableList variables)
+      : super(name.source, ElementKind.FIELD, enclosingElement, variables,
+            name.token);
 
   accept(ElementVisitor visitor, arg) {
     return visitor.visitFieldElement(this, arg);
@@ -1664,14 +1622,15 @@ class FieldElementX extends VariableElementX
 
 /// A field that was synthesized to recover from a compile-time error.
 class ErroneousFieldElementX extends ElementX
-    with ConstantVariableMixin implements FieldElementX {
+    with ConstantVariableMixin
+    implements FieldElementX {
   final VariableList variables;
 
   ErroneousFieldElementX(Identifier name, Element enclosingElement)
       : variables = new VariableList(Modifiers.EMPTY)
-            ..definitions = new VariableDefinitions(
-                null, Modifiers.EMPTY, new NodeList.singleton(name))
-            ..type = const DynamicType(),
+          ..definitions = new VariableDefinitions(
+              null, Modifiers.EMPTY, new NodeList.singleton(name))
+          ..type = const ResolutionDynamicType(),
         super(name.source, ElementKind.FIELD, enclosingElement);
 
   VariableDefinitions get definitionsCache => variables.definitions;
@@ -1690,9 +1649,17 @@ class ErroneousFieldElementX extends ElementX
     throw new UnsupportedError("resolvedAst");
   }
 
-  DynamicType get type => const DynamicType();
+  ResolutionDynamicType get type => const ResolutionDynamicType();
 
   Token get token => node.getBeginToken();
+
+  get definitionCache {
+    throw new UnsupportedError("definitionCache");
+  }
+
+  set definitionCache(_) {
+    throw new UnsupportedError("definitionCache=");
+  }
 
   get initializerCache {
     throw new UnsupportedError("initializerCache");
@@ -1707,6 +1674,8 @@ class ErroneousFieldElementX extends ElementX
   }
 
   get initializer => null;
+
+  get definition => null;
 
   bool get isMalformed => true;
 
@@ -1737,7 +1706,7 @@ class ErroneousFieldElementX extends ElementX
     throw new UnsupportedError("copyWithEnclosing");
   }
 
-  DartType computeType(Resolution resolution) => type;
+  ResolutionDartType computeType(Resolution resolution) => type;
 }
 
 /// [Element] for a parameter-like element.
@@ -1746,7 +1715,10 @@ class FormalElementX extends ElementX
     implements FormalElement {
   final VariableDefinitions definitions;
   final Identifier identifier;
-  DartType typeCache;
+  ResolutionDartType typeCache;
+
+  @override
+  List<ResolutionDartType> get typeVariables => functionSignature.typeVariables;
 
   /**
    * Function signature for a variable with a function type. The signature is
@@ -1755,12 +1727,19 @@ class FormalElementX extends ElementX
    */
   FunctionSignature _functionSignatureCache;
 
-  FormalElementX(ElementKind elementKind,
-                 FunctionTypedElement enclosingElement,
-                 this.definitions,
-                 Identifier identifier)
+  FormalElementX(ElementKind elementKind, FunctionTypedElement enclosingElement,
+      this.definitions, Identifier identifier)
       : this.identifier = identifier,
         super(identifier.source, elementKind, enclosingElement);
+
+  FormalElementX.unnamed(ElementKind elementKind,
+      FunctionTypedElement enclosingElement,
+      this.definitions)
+      : this.identifier = null,
+        super("<unnamed>", elementKind, enclosingElement);
+
+  /// Whether this is an unnamed parameter in a Function type.
+  bool get isUnnamed => identifier == null;
 
   FunctionTypedElement get functionDeclaration => enclosingElement;
 
@@ -1768,18 +1747,18 @@ class FormalElementX extends ElementX
 
   Token get position => identifier.getBeginToken();
 
-  Node parseNode(Parsing parsing) => definitions;
+  Node parseNode(ParsingContext parsing) => definitions;
 
-  DartType computeType(Resolution resolution) {
+  ResolutionDartType computeType(Resolution resolution) {
     assert(invariant(this, type != null,
         message: "Parameter type has not been set for $this."));
     return type;
   }
 
-  DartType get type {
+  ResolutionDartType get type {
     assert(invariant(this, typeCache != null,
-            message: "Parameter type has not been set for $this."));
-        return typeCache;
+        message: "Parameter type has not been set for $this."));
+    return typeCache;
   }
 
   FunctionSignature get functionSignature {
@@ -1799,7 +1778,7 @@ class FormalElementX extends ElementX
 
   VariableDefinitions get node => definitions;
 
-  FunctionType get functionType => type;
+  ResolutionFunctionType get functionType => type;
 
   accept(ElementVisitor visitor, arg) {
     return visitor.visitFormalElement(this, arg);
@@ -1816,20 +1795,20 @@ class FormalElementX extends ElementX
 /// to ensure that default values on parameters are computed once (on the
 /// origin parameter) but can be found through both the origin and the patch.
 abstract class ParameterElementX extends FormalElementX
-    with PatchMixin<ParameterElement>,
-         ConstantVariableMixin
+    with PatchMixin<ParameterElement>, ConstantVariableMixin
     implements ParameterElement {
   final Expression initializer;
   final bool isOptional;
   final bool isNamed;
 
-  ParameterElementX(ElementKind elementKind,
-                    FunctionElement functionDeclaration,
-                    VariableDefinitions definitions,
-                    Identifier identifier,
-                    this.initializer,
-                    {this.isOptional: false,
-                     this.isNamed: false})
+  ParameterElementX(
+      ElementKind elementKind,
+      FunctionElement functionDeclaration,
+      VariableDefinitions definitions,
+      Identifier identifier,
+      this.initializer,
+      {this.isOptional: false,
+      this.isNamed: false})
       : super(elementKind, functionDeclaration, definitions, identifier);
 
   FunctionElement get functionDeclaration => enclosingElement;
@@ -1856,17 +1835,16 @@ abstract class ParameterElementX extends FormalElementX
 
 class LocalParameterElementX extends ParameterElementX
     implements LocalParameterElement {
-
-
-  LocalParameterElementX(FunctionElement functionDeclaration,
-                         VariableDefinitions definitions,
-                         Identifier identifier,
-                         Expression initializer,
-                         {bool isOptional: false,
-                          bool isNamed: false})
-      : super(ElementKind.PARAMETER, functionDeclaration,
-              definitions, identifier, initializer,
-              isOptional: isOptional, isNamed: isNamed);
+  LocalParameterElementX(
+      FunctionElement functionDeclaration,
+      VariableDefinitions definitions,
+      Identifier identifier,
+      Expression initializer,
+      {bool isOptional: false,
+      bool isNamed: false})
+      : super(ElementKind.PARAMETER, functionDeclaration, definitions,
+            identifier, initializer,
+            isOptional: isOptional, isNamed: isNamed);
 }
 
 /// Parameters in constructors that directly initialize fields. For example:
@@ -1875,16 +1853,17 @@ class InitializingFormalElementX extends ParameterElementX
     implements InitializingFormalElement {
   final FieldElement fieldElement;
 
-  InitializingFormalElementX(ConstructorElement constructorDeclaration,
-                             VariableDefinitions variables,
-                             Identifier identifier,
-                             Expression initializer,
-                             this.fieldElement,
-                             {bool isOptional: false,
-                              bool isNamed: false})
+  InitializingFormalElementX(
+      ConstructorElement constructorDeclaration,
+      VariableDefinitions variables,
+      Identifier identifier,
+      Expression initializer,
+      this.fieldElement,
+      {bool isOptional: false,
+      bool isNamed: false})
       : super(ElementKind.INITIALIZING_FORMAL, constructorDeclaration,
-              variables, identifier, initializer,
-              isOptional: isOptional, isNamed: isNamed);
+            variables, identifier, initializer,
+            isOptional: isOptional, isNamed: isNamed);
 
   accept(ElementVisitor visitor, arg) {
     return visitor.visitFieldParameterElement(this, arg);
@@ -1892,7 +1871,11 @@ class InitializingFormalElementX extends ParameterElementX
 
   MemberElement get memberContext => enclosingElement;
 
-  bool get isLocal => false;
+  @override
+  bool get isFinal => true;
+
+  @override
+  bool get isLocal => true;
 }
 
 class ErroneousInitializingFormalElementX extends ParameterElementX
@@ -1900,13 +1883,11 @@ class ErroneousInitializingFormalElementX extends ParameterElementX
   final ErroneousFieldElementX fieldElement;
 
   ErroneousInitializingFormalElementX(
-      Identifier identifier,
-      Element enclosingElement)
+      Identifier identifier, Element enclosingElement)
       : this.fieldElement =
             new ErroneousFieldElementX(identifier, enclosingElement),
-        super(
-            ElementKind.INITIALIZING_FORMAL,
-            enclosingElement, null, identifier, null);
+        super(ElementKind.INITIALIZING_FORMAL, enclosingElement, null,
+            identifier, null);
 
   VariableDefinitions get definitions => fieldElement.node;
 
@@ -1916,21 +1897,23 @@ class ErroneousInitializingFormalElementX extends ParameterElementX
 
   bool get isMalformed => true;
 
-  DynamicType get type => const DynamicType();
+  ResolutionDynamicType get type => const ResolutionDynamicType();
 }
 
-class AbstractFieldElementX extends ElementX implements AbstractFieldElement {
+class AbstractFieldElementX extends ElementX
+    with AbstractFieldElementCommon
+    implements AbstractFieldElement {
   GetterElementX getter;
   SetterElementX setter;
 
   AbstractFieldElementX(String name, Element enclosing)
       : super(name, ElementKind.ABSTRACT_FIELD, enclosing);
 
-  DartType computeType(Compiler compiler) {
+  ResolutionDartType computeType(Compiler compiler) {
     throw "internal error: AbstractFieldElement has no type";
   }
 
-  Node parseNode(Parsing parsing) {
+  Node parseNode(ParsingContext parsing) {
     throw "internal error: AbstractFieldElement has no node";
   }
 
@@ -1944,8 +1927,7 @@ class AbstractFieldElementX extends ElementX implements AbstractFieldElement {
     //
     // We need to make sure that the position returned is relative to
     // the compilation unit of the abstract element.
-    if (getter != null
-        && identical(getter.compilationUnit, compilationUnit)) {
+    if (getter != null && identical(getter.compilationUnit, compilationUnit)) {
       return getter.position;
     } else {
       return setter.position;
@@ -1955,27 +1937,16 @@ class AbstractFieldElementX extends ElementX implements AbstractFieldElement {
   Modifiers get modifiers {
     // The resolver ensures that the flags match (ignoring abstract).
     if (getter != null) {
-      return new Modifiers.withFlags(
-          getter.modifiers.nodes,
+      return new Modifiers.withFlags(getter.modifiers.nodes,
           getter.modifiers.flags | Modifiers.FLAG_ABSTRACT);
     } else {
-      return new Modifiers.withFlags(
-          setter.modifiers.nodes,
+      return new Modifiers.withFlags(setter.modifiers.nodes,
           setter.modifiers.flags | Modifiers.FLAG_ABSTRACT);
     }
   }
 
-  bool get isInstanceMember {
-    return isClassMember && !isStatic;
-  }
-
   accept(ElementVisitor visitor, arg) {
     return visitor.visitAbstractFieldElement(this, arg);
-  }
-
-  bool get isAbstract {
-    return getter != null && getter.isAbstract
-        || setter != null && setter.isAbstract;
   }
 }
 
@@ -1984,30 +1955,33 @@ class AbstractFieldElementX extends ElementX implements AbstractFieldElement {
 // TODO(karlklose): all these lists should have element type [FormalElement].
 class FunctionSignatureX extends FunctionSignatureCommon
     implements FunctionSignature {
+  final List<ResolutionDartType> typeVariables;
   final List<Element> requiredParameters;
   final List<Element> optionalParameters;
   final int requiredParameterCount;
   final int optionalParameterCount;
   final bool optionalParametersAreNamed;
   final List<Element> orderedOptionalParameters;
-  final FunctionType type;
+  final ResolutionFunctionType type;
   final bool hasOptionalParameters;
 
-  FunctionSignatureX({this.requiredParameters: const <Element>[],
-                      this.requiredParameterCount: 0,
-                      List<Element> optionalParameters: const <Element>[],
-                      this.optionalParameterCount: 0,
-                      this.optionalParametersAreNamed: false,
-                      this.orderedOptionalParameters: const <Element>[],
-                      this.type})
+  FunctionSignatureX(
+      {this.typeVariables: const <ResolutionDartType>[],
+      this.requiredParameters: const <Element>[],
+      this.requiredParameterCount: 0,
+      List<Element> optionalParameters: const <Element>[],
+      this.optionalParameterCount: 0,
+      this.optionalParametersAreNamed: false,
+      this.orderedOptionalParameters: const <Element>[],
+      this.type})
       : optionalParameters = optionalParameters,
         hasOptionalParameters = !optionalParameters.isEmpty;
 }
 
-abstract class BaseFunctionElementX
-    extends ElementX with PatchMixin<FunctionElement>, AstElementMixin
+abstract class BaseFunctionElementX extends ElementX
+    with PatchMixin<FunctionElement>, AstElementMixin
     implements FunctionElement {
-  DartType typeCache;
+  ResolutionDartType typeCache;
   final Modifiers modifiers;
 
   List<FunctionElement> nestedClosures = new List<FunctionElement>();
@@ -2016,10 +1990,8 @@ abstract class BaseFunctionElementX
 
   AsyncMarker asyncMarker = AsyncMarker.SYNC;
 
-  BaseFunctionElementX(String name,
-                       ElementKind kind,
-                       Modifiers this.modifiers,
-                       Element enclosing)
+  BaseFunctionElementX(String name, ElementKind kind, Modifiers this.modifiers,
+      Element enclosing)
       : super(name, kind, enclosing) {
     assert(modifiers != null);
   }
@@ -2027,9 +1999,7 @@ abstract class BaseFunctionElementX
   bool get isExternal => modifiers.isExternal;
 
   bool get isInstanceMember {
-    return isClassMember
-           && !isConstructor
-           && !isStatic;
+    return isClassMember && !isConstructor && !isStatic;
   }
 
   bool get hasFunctionSignature => _functionSignatureCache != null;
@@ -2062,7 +2032,7 @@ abstract class BaseFunctionElementX
     return list;
   }
 
-  FunctionType computeType(Resolution resolution) {
+  ResolutionFunctionType computeType(Resolution resolution) {
     if (typeCache != null) return typeCache;
     _computeSignature(resolution);
     assert(invariant(this, typeCache != null,
@@ -2070,13 +2040,16 @@ abstract class BaseFunctionElementX
     return typeCache;
   }
 
-  FunctionType get type {
+  ResolutionFunctionType get type {
     assert(invariant(this, typeCache != null,
         message: "Type has not been computed for $this."));
     return typeCache;
   }
 
   FunctionElement asFunctionElement() => this;
+
+  @override
+  Scope buildScope() => new TypeDeclarationScope(super.buildScope(), this);
 
   String toString() {
     if (isPatch) {
@@ -2090,21 +2063,18 @@ abstract class BaseFunctionElementX
 
   bool get isAbstract => false;
 
-  accept(ElementVisitor visitor, arg) {
-    return visitor.visitFunctionElement(this, arg);
-  }
-
   // A function is defined by the implementation element.
   AstElement get definingElement => implementation;
+
+  @override
+  List<ResolutionDartType> get typeVariables => functionSignature.typeVariables;
 }
 
 abstract class FunctionElementX extends BaseFunctionElementX
-    with AnalyzableElementX implements MethodElement {
-
-  FunctionElementX(String name,
-                   ElementKind kind,
-                   Modifiers modifiers,
-                   Element enclosing)
+    with AnalyzableElementX
+    implements MethodElement {
+  FunctionElementX(
+      String name, ElementKind kind, Modifiers modifiers, Element enclosing)
       : super(name, kind, modifiers, enclosing);
 
   MemberElement get memberContext => this;
@@ -2132,17 +2102,22 @@ abstract class FunctionElementX extends BaseFunctionElementX
 abstract class MethodElementX extends FunctionElementX {
   final bool hasBody;
 
-  MethodElementX(String name,
-                 ElementKind kind,
-                 Modifiers modifiers,
-                 Element enclosing,
-                 // TODO(15101): Make this a named parameter.
-                 this.hasBody)
+  MethodElementX(
+      String name,
+      ElementKind kind,
+      Modifiers modifiers,
+      Element enclosing,
+      // TODO(15101): Make this a named parameter.
+      this.hasBody)
       : super(name, kind, modifiers, enclosing);
 
   @override
   bool get isAbstract {
     return !modifiers.isExternal && !hasBody;
+  }
+
+  accept(ElementVisitor visitor, arg) {
+    return visitor.visitMethodElement(this, arg);
   }
 }
 
@@ -2150,43 +2125,39 @@ abstract class AccessorElementX extends MethodElementX
     implements AccessorElement {
   AbstractFieldElement abstractField;
 
-  AccessorElementX(String name,
-                   ElementKind kind,
-                   Modifiers modifiers,
-                   Element enclosing,
-                   bool hasBody)
+  AccessorElementX(String name, ElementKind kind, Modifiers modifiers,
+      Element enclosing, bool hasBody)
       : super(name, kind, modifiers, enclosing, hasBody);
 }
 
 abstract class GetterElementX extends AccessorElementX
     implements GetterElement {
-
-  GetterElementX(String name,
-                 Modifiers modifiers,
-                 Element enclosing,
-                 bool hasBody)
+  GetterElementX(
+      String name, Modifiers modifiers, Element enclosing, bool hasBody)
       : super(name, ElementKind.GETTER, modifiers, enclosing, hasBody);
+
+  accept(ElementVisitor visitor, arg) {
+    return visitor.visitGetterElement(this, arg);
+  }
 }
 
 abstract class SetterElementX extends AccessorElementX
     implements SetterElement {
-
-  SetterElementX(String name,
-                 Modifiers modifiers,
-                 Element enclosing,
-                 bool hasBody)
+  SetterElementX(
+      String name, Modifiers modifiers, Element enclosing, bool hasBody)
       : super(name, ElementKind.SETTER, modifiers, enclosing, hasBody);
+
+  accept(ElementVisitor visitor, arg) {
+    return visitor.visitSetterElement(this, arg);
+  }
 }
 
 class LocalFunctionElementX extends BaseFunctionElementX
     implements LocalFunctionElement {
   final FunctionExpression node;
 
-  LocalFunctionElementX(String name,
-                        FunctionExpression this.node,
-                        ElementKind kind,
-                        Modifiers modifiers,
-                        ExecutableElement enclosing)
+  LocalFunctionElementX(String name, FunctionExpression this.node,
+      ElementKind kind, Modifiers modifiers, ExecutableElement enclosing)
       : super(name, kind, modifiers, enclosing);
 
   ExecutableElement get executableContext => enclosingElement;
@@ -2195,7 +2166,7 @@ class LocalFunctionElementX extends BaseFunctionElementX
 
   bool get hasNode => true;
 
-  FunctionExpression parseNode(Parsing parsing) => node;
+  FunctionExpression parseNode(ParsingContext parsing) => node;
 
   Token get position {
     // Use the name as position if this is not an unnamed closure.
@@ -2207,6 +2178,10 @@ class LocalFunctionElementX extends BaseFunctionElementX
   }
 
   bool get isLocal => true;
+
+  accept(ElementVisitor visitor, arg) {
+    return visitor.visitLocalFunctionElement(this, arg);
+  }
 }
 
 abstract class ConstantConstructorMixin implements ConstructorElement {
@@ -2231,39 +2206,41 @@ abstract class ConstantConstructorMixin implements ConstructorElement {
     } else {
       assert(invariant(this, isConst,
           message: "Constant constructor set on non-constant "
-                   "constructor $this."));
+              "constructor $this."));
       assert(invariant(this, !isFromEnvironmentConstructor,
           message: "Constant constructor set on fromEnvironment "
-                   "constructor: $this."));
-      assert(invariant(this,
-          _constantConstructor == null || _constantConstructor == value,
+              "constructor: $this."));
+      assert(invariant(
+          this, _constantConstructor == null || _constantConstructor == value,
           message: "Constant constructor already computed for $this:"
-                   "Existing: $_constantConstructor, new: $value"));
+              "Existing: $_constantConstructor, new: $value"));
       _constantConstructor = value;
     }
   }
 
-  bool get isFromEnvironmentConstructor {
-    return name == 'fromEnvironment' &&
-           library.isDartCore &&
-           (enclosingClass.name == 'bool' ||
-            enclosingClass.name == 'int' ||
-            enclosingClass.name == 'String');
-  }
+  /// Returns the empty list of type variables by default.
+  @override
+  List<ResolutionDartType> get typeVariables => functionSignature.typeVariables;
 }
 
 abstract class ConstructorElementX extends FunctionElementX
-    with ConstantConstructorMixin implements ConstructorElement {
-  bool isRedirectingGenerative = false;
+    with ConstantConstructorMixin, ConstructorElementCommon
+    implements ConstructorElement {
+  bool isRedirectingGenerativeInternal = false;
 
-  ConstructorElementX(String name,
-                      ElementKind kind,
-                      Modifiers modifiers,
-                      Element enclosing)
-        : super(name, kind, modifiers, enclosing);
+  ConstructorElementX(
+      String name, ElementKind kind, Modifiers modifiers, Element enclosing)
+      : super(name, kind, modifiers, enclosing);
 
-  FunctionElement immediateRedirectionTarget;
-  PrefixElement redirectionDeferredPrefix;
+  ConstructorElement _immediateRedirectionTarget;
+  PrefixElement _redirectionDeferredPrefix;
+
+  ConstructorElementX get patch => super.patch;
+
+  bool get isRedirectingGenerative {
+    if (isPatched) return patch.isRedirectingGenerative;
+    return isRedirectingGenerativeInternal;
+  }
 
   bool get isRedirectingFactory => immediateRedirectionTarget != null;
 
@@ -2271,52 +2248,104 @@ abstract class ConstructorElementX extends FunctionElementX
   // generative constructors.
   bool get isCyclicRedirection => effectiveTarget.isRedirectingFactory;
 
+  bool get isDefaultConstructor => false;
+
   /// These fields are set by the post process queue when checking for cycles.
   ConstructorElement effectiveTargetInternal;
-  DartType _effectiveTargetType;
+  ResolutionDartType _effectiveTargetType;
   bool _isEffectiveTargetMalformed;
 
-  void setEffectiveTarget(ConstructorElement target,
-                          DartType type,
-                          {bool isMalformed: false}) {
-    assert(invariant(this, target != null,
-        message: 'No effective target provided for $this.'));
-    assert(invariant(this, effectiveTargetInternal == null,
-        message: 'Effective target has already been computed for $this.'));
-    effectiveTargetInternal = target;
-    _effectiveTargetType = type;
-    _isEffectiveTargetMalformed = isMalformed;
+  bool get hasEffectiveTarget {
+    if (isPatched) {
+      return patch.hasEffectiveTarget;
+    }
+    return effectiveTargetInternal != null;
+  }
+
+  void setImmediateRedirectionTarget(
+      ConstructorElement target, PrefixElement prefix) {
+    if (isPatched) {
+      patch.setImmediateRedirectionTarget(target, prefix);
+    } else {
+      assert(invariant(this, _immediateRedirectionTarget == null,
+          message: "Immediate redirection target has already been "
+              "set on $this."));
+      _immediateRedirectionTarget = target;
+      _redirectionDeferredPrefix = prefix;
+    }
+  }
+
+  ConstructorElement get immediateRedirectionTarget {
+    if (isPatched) {
+      return patch.immediateRedirectionTarget;
+    }
+    return _immediateRedirectionTarget;
+  }
+
+  PrefixElement get redirectionDeferredPrefix {
+    if (isPatched) {
+      return patch.redirectionDeferredPrefix;
+    }
+    return _redirectionDeferredPrefix;
+  }
+
+  void setEffectiveTarget(ConstructorElement target, ResolutionDartType type,
+      {bool isMalformed: false}) {
+    if (isPatched) {
+      patch.setEffectiveTarget(target, type, isMalformed: isMalformed);
+    } else {
+      assert(invariant(this, target != null,
+          message: 'No effective target provided for $this.'));
+      assert(invariant(this, effectiveTargetInternal == null,
+          message: 'Effective target has already been computed for $this.'));
+      assert(invariant(this, !target.isMalformed || isMalformed,
+          message: 'Effective target is not marked as malformed for $this: '
+              'target=$target, type=$type, isMalformed: $isMalformed'));
+      assert(invariant(this, isMalformed || type.isInterfaceType,
+          message: 'Effective target type is not an interface type for $this: '
+              'target=$target, type=$type, isMalformed: $isMalformed'));
+      effectiveTargetInternal = target;
+      _effectiveTargetType = type;
+      _isEffectiveTargetMalformed = isMalformed;
+    }
   }
 
   ConstructorElement get effectiveTarget {
-    if (Elements.isMalformed(immediateRedirectionTarget)) {
-      return immediateRedirectionTarget;
-    }
-    assert(!isRedirectingFactory || effectiveTargetInternal != null);
-    if (isRedirectingFactory) {
-      return effectiveTargetInternal;
-    }
     if (isPatched) {
-      return effectiveTargetInternal ?? this;
+      return patch.effectiveTarget;
+    }
+    if (isRedirectingFactory) {
+      assert(effectiveTargetInternal != null);
+      return effectiveTargetInternal;
     }
     return this;
   }
 
-  InterfaceType get effectiveTargetType {
+  ResolutionDartType get effectiveTargetType {
+    if (isPatched) {
+      return patch.effectiveTargetType;
+    }
     assert(invariant(this, _effectiveTargetType != null,
         message: 'Effective target type has not yet been computed for $this.'));
     return _effectiveTargetType;
   }
 
-  InterfaceType computeEffectiveTargetType(InterfaceType newType) {
+  ResolutionDartType computeEffectiveTargetType(
+      ResolutionInterfaceType newType) {
+    if (isPatched) {
+      return patch.computeEffectiveTargetType(newType);
+    }
     if (!isRedirectingFactory) return newType;
     return effectiveTargetType.substByContext(newType);
   }
 
   bool get isEffectiveTargetMalformed {
+    if (isPatched) {
+      return patch.isEffectiveTargetMalformed;
+    }
     if (!isRedirectingFactory) return false;
     assert(invariant(this, _isEffectiveTargetMalformed != null,
-            message: 'Malformedness has not yet been computed for $this.'));
+        message: 'Malformedness has not yet been computed for $this.'));
     return _isEffectiveTargetMalformed == true;
   }
 
@@ -2326,7 +2355,7 @@ abstract class ConstructorElementX extends FunctionElementX
 
   ConstructorElement get definingConstructor => null;
 
-  ClassElement get enclosingClass => enclosingElement;
+  ClassElement get enclosingClass => enclosingElement.declaration;
 }
 
 class DeferredLoaderGetterElementX extends GetterElementX
@@ -2335,11 +2364,9 @@ class DeferredLoaderGetterElementX extends GetterElementX
 
   DeferredLoaderGetterElementX(PrefixElement prefix)
       : this.prefix = prefix,
-        super("loadLibrary",
-              Modifiers.EMPTY,
-              prefix,
-              false) {
-    functionSignature = new FunctionSignatureX(type: new FunctionType(this));
+        super(Identifiers.loadLibrary, Modifiers.EMPTY, prefix, false) {
+    functionSignature =
+        new FunctionSignatureX(type: new ResolutionFunctionType(this));
   }
 
   bool get isClassMember => false;
@@ -2349,15 +2376,23 @@ class DeferredLoaderGetterElementX extends GetterElementX
   bool get isDeferredLoaderGetter => true;
 
   bool get isTopLevel => true;
+
   // By having position null, the enclosing elements location is printed in
   // error messages.
   Token get position => null;
 
-  FunctionExpression parseNode(Parsing parsing) => null;
+  FunctionExpression parseNode(ParsingContext parsing) => null;
 
   bool get hasNode => false;
 
   FunctionExpression get node => null;
+
+  bool get hasResolvedAst => true;
+
+  ResolvedAst get resolvedAst {
+    return new SynthesizedResolvedAst(
+        this, ResolvedAstKind.DEFERRED_LOAD_LIBRARY);
+  }
 
   @override
   SetterElement get setter => null;
@@ -2365,30 +2400,89 @@ class DeferredLoaderGetterElementX extends GetterElementX
 
 class ConstructorBodyElementX extends BaseFunctionElementX
     implements ConstructorBodyElement {
-  ConstructorElementX constructor;
+  final ResolvedAst _resolvedAst;
+  final ConstructorElement constructor;
 
-  ConstructorBodyElementX(ConstructorElementX constructor)
-      : this.constructor = constructor,
-        super(constructor.name,
-              ElementKind.GENERATIVE_CONSTRUCTOR_BODY,
-              Modifiers.EMPTY,
-              constructor.enclosingElement) {
+  ConstructorBodyElementX(
+      ResolvedAst resolvedAst, ConstructorElement constructor)
+      : this._resolvedAst = resolvedAst,
+        this.constructor = constructor,
+        super(constructor.name, ElementKind.GENERATIVE_CONSTRUCTOR_BODY,
+            Modifiers.EMPTY, constructor.enclosingElement) {
     functionSignature = constructor.functionSignature;
   }
 
-  bool get hasNode => constructor.hasNode;
+  /// Returns the constructor body associated with the given constructor or
+  /// creates a new constructor body, if none can be found.
+  ///
+  /// Returns `null` if the constructor does not have a body.
+  static ConstructorBodyElementX createFromResolvedAst(
+      ResolvedAst constructorResolvedAst) {
+    ConstructorElement constructor =
+        constructorResolvedAst.element.implementation;
+    assert(constructor.isGenerativeConstructor);
+    if (constructorResolvedAst.kind != ResolvedAstKind.PARSED) return null;
 
-  FunctionExpression get node => constructor.node;
+    FunctionExpression node = constructorResolvedAst.node;
+    // If we know the body doesn't have any code, we don't generate it.
+    if (!node.hasBody) return null;
+    if (node.hasEmptyBody) return null;
+    ClassElement classElement = constructor.enclosingClass;
+    ConstructorBodyElement bodyElement;
+    classElement.forEachBackendMember((Element backendMember) {
+      if (backendMember.isGenerativeConstructorBody) {
+        ConstructorBodyElement body = backendMember;
+        if (body.constructor == constructor) {
+          // TODO(kasperl): Find a way of stopping the iteration
+          // through the backend members.
+          bodyElement = backendMember;
+        }
+      }
+    });
+    if (bodyElement == null) {
+      bodyElement =
+          new ConstructorBodyElementX(constructorResolvedAst, constructor);
+      classElement.addBackendMember(bodyElement);
+
+      if (constructor.isPatch) {
+        // Create origin body element for patched constructors.
+        ConstructorBodyElementX patch = bodyElement;
+        ConstructorBodyElementX origin = new ConstructorBodyElementX(
+            constructorResolvedAst, constructor.origin);
+        origin.applyPatch(patch);
+        classElement.origin.addBackendMember(bodyElement.origin);
+      }
+    }
+    assert(bodyElement.isGenerativeConstructorBody);
+    return bodyElement;
+  }
+
+  bool get hasNode => _resolvedAst.kind == ResolvedAstKind.PARSED;
+
+  FunctionExpression get node => _resolvedAst.node;
+
+  bool get hasResolvedAst => true;
+
+  ResolvedAst get resolvedAst {
+    if (_resolvedAst.kind == ResolvedAstKind.PARSED) {
+      return new ParsedResolvedAst(declaration, _resolvedAst.node,
+          _resolvedAst.body, _resolvedAst.elements, _resolvedAst.sourceUri);
+    } else {
+      return new SynthesizedResolvedAst(declaration, _resolvedAst.kind);
+    }
+  }
 
   List<MetadataAnnotation> get metadata => constructor.metadata;
 
   bool get isInstanceMember => true;
 
-  FunctionType computeType(Resolution resolution) {
+  ResolutionFunctionType computeType(Resolution resolution) {
     DiagnosticReporter reporter = resolution.reporter;
     reporter.internalError(this, '$this.computeType.');
     return null;
   }
+
+  int get sourceOffset => constructor.sourceOffset;
 
   Token get position => constructor.position;
 
@@ -2412,29 +2506,31 @@ class ConstructorBodyElementX extends BaseFunctionElementX
  */
 class SynthesizedConstructorElementX extends ConstructorElementX {
   final ConstructorElement definingConstructor;
-  final bool isDefaultConstructor;
+  ResolvedAst _resolvedAst;
 
-  SynthesizedConstructorElementX.notForDefault(String name,
-                                               this.definingConstructor,
-                                               Element enclosing)
-      : isDefaultConstructor = false,
-        super(name,
-              ElementKind.GENERATIVE_CONSTRUCTOR,
-              Modifiers.EMPTY,
-              enclosing) ;
-
-  SynthesizedConstructorElementX.forDefault(this.definingConstructor,
-                                            Element enclosing)
-      : isDefaultConstructor = true,
-        super('',
-              ElementKind.GENERATIVE_CONSTRUCTOR,
-              Modifiers.EMPTY,
-              enclosing) {
-    functionSignature = new FunctionSignatureX(
-        type: new FunctionType.synthesized(enclosingClass.thisType));
+  SynthesizedConstructorElementX.notForDefault(
+      String name, this.definingConstructor, Element enclosing)
+      : super(name, ElementKind.GENERATIVE_CONSTRUCTOR, Modifiers.EMPTY,
+            enclosing) {
+    _resolvedAst = new SynthesizedResolvedAst(
+        this, ResolvedAstKind.FORWARDING_CONSTRUCTOR);
   }
 
-  FunctionExpression parseNode(Parsing parsing) => null;
+  SynthesizedConstructorElementX.forDefault(
+      this.definingConstructor, Element enclosing)
+      : super('', ElementKind.GENERATIVE_CONSTRUCTOR, Modifiers.EMPTY,
+            enclosing) {
+    functionSignature = new FunctionSignatureX(
+        type: new ResolutionFunctionType.synthesized(enclosingClass.thisType));
+    _resolvedAst =
+        new SynthesizedResolvedAst(this, ResolvedAstKind.DEFAULT_CONSTRUCTOR);
+  }
+
+  bool get isDefaultConstructor {
+    return _resolvedAst.kind == ResolvedAstKind.DEFAULT_CONSTRUCTOR;
+  }
+
+  FunctionExpression parseNode(ParsingContext parsing) => null;
 
   bool get hasNode => false;
 
@@ -2444,7 +2540,11 @@ class SynthesizedConstructorElementX extends ConstructorElementX {
 
   bool get isSynthesized => true;
 
-  DartType get type {
+  bool get hasResolvedAst => true;
+
+  ResolvedAst get resolvedAst => _resolvedAst;
+
+  ResolutionDartType get type {
     if (isDefaultConstructor) {
       return super.type;
     } else {
@@ -2458,7 +2558,8 @@ class SynthesizedConstructorElementX extends ConstructorElementX {
     if (hasFunctionSignature) return;
     if (definingConstructor.isMalformed) {
       functionSignature = new FunctionSignatureX(
-          type: new FunctionType.synthesized(enclosingClass.thisType));
+          type:
+              new ResolutionFunctionType.synthesized(enclosingClass.thisType));
     }
     // TODO(johnniwinther): Ensure that the function signature (and with it the
     // function type) substitutes type variables correctly.
@@ -2498,9 +2599,9 @@ abstract class TypeDeclarationElementX<T extends GenericType>
    * used to distinguish explicit and implicit uses of the [dynamic]
    * type arguments. For instance should [:List:] be the [rawType] of the
    * [:List:] class element whereas [:List<dynamic>:] should be its own
-   * instantiation of [InterfaceType] with [:dynamic:] as type argument. Using
-   * this distinction, we can print the raw type with type arguments only when
-   * the input source has used explicit type arguments.
+   * instantiation of [ResolutionInterfaceType] with [:dynamic:] as type
+   * argument. Using this distinction, we can print the raw type with type
+   * arguments only when the input source has used explicit type arguments.
    *
    * This type is computed together with [thisType] in [computeType].
    */
@@ -2508,19 +2609,19 @@ abstract class TypeDeclarationElementX<T extends GenericType>
 
   T get thisType {
     assert(invariant(this, thisTypeCache != null,
-                     message: 'This type has not been computed for $this'));
+        message: 'This type has not been computed for $this'));
     return thisTypeCache;
   }
 
   T get rawType {
     assert(invariant(this, rawTypeCache != null,
-                     message: 'Raw type has not been computed for $this'));
+        message: 'Raw type has not been computed for $this'));
     return rawTypeCache;
   }
 
-  T createType(List<DartType> typeArguments);
+  T createType(List<ResolutionDartType> typeArguments);
 
-  void setThisAndRawTypes(List<DartType> typeParameters) {
+  void setThisAndRawTypes(List<ResolutionDartType> typeParameters) {
     assert(invariant(this, thisTypeCache == null,
         message: "This type has already been set on $this."));
     assert(invariant(this, rawTypeCache == null,
@@ -2529,32 +2630,33 @@ abstract class TypeDeclarationElementX<T extends GenericType>
     if (typeParameters.isEmpty) {
       rawTypeCache = thisTypeCache;
     } else {
-      List<DartType> dynamicParameters =
-          new List.filled(typeParameters.length, const DynamicType());
+      List<ResolutionDartType> dynamicParameters =
+          new List.filled(typeParameters.length, const ResolutionDynamicType());
       rawTypeCache = createType(dynamicParameters);
     }
   }
 
-  List<DartType> get typeVariables => thisType.typeArguments;
+  List<ResolutionDartType> get typeVariables => thisType.typeArguments;
 
   /**
    * Creates the type variables, their type and corresponding element, for the
    * type variables declared in [parameter] on [element]. The bounds of the type
    * variables are not set until [element] has been resolved.
    */
-  List<DartType> createTypeVariables(NodeList parameters) {
-    if (parameters == null) return const <DartType>[];
+  List<ResolutionDartType> createTypeVariables(NodeList parameters) {
+    if (parameters == null) return const <ResolutionDartType>[];
 
     // Create types and elements for type variable.
     Link<Node> nodes = parameters.nodes;
-    List<DartType> arguments =
+    List<ResolutionDartType> arguments =
         new List.generate(nodes.slowLength(), (int index) {
       TypeVariable node = nodes.head;
       String variableName = node.name.source;
       nodes = nodes.tail;
       TypeVariableElementX variableElement =
           new TypeVariableElementX(variableName, this, index, node);
-      TypeVariableType variableType = new TypeVariableType(variableElement);
+      ResolutionTypeVariableType variableType =
+          new ResolutionTypeVariableType(variableElement);
       variableElement.typeCache = variableType;
       return variableType;
     }, growable: false);
@@ -2567,59 +2669,51 @@ abstract class TypeDeclarationElementX<T extends GenericType>
 }
 
 abstract class BaseClassElementX extends ElementX
-    with AstElementMixin,
-         AnalyzableElementX,
-         ClassElementCommon,
-         TypeDeclarationElementX<InterfaceType>,
-         PatchMixin<ClassElement>,
-         ClassMemberMixin
+    with
+        AstElementMixin,
+        AnalyzableElementX,
+        ClassElementCommon,
+        TypeDeclarationElementX<ResolutionInterfaceType>,
+        PatchMixin<ClassElement>,
+        ClassMemberMixin
     implements ClassElement {
   final int id;
 
-  DartType supertype;
-  Link<DartType> interfaces;
+  ResolutionDartType supertype;
+  Link<ResolutionDartType> interfaces;
   int supertypeLoadState;
   int resolutionState;
   bool isProxy = false;
   bool hasIncompleteHierarchy = false;
 
-  // backendMembers are members that have been added by the backend to simplify
-  // compilation. They don't have any user-side counter-part.
-  Link<Element> backendMembers = const Link<Element>();
-
   OrderedTypeSet allSupertypesAndSelf;
 
-  BaseClassElementX(String name,
-                    Element enclosing,
-                    this.id,
-                    int initialState)
+  BaseClassElementX(String name, Element enclosing, this.id, int initialState)
       : supertypeLoadState = initialState,
         resolutionState = initialState,
         super(name, ElementKind.CLASS, enclosing);
 
   int get hashCode => id;
 
-  bool get hasBackendMembers => !backendMembers.isEmpty;
-
   bool get isUnnamedMixinApplication => false;
 
   @override
   bool get isEnumClass => false;
 
-  InterfaceType computeType(Resolution resolution) {
+  ResolutionInterfaceType computeType(Resolution resolution) {
     if (isPatch) {
       origin.computeType(resolution);
       thisTypeCache = origin.thisType;
       rawTypeCache = origin.rawType;
     } else if (thisTypeCache == null) {
       computeThisAndRawType(
-          resolution, computeTypeParameters(resolution.parsing));
+          resolution, computeTypeParameters(resolution.parsingContext));
     }
     return thisTypeCache;
   }
 
-  void computeThisAndRawType(Resolution resolution,
-                             List<DartType> typeVariables) {
+  void computeThisAndRawType(
+      Resolution resolution, List<ResolutionDartType> typeVariables) {
     if (thisTypeCache == null) {
       if (origin == null) {
         setThisAndRawTypes(typeVariables);
@@ -2631,11 +2725,11 @@ abstract class BaseClassElementX extends ElementX
   }
 
   @override
-  InterfaceType createType(List<DartType> typeArguments) {
-    return new InterfaceType(this, typeArguments);
+  ResolutionInterfaceType createType(List<ResolutionDartType> typeArguments) {
+    return new ResolutionInterfaceType(this, typeArguments);
   }
 
-  List<DartType> computeTypeParameters(Parsing parsing);
+  List<ResolutionDartType> computeTypeParameters(ParsingContext parsing);
 
   bool get isObject {
     assert(invariant(this, isResolved,
@@ -2650,28 +2744,8 @@ abstract class BaseClassElementX extends ElementX
     }
   }
 
-  void setDefaultConstructor(FunctionElement constructor,
-                             DiagnosticReporter reporter);
-
-  void addBackendMember(Element member) {
-    // TODO(ngeoffray): Deprecate this method.
-    assert(member.isGenerativeConstructorBody);
-    backendMembers = backendMembers.prepend(member);
-  }
-
-  void reverseBackendMembers() {
-    backendMembers = backendMembers.reverse();
-  }
-
-  /// Lookup a synthetic element created by the backend.
-  Element lookupBackendMember(String memberName) {
-    for (Element element in backendMembers) {
-      if (element.name == memberName) {
-        return element;
-      }
-    }
-    return null;
-  }
+  void setDefaultConstructor(
+      FunctionElement constructor, DiagnosticReporter reporter);
 
   ConstructorElement lookupDefaultConstructor() {
     ConstructorElement constructor = lookupConstructor("");
@@ -2695,15 +2769,6 @@ abstract class BaseClassElementX extends ElementX
     assert(invariant(this, supertypeLoadState == STATE_DONE,
         message: "Superclass has not been computed for $this."));
     return supertype == null ? null : supertype.element;
-  }
-
-  void forEachBackendMember(void f(Element member)) {
-    backendMembers.forEach(f);
-  }
-
-  bool implementsFunction(CoreClasses coreClasses) {
-    return asInstanceOf(coreClasses.functionClass) != null ||
-        callType != null;
   }
 
   // TODO(johnniwinther): Remove these when issue 18630 is fixed.
@@ -2741,8 +2806,7 @@ abstract class ClassElementX extends BaseClassElementX {
 
   void addToScope(Element element, DiagnosticReporter reporter) {
     if (element.isField && element.name == name) {
-      reporter.reportErrorMessage(
-          element, MessageKind.MEMBER_USES_CLASS_NAME);
+      reporter.reportErrorMessage(element, MessageKind.MEMBER_USES_CLASS_NAME);
     }
     localScope.add(element, reporter);
   }
@@ -2767,13 +2831,13 @@ abstract class ClassElementX extends BaseClassElementX {
     return false;
   }
 
-  void setDefaultConstructor(FunctionElement constructor,
-                             DiagnosticReporter reporter) {
+  void setDefaultConstructor(
+      FunctionElement constructor, DiagnosticReporter reporter) {
     // The default constructor, although synthetic, is part of a class' API.
     addMember(constructor, reporter);
   }
 
-  List<DartType> computeTypeParameters(Parsing parsing) {
+  List<ResolutionDartType> computeTypeParameters(ParsingContext parsing) {
     ClassNode node = parseNode(parsing);
     return createTypeVariables(node.typeParameters);
   }
@@ -2791,6 +2855,31 @@ abstract class ClassElementX extends BaseClassElementX {
   }
 }
 
+/// This element is used to encode an enum class.
+///
+/// For instance
+///
+///     enum A { b, c, }
+///
+/// is modelled as
+///
+///     class A {
+///       final int index;
+///
+///       const A(this.index);
+///
+///       String toString() {
+///         return const <int, A>{0: 'A.b', 1: 'A.c'}[index];
+///       }
+///
+///       static const A b = const A(0);
+///       static const A c = const A(1);
+///
+///       static const List<A> values = const <A>[b, c];
+///     }
+///
+///  where the `A` class is encoded using this element.
+///
 class EnumClassElementX extends ClassElementX
     implements EnumClassElement, DeclarationSite {
   final Enum node;
@@ -2809,14 +2898,15 @@ class EnumClassElementX extends ClassElementX
   bool get isEnumClass => true;
 
   @override
-  Node parseNode(Parsing parsing) => node;
+  Node parseNode(ParsingContext parsing) => node;
 
   @override
   accept(ElementVisitor visitor, arg) {
     return visitor.visitEnumClassElement(this, arg);
   }
 
-  List<DartType> computeTypeParameters(Parsing parsing) => const <DartType>[];
+  List<ResolutionDartType> computeTypeParameters(ParsingContext parsing) =>
+      const <ResolutionDartType>[];
 
   List<FieldElement> get enumValues {
     assert(invariant(this, _enumValues != null,
@@ -2834,70 +2924,225 @@ class EnumClassElementX extends ClassElementX
   DeclarationSite get declarationSite => this;
 }
 
+/// This element is used to encode the implicit constructor in an enum class.
+///
+/// For instance
+///
+///     enum A { b, c, }
+///
+/// is modelled as
+///
+///     class A {
+///       final int index;
+///
+///       const A(this.index);
+///
+///       String toString() {
+///         return const <int, A>{0: 'A.b', 1: 'A.c'}[index];
+///       }
+///
+///       static const A b = const A(0);
+///       static const A c = const A(1);
+///
+///       static const List<A> values = const <A>[b, c];
+///     }
+///
+///  where the `const A(...)` constructor is encoded using this element.
+///
 class EnumConstructorElementX extends ConstructorElementX {
   final FunctionExpression node;
 
-  EnumConstructorElementX(EnumClassElementX enumClass,
-                          Modifiers modifiers,
-                          this.node)
-      : super('', // Name.
-              ElementKind.GENERATIVE_CONSTRUCTOR,
-              modifiers,
-              enumClass);
+  EnumConstructorElementX(
+      EnumClassElementX enumClass, Modifiers modifiers, this.node)
+      : super(
+            '', // Name.
+            ElementKind.GENERATIVE_CONSTRUCTOR,
+            modifiers,
+            enumClass);
 
   @override
   bool get hasNode => true;
 
   @override
-  FunctionExpression parseNode(Parsing parsing) => node;
+  FunctionExpression parseNode(ParsingContext parsing) => node;
+
+  @override
+  SourceSpan get sourcePosition => enclosingClass.sourcePosition;
 }
 
+/// This element is used to encode the implicit methods in an enum class.
+///
+/// For instance
+///
+///     enum A { b, c, }
+///
+/// is modelled as
+///
+///     class A {
+///       final int index;
+///
+///       const A(this.index);
+///
+///       String toString() {
+///         return const <int, A>{0: 'A.b', 1: 'A.c'}[index];
+///       }
+///
+///       static const A b = const A(0);
+///       static const A c = const A(1);
+///
+///       static const List<A> values = const <A>[b, c];
+///     }
+///
+///  where the `toString` method is encoded using this element.
+///
 class EnumMethodElementX extends MethodElementX {
   final FunctionExpression node;
 
-  EnumMethodElementX(String name,
-                     EnumClassElementX enumClass,
-                     Modifiers modifiers,
-                     this.node)
+  EnumMethodElementX(
+      String name, EnumClassElementX enumClass, Modifiers modifiers, this.node)
       : super(name, ElementKind.FUNCTION, modifiers, enumClass, true);
 
   @override
   bool get hasNode => true;
 
   @override
-  FunctionExpression parseNode(Parsing parsing) => node;
+  FunctionExpression parseNode(ParsingContext parsing) => node;
+
+  @override
+  SourceSpan get sourcePosition => enclosingClass.sourcePosition;
 }
 
+/// This element is used to encode the initializing formal of the implicit
+/// constructor in an enum class.
+///
+/// For instance
+///
+///     enum A { b, c, }
+///
+/// is modelled as
+///
+///     class A {
+///       final int index;
+///
+///       const A(this.index);
+///
+///       String toString() {
+///         return const <int, A>{0: 'A.b', 1: 'A.c'}[index];
+///       }
+///
+///       static const A b = const A(0);
+///       static const A c = const A(1);
+///
+///       static const List<A> values = const <A>[b, c];
+///     }
+///
+///  where the `this.index` formal is encoded using this element.
+///
 class EnumFormalElementX extends InitializingFormalElementX {
-  EnumFormalElementX(ConstructorElement constructor,
-                     VariableDefinitions variables,
-                     Identifier identifier,
-                     EnumFieldElementX fieldElement)
+  EnumFormalElementX(
+      ConstructorElement constructor,
+      VariableDefinitions variables,
+      Identifier identifier,
+      EnumFieldElementX fieldElement)
       : super(constructor, variables, identifier, null, fieldElement) {
     typeCache = fieldElement.type;
   }
+
+  @override
+  SourceSpan get sourcePosition => enclosingClass.sourcePosition;
 }
 
+/// This element is used to encode the implicitly fields in an enum class.
+///
+/// For instance
+///
+///     enum A { b, c, }
+///
+/// is modelled as
+///
+///     class A {
+///       final int index;
+///
+///       const A(this.index);
+///
+///       String toString() {
+///         return const <int, A>{0: 'A.b', 1: 'A.c'}[index];
+///       }
+///
+///       static const A b = const A(0);
+///       static const A c = const A(1);
+///
+///       static const List<A> values = const <A>[b, c];
+///     }
+///
+///  where the `index` and `values` fields are encoded using this element.
+///
 class EnumFieldElementX extends FieldElementX {
-
-  EnumFieldElementX(Identifier name,
-                    EnumClassElementX enumClass,
-                    VariableList variableList,
-                    Node definition,
-                    [Expression initializer])
+  EnumFieldElementX(Identifier name, EnumClassElementX enumClass,
+      VariableList variableList, Node definition,
+      [Expression initializer])
       : super(name, enumClass, variableList) {
-    definitionsCache = new VariableDefinitions(null,
-        variableList.modifiers, new NodeList.singleton(definition));
+    definitionsCache = new VariableDefinitions(
+        null, variableList.modifiers, new NodeList.singleton(definition));
     initializerCache = initializer;
+    definitionCache = definition;
+  }
+
+  @override
+  SourceSpan get sourcePosition => enclosingClass.sourcePosition;
+}
+
+/// This element is used to encode the constant value in an enum class.
+///
+/// For instance
+///
+///     enum A { b, c, }
+///
+/// is modelled as
+///
+///     class A {
+///       final int index;
+///
+///       const A(this.index);
+///
+///       String toString() {
+///         return const <int, A>{0: 'A.b', 1: 'A.c'}[index];
+///       }
+///
+///       static const A b = const A(0);
+///       static const A c = const A(1);
+///
+///       static const List<A> values = const <A>[b, c];
+///     }
+///
+///  where the `b` and `c` fields are encoded using this element.
+///
+class EnumConstantElementX extends EnumFieldElementX
+    implements EnumConstantElement {
+  final int index;
+
+  EnumConstantElementX(
+      Identifier name,
+      EnumClassElementX enumClass,
+      VariableList variableList,
+      Node definition,
+      Expression initializer,
+      this.index)
+      : super(name, enumClass, variableList, definition, initializer);
+
+  @override
+  SourceSpan get sourcePosition {
+    return new SourceSpan(enclosingClass.sourcePosition.uri,
+        position.charOffset, position.charEnd);
   }
 }
 
 abstract class MixinApplicationElementX extends BaseClassElementX
+    with MixinApplicationElementCommon
     implements MixinApplicationElement {
-
   Link<ConstructorElement> constructors = new Link<ConstructorElement>();
 
-  InterfaceType mixinType;
+  ResolutionInterfaceType mixinType;
 
   MixinApplicationElementX(String name, Element enclosing, int id)
       : super(name, enclosing, id, STATE_NOT_STARTED);
@@ -2905,7 +3150,6 @@ abstract class MixinApplicationElementX extends BaseClassElementX
   ClassElement get mixin => mixinType != null ? mixinType.element : null;
 
   bool get isMixinApplication => true;
-  bool get isUnnamedMixinApplication => node is! NamedMixinApplication;
   bool get hasConstructor => !constructors.isEmpty;
   bool get hasLocalScopeMembers => !constructors.isEmpty;
 
@@ -2916,32 +3160,7 @@ abstract class MixinApplicationElementX extends BaseClassElementX
 
   Token get position => node.getBeginToken();
 
-  Node parseNode(Parsing parsing) => node;
-
-  FunctionElement lookupLocalConstructor(String name) {
-    for (Link<Element> link = constructors;
-         !link.isEmpty;
-         link = link.tail) {
-      if (link.head.name == name) return link.head;
-    }
-    return null;
-  }
-
-  Element localLookup(String name) {
-    Element constructor = lookupLocalConstructor(name);
-    if (constructor != null) return constructor;
-    if (mixin == null) return null;
-    Element mixedInElement = mixin.localLookup(name);
-    if (mixedInElement == null) return null;
-    return mixedInElement.isInstanceMember ? mixedInElement : null;
-  }
-
-  void forEachLocalMember(void f(Element member)) {
-    constructors.forEach(f);
-    if (mixin != null) mixin.forEachLocalMember((Element mixedInElement) {
-      if (mixedInElement.isInstanceMember) f(mixedInElement);
-    });
-  }
+  Node parseNode(ParsingContext parsing) => node;
 
   void addMember(Element element, DiagnosticReporter reporter) {
     throw new UnsupportedError("Cannot add member to $this.");
@@ -2955,16 +3174,17 @@ abstract class MixinApplicationElementX extends BaseClassElementX
     constructors = constructors.prepend(constructor);
   }
 
-  void setDefaultConstructor(FunctionElement constructor,
-                             DiagnosticReporter reporter) {
+  void setDefaultConstructor(
+      FunctionElement constructor, DiagnosticReporter reporter) {
     assert(!hasConstructor);
     addConstructor(constructor);
   }
 
-  List<DartType> computeTypeParameters(Parsing parsing) {
+  List<ResolutionDartType> computeTypeParameters(ParsingContext parsing) {
     NamedMixinApplication named = node.asNamedMixinApplication();
     if (named == null) {
-      throw new SpannableAssertionFailure(node,
+      throw new SpannableAssertionFailure(
+          node,
           "Type variables on unnamed mixin applications must be set on "
           "creation.");
     }
@@ -2981,26 +3201,26 @@ class NamedMixinApplicationElementX extends MixinApplicationElementX
   final NamedMixinApplication node;
 
   NamedMixinApplicationElementX(
-      String name,
-      CompilationUnitElement enclosing,
-      int id,
-      this.node)
+      String name, CompilationUnitElement enclosing, int id, this.node)
       : super(name, enclosing, id);
 
   Modifiers get modifiers => node.modifiers;
 
   DeclarationSite get declarationSite => this;
+
+  ClassElement get subclass => null;
 }
 
 class UnnamedMixinApplicationElementX extends MixinApplicationElementX {
   final Node node;
+  final ClassElement subclass;
 
   UnnamedMixinApplicationElementX(
-      String name,
-      CompilationUnitElement enclosing,
-      int id,
-      this.node)
-      : super(name, enclosing, id);
+      String name, ClassElement subclass, int id, this.node)
+      : this.subclass = subclass,
+        super(name, subclass.compilationUnit, id);
+
+  bool get isUnnamedMixinApplication => true;
 
   bool get isAbstract => true;
 }
@@ -3039,11 +3259,16 @@ class JumpTargetX implements JumpTarget {
   final ExecutableElement executableContext;
   final Node statement;
   final int nestingLevel;
-  Link<LabelDefinition> labels = const Link<LabelDefinition>();
+  List<LabelDefinition> labels = <LabelDefinition>[];
   bool isBreakTarget = false;
   bool isContinueTarget = false;
 
+  final int hashCode = ElementX.newHashCode();
+
   JumpTargetX(this.statement, this.nestingLevel, this.executableContext);
+
+  @override
+  MemberElement get memberContext => executableContext.memberContext;
 
   String get name => "target";
 
@@ -3051,7 +3276,7 @@ class JumpTargetX implements JumpTarget {
 
   LabelDefinition addLabel(Label label, String labelName) {
     LabelDefinition result = new LabelDefinitionX(label, labelName, this);
-    labels = labels.prepend(result);
+    labels.add(result);
     return result;
   }
 
@@ -3060,30 +3285,29 @@ class JumpTargetX implements JumpTarget {
   String toString() => 'Target:$statement';
 }
 
-class TypeVariableElementX extends ElementX with AstElementMixin
+class TypeVariableElementX extends ElementX
+    with AstElementMixin
     implements TypeVariableElement {
   final int index;
   final Node node;
-  TypeVariableType typeCache;
-  DartType boundCache;
+  ResolutionTypeVariableType typeCache;
+  ResolutionDartType boundCache;
 
-  TypeVariableElementX(String name,
-                       TypeDeclarationElement enclosing,
-                       this.index,
-                       this.node)
-    : super(name, ElementKind.TYPE_VARIABLE, enclosing);
+  TypeVariableElementX(
+      String name, GenericElement enclosing, this.index, this.node)
+      : super(name, ElementKind.TYPE_VARIABLE, enclosing);
 
-  TypeDeclarationElement get typeDeclaration => enclosingElement;
+  GenericElement get typeDeclaration => enclosingElement;
 
-  TypeVariableType computeType(Resolution resolution) => type;
+  ResolutionTypeVariableType computeType(Resolution resolution) => type;
 
-  TypeVariableType get type {
+  ResolutionTypeVariableType get type {
     assert(invariant(this, typeCache != null,
         message: "Type has not been set on $this."));
     return typeCache;
   }
 
-  DartType get bound {
+  ResolutionDartType get bound {
     assert(invariant(this, boundCache != null,
         message: "Bound has not been set on $this."));
     return boundCache;
@@ -3091,7 +3315,7 @@ class TypeVariableElementX extends ElementX with AstElementMixin
 
   bool get hasNode => true;
 
-  Node parseNode(Parsing parsing) => node;
+  Node parseNode(ParsingContext parsing) => node;
 
   Token get position => node.getBeginToken();
 
@@ -3141,6 +3365,10 @@ abstract class MetadataAnnotationX implements MetadataAnnotation {
    */
   Token get beginToken;
 
+  Token get endToken;
+
+  final int hashCode = ElementX.newHashCode();
+
   MetadataAnnotationX([this.resolutionState = STATE_NOT_STARTED]);
 
   MetadataAnnotation ensureResolved(Resolution resolution) {
@@ -3154,7 +3382,12 @@ abstract class MetadataAnnotationX implements MetadataAnnotation {
     return this;
   }
 
-  Node parseNode(Parsing parsing);
+  Node parseNode(ParsingContext parsing);
+
+  SourceSpan get sourcePosition {
+    Uri uri = annotatedElement.compilationUnit.script.resourceUri;
+    return new SourceSpan.fromTokens(uri, beginToken, endToken);
+  }
 
   String toString() => 'MetadataAnnotation($constant, $resolutionState)';
 }
@@ -3165,7 +3398,7 @@ class ParameterMetadataAnnotation extends MetadataAnnotationX {
 
   ParameterMetadataAnnotation(Metadata this.metadata);
 
-  Node parseNode(Parsing parsing) => metadata.expression;
+  Node parseNode(ParsingContext parsing) => metadata.expression;
 
   Token get beginToken => metadata.getBeginToken();
 
@@ -3181,8 +3414,8 @@ class ParameterMetadataAnnotation extends MetadataAnnotationX {
 /// See [:patch_parser.dart:] for a description of the terminology.
 abstract class PatchMixin<E extends Element> implements Element {
   // TODO(johnniwinther): Use type variables when issue 18630 is fixed.
-  Element/*E*/ patch = null;
-  Element/*E*/ origin = null;
+  Element /*E*/ patch = null;
+  Element /*E*/ origin = null;
 
   bool get isPatch => origin != null;
   bool get isPatched => patch != null;
@@ -3190,19 +3423,19 @@ abstract class PatchMixin<E extends Element> implements Element {
   bool get isImplementation => !isPatched;
   bool get isDeclaration => !isPatch;
 
-  Element/*E*/ get implementation => isPatched ? patch : this;
-  Element/*E*/ get declaration => isPatch ? origin : this;
+  Element /*E*/ get implementation => isPatched ? patch : this;
+  Element /*E*/ get declaration => isPatch ? origin : this;
 
   /// Applies a patch to this element. This method must be called at most once.
   void applyPatch(PatchMixin<E> patch) {
     assert(invariant(this, this.patch == null,
-                     message: "Element is patched twice."));
+        message: "Element is patched twice."));
     assert(invariant(this, this.origin == null,
-                     message: "Origin element is a patch."));
+        message: "Origin element is a patch."));
     assert(invariant(patch, patch.origin == null,
-                     message: "Element is patched twice."));
+        message: "Element is patched twice."));
     assert(invariant(patch, patch.patch == null,
-                     message: "Patch element is patched."));
+        message: "Patch element is patched."));
     this.patch = patch;
     patch.origin = this;
   }
@@ -3220,11 +3453,24 @@ abstract class AstElementMixin implements AstElement {
   /// itself.
   AstElement get definingElement;
 
-  bool get hasResolvedAst => definingElement.hasTreeElements;
-
-  ResolvedAst get resolvedAst {
-    return new ResolvedAst(declaration,
-        definingElement.node, definingElement.treeElements);
+  bool get hasResolvedAst {
+    return definingElement.hasNode && definingElement.hasTreeElements;
   }
 
+  ResolvedAst get resolvedAst {
+    Node node = definingElement.node;
+    Node body;
+    if (definingElement.isField) {
+      FieldElement field = definingElement;
+      body = field.initializer;
+    } else if (node != null && node.asFunctionExpression() != null) {
+      body = node.asFunctionExpression().body;
+    }
+    return new ParsedResolvedAst(
+        declaration,
+        node,
+        body,
+        definingElement.treeElements,
+        definingElement.compilationUnit.script.resourceUri);
+  }
 }

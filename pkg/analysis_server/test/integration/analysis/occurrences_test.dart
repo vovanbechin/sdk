@@ -2,22 +2,20 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.integration.analysis.occurrences;
-
 import 'package:analysis_server/plugin/protocol/protocol.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../utils.dart';
 import '../integration_tests.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(Test);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(OccurrencesTest);
+    defineReflectiveTests(OccurrencesTest_Driver);
+  });
 }
 
-@reflectiveTest
-class Test extends AbstractAnalysisServerIntegrationTest {
+class AbstractOccurrencesTest extends AbstractAnalysisServerIntegrationTest {
   test_occurrences() {
     String pathname = sourcePath('test.dart');
     String text = r'''
@@ -52,6 +50,7 @@ main() {
         fail('No element found matching $elementName');
         return null;
       }
+
       void check(String elementName, Iterable<String> expectedOccurrences) {
         Set<int> expectedOffsets = expectedOccurrences
             .map((String substring) => text.indexOf(substring))
@@ -59,9 +58,19 @@ main() {
         Set<int> foundOffsets = findOffsets(elementName);
         expect(foundOffsets, equals(expectedOffsets));
       }
+
       check('i', ['i = 0', 'i < 10', 'i++', 'i;']);
       check('j', ['j = 0', 'j < i', 'j++', 'j;']);
       check('sum', ['sum = 0', 'sum +=', 'sum)']);
     });
   }
+}
+
+@reflectiveTest
+class OccurrencesTest extends AbstractOccurrencesTest {}
+
+@reflectiveTest
+class OccurrencesTest_Driver extends AbstractOccurrencesTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

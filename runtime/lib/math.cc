@@ -68,8 +68,8 @@ DEFINE_NATIVE_ENTRY(Math_log, 1) {
 DEFINE_NATIVE_ENTRY(Math_doublePow, 2) {
   const double operand =
       Double::CheckedHandle(arguments->NativeArgAt(0)).value();
-  GET_NON_NULL_NATIVE_ARGUMENT(
-      Double, exponent_object, arguments->NativeArgAt(1));
+  GET_NON_NULL_NATIVE_ARGUMENT(Double, exponent_object,
+                               arguments->NativeArgAt(1));
   const double exponent = exponent_object.value();
   return Double::New(pow(operand, exponent));
 }
@@ -79,7 +79,7 @@ DEFINE_NATIVE_ENTRY(Math_doublePow, 2) {
 static RawTypedData* GetRandomStateArray(const Instance& receiver) {
   const Class& random_class = Class::Handle(receiver.clazz());
   const Field& state_field =
-      Field::Handle(random_class.LookupField(Symbols::_state()));
+      Field::Handle(random_class.LookupFieldAllowPrivate(Symbols::_state()));
   ASSERT(!state_field.IsNull());
   const Instance& state_field_value =
       Instance::Cast(Object::Handle(receiver.GetField(state_field)));
@@ -106,14 +106,14 @@ DEFINE_NATIVE_ENTRY(Random_nextState, 1) {
   uint64_t state = (A * state_lo) + state_hi;
   array.SetUint32(0, static_cast<uint32_t>(state));
   array.SetUint32(array.ElementSizeInBytes(),
-      static_cast<uint32_t>(state >> 32));
+                  static_cast<uint32_t>(state >> 32));
   return Object::null();
 }
 
 
 RawTypedData* CreateRandomState(Zone* zone, uint64_t seed) {
-  const TypedData& result = TypedData::Handle(
-      zone, TypedData::New(kTypedDataUint32ArrayCid, 2));
+  const TypedData& result =
+      TypedData::Handle(zone, TypedData::New(kTypedDataUint32ArrayCid, 2));
   result.SetUint32(0, static_cast<uint32_t>(seed));
   result.SetUint32(result.ElementSizeInBytes(),
                    static_cast<uint32_t>(seed >> 32));
@@ -125,11 +125,11 @@ uint64_t mix64(uint64_t n) {
   // Thomas Wang 64-bit mix.
   // http://www.concentric.net/~Ttwang/tech/inthash.htm
   // via. http://web.archive.org/web/20071223173210/http://www.concentric.net/~Ttwang/tech/inthash.htm
-  n = (~n) + (n << 21);           // n = (n << 21) - n - 1;
+  n = (~n) + (n << 21);  // n = (n << 21) - n - 1;
   n = n ^ (n >> 24);
-  n = n * 265;                    // n = (n + (n << 3)) + (n << 8);
+  n = n * 265;  // n = (n + (n << 3)) + (n << 8);
   n = n ^ (n >> 14);
-  n = n * 21;                     // n = (n + (n << 2)) + (n << 4);
+  n = n * 21;  // n = (n + (n << 2)) + (n << 4);
   n = n ^ (n >> 28);
   n = n + (n << 31);
   return n;
@@ -205,7 +205,7 @@ DEFINE_NATIVE_ENTRY(SecureRandom_getBytes, 1) {
   const intptr_t n = count.Value();
   ASSERT((n > 0) && (n <= 8));
   uint8_t buffer[8];
-  Dart_EntropySource entropy_source = isolate->entropy_source_callback();
+  Dart_EntropySource entropy_source = Dart::entropy_source_callback();
   if ((entropy_source == NULL) || !entropy_source(buffer, n)) {
     const String& error = String::Handle(String::New(
         "No source of cryptographically secure random numbers available."));

@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-patch class RawServerSocket {
-  /* patch */ static Future<RawServerSocket> bind(address,
+@patch class RawServerSocket {
+  @patch static Future<RawServerSocket> bind(address,
                                                   int port,
                                                   {int backlog: 0,
                                                    bool v6Only: false,
@@ -13,49 +13,66 @@ patch class RawServerSocket {
 }
 
 
-patch class RawSocket {
-  /* patch */ static Future<RawSocket> connect(
+@patch class RawSocket {
+  @patch static Future<RawSocket> connect(
       host, int port, {sourceAddress}) {
     return _RawSocket.connect(host, port, sourceAddress);
   }
 }
 
 
-patch class InternetAddress {
-  /* patch */ static InternetAddress get LOOPBACK_IP_V4 {
+@patch class InternetAddress {
+  @patch static InternetAddress get LOOPBACK_IP_V4 {
     return _InternetAddress.LOOPBACK_IP_V4;
   }
 
-  /* patch */ static InternetAddress get LOOPBACK_IP_V6 {
+  @patch static InternetAddress get LOOPBACK_IP_V6 {
     return _InternetAddress.LOOPBACK_IP_V6;
   }
 
-  /* patch */ static InternetAddress get ANY_IP_V4 {
+  @patch static InternetAddress get ANY_IP_V4 {
     return _InternetAddress.ANY_IP_V4;
   }
 
-  /* patch */ static InternetAddress get ANY_IP_V6 {
+  @patch static InternetAddress get ANY_IP_V6 {
     return _InternetAddress.ANY_IP_V6;
   }
 
-  /* patch */ factory InternetAddress(String address) {
+  @patch factory InternetAddress(String address) {
     return new _InternetAddress.parse(address);
   }
 
-  /* patch */ static Future<List<InternetAddress>> lookup(
+  @patch static Future<List<InternetAddress>> lookup(
       String host, {InternetAddressType type: InternetAddressType.ANY}) {
     return _NativeSocket.lookup(host, type: type);
   }
+
+  @patch static InternetAddress _cloneWithNewHost(
+      InternetAddress address, String host) {
+    return (address as _InternetAddress)._cloneWithNewHost(host);
+  }
 }
 
-patch class NetworkInterface {
-  /* patch */ static Future<List<NetworkInterface>> list({
+@patch class NetworkInterface {
+  @patch static bool get listSupported {
+    return _listSupported();
+  }
+
+  @patch static Future<List<NetworkInterface>> list({
       bool includeLoopback: false,
       bool includeLinkLocal: false,
       InternetAddressType type: InternetAddressType.ANY}) {
     return _NativeSocket.listInterfaces(includeLoopback: includeLoopback,
                                         includeLinkLocal: includeLinkLocal,
                                         type: type);
+  }
+
+  static bool _listSupported() native "NetworkInterface_ListSupported";
+}
+
+void _throwOnBadPort(int port) {
+  if ((port == null) || (port < 0) || (port > 0xFFFF)) {
+    throw new ArgumentError("Invalid port $port");
   }
 }
 
@@ -127,9 +144,7 @@ class _InternetAddress implements InternetAddress {
 
   Future<InternetAddress> reverse() => _NativeSocket.reverseLookup(this);
 
-  _InternetAddress(String this.address,
-                   String this._host,
-                   List<int> this._in_addr);
+  _InternetAddress(this.address, this._host, this._in_addr);
 
   factory _InternetAddress.parse(String address) {
     if (address is !String) {
@@ -320,8 +335,6 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
   // a HttpServer, a WebSocket connection, a process pipe, etc.
   Object owner;
 
-  static double get timestamp => sw.elapsedMicroseconds / 1000000.0;
-
   static Future<List<InternetAddress>> lookup(
       String host, {InternetAddressType type: InternetAddressType.ANY}) {
     return _IOService._dispatch(_SOCKET_LOOKUP, [host, type._value])
@@ -376,6 +389,7 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
   }
 
   static Future<_NativeSocket> connect(host, int port, sourceAddress) {
+    _throwOnBadPort(port);
     if (sourceAddress != null && sourceAddress is! _InternetAddress) {
       if (sourceAddress is String) {
         sourceAddress = new InternetAddress(sourceAddress);
@@ -387,7 +401,7 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
           return lookup(host)
               .then((addresses) {
                 if (addresses.isEmpty) {
-                  throw createError(response, "Failed host lookup: '$host'");
+                  throw createError(null, "Failed host lookup: '$host'");
                 }
                 return addresses;
               });
@@ -420,12 +434,23 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
             if (result is OSError) {
               // Keep first error, if present.
               if (error == null) {
-                error = createError(result, "Connection failed", address, port);
+                int errorCode = result.errorCode;
+                if (errorCode != null && socket.isBindError(errorCode)) {
+                  error = createError(result, "Bind failed", sourceAddress);
+                } else {
+                  error =
+                      createError(result, "Connection failed", address, port);
+                }
               }
               connectNext();
             } else {
               // Query the local port, for error messages.
-              socket.port;
+              try {
+                socket.port;
+              } catch (e) {
+                error = createError(e, "Connection failed", address, port);
+                connectNext();
+              }
               // Set up timer for when we should retry the next address
               // (if any).
               var duration = address.isLoopback ?
@@ -471,13 +496,14 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
                                     int backlog,
                                     bool v6Only,
                                     bool shared) {
+    _throwOnBadPort(port);
     return new Future.value(host)
         .then((host) {
           if (host is _InternetAddress) return host;
           return lookup(host)
               .then((list) {
                 if (list.length == 0) {
-                  throw createError(response, "Failed host lookup: '$host'");
+                  throw createError(null, "Failed host lookup: '$host'");
                 }
                 return list[0];
               });
@@ -509,13 +535,14 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
 
   static Future<_NativeSocket> bindDatagram(
       host, int port, bool reuseAddress) {
+    _throwOnBadPort(port);
     return new Future.value(host)
         .then((host) {
           if (host is _InternetAddress) return host;
           return lookup(host)
               .then((list) {
                 if (list.length == 0) {
-                  throw createError(response, "Failed host lookup: '$host'");
+                  throw createError(null, "Failed host lookup: '$host'");
                 }
                 return list[0];
               });
@@ -638,7 +665,8 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
     var result =
         nativeWrite(bufferAndStart.buffer, bufferAndStart.start, bytes);
     if (result is OSError) {
-      scheduleMicrotask(() => reportError(result, "Write failed"));
+      OSError osError = result;
+      scheduleMicrotask(() => reportError(osError, "Write failed"));
       result = 0;
     }
     // The result may be negative, if we forced a short write for testing
@@ -659,6 +687,7 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
 
   int send(List<int> buffer, int offset, int bytes,
            InternetAddress address, int port) {
+    _throwOnBadPort(port);
     if (isClosing || isClosed) return 0;
     _BufferAndStart bufferAndStart =
         _ensureFastAndSerializableByteData(
@@ -667,7 +696,8 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
         bufferAndStart.buffer, bufferAndStart.start, bytes,
         address._in_addr, port);
     if (result is OSError) {
-      scheduleMicrotask(() => reportError(result, "Send failed"));
+      OSError osError = result;
+      scheduleMicrotask(() => reportError(osError, "Send failed"));
       result = 0;
     }
     // TODO(ricow): Remove when we track internal and pipe uses.
@@ -1064,6 +1094,7 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
   nativeCreateBindConnect(
       List<int> addr, int port, List<int> sourceAddr)
       native "Socket_CreateBindConnect";
+  bool isBindError(int errorNumber) native "Socket_IsBindError";
   nativeCreateBindListen(List<int> addr, int port, int backlog, bool v6Only,
                          bool shared)
       native "ServerSocket_CreateBindListen";
@@ -1077,7 +1108,7 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
   nativeGetOption(int option, int protocol) native "Socket_GetOption";
   bool nativeSetOption(int option, int protocol, value)
       native "Socket_SetOption";
-  bool nativeJoinMulticast(
+  OSError nativeJoinMulticast(
       List<int> addr, List<int> interfaceAddr, int interfaceIndex)
           native "Socket_JoinMulticast";
   bool nativeLeaveMulticast(
@@ -1098,8 +1129,7 @@ class _RawServerSocket extends Stream<RawSocket>
                                        int backlog,
                                        bool v6Only,
                                        bool shared) {
-    if (port < 0 || port > 0xFFFF)
-      throw new ArgumentError("Invalid port $port");
+    _throwOnBadPort(port);
     if (backlog < 0) throw new ArgumentError("Invalid backlog $backlog");
     return _NativeSocket.bind(address, port, backlog, v6Only, shared)
         .then((socket) => new _RawServerSocket(socket, v6Only));
@@ -1244,7 +1274,7 @@ class _RawSocket extends Stream<RawSocketEvent>
     if (fd != null) _getStdioHandle(native, fd);
     var result = new _RawSocket(native);
     if (fd != null) {
-      var socketType = _StdIOUtils._socketType(result._socket);
+      var socketType = _StdIOUtils._nativeSocketType(result._socket);
       result._isMacOSTerminalInput =
           Platform.isMacOS && socketType == _STDIO_HANDLE_TYPE_TERMINAL;
     }
@@ -1342,8 +1372,8 @@ class _RawSocket extends Stream<RawSocketEvent>
 }
 
 
-patch class ServerSocket {
-  /* patch */ static Future<ServerSocket> bind(address,
+@patch class ServerSocket {
+  @patch static Future<ServerSocket> bind(address,
                                                int port,
                                                {int backlog: 0,
                                                 bool v6Only: false,
@@ -1389,8 +1419,8 @@ class _ServerSocket extends Stream<Socket>
 }
 
 
-patch class Socket {
-  /* patch */ static Future<Socket> connect(host, int port, {sourceAddress}) {
+@patch class Socket {
+  @patch static Future<Socket> connect(host, int port, {sourceAddress}) {
     return RawSocket.connect(host, port, sourceAddress: sourceAddress).then(
         (socket) => new _Socket(socket));
   }
@@ -1493,7 +1523,7 @@ class _Socket extends Stream<List<int>> implements Socket {
   var _subscription;
   var _detachReady;
 
-  _Socket(RawSocket this._raw) {
+  _Socket(this._raw) {
     _controller = new StreamController<List<int>>(sync: true,
         onListen: _onSubscriptionStateChange,
         onCancel: _onSubscriptionStateChange,
@@ -1702,8 +1732,8 @@ class _Socket extends Stream<List<int>> implements Socket {
 }
 
 
-patch class RawDatagramSocket {
-  /* patch */ static Future<RawDatagramSocket> bind(
+@patch class RawDatagramSocket {
+  @patch static Future<RawDatagramSocket> bind(
       host, int port, {bool reuseAddress: true}) {
     return _RawDatagramSocket.bind(host, port, reuseAddress);
   }
@@ -1744,8 +1774,7 @@ class _RawDatagramSocket extends Stream implements RawDatagramSocket {
 
   static Future<RawDatagramSocket> bind(
       host, int port, bool reuseAddress) {
-    if (port < 0 || port > 0xffff)
-      throw new ArgumentError("Invalid port $port");
+    _throwOnBadPort(port);
     return _NativeSocket.bindDatagram(host, port, reuseAddress)
         .then((socket) => new _RawDatagramSocket(socket));
   }

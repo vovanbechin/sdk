@@ -25,7 +25,7 @@ import 'package:compiler/src/source_file_provider.dart';
 import '../memory_compiler.dart';
 import '../output_collector.dart';
 
-class SourceFileSink implements EventSink<String> {
+class SourceFileSink implements OutputSink {
   final String filename;
   StringBuffer sb = new StringBuffer();
   SourceFile sourceFile;
@@ -35,11 +35,6 @@ class SourceFileSink implements EventSink<String> {
   @override
   void add(String event) {
     sb.write(event);
-  }
-
-  @override
-  void addError(errorEvent, [StackTrace stackTrace]) {
-    // Ignore.
   }
 
   @override
@@ -59,7 +54,8 @@ class OutputProvider implements CompilerOutput {
     return null;
   }
 
-  SourceFileSink createSourceFileSink(String name, String extension) {
+  SourceFileSink createSourceFileSink(
+      String name, String extension, OutputType type) {
     String filename = '$name.$extension';
     SourceFileSink sink = new SourceFileSink(filename);
     Uri uri = Uri.parse(filename);
@@ -68,8 +64,8 @@ class OutputProvider implements CompilerOutput {
   }
 
   @override
-  EventSink<String> createEventSink(String name, String extension) {
-    return createSourceFileSink(name, extension);
+  OutputSink createOutputSink(String name, String extension, OutputType type) {
+    return createSourceFileSink(name, extension, type);
   }
 }
 
@@ -77,13 +73,13 @@ class CloningOutputProvider extends OutputProvider {
   RandomAccessFileOutputProvider outputProvider;
 
   CloningOutputProvider(Uri jsUri, Uri jsMapUri)
-    : outputProvider = new RandomAccessFileOutputProvider(jsUri, jsMapUri);
+      : outputProvider = new RandomAccessFileOutputProvider(jsUri, jsMapUri);
 
   @override
-  EventSink<String> createEventSink(String name, String extension) {
-    EventSink<String> output = outputProvider(name, extension);
-    return new CloningEventSink(
-        [output, createSourceFileSink(name, extension)]);
+  OutputSink createOutputSink(String name, String extension, OutputType type) {
+    OutputSink output = outputProvider.createOutputSink(name, extension, type);
+    return new CloningOutputSink(
+        [output, createSourceFileSink(name, extension, type)]);
   }
 }
 
@@ -114,14 +110,27 @@ class RecordingPrintingContext extends LenientPrintingContext {
   RecordingPrintingContext(this.listener);
 
   @override
-  void exitNode(js.Node node,
-                int startPosition,
-                int endPosition,
-                int closingPosition) {
+  void exitNode(
+      js.Node node, int startPosition, int endPosition, int closingPosition) {
     codePositions[node] =
         new CodePosition(startPosition, endPosition, closingPosition);
-    listener.onPositions(
-        node, startPosition, endPosition, closingPosition);
+    listener.onPositions(node, startPosition, endPosition, closingPosition);
+  }
+}
+
+/// A [SourceMapper] that records the source locations on each node.
+class RecordingSourceMapperProvider implements SourceMapperProvider {
+  final SourceMapperProvider sourceMapperProvider;
+  final _LocationRecorder nodeToSourceLocationsMap;
+
+  RecordingSourceMapperProvider(
+      this.sourceMapperProvider, this.nodeToSourceLocationsMap);
+
+  @override
+  SourceMapper createSourceMapper(String name) {
+    return new RecordingSourceMapper(
+        sourceMapperProvider.createSourceMapper(name),
+        nodeToSourceLocationsMap);
   }
 }
 
@@ -141,24 +150,18 @@ class RecordingSourceMapper implements SourceMapper {
 
 /// A wrapper of [SourceInformationProcessor] that records source locations and
 /// code positions.
-class RecordingSourceInformationProcessor
-    implements SourceInformationProcessor {
+class RecordingSourceInformationProcessor extends SourceInformationProcessor {
   final RecordingSourceInformationStrategy wrapper;
   final SourceInformationProcessor processor;
   final CodePositionRecorder codePositions;
   final LocationMap nodeToSourceLocationsMap;
 
-  RecordingSourceInformationProcessor(
-      this.wrapper,
-      this.processor,
-      this.codePositions,
-      this.nodeToSourceLocationsMap);
+  RecordingSourceInformationProcessor(this.wrapper, this.processor,
+      this.codePositions, this.nodeToSourceLocationsMap);
 
   @override
-  void onPositions(js.Node node,
-                   int startPosition,
-                   int endPosition,
-                   int closingPosition) {
+  void onPositions(
+      js.Node node, int startPosition, int endPosition, int closingPosition) {
     codePositions.registerPositions(
         node, startPosition, endPosition, closingPosition);
     processor.onPositions(node, startPosition, endPosition, closingPosition);
@@ -180,12 +183,8 @@ class RecordedSourceInformationProcess {
   final LocationMap nodeToSourceLocationsMap;
 
   RecordedSourceInformationProcess(
-      this.root,
-      this.code,
-      this.codePositions,
-      this.nodeToSourceLocationsMap);
+      this.root, this.code, this.codePositions, this.nodeToSourceLocationsMap);
 }
-
 
 /// A wrapper of [JavaScriptSourceInformationStrategy] that records
 /// [RecordedSourceInformationProcess].
@@ -200,26 +199,30 @@ class RecordingSourceInformationStrategy
   RecordingSourceInformationStrategy(this.strategy);
 
   @override
-  SourceInformationBuilder createBuilderForContext(AstElement element) {
-    return strategy.createBuilderForContext(element);
+  SourceInformationBuilder createBuilderForContext(ResolvedAst resolvedAst) {
+    return strategy.createBuilderForContext(resolvedAst);
   }
 
   @override
-  SourceInformationProcessor createProcessor(SourceMapper sourceMapper) {
-    LocationMap nodeToSourceLocationsMap =
-        new _LocationRecorder();
+  SourceInformationProcessor createProcessor(
+      SourceMapperProvider provider, SourceInformationReader reader) {
+    LocationMap nodeToSourceLocationsMap = new _LocationRecorder();
     CodePositionRecorder codePositions = new CodePositionRecorder();
     return new RecordingSourceInformationProcessor(
         this,
-        strategy.createProcessor(new RecordingSourceMapper(
-            sourceMapper, nodeToSourceLocationsMap)),
-            codePositions, nodeToSourceLocationsMap);
+        strategy.createProcessor(
+            new RecordingSourceMapperProvider(
+                provider, nodeToSourceLocationsMap),
+            reader),
+        codePositions,
+        nodeToSourceLocationsMap);
   }
 
-  void registerProcess(js.Node root,
-                       BufferedCodeOutput code,
-                       CodePositionRecorder codePositions,
-                       LocationMap nodeToSourceLocationsMap) {
+  void registerProcess(
+      js.Node root,
+      BufferedCodeOutput code,
+      CodePositionRecorder codePositions,
+      LocationMap nodeToSourceLocationsMap) {
     RecordedSourceInformationProcess subProcess =
         new RecordedSourceInformationProcess(
             root, code.getText(), codePositions, nodeToSourceLocationsMap);
@@ -272,8 +275,6 @@ class FindVisitor extends js.BaseVisitor {
   }
 }
 
-const String DISABLE_INLINING = '--disable-inlining';
-
 /// Processor that computes [SourceMapInfo] for the JavaScript compiled for a
 /// given Dart file.
 class SourceMapProcessor {
@@ -304,35 +305,31 @@ class SourceMapProcessor {
   }
 
   /// Computes the [SourceMapInfo] for the compiled elements.
-  Future<SourceMaps> process(
-      List<String> options,
-      {bool verbose: true,
-       bool perElement: true,
-       bool forMain: false}) async {
+  Future<SourceMaps> process(List<String> options,
+      {bool verbose: true, bool perElement: true, bool forMain: false}) async {
     OutputProvider outputProvider = outputToFile
         ? new CloningOutputProvider(targetUri, sourceMapFileUri)
         : new OutputProvider();
     if (options.contains(Flags.useNewSourceInfo)) {
       if (verbose) print('Using the new source information system.');
     }
+    if (options.contains(Flags.disableInlining)) {
+      if (verbose) print('Inlining disabled');
+    }
     api.CompilerImpl compiler = await compilerFor(
         outputProvider: outputProvider,
         // TODO(johnniwinther): Use [verbose] to avoid showing diagnostics.
         options: ['--out=$targetUri', '--source-map=$sourceMapFileUri']
-            ..addAll(options));
-    if (options.contains(DISABLE_INLINING)) {
-      if (verbose) print('Inlining disabled');
-      compiler.disableInlining = true;
-    }
+          ..addAll(options));
 
     JavaScriptBackend backend = compiler.backend;
     var handler = compiler.handler;
     SourceFileProvider sourceFileProvider = handler.provider;
-    sourceFileManager = new ProviderSourceFileManager(
-        sourceFileProvider,
-        outputProvider);
+    sourceFileManager =
+        new ProviderSourceFileManager(sourceFileProvider, outputProvider);
     RecordingSourceInformationStrategy strategy =
-        new RecordingSourceInformationStrategy(backend.sourceInformationStrategy);
+        new RecordingSourceInformationStrategy(
+            backend.sourceInformationStrategy);
     backend.sourceInformationStrategy = strategy;
     await compiler.run(inputUri);
 
@@ -354,15 +351,12 @@ class SourceMapProcessor {
         CodePositionRecorder codePositions = subProcess.codePositions;
         CodePointComputer visitor =
             new CodePointComputer(sourceFileManager, code, nodeMap);
-        new JavaScriptTracer(codePositions, [visitor]).apply(node);
+        new JavaScriptTracer(
+                codePositions, const SourceInformationReader(), [visitor])
+            .apply(node);
         List<CodePoint> codePoints = visitor.codePoints;
         elementSourceMapInfos[element] = new SourceMapInfo(
-            element,
-            code,
-            node,
-            codePoints,
-            codePositions,
-            nodeMap);
+            element, code, node, codePoints, codePositions, nodeMap);
       });
     }
     if (forMain) {
@@ -377,20 +371,16 @@ class SourceMapProcessor {
       codePositions = process.codePositions;
       CodePointComputer visitor =
           new CodePointComputer(sourceFileManager, code, nodeMap);
-      new JavaScriptTracer(codePositions, [visitor]).apply(node);
+      new JavaScriptTracer(
+              codePositions, const SourceInformationReader(), [visitor])
+          .apply(node);
       List<CodePoint> codePoints = visitor.codePoints;
       mainSourceMapInfo = new SourceMapInfo(
-          null, code, node,
-          codePoints,
-          codePositions,
-          nodeMap);
+          null, code, node, codePoints, codePositions, nodeMap);
     }
 
     return new SourceMaps(
-        compiler,
-        sourceFileManager,
-        mainSourceMapInfo,
-        elementSourceMapInfos);
+        compiler, sourceFileManager, mainSourceMapInfo, elementSourceMapInfos);
   }
 }
 
@@ -401,11 +391,8 @@ class SourceMaps {
   final SourceMapInfo mainSourceMapInfo;
   final Map<Element, SourceMapInfo> elementSourceMapInfos;
 
-  SourceMaps(
-      this.compiler,
-      this.sourceFileManager,
-      this.mainSourceMapInfo,
-          this.elementSourceMapInfos);
+  SourceMaps(this.compiler, this.sourceFileManager, this.mainSourceMapInfo,
+      this.elementSourceMapInfos);
 }
 
 /// Source mapping information for the JavaScript code of an [Element].
@@ -418,15 +405,10 @@ class SourceMapInfo {
   final CodePositionMap jsCodePositions;
   final LocationMap nodeMap;
 
-  SourceMapInfo(
-      Element element,
-      this.code,
-      this.node,
-      this.codePoints,
-      this.jsCodePositions,
-      this.nodeMap)
+  SourceMapInfo(Element element, this.code, this.node, this.codePoints,
+      this.jsCodePositions, this.nodeMap)
       : this.name =
-          element != null ? computeElementNameForSourceMaps(element) : '',
+            element != null ? computeElementNameForSourceMaps(element) : '',
         this.element = element;
 
   String toString() {
@@ -439,29 +421,28 @@ class SourceMapInfo {
 abstract class LocationMap {
   Iterable<js.Node> get nodes;
 
-  Map<int, List<SourceLocation>> operator[] (js.Node node);
+  Map<int, List<SourceLocation>> operator [](js.Node node);
 
   factory LocationMap.recorder() = _LocationRecorder;
 
   factory LocationMap.filter(Set<js.Node> nodes, LocationMap map) =
       _FilteredLocationMap;
-
 }
 
-class _LocationRecorder
-    implements SourceMapper, LocationMap {
+class _LocationRecorder implements SourceMapper, LocationMap {
   final Map<js.Node, Map<int, List<SourceLocation>>> _nodeMap = {};
 
   @override
   void register(js.Node node, int codeOffset, SourceLocation sourceLocation) {
-    _nodeMap.putIfAbsent(node, () => {})
+    _nodeMap
+        .putIfAbsent(node, () => {})
         .putIfAbsent(codeOffset, () => [])
         .add(sourceLocation);
   }
 
   Iterable<js.Node> get nodes => _nodeMap.keys;
 
-  Map<int, List<SourceLocation>> operator[] (js.Node node) {
+  Map<int, List<SourceLocation>> operator [](js.Node node) {
     return _nodeMap[node];
   }
 }
@@ -474,11 +455,10 @@ class _FilteredLocationMap implements LocationMap {
 
   Iterable<js.Node> get nodes => map.nodes.where((n) => _nodes.contains(n));
 
-  Map<int, List<SourceLocation>> operator[] (js.Node node) {
+  Map<int, List<SourceLocation>> operator [](js.Node node) {
     return map[node];
   }
 }
-
 
 /// Visitor that computes the [CodePoint]s for source mapping locations.
 class CodePointComputer extends TraceListener {
@@ -514,15 +494,16 @@ class CodePointComputer extends TraceListener {
   }
 
   void register(StepKind kind, js.Node node, {bool expectInfo: true}) {
-
     String dartCodeFromSourceLocation(SourceLocation sourceLocation) {
       SourceFile sourceFile =
-           sourceFileManager.getSourceFile(sourceLocation.sourceUri);
+          sourceFileManager.getSourceFile(sourceLocation.sourceUri);
       if (sourceFile == null) {
         return sourceLocation.shortText;
       }
-      return sourceFile.getLineText(sourceLocation.line)
-          .substring(sourceLocation.column).trim();
+      return sourceFile
+          .getLineText(sourceLocation.line)
+          .substring(sourceLocation.column)
+          .trim();
     }
 
     void addLocation(SourceLocation sourceLocation, String jsCode) {
@@ -535,12 +516,12 @@ class CodePointComputer extends TraceListener {
             sourceLocation = sourceInformation.sourceLocations.first;
             dartCode = dartCodeFromSourceLocation(sourceLocation);
           }
-          codePoints.add(new CodePoint(
-              kind, jsCode, sourceLocation, dartCode, isMissing: true));
+          codePoints.add(new CodePoint(kind, jsCode, sourceLocation, dartCode,
+              isMissing: true));
         }
       } else {
-         codePoints.add(new CodePoint(kind, jsCode, sourceLocation,
-             dartCodeFromSourceLocation(sourceLocation)));
+        codePoints.add(new CodePoint(kind, jsCode, sourceLocation,
+            dartCodeFromSourceLocation(sourceLocation)));
       }
     }
 
@@ -566,16 +547,12 @@ class CodePoint {
   final String dartCode;
   final bool isMissing;
 
-  CodePoint(
-      this.kind,
-      this.jsCode,
-      this.sourceLocation,
-      this.dartCode,
+  CodePoint(this.kind, this.jsCode, this.sourceLocation, this.dartCode,
       {this.isMissing: false});
 
   String toString() {
     return 'CodePoint[kind=$kind,js=$jsCode,dart=$dartCode,'
-                     'location=$sourceLocation]';
+        'location=$sourceLocation]';
   }
 }
 

@@ -6,12 +6,10 @@ library dart2js.test.diagnostic_helper;
 
 import 'dart:collection';
 
-import 'package:compiler/compiler_new.dart' show
-    CompilerDiagnostics,
-    Diagnostic;
-import 'package:compiler/src/diagnostics/messages.dart' show
-    Message,
-    MessageKind;
+import 'package:compiler/compiler_new.dart'
+    show CompilerDiagnostics, Diagnostic;
+import 'package:compiler/src/diagnostics/messages.dart'
+    show Message, MessageKind;
 import 'package:expect/expect.dart';
 
 class CollectedMessage {
@@ -29,27 +27,22 @@ class CollectedMessage {
 
   String toString() {
     return '${message != null ? message.kind : ''}'
-           ':$uri:$begin:$end:$text:$kind';
+        ':$uri:$begin:$end:$text:$kind';
   }
 }
 
 class DiagnosticCollector implements CompilerDiagnostics {
   List<CollectedMessage> messages = <CollectedMessage>[];
 
-  void call(Uri uri, int begin, int end, String message, Diagnostic kind) {
-    throw '';
-    report(null, uri, begin, end, message, kind);
-  }
-
   @override
-  void report(Message message,
-              Uri uri, int begin, int end, String text, Diagnostic kind) {
+  void report(Message message, Uri uri, int begin, int end, String text,
+      Diagnostic kind) {
     messages.add(new CollectedMessage(message, uri, begin, end, text, kind));
   }
 
   Iterable<CollectedMessage> filterMessagesByKinds(List<Diagnostic> kinds) {
-    return messages.where(
-      (CollectedMessage message) => kinds.contains(message.kind));
+    return messages
+        .where((CollectedMessage message) => kinds.contains(message.kind));
   }
 
   Iterable<CollectedMessage> get errors {
@@ -72,6 +65,10 @@ class DiagnosticCollector implements CompilerDiagnostics {
     return filterMessagesByKinds([Diagnostic.CRASH]);
   }
 
+  Iterable<CollectedMessage> get verboseInfos {
+    return filterMessagesByKinds([Diagnostic.VERBOSE_INFO]);
+  }
+
   /// `true` if non-verbose messages has been collected.
   bool get hasRegularMessages {
     return messages.any((m) => m.kind != Diagnostic.VERBOSE_INFO);
@@ -83,16 +80,16 @@ class DiagnosticCollector implements CompilerDiagnostics {
 
   void checkMessages(List<Expected> expectedMessages) {
     int index = 0;
-    Iterable<CollectedMessage> messages =
-        filterMessagesByKinds(
-            [Diagnostic.ERROR,
-             Diagnostic.WARNING,
-             Diagnostic.HINT,
-             Diagnostic.INFO]);
+    Iterable<CollectedMessage> messages = filterMessagesByKinds([
+      Diagnostic.ERROR,
+      Diagnostic.WARNING,
+      Diagnostic.HINT,
+      Diagnostic.INFO
+    ]);
     for (CollectedMessage message in messages) {
       if (index >= expectedMessages.length) {
         Expect.fail("Unexpected messages:\n "
-                    "${messages.skip(index).join('\n ')}");
+            "${messages.skip(index).join('\n ')}");
       } else {
         Expected expected = expectedMessages[index];
         Expect.equals(expected.messageKind, message.messageKind,
@@ -124,18 +121,14 @@ class Expected {
       : this(messageKind, Diagnostic.INFO);
 }
 
-
-void compareWarningKinds(String text,
-                         List expectedWarnings,
-                         Iterable<CollectedMessage> foundWarnings) {
+void compareWarningKinds(String text, List expectedWarnings,
+    Iterable<CollectedMessage> foundWarnings) {
   compareMessageKinds(text, expectedWarnings, foundWarnings, 'warning');
 }
 
 /// [expectedMessages] must be a list of either [MessageKind] or [CheckMessage].
-void compareMessageKinds(String text,
-                         List expectedMessages,
-                         Iterable<CollectedMessage> foundMessages,
-                         String kind) {
+void compareMessageKinds(String text, List expectedMessages,
+    Iterable<CollectedMessage> foundMessages, String kind) {
   var fail = (message) => Expect.fail('$text: $message');
   HasNextIterator expectedIterator =
       new HasNextIterator(expectedMessages.iterator);
@@ -186,7 +179,7 @@ CheckMessage checkMessage(MessageKind kind, Map arguments) {
       String foundValue = '${message.arguments[key]}';
       if (expectedValue != foundValue) {
         return 'Expected argument $key with value $expectedValue, '
-               'found $foundValue.';
+            'found $foundValue.';
       }
     }
     return null;

@@ -6,7 +6,7 @@
 #if defined(TARGET_OS_ANDROID)
 
 #include <sys/syscall.h>  // NOLINT
-#include <errno.h>  // NOLINT
+#include <errno.h>        // NOLINT
 
 #include "vm/flags.h"
 #include "vm/os.h"
@@ -23,7 +23,8 @@ DECLARE_FLAG(bool, trace_thread_interrupter);
 
 class ThreadInterrupterAndroid : public AllStatic {
  public:
-  static void ThreadInterruptSignalHandler(int signal, siginfo_t* info,
+  static void ThreadInterruptSignalHandler(int signal,
+                                           siginfo_t* info,
                                            void* context_) {
     if (signal != SIGPROF) {
       return;
@@ -46,10 +47,15 @@ class ThreadInterrupterAndroid : public AllStatic {
 };
 
 
+bool ThreadInterrupter::IsDebuggerAttached() {
+  return false;
+}
+
+
 void ThreadInterrupter::InterruptThread(OSThread* thread) {
   if (FLAG_trace_thread_interrupter) {
-    OS::Print("ThreadInterrupter interrupting %p\n",
-              reinterpret_cast<void*>(thread->id()));
+    OS::PrintErr("ThreadInterrupter interrupting %p\n",
+                 reinterpret_cast<void*>(thread->id()));
   }
   int result = syscall(__NR_tgkill, getpid(), thread->id(), SIGPROF);
   ASSERT((result == 0) || (result == ESRCH));
@@ -57,8 +63,8 @@ void ThreadInterrupter::InterruptThread(OSThread* thread) {
 
 
 void ThreadInterrupter::InstallSignalHandler() {
-  SignalHandler::Install(
-      ThreadInterrupterAndroid::ThreadInterruptSignalHandler);
+  SignalHandler::Install<
+      ThreadInterrupterAndroid::ThreadInterruptSignalHandler>();
 }
 
 

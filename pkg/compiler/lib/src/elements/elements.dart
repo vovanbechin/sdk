@@ -5,29 +5,23 @@
 library elements;
 
 import '../common.dart';
-import '../common/resolution.dart' show
-    Resolution;
-import '../compiler.dart' show
-    Compiler;
+import '../common/resolution.dart' show Resolution;
 import '../constants/constructors.dart';
 import '../constants/expressions.dart';
-import '../core_types.dart' show
-    CoreClasses;
-import '../dart_types.dart';
-import '../resolution/scope.dart' show
-    Scope;
-import '../resolution/tree_elements.dart' show
-    TreeElements;
+import '../core_types.dart' show CommonElements;
 import '../ordered_typeset.dart' show OrderedTypeSet;
+import '../resolution/scope.dart' show Scope;
+import '../resolution/tree_elements.dart' show TreeElements;
 import '../script.dart';
-import '../tokens/token.dart' show
-    Token,
-    isUserDefinableOperator,
-    isMinusOperator;
+import 'package:front_end/src/fasta/scanner.dart'
+    show Token, isUserDefinableOperator, isMinusOperator;
 import '../tree/tree.dart';
-import '../util/characters.dart' show $_;
+import '../universe/call_structure.dart';
+import 'package:front_end/src/fasta/scanner/characters.dart' show $_;
 import '../util/util.dart';
-
+import '../world.dart' show ClosedWorld;
+import 'entities.dart';
+import 'resolution_types.dart';
 import 'visitor.dart' show ElementVisitor;
 
 part 'names.dart';
@@ -123,19 +117,6 @@ class ElementKind {
   toString() => id;
 }
 
-/// Abstract interface for entities.
-///
-/// Implement this directly if the entity is not a Dart language entity.
-/// Entities defined within the Dart language should implement [Element].
-///
-/// For instance, the JavaScript backend need to create synthetic variables for
-/// calling intercepted classes and such variables do not correspond to an
-/// entity in the Dart source code nor in the terminology of the Dart language
-/// and should therefore implement [Entity] directly.
-abstract class Entity implements Spannable {
-  String get name;
-}
-
 /**
  * A declared element of a program.
  *
@@ -147,7 +128,7 @@ abstract class Entity implements Spannable {
  * are elements corresponding to "dynamic", "null", and unresolved
  * references.
  *
- * Elements are distinct from types ([DartType]). For example, there
+ * Elements are distinct from types ([ResolutionDartType]). For example, there
  * is one declaration of the class List, but several related types,
  * for example, List, List<int>, List<String>, etc.
  *
@@ -244,7 +225,7 @@ abstract class Element implements Entity {
 
   /// `true` if this element is the body of a generative constructor.
   ///
-  /// This is a synthetic element kind used only be the JavaScript backend.
+  /// This is a synthetic element kind used only by the JavaScript backend.
   bool get isGenerativeConstructorBody;
 
   /// `true` if this element is a factory constructor,
@@ -261,17 +242,21 @@ abstract class Element implements Entity {
   /// explicit getter and/or setter.
   bool get isAbstractField;
 
-  /// `true` if this element is formal parameter either from a constructor,
-  /// method, or typedef declaration or from an inlined function typed
+  /// `true` if this element is a formal parameter from a constructor,
+  /// a method, a typedef declaration, or from an inlined function typed
   /// parameter.
   ///
   /// This property is `false` if this element is an initializing formal.
   /// See [isInitializingFormal].
-  bool get isParameter;
+  bool get isRegularParameter;
 
   /// `true` if this element is an initializing formal of constructor, that
   /// is a formal of the form `this.foo`.
   bool get isInitializingFormal;
+
+  /// `true` if this element is a formal parameter, either regular or
+  /// initializing.
+  bool get isParameter => isRegularParameter || isInitializingFormal;
 
   /// `true` if this element represents a resolution error.
   bool get isError;
@@ -335,6 +320,12 @@ abstract class Element implements Entity {
   bool get isLocal;
 
   bool get impliesType;
+
+  /// The character offset of the declaration of this element within its
+  /// compilation unit, if available.
+  ///
+  /// This is used to sort the elements.
+  int get sourceOffset;
 
   // TODO(johnniwinther): Remove this.
   Token get position;
@@ -430,9 +421,8 @@ class Elements {
   }
 
   /// Unwraps [element] reporting any warnings attached to it, if any.
-  static Element unwrap(Element element,
-                        DiagnosticReporter listener,
-                        Spannable spannable) {
+  static Element unwrap(
+      Element element, DiagnosticReporter listener, Spannable spannable) {
     if (element != null && element.isWarnOnUse) {
       WarnOnUseElement wrappedElement = element;
       element = wrappedElement.unwrap(listener, spannable);
@@ -450,11 +440,11 @@ class Elements {
   }
 
   static bool isInstanceField(Element element) {
-    return !Elements.isUnresolved(element)
-           && element.isInstanceMember
-           && (identical(element.kind, ElementKind.FIELD)
-               || identical(element.kind, ElementKind.GETTER)
-               || identical(element.kind, ElementKind.SETTER));
+    return !Elements.isUnresolved(element) &&
+        element.isInstanceMember &&
+        (identical(element.kind, ElementKind.FIELD) ||
+            identical(element.kind, ElementKind.GETTER) ||
+            identical(element.kind, ElementKind.SETTER));
   }
 
   static bool isStaticOrTopLevel(Element element) {
@@ -464,14 +454,14 @@ class Elements {
     // `element.isTopLevel` is true.
     if (Elements.isUnresolved(element)) return false;
     if (element.isStatic || element.isTopLevel) return true;
-    return !element.isAmbiguous
-           && !element.isInstanceMember
-           && !element.isPrefix
-           && element.enclosingElement != null
-           && (element.enclosingElement.kind == ElementKind.CLASS ||
-               element.enclosingElement.kind == ElementKind.COMPILATION_UNIT ||
-               element.enclosingElement.kind == ElementKind.LIBRARY ||
-               element.enclosingElement.kind == ElementKind.PREFIX);
+    return !element.isAmbiguous &&
+        !element.isInstanceMember &&
+        !element.isPrefix &&
+        element.enclosingElement != null &&
+        (element.enclosingElement.kind == ElementKind.CLASS ||
+            element.enclosingElement.kind == ElementKind.COMPILATION_UNIT ||
+            element.enclosingElement.kind == ElementKind.LIBRARY ||
+            element.enclosingElement.kind == ElementKind.PREFIX);
   }
 
   static bool isInStaticContext(Element element) {
@@ -488,17 +478,22 @@ class Elements {
     return true;
   }
 
-  static bool hasAccessToTypeVariables(Element element) {
+  static bool hasAccessToTypeVariable(
+      Element element, TypeVariableElement typeVariable) {
+    GenericElement declaration = typeVariable.typeDeclaration;
+    if (declaration is FunctionElement || declaration is ParameterElement) {
+      return true;
+    }
     Element outer = element.outermostEnclosingMemberOrTopLevel;
     return (outer != null && outer.isFactoryConstructor) ||
         !isInStaticContext(element);
   }
 
   static bool isStaticOrTopLevelField(Element element) {
-    return isStaticOrTopLevel(element)
-           && (identical(element.kind, ElementKind.FIELD)
-               || identical(element.kind, ElementKind.GETTER)
-               || identical(element.kind, ElementKind.SETTER));
+    return isStaticOrTopLevel(element) &&
+        (identical(element.kind, ElementKind.FIELD) ||
+            identical(element.kind, ElementKind.GETTER) ||
+            identical(element.kind, ElementKind.SETTER));
   }
 
   static bool isStaticOrTopLevelFunction(Element element) {
@@ -506,9 +501,9 @@ class Elements {
   }
 
   static bool isInstanceMethod(Element element) {
-    return !Elements.isUnresolved(element)
-           && element.isInstanceMember
-           && (identical(element.kind, ElementKind.FUNCTION));
+    return !Elements.isUnresolved(element) &&
+        element.isInstanceMember &&
+        (identical(element.kind, ElementKind.FUNCTION));
   }
 
   /// Also returns true for [ConstructorBodyElement]s and getters/setters.
@@ -526,8 +521,8 @@ class Elements {
     Element element = elements[send];
     if (element == null) return !isClosureSend(send, element);
     return isInstanceMethod(element) ||
-           isInstanceField(element) ||
-           (send.isConditional && !element.isStatic);
+        isInstanceField(element) ||
+        (send.isConditional && !element.isStatic);
   }
 
   static bool isClosureSend(Send send, Element element) {
@@ -561,8 +556,8 @@ class Elements {
     }
   }
 
-  static String constructorNameForDiagnostics(String className,
-                                              String constructorName) {
+  static String constructorNameForDiagnostics(
+      String className, String constructorName) {
     String classNameString = className;
     String constructorNameString = constructorName;
     return (constructorName == '')
@@ -587,45 +582,45 @@ class Elements {
   static String operatorNameToIdentifier(String name) {
     if (name == null) {
       return name;
-    } else if (identical(name, '==')) {
+    } else if (name == '==') {
       return r'operator$eq';
-    } else if (identical(name, '~')) {
+    } else if (name == '~') {
       return r'operator$not';
-    } else if (identical(name, '[]')) {
+    } else if (name == '[]') {
       return r'operator$index';
-    } else if (identical(name, '[]=')) {
+    } else if (name == '[]=') {
       return r'operator$indexSet';
-    } else if (identical(name, '*')) {
+    } else if (name == '*') {
       return r'operator$mul';
-    } else if (identical(name, '/')) {
+    } else if (name == '/') {
       return r'operator$div';
-    } else if (identical(name, '%')) {
+    } else if (name == '%') {
       return r'operator$mod';
-    } else if (identical(name, '~/')) {
+    } else if (name == '~/') {
       return r'operator$tdiv';
-    } else if (identical(name, '+')) {
+    } else if (name == '+') {
       return r'operator$add';
-    } else if (identical(name, '<<')) {
+    } else if (name == '<<') {
       return r'operator$shl';
-    } else if (identical(name, '>>')) {
+    } else if (name == '>>') {
       return r'operator$shr';
-    } else if (identical(name, '>=')) {
+    } else if (name == '>=') {
       return r'operator$ge';
-    } else if (identical(name, '>')) {
+    } else if (name == '>') {
       return r'operator$gt';
-    } else if (identical(name, '<=')) {
+    } else if (name == '<=') {
       return r'operator$le';
-    } else if (identical(name, '<')) {
+    } else if (name == '<') {
       return r'operator$lt';
-    } else if (identical(name, '&')) {
+    } else if (name == '&') {
       return r'operator$and';
-    } else if (identical(name, '^')) {
+    } else if (name == '^') {
       return r'operator$xor';
-    } else if (identical(name, '|')) {
+    } else if (name == '|') {
       return r'operator$or';
-    } else if (identical(name, '-')) {
+    } else if (name == '-') {
       return r'operator$sub';
-    } else if (identical(name, 'unary-')) {
+    } else if (name == 'unary-') {
       return r'operator$negate';
     } else {
       return name;
@@ -644,8 +639,10 @@ class Elements {
 
   static String constructOperatorName(String op, bool isUnary) {
     String operatorName = constructOperatorNameOrNull(op, isUnary);
-    if (operatorName == null) throw 'Unhandled operator: $op';
-    else return operatorName;
+    if (operatorName == null)
+      throw 'Unhandled operator: $op';
+    else
+      return operatorName;
   }
 
   static String mapToUserOperatorOrNull(String op) {
@@ -666,33 +663,16 @@ class Elements {
     return null;
   }
 
-  static bool isNumberOrStringSupertype(Element element, Compiler compiler) {
-    LibraryElement coreLibrary = compiler.coreLibrary;
-    return (element == coreLibrary.find('Comparable'));
-  }
-
-  static bool isStringOnlySupertype(Element element, Compiler compiler) {
-    LibraryElement coreLibrary = compiler.coreLibrary;
-    return element == coreLibrary.find('Pattern');
-  }
-
-  static bool isListSupertype(Element element, Compiler compiler) {
-    LibraryElement coreLibrary = compiler.coreLibrary;
-    return element == coreLibrary.find('Iterable');
-  }
-
   /// A `compareTo` function that places [Element]s in a consistent order based
   /// on the source code order.
   static int compareByPosition(Element a, Element b) {
     if (identical(a, b)) return 0;
-    int r = a.library.compareTo(b.library);
+    int r = _compareLibraries(a.library, b.library);
     if (r != 0) return r;
-    r = a.compilationUnit.compareTo(b.compilationUnit);
+    r = _compareCompilationUnits(a.compilationUnit, b.compilationUnit);
     if (r != 0) return r;
-    Token positionA = a.position;
-    Token positionB = b.position;
-    int offsetA = positionA == null ? -1 : positionA.charOffset;
-    int offsetB = positionB == null ? -1 : positionB.charOffset;
+    int offsetA = a.sourceOffset ?? -1;
+    int offsetB = b.sourceOffset ?? -1;
     r = offsetA.compareTo(offsetB);
     if (r != 0) return r;
     r = a.name.compareTo(b.name);
@@ -702,53 +682,107 @@ class Elements {
     return a.hashCode.compareTo(b.hashCode);
   }
 
+  // Somewhat stable ordering for [LibraryElement]s
+  static int _compareLibraries(LibraryElement a, LibraryElement b) {
+    if (a == b) return 0;
+
+    int byCanonicalUriPath() {
+      return a.canonicalUri.path.compareTo(b.canonicalUri.path);
+    }
+
+    // Order: platform < package < other.
+    if (a.isPlatformLibrary) {
+      if (b.isPlatformLibrary) return byCanonicalUriPath();
+      return -1;
+    }
+    if (b.isPlatformLibrary) return 1;
+
+    if (a.isPackageLibrary) {
+      if (b.isPackageLibrary) return byCanonicalUriPath();
+      return -1;
+    }
+    if (b.isPackageLibrary) return 1;
+
+    return _compareCanonicalUri(a.canonicalUri, b.canonicalUri);
+  }
+
+  static int _compareCanonicalUri(Uri a, Uri b) {
+    int r = a.scheme.compareTo(b.scheme);
+    if (r != 0) return r;
+
+    // We would like the order of 'file:' Uris to be stable across different
+    // users or different builds from temporary directories.  We sort by
+    // pathSegments elements from the last to the first since that tends to find
+    // a stable distinction regardless of directory root.
+    List<String> aSegments = a.pathSegments;
+    List<String> bSegments = b.pathSegments;
+    int aI = aSegments.length;
+    int bI = bSegments.length;
+    while (aI > 0 && bI > 0) {
+      String aSegment = aSegments[--aI];
+      String bSegment = bSegments[--bI];
+      r = aSegment.compareTo(bSegment);
+      if (r != 0) return r;
+    }
+    return aI.compareTo(bI); // Shortest first.
+  }
+
+  static int _compareCompilationUnits(
+      CompilationUnitElement a, CompilationUnitElement b) {
+    if (a == b) return 0;
+    // Compilation units are compared only within the same library so we expect
+    // the Uris to usually be clustered together with a common scheme and path
+    // prefix.
+    Uri aUri = a.script.readableUri;
+    Uri bUri = b.script.readableUri;
+    return '${aUri}'.compareTo('${bUri}');
+  }
+
   static List<Element> sortedByPosition(Iterable<Element> elements) {
     return elements.toList()..sort(compareByPosition);
   }
 
-  static bool isFixedListConstructorCall(Element element,
-                                         Send node,
-                                         Compiler compiler) {
-    return element == compiler.unnamedListConstructor
-        && node.isCall
-        && !node.arguments.isEmpty
-        && node.arguments.tail.isEmpty;
+  static bool isFixedListConstructorCall(
+      ConstructorEntity element, Send node, CommonElements commonElements) {
+    return commonElements.isUnnamedListConstructor(element) &&
+        node.isCall &&
+        !node.arguments.isEmpty &&
+        node.arguments.tail.isEmpty;
   }
 
-  static bool isGrowableListConstructorCall(Element element,
-                                            Send node,
-                                            Compiler compiler) {
-    return element == compiler.unnamedListConstructor
-        && node.isCall
-        && node.arguments.isEmpty;
+  static bool isGrowableListConstructorCall(
+      ConstructorEntity element, Send node, CommonElements commonElements) {
+    return commonElements.isUnnamedListConstructor(element) &&
+        node.isCall &&
+        node.arguments.isEmpty;
   }
 
-  static bool isFilledListConstructorCall(Element element,
-                                          Send node,
-                                          Compiler compiler) {
-    return element == compiler.filledListConstructor
-        && node.isCall
-        && !node.arguments.isEmpty
-        && !node.arguments.tail.isEmpty
-        && node.arguments.tail.tail.isEmpty;
+  static bool isFilledListConstructorCall(
+      ConstructorEntity element, Send node, CommonElements commonElements) {
+    return commonElements.isFilledListConstructor(element) &&
+        node.isCall &&
+        !node.arguments.isEmpty &&
+        !node.arguments.tail.isEmpty &&
+        node.arguments.tail.tail.isEmpty;
   }
 
-  static bool isConstructorOfTypedArraySubclass(Element element,
-                                                Compiler compiler) {
-    if (compiler.typedDataLibrary == null) return false;
+  static bool isConstructorOfTypedArraySubclass(
+      Element element, ClosedWorld closedWorld) {
+    if (closedWorld.commonElements.typedDataLibrary == null) return false;
     if (!element.isConstructor) return false;
     ConstructorElement constructor = element.implementation;
     constructor = constructor.effectiveTarget;
     ClassElement cls = constructor.enclosingClass;
-    return cls.library == compiler.typedDataLibrary
-        && compiler.backend.isNative(cls)
-        && compiler.world.isSubtypeOf(cls, compiler.typedDataClass)
-        && compiler.world.isSubtypeOf(cls, compiler.coreClasses.listClass)
-        && constructor.name == '';
+    return cls.library == closedWorld.commonElements.typedDataLibrary &&
+        closedWorld.backendClasses.isNativeClass(cls) &&
+        closedWorld.isSubtypeOf(
+            cls, closedWorld.commonElements.typedDataClass) &&
+        closedWorld.isSubtypeOf(cls, closedWorld.commonElements.listClass) &&
+        constructor.name == '';
   }
 
-  static bool switchStatementHasContinue(SwitchStatement node,
-                                         TreeElements elements) {
+  static bool switchStatementHasContinue(
+      SwitchStatement node, TreeElements elements) {
     for (SwitchCase switchCase in node.cases) {
       for (Node labelOrCase in switchCase.labelsAndCases) {
         Node label = labelOrCase.asLabel();
@@ -771,6 +805,131 @@ class Elements {
     // a break or continue for a different target. In that case, this
     // label is also always unused.
     return element == null || element.statement != body;
+  }
+
+  /**
+   * Returns a `List` with the evaluated arguments in the normalized order.
+   *
+   * [compileDefaultValue] is a function that returns a compiled constant
+   * of an optional argument that is not in [compiledArguments].
+   *
+   * Precondition: `callStructure.signatureApplies(element.type)`.
+   *
+   * Invariant: [element] must be the implementation element.
+   */
+  static List<T> makeArgumentsList<T>(
+      CallStructure callStructure,
+      Link<Node> arguments,
+      FunctionElement element,
+      T compileArgument(Node argument),
+      T compileDefaultValue(ParameterElement element)) {
+    assert(invariant(element, element.isImplementation));
+    List<T> result = <T>[];
+
+    FunctionSignature parameters = element.functionSignature;
+    parameters.forEachRequiredParameter((ParameterElement element) {
+      result.add(compileArgument(arguments.head));
+      arguments = arguments.tail;
+    });
+
+    if (!parameters.optionalParametersAreNamed) {
+      parameters.forEachOptionalParameter((ParameterElement element) {
+        if (!arguments.isEmpty) {
+          result.add(compileArgument(arguments.head));
+          arguments = arguments.tail;
+        } else {
+          result.add(compileDefaultValue(element));
+        }
+      });
+    } else {
+      // Visit named arguments and add them into a temporary list.
+      List compiledNamedArguments = [];
+      for (; !arguments.isEmpty; arguments = arguments.tail) {
+        NamedArgument namedArgument = arguments.head;
+        compiledNamedArguments.add(compileArgument(namedArgument.expression));
+      }
+      // Iterate over the optional parameters of the signature, and try to
+      // find them in [compiledNamedArguments]. If found, we use the
+      // value in the temporary list, otherwise the default value.
+      parameters.orderedOptionalParameters.forEach((ParameterElement element) {
+        int foundIndex = callStructure.namedArguments.indexOf(element.name);
+        if (foundIndex != -1) {
+          result.add(compiledNamedArguments[foundIndex]);
+        } else {
+          result.add(compileDefaultValue(element));
+        }
+      });
+    }
+    return result;
+  }
+
+  /**
+   * Fills [list] with the arguments in the order expected by
+   * [callee], and where [caller] is a synthesized element
+   *
+   * [compileArgument] is a function that returns a compiled version
+   * of a parameter of [callee].
+   *
+   * [compileConstant] is a function that returns a compiled constant
+   * of an optional argument that is not in the parameters of [callee].
+   *
+   * Returns [:true:] if the signature of the [caller] matches the
+   * signature of the [callee], [:false:] otherwise.
+   */
+  static bool addForwardingElementArgumentsToList<T>(
+      ConstructorElement caller,
+      List<T> list,
+      ConstructorElement callee,
+      T compileArgument(ParameterElement element),
+      T compileConstant(ParameterElement element)) {
+    assert(invariant(caller, !callee.isMalformed,
+        message: "Cannot compute arguments to malformed constructor: "
+            "$caller calling $callee."));
+
+    FunctionSignature signature = caller.functionSignature;
+    Map<Node, ParameterElement> mapping = <Node, ParameterElement>{};
+
+    // TODO(ngeoffray): This is a hack that fakes up AST nodes, so
+    // that we can call [addArgumentsToList].
+    Link<Node> computeCallNodesFromParameters() {
+      LinkBuilder<Node> builder = new LinkBuilder<Node>();
+      signature.forEachRequiredParameter((ParameterElement element) {
+        Node node = element.node;
+        mapping[node] = element;
+        builder.addLast(node);
+      });
+      if (signature.optionalParametersAreNamed) {
+        signature.forEachOptionalParameter((ParameterElement element) {
+          mapping[element.initializer] = element;
+          builder.addLast(new NamedArgument(null, null, element.initializer));
+        });
+      } else {
+        signature.forEachOptionalParameter((ParameterElement element) {
+          Node node = element.node;
+          mapping[node] = element;
+          builder.addLast(node);
+        });
+      }
+      return builder.toLink();
+    }
+
+    T internalCompileArgument(Node node) {
+      return compileArgument(mapping[node]);
+    }
+
+    Link<Node> nodes = computeCallNodesFromParameters();
+
+    // Synthesize a structure for the call.
+    // TODO(ngeoffray): Should the resolver do it instead?
+    CallStructure callStructure = new CallStructure(
+        signature.parameterCount, signature.type.namedParameters);
+    if (!callStructure.signatureApplies(signature.type)) {
+      return false;
+    }
+    list.addAll(makeArgumentsList<T>(callStructure, nodes, callee,
+        internalCompileArgument, compileConstant));
+
+    return true;
   }
 }
 
@@ -838,8 +997,6 @@ abstract class CompilationUnitElement extends Element {
   Script get script;
 
   void forEachLocalMember(f(Element element));
-
-  int compareTo(CompilationUnitElement other);
 }
 
 abstract class ImportElement extends Element {
@@ -859,7 +1016,7 @@ abstract class ExportElement extends Element {
 }
 
 abstract class LibraryElement extends Element
-    implements ScopeContainerElement, AnalyzableElement {
+    implements ScopeContainerElement, AnalyzableElement, LibraryEntity {
   /**
    * The canonical uri for this library.
    *
@@ -921,48 +1078,49 @@ abstract class LibraryElement extends Element
   /// or the empty string if there is no library tag.
   String get libraryName;
 
-  /// Returns the library name (as defined by the library tag) or for script
-  /// (which have no library tag) the script file name. The latter case is used
-  /// to provide a 'library name' for scripts to use for instance in dartdoc.
+  /// Returns the library name (as defined by the library tag) or for scripts
+  /// (which have no library tag) the script file name.
   ///
   /// Note: the returned filename is still escaped ("a%20b.dart" instead of
   /// "a b.dart").
-  String get libraryOrScriptName;
-
-  int compareTo(LibraryElement other);
+  String get name;
 }
 
 /// The implicit scope defined by a import declaration with a prefix clause.
 abstract class PrefixElement extends Element {
   Element lookupLocalMember(String memberName);
 
+  void forEachLocalMember(void f(Element member));
+
   /// Is true if this prefix belongs to a deferred import.
   bool get isDeferred;
 
   /// Import that declared this deferred prefix.
   ImportElement get deferredImport;
+
+  /// The `loadLibrary` getter implicitly defined on deferred prefixes.
+  GetterElement get loadLibrary;
 }
 
 /// A type alias definition.
 abstract class TypedefElement extends Element
     implements AstElement, TypeDeclarationElement, FunctionTypedElement {
-
   /// The type defined by this typedef with the type variables as its type
   /// arguments.
   ///
   /// For instance `F<T>` for `typedef void F<T>(T t)`.
-  TypedefType get thisType;
+  ResolutionTypedefType get thisType;
 
   /// The type defined by this typedef with `dynamic` as its type arguments.
   ///
   /// For instance `F<dynamic>` for `typedef void F<T>(T t)`.
-  TypedefType get rawType;
+  ResolutionTypedefType get rawType;
 
   /// The type, function type if well-defined, for which this typedef is an
   /// alias.
   ///
   /// For instance `(int)->void` for `typedef void F(int)`.
-  DartType get alias;
+  ResolutionDartType get alias;
 
   void checkCyclicReference(Resolution resolution);
 }
@@ -987,7 +1145,8 @@ abstract class ExecutableElement extends Element
 ///
 /// A [MemberElement] is the outermost executable element for any executable
 /// context.
-abstract class MemberElement extends Element implements ExecutableElement {
+abstract class MemberElement extends Element
+    implements ExecutableElement, MemberEntity {
   /// The local functions defined within this member.
   List<FunctionElement> get nestedClosures;
 
@@ -998,6 +1157,7 @@ abstract class MemberElement extends Element implements ExecutableElement {
 /// A function, variable or parameter defined in an executable context.
 abstract class LocalElement extends Element
     implements AstElement, TypedElement, Local {
+  ExecutableElement get executableContext;
 }
 
 /// A top level, static or instance field, a formal parameter or local variable.
@@ -1007,25 +1167,14 @@ abstract class VariableElement extends ExecutableElement {
 
   Expression get initializer;
 
-  /// The constant expression defining the value of the variable if `const`,
-  /// `null` otherwise.
-  ConstantExpression get constant;
-}
+  bool get hasConstant;
 
-/// An entity that defines a local entity (memory slot) in generated code.
-///
-/// Parameters, local variables and local functions (can) define local entity
-/// and thus implement [Local] through [LocalElement]. For non-element locals,
-/// like `this` and boxes, specialized [Local] classes are created.
-///
-/// Type variables can introduce locals in factories and constructors
-/// but since one type variable can introduce different locals in different
-/// factories and constructors it is not itself a [Local] but instead
-/// a non-element [Local] is created through a specialized class.
-// TODO(johnniwinther): Should [Local] have `isAssignable` or `type`?
-abstract class Local extends Entity {
-  /// The context in which this local is defined.
-  ExecutableElement get executableContext;
+  /// The constant expression defining the (initial) value of the variable.
+  ///
+  /// If the variable is `const` the value is always non-null, possibly an
+  /// [ErroneousConstantExpression], otherwise, the value is null when the
+  /// initializer isn't a constant expression.
+  ConstantExpression get constant;
 }
 
 /// A variable or parameter that is local to an executable context.
@@ -1033,12 +1182,11 @@ abstract class Local extends Entity {
 /// The executable context is the [ExecutableElement] in which this variable
 /// is defined.
 abstract class LocalVariableElement extends VariableElement
-    implements LocalElement {
-}
+    implements LocalElement {}
 
 /// A top-level, static or instance field.
-abstract class FieldElement extends VariableElement implements MemberElement {
-}
+abstract class FieldElement extends VariableElement
+    implements MemberElement, FieldEntity {}
 
 /// A parameter-like element of a function signature.
 ///
@@ -1060,13 +1208,16 @@ abstract class FormalElement extends Element
   FunctionTypedElement get functionDeclaration;
 
   VariableDefinitions get node;
+
+  /// Whether the parameter is unnamed in a function type.
+  bool get isUnnamed;
 }
 
 /// A formal parameter of a function or constructor.
 ///
 /// Normal parameter that introduce a local variable are modeled by
 /// [LocalParameterElement] whereas initializing formals, that is parameter of
-/// the form `this.x`, are modeled by [InitializingFormalParameter].
+/// the form `this.x`, are modeled by [InitializingFormalElement].
 abstract class ParameterElement extends Element
     implements VariableElement, FormalElement, LocalElement {
   /// Use [functionDeclaration] instead.
@@ -1086,13 +1237,12 @@ abstract class ParameterElement extends Element
 /// A formal parameter on a function or constructor that introduces a local
 /// variable in the scope of the function or constructor.
 abstract class LocalParameterElement extends ParameterElement
-    implements LocalVariableElement {
-}
+    implements LocalVariableElement {}
 
 /// A formal parameter in a constructor that directly initializes a field.
 ///
 /// For example: `A(this.field)`.
-abstract class InitializingFormalElement extends ParameterElement {
+abstract class InitializingFormalElement extends LocalParameterElement {
   /// The field initialized by this initializing formal.
   FieldElement get fieldElement;
 
@@ -1113,14 +1263,15 @@ abstract class AbstractFieldElement extends Element {
 }
 
 abstract class FunctionSignature {
-  FunctionType get type;
+  ResolutionFunctionType get type;
+  ResolutionDartType get returnType;
+  List<ResolutionDartType> get typeVariables;
   List<FormalElement> get requiredParameters;
   List<FormalElement> get optionalParameters;
 
   int get requiredParameterCount;
   int get optionalParameterCount;
   bool get optionalParametersAreNamed;
-  FormalElement get firstOptionalParameter;
   bool get hasOptionalParameters;
 
   int get parameterCount;
@@ -1138,10 +1289,12 @@ abstract class FunctionSignature {
 /// A top level, static or instance method, constructor, local function, or
 /// closure (anonymous local function).
 abstract class FunctionElement extends Element
-    implements AstElement,
-               TypedElement,
-               FunctionTypedElement,
-               ExecutableElement {
+    implements
+        AstElement,
+        TypedElement,
+        FunctionTypedElement,
+        ExecutableElement,
+        GenericElement {
   FunctionExpression get node;
 
   FunctionElement get patch;
@@ -1149,11 +1302,11 @@ abstract class FunctionElement extends Element
 
   bool get hasFunctionSignature;
 
-  /// The parameters of this functions.
+  /// The parameters of this function.
   List<ParameterElement> get parameters;
 
   /// The type of this function.
-  FunctionType get type;
+  ResolutionFunctionType get type;
 
   /// The synchronous/asynchronous marker on this function.
   AsyncMarker get asyncMarker;
@@ -1209,25 +1362,42 @@ class AsyncMarker {
   String toString() {
     return '${isAsync ? 'async' : 'sync'}${isYielding ? '*' : ''}';
   }
+
+  /// Canonical list of marker values.
+  ///
+  /// Added to make [AsyncMarker] enum-like.
+  static const List<AsyncMarker> values = const <AsyncMarker>[
+    SYNC,
+    SYNC_STAR,
+    ASYNC,
+    ASYNC_STAR
+  ];
+
+  /// Index to this marker within [values].
+  ///
+  /// Added to make [AsyncMarker] enum-like.
+  int get index => values.indexOf(this);
 }
 
 /// A top level, static or instance function.
 abstract class MethodElement extends FunctionElement
-    implements MemberElement {
-}
+    implements MemberElement, FunctionEntity {}
 
 /// A local function or closure (anonymous local function).
 abstract class LocalFunctionElement extends FunctionElement
-    implements LocalElement {
-}
+    implements LocalElement {}
 
 /// A constructor.
-abstract class ConstructorElement extends FunctionElement
-    implements MemberElement {
+abstract class ConstructorElement extends MethodElement
+    implements ConstructorEntity {
+  /// Returns `true` if [effectiveTarget] has been computed for this
+  /// constructor.
+  bool get hasEffectiveTarget;
+
   /// The effective target of this constructor, that is the non-redirecting
   /// constructor that is called on invocation of this constructor.
   ///
-  /// Consider for instance this hierachy:
+  /// Consider for instance this hierarchy:
   ///
   ///     class C { factory C.c() = D.d; }
   ///     class D { factory D.d() = E.e2; }
@@ -1240,7 +1410,7 @@ abstract class ConstructorElement extends FunctionElement
 
   /// The immediate redirection target of a redirecting factory constructor.
   ///
-  /// Consider for instance this hierachy:
+  /// Consider for instance this hierarchy:
   ///
   ///     class C { factory C() = D; }
   ///     class D { factory D() = E; }
@@ -1282,7 +1452,8 @@ abstract class ConstructorElement extends FunctionElement
 
   /// Compute the type of the effective target of this constructor for an
   /// instantiation site with type [:newType:].
-  InterfaceType computeEffectiveTargetType(InterfaceType newType);
+  ResolutionInterfaceType computeEffectiveTargetType(
+      ResolutionInterfaceType newType);
 
   /// If this is a synthesized constructor [definingConstructor] points to
   /// the generative constructor from which this constructor was created.
@@ -1298,6 +1469,9 @@ abstract class ConstructorElement extends FunctionElement
   /// is `C.c`.
   ConstructorElement get definingConstructor;
 
+  /// Returns `true` if this constructor is an implicit default constructor.
+  bool get isDefaultConstructor;
+
   /// The constant constructor defining the binding of fields if `const`,
   /// `null` otherwise.
   ConstantConstructor get constantConstructor;
@@ -1305,6 +1479,15 @@ abstract class ConstructorElement extends FunctionElement
   /// `true` if this constructor is one of `bool.fromEnvironment`,
   /// `int.fromEnvironment`, or `String.fromEnvironment`.
   bool get isFromEnvironmentConstructor;
+
+  /// `true` if this constructor is `int.fromEnvironment`.
+  bool get isIntFromEnvironmentConstructor;
+
+  /// `true` if this constructor is `bool.fromEnvironment`.
+  bool get isBoolFromEnvironmentConstructor;
+
+  /// `true` if this constructor is `String.fromEnvironment`.
+  bool get isStringFromEnvironmentConstructor;
 
   /// Use [enclosingClass] instead.
   @deprecated
@@ -1317,9 +1500,28 @@ abstract class ConstructorBodyElement extends MethodElement {
   FunctionElement get constructor;
 }
 
+/// [GenericElement] defines the common interface for generic functions and
+/// [TypeDeclarationElement].
+abstract class GenericElement extends Element implements AstElement {
+  /// Do not use [computeType] outside of the resolver.
+  ///
+  /// Trying to access a type that has not been computed in resolution is an
+  /// error and calling [computeType] covers that error.
+  /// This method will go away!
+  @deprecated
+  ResolutionDartType computeType(Resolution resolution);
+
+  /**
+   * The type variables declared on this declaration. The type variables are not
+   * available until the type of the element has been computed through
+   * [computeType].
+   */
+  List<ResolutionDartType> get typeVariables;
+}
+
 /// [TypeDeclarationElement] defines the common interface for class/interface
 /// declarations and typedefs.
-abstract class TypeDeclarationElement extends Element implements AstElement {
+abstract class TypeDeclarationElement extends GenericElement {
   /// The name of this type declaration, taking privacy into account.
   Name get memberName;
 
@@ -1355,18 +1557,11 @@ abstract class TypeDeclarationElement extends Element implements AstElement {
    * used to distinguish explicit and implicit uses of the [dynamic]
    * type arguments. For instance should [:List:] be the [rawType] of the
    * [:List:] class element whereas [:List<dynamic>:] should be its own
-   * instantiation of [InterfaceType] with [:dynamic:] as type argument. Using
-   * this distinction, we can print the raw type with type arguments only when
-   * the input source has used explicit type arguments.
+   * instantiation of [ResolutionInterfaceType] with [:dynamic:] as type
+   * argument. Using this distinction, we can print the raw type with type
+   * arguments only when the input source has used explicit type arguments.
    */
   GenericType get rawType;
-
-  /**
-   * The type variables declared on this declaration. The type variables are not
-   * available until the type of the element has been computed through
-   * [computeType].
-   */
-  List<DartType> get typeVariables;
 
   bool get isResolved;
 
@@ -1374,28 +1569,28 @@ abstract class TypeDeclarationElement extends Element implements AstElement {
 }
 
 abstract class ClassElement extends TypeDeclarationElement
-    implements ScopeContainerElement {
+    implements ScopeContainerElement, ClassEntity {
   /// The length of the longest inheritance path from [:Object:].
   int get hierarchyDepth;
 
-  InterfaceType get rawType;
-  InterfaceType get thisType;
+  ResolutionInterfaceType get rawType;
+  ResolutionInterfaceType get thisType;
   ClassElement get superclass;
 
   /// The direct supertype of this class.
-  DartType get supertype;
+  ResolutionDartType get supertype;
 
   /// Ordered set of all supertypes of this class including the class itself.
   OrderedTypeSet get allSupertypesAndSelf;
 
   /// A list of all supertypes of this class excluding the class itself.
-  Link<DartType> get allSupertypes;
+  Link<ResolutionDartType> get allSupertypes;
 
   /// Returns the this type of this class as an instance of [cls].
-  InterfaceType asInstanceOf(ClassElement cls);
+  ResolutionInterfaceType asInstanceOf(ClassElement cls);
 
   /// A list of all direct superinterfaces of this class.
-  Link<DartType> get interfaces;
+  Link<ResolutionDartType> get interfaces;
 
   bool get hasConstructor;
   Link<Element> get constructors;
@@ -1432,7 +1627,7 @@ abstract class ClassElement extends TypeDeclarationElement
 
   /// Returns `true` if this class implements [Function] either by directly
   /// implementing the interface or by providing a [call] method.
-  bool implementsFunction(CoreClasses coreClasses);
+  bool implementsFunction(CommonElements commonElements);
 
   /// Returns `true` if this class extends [cls] directly or indirectly.
   ///
@@ -1459,26 +1654,33 @@ abstract class ClassElement extends TypeDeclarationElement
   void reverseBackendMembers();
 
   Element lookupMember(String memberName);
-  Element lookupByName(Name memberName);
+
+  /// Looks up a class instance member declared or inherited in this class
+  /// using [memberName] to match the (private) name and getter/setter property.
+  ///
+  /// This method recursively visits superclasses until the member is found or
+  /// [stopAt] is reached.
+  Element lookupByName(Name memberName, {ClassElement stopAt});
   Element lookupSuperByName(Name memberName);
 
   Element lookupLocalMember(String memberName);
   Element lookupBackendMember(String memberName);
   Element lookupSuperMember(String memberName);
 
-  Element lookupSuperMemberInLibrary(String memberName,
-                                     LibraryElement library);
+  Element lookupSuperMemberInLibrary(String memberName, LibraryElement library);
 
+  // TODO(johnniwinther): Clean up semantics. Can the default constructor take
+  // optional arguments? Must it be resolved?
   ConstructorElement lookupDefaultConstructor();
   ConstructorElement lookupConstructor(String name);
 
   void forEachMember(void f(ClassElement enclosingClass, Element member),
-                     {bool includeBackendMembers: false,
-                      bool includeSuperAndInjectedMembers: false});
+      {bool includeBackendMembers: false,
+      bool includeSuperAndInjectedMembers: false});
 
-  void forEachInstanceField(void f(ClassElement enclosingClass,
-                                   FieldElement field),
-                            {bool includeSuperAndInjectedMembers: false});
+  void forEachInstanceField(
+      void f(ClassElement enclosingClass, FieldElement field),
+      {bool includeSuperAndInjectedMembers: false});
 
   /// Similar to [forEachInstanceField] but visits static fields.
   void forEachStaticField(void f(ClassElement enclosingClass, Element field));
@@ -1499,20 +1701,31 @@ abstract class ClassElement extends TypeDeclarationElement
 
   /// Returns the type of the 'call' method in the interface of this class, or
   /// `null` if the interface has no 'call' method.
-  FunctionType get callType;
+  ResolutionFunctionType get callType;
 }
 
 abstract class MixinApplicationElement extends ClassElement {
   ClassElement get mixin;
-  InterfaceType get mixinType;
-  void set mixinType(InterfaceType value);
-  void addConstructor(FunctionElement constructor);
+  ResolutionInterfaceType get mixinType;
+
+  /// If this is an unnamed mixin application [subclass] is the subclass for
+  /// which this mixin application is created.
+  ClassElement get subclass;
 }
 
 /// Enum declaration.
 abstract class EnumClassElement extends ClassElement {
   /// The static fields implied by the enum values.
-  List<FieldElement> get enumValues;
+  List<EnumConstantElement> get enumValues;
+}
+
+/// An enum constant value.
+abstract class EnumConstantElement extends FieldElement {
+  /// The enum that declared this constant.
+  EnumClassElement get enclosingClass;
+
+  /// The index of this constant within the values of the enum.
+  int get index;
 }
 
 /// The label entity defined by a labeled statement.
@@ -1534,7 +1747,7 @@ abstract class LabelDefinition extends Entity {
 abstract class JumpTarget extends Local {
   Node get statement;
   int get nestingLevel;
-  Link<LabelDefinition> get labels;
+  List<LabelDefinition> get labels;
 
   bool get isTarget;
   bool get isBreakTarget;
@@ -1550,7 +1763,7 @@ abstract class JumpTarget extends Local {
 
 /// The [Element] for a type variable declaration on a generic class or typedef.
 abstract class TypeVariableElement extends Element
-    implements AstElement, TypedElement {
+    implements AstElement, TypedElement, TypeVariableEntity {
   /// The name of this type variable, taking privacy into account.
   Name get memberName;
 
@@ -1558,27 +1771,26 @@ abstract class TypeVariableElement extends Element
   @deprecated
   get enclosingElement;
 
-  /// The class or typedef on which this type variable is defined.
-  TypeDeclarationElement get typeDeclaration;
+  /// The class, typedef, function, method, or function typed parameter on
+  /// which this type variable is defined.
+  GenericElement get typeDeclaration;
 
   /// The index of this type variable within its type declaration.
   int get index;
 
   /// The [type] defined by the type variable.
-  TypeVariableType get type;
+  ResolutionTypeVariableType get type;
 
   /// The upper bound on the type variable. If not explicitly declared, this is
   /// `Object`.
-  DartType get bound;
+  ResolutionDartType get bound;
 }
 
 abstract class MetadataAnnotation implements Spannable {
   /// The front-end constant of this metadata annotation.
   ConstantExpression get constant;
   Element get annotatedElement;
-  int get resolutionState;
-  Token get beginToken;
-  Token get endToken;
+  SourceSpan get sourcePosition;
 
   bool get hasNode;
   Node get node;
@@ -1595,13 +1807,13 @@ abstract class TypedElement extends Element {
   /// error and calling [computeType] covers that error.
   /// This method will go away!
   @deprecated
-  DartType computeType(Resolution resolution);
+  ResolutionDartType computeType(Resolution resolution);
 
-  DartType get type;
+  ResolutionDartType get type;
 }
 
 /// An [Element] that can define a function type.
-abstract class FunctionTypedElement extends Element {
+abstract class FunctionTypedElement extends Element implements GenericElement {
   /// The function signature for the function type defined by this element,
   /// if any.
   FunctionSignature get functionSignature;
@@ -1636,14 +1848,101 @@ abstract class AstElement extends AnalyzableElement {
   ResolvedAst get resolvedAst;
 }
 
-class ResolvedAst {
+/// Enum values for different ways of defining semantics for an element.
+enum ResolvedAstKind {
+  /// The semantics of the element is defined in terms of an AST with resolved
+  /// data mapped in [TreeElements].
+  PARSED,
+
+  /// The element is an implicit default constructor. No AST or [TreeElements]
+  /// are provided.
+  DEFAULT_CONSTRUCTOR,
+
+  /// The element is an implicit forwarding constructor on a mixin application.
+  /// No AST or [TreeElements] are provided.
+  FORWARDING_CONSTRUCTOR,
+
+  /// The element is the `loadLibrary` getter implicitly defined on a deferred
+  /// prefix.
+  DEFERRED_LOAD_LIBRARY,
+}
+
+/// [ResolvedAst] contains info that define the semantics of an element.
+abstract class ResolvedAst {
+  /// The element whose semantics is defined.
+  Element get element;
+
+  /// The kind of semantics definition used for this object.
+  ResolvedAstKind get kind;
+
+  /// The root AST node for the declaration of [element]. This only available if
+  /// [kind] is `ResolvedAstKind.PARSED`.
+  Node get node;
+
+  /// The AST node for the 'body' of [element].
+  ///
+  /// For functions and constructors this is the root AST node of the method
+  /// body, and for variables this is the root AST node of the initializer, if
+  /// available.
+  ///
+  /// This only available if [kind] is `ResolvedAstKind.PARSED`.
+  Node get body;
+
+  /// The [TreeElements] containing the resolution data for [node]. This only
+  /// available of [kind] is `ResolvedAstKind.PARSED`.
+  TreeElements get elements;
+
+  /// Returns the uri for the source file defining [node] and [body]. This
+  /// only available if [kind] is `ResolvedAstKind.PARSED`.
+  Uri get sourceUri;
+}
+
+/// [ResolvedAst] implementation used for elements whose semantics is defined in
+/// terms an AST and a [TreeElements].
+class ParsedResolvedAst implements ResolvedAst {
   final Element element;
   final Node node;
+  final Node body;
   final TreeElements elements;
+  final Uri sourceUri;
 
-  ResolvedAst(this.element, this.node, this.elements);
+  ParsedResolvedAst(
+      this.element, this.node, this.body, this.elements, this.sourceUri);
 
-  String toString() => '$element:$node';
+  ResolvedAstKind get kind => ResolvedAstKind.PARSED;
+
+  String toString() => '$kind:$element:$node';
+}
+
+/// [ResolvedAst] implementation used for synthesized elements whose semantics
+/// is not defined in terms an AST and a [TreeElements].
+class SynthesizedResolvedAst implements ResolvedAst {
+  final Element element;
+  final ResolvedAstKind kind;
+
+  SynthesizedResolvedAst(this.element, this.kind);
+
+  @override
+  TreeElements get elements {
+    throw new UnsupportedError('$this does not provide a TreeElements');
+  }
+
+  @override
+  Node get node {
+    throw new UnsupportedError('$this does not have a root AST node');
+  }
+
+  @override
+  Node get body {
+    throw new UnsupportedError('$this does not have a body AST node');
+  }
+
+  @override
+  Uri get sourceUri {
+    throw new UnsupportedError('$this does not have a source URI');
+  }
+
+  String toString() => '$kind:$element';
 }
 
 /// A [MemberSignature] is a member of an interface.
@@ -1661,13 +1960,13 @@ abstract class MemberSignature {
   /// The type of the member when accessed. For getters and setters this is the
   /// return type and argument type, respectively. For methods the type is the
   /// [functionType] defined by the return type and parameters.
-  DartType get type;
+  ResolutionDartType get type;
 
   /// The function type of the member. For a getter `Foo get foo` this is
   /// `() -> Foo`, for a setter `void set foo(Foo _)` this is `(Foo) -> void`.
   /// For methods the function type is defined by the return type and
   /// parameters.
-  FunctionType get functionType;
+  ResolutionFunctionType get functionType;
 
   /// Returns `true` if this member is a getter, possibly implictly defined by a
   /// field declaration.
@@ -1709,7 +2008,7 @@ abstract class Member extends MemberSignature {
   ///   class B<S> extends A<S> {}
   /// The declarer of `m` in `A` is `A<T>` whereas the declarer of `m` in `B` is
   /// `A<S>`.
-  InterfaceType get declarer;
+  ResolutionInterfaceType get declarer;
 
   /// Returns `true` if this member is static.
   bool get isStatic;
@@ -1725,4 +2024,3 @@ abstract class Member extends MemberSignature {
   /// if any. Otherwise [implementation] points to the member itself.
   Member get implementation;
 }
-

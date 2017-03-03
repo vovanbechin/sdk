@@ -5,19 +5,21 @@
 library dart2js.js_backend.patch_resolver;
 
 import '../common.dart';
-import '../common/resolution.dart' show
-    Resolution;
-import '../common/tasks.dart' show
-    CompilerTask;
-import '../compiler.dart' show
-    Compiler;
-import '../dart_types.dart';
+import '../common/resolution.dart' show Resolution;
+import '../common/tasks.dart' show CompilerTask;
+import '../compiler.dart' show Compiler;
+import '../elements/resolution_types.dart';
 import '../elements/elements.dart';
 import '../elements/modelx.dart';
 import '../tree/tree.dart';
 
 class PatchResolverTask extends CompilerTask {
-  PatchResolverTask(Compiler compiler) : super(compiler);
+  final Compiler compiler;
+  PatchResolverTask(Compiler compiler)
+      : compiler = compiler,
+        super(compiler.measurer);
+
+  DiagnosticReporter get reporter => compiler.reporter;
 
   Resolution get resolution => compiler.resolution;
 
@@ -33,14 +35,15 @@ class PatchResolverTask extends CompilerTask {
       element = patch;
     } else if (!compiler.backend.isJsInterop(element)) {
       reporter.reportErrorMessage(
-         element, MessageKind.PATCH_EXTERNAL_WITHOUT_IMPLEMENTATION);
+          element, MessageKind.PATCH_EXTERNAL_WITHOUT_IMPLEMENTATION);
     }
     return element;
   }
 
   void checkMatchingPatchParameters(FunctionElement origin,
-                                    List<Element> originParameters,
-                                    List<Element> patchParameters) {
+      List<Element> originParameters, List<Element> patchParameters) {
+    bool isUnnamedListConstructor = origin is ConstructorElement &&
+        compiler.commonElements.isUnnamedListConstructor(origin);
 
     assert(originParameters.length == patchParameters.length);
     for (int index = 0; index < originParameters.length; index++) {
@@ -52,19 +55,21 @@ class PatchResolverTask extends CompilerTask {
         originParameter.applyPatch(patchParameter);
       } else {
         assert(invariant(origin, originParameter.patch == patchParameter,
-               message: "Inconsistent repatch of $originParameter."));
+            message: "Inconsistent repatch of $originParameter."));
       }
-      DartType originParameterType = originParameter.computeType(resolution);
-      DartType patchParameterType = patchParameter.computeType(resolution);
+      ResolutionDartType originParameterType =
+          originParameter.computeType(resolution);
+      ResolutionDartType patchParameterType =
+          patchParameter.computeType(resolution);
       if (originParameterType != patchParameterType) {
         reporter.reportError(
             reporter.createMessage(
-                originParameter,
-                MessageKind.PATCH_PARAMETER_TYPE_MISMATCH,
-                {'methodName': origin.name,
-                 'parameterName': originParameter.name,
-                 'originParameterType': originParameterType,
-                 'patchParameterType': patchParameterType}),
+                originParameter, MessageKind.PATCH_PARAMETER_TYPE_MISMATCH, {
+              'methodName': origin.name,
+              'parameterName': originParameter.name,
+              'originParameterType': originParameterType,
+              'patchParameterType': patchParameterType
+            }),
             <DiagnosticMessage>[
               reporter.createMessage(
                   patchParameter,
@@ -83,58 +88,72 @@ class PatchResolverTask extends CompilerTask {
         if (originParameterText != patchParameterText
             // We special case the list constructor because of the
             // optional parameter.
-            && origin != compiler.unnamedListConstructor) {
+            &&
+            !isUnnamedListConstructor) {
           reporter.reportError(
               reporter.createMessage(
-                  originParameter,
-                  MessageKind.PATCH_PARAMETER_MISMATCH,
-                  {'methodName': origin.name,
-                   'originParameter': originParameterText,
-                   'patchParameter': patchParameterText}),
+                  originParameter, MessageKind.PATCH_PARAMETER_MISMATCH, {
+                'methodName': origin.name,
+                'originParameter': originParameterText,
+                'patchParameter': patchParameterText
+              }),
               <DiagnosticMessage>[
-                  reporter.createMessage(
-                      patchParameter,
-                      MessageKind.PATCH_POINT_TO_PARAMETER,
-                      {'parameterName': patchParameter.name}),
+                reporter.createMessage(
+                    patchParameter,
+                    MessageKind.PATCH_POINT_TO_PARAMETER,
+                    {'parameterName': patchParameter.name}),
               ]);
-
         }
       }
     }
   }
 
-  void checkMatchingPatchSignatures(FunctionElement origin,
-                                    FunctionElement patch) {
+  void checkMatchingPatchSignatures(
+      FunctionElement origin, FunctionElement patch) {
     // TODO(johnniwinther): Show both origin and patch locations on errors.
+    FunctionExpression originTree = origin.node;
     FunctionSignature originSignature = origin.functionSignature;
     FunctionExpression patchTree = patch.node;
     FunctionSignature patchSignature = patch.functionSignature;
 
+    if ('${originTree.typeVariables}' != '${patchTree.typeVariables}') {
+      reporter.withCurrentElement(patch, () {
+        Node errorNode = patchTree.typeVariables != null
+            ? patchTree.typeVariables
+            : patchTree;
+        reporter.reportError(
+            reporter.createMessage(
+                errorNode,
+                MessageKind.PATCH_TYPE_VARIABLES_MISMATCH,
+                {'methodName': origin.name}),
+            [reporter.createMessage(origin, MessageKind.THIS_IS_THE_METHOD)]);
+      });
+    }
     if (originSignature.type.returnType != patchSignature.type.returnType) {
       reporter.withCurrentElement(patch, () {
         Node errorNode =
             patchTree.returnType != null ? patchTree.returnType : patchTree;
         reporter.reportErrorMessage(
-            errorNode, MessageKind.PATCH_RETURN_TYPE_MISMATCH,
-            {'methodName': origin.name,
-             'originReturnType': originSignature.type.returnType,
-             'patchReturnType': patchSignature.type.returnType});
+            errorNode, MessageKind.PATCH_RETURN_TYPE_MISMATCH, {
+          'methodName': origin.name,
+          'originReturnType': originSignature.type.returnType,
+          'patchReturnType': patchSignature.type.returnType
+        });
       });
     }
     if (originSignature.requiredParameterCount !=
         patchSignature.requiredParameterCount) {
       reporter.withCurrentElement(patch, () {
         reporter.reportErrorMessage(
-            patchTree,
-            MessageKind.PATCH_REQUIRED_PARAMETER_COUNT_MISMATCH,
-            {'methodName': origin.name,
-             'originParameterCount': originSignature.requiredParameterCount,
-             'patchParameterCount': patchSignature.requiredParameterCount});
+            patchTree, MessageKind.PATCH_REQUIRED_PARAMETER_COUNT_MISMATCH, {
+          'methodName': origin.name,
+          'originParameterCount': originSignature.requiredParameterCount,
+          'patchParameterCount': patchSignature.requiredParameterCount
+        });
       });
     } else {
-      checkMatchingPatchParameters(origin,
-                                   originSignature.requiredParameters,
-                                   patchSignature.requiredParameters);
+      checkMatchingPatchParameters(origin, originSignature.requiredParameters,
+          patchSignature.requiredParameters);
     }
     if (originSignature.optionalParameterCount != 0 &&
         patchSignature.optionalParameterCount != 0) {
@@ -152,17 +171,15 @@ class PatchResolverTask extends CompilerTask {
         patchSignature.optionalParameterCount) {
       reporter.withCurrentElement(patch, () {
         reporter.reportErrorMessage(
-            patchTree,
-            MessageKind.PATCH_OPTIONAL_PARAMETER_COUNT_MISMATCH,
-            {'methodName': origin.name,
-             'originParameterCount': originSignature.optionalParameterCount,
-             'patchParameterCount': patchSignature.optionalParameterCount});
+            patchTree, MessageKind.PATCH_OPTIONAL_PARAMETER_COUNT_MISMATCH, {
+          'methodName': origin.name,
+          'originParameterCount': originSignature.optionalParameterCount,
+          'patchParameterCount': patchSignature.optionalParameterCount
+        });
       });
     } else {
-      checkMatchingPatchParameters(origin,
-                                   originSignature.optionalParameters,
-                                   patchSignature.optionalParameters);
+      checkMatchingPatchParameters(origin, originSignature.optionalParameters,
+          patchSignature.optionalParameters);
     }
   }
-
 }

@@ -5,33 +5,33 @@
 library compiler.src.inferrer.map_tracer;
 
 import '../elements/elements.dart';
+import '../js_backend/backend_helpers.dart';
 import '../universe/selector.dart' show Selector;
-
 import 'node_tracer.dart';
 import 'type_graph_nodes.dart';
 
-Set<String> okMapSelectorsSet = new Set.from(
-    const <String>[
-      // From Object.
-      "==",
-      "hashCode",
-      "toString",
-      "noSuchMethod",
-      "runtimeType",
-      // From Map
-      "[]",
-      "isEmpty",
-      "isNotEmpty",
-      "keys",
-      "length",
-      "values",
-      "clear",
-      "containsKey",
-      "containsValue",
-      "forEach",
-      "remove"]);
+Set<String> okMapSelectorsSet = new Set.from(const <String>[
+  // From Object.
+  "==",
+  "hashCode",
+  "toString",
+  "noSuchMethod",
+  "runtimeType",
+  // From Map
+  "[]",
+  "isEmpty",
+  "isNotEmpty",
+  "keys",
+  "length",
+  "values",
+  "clear",
+  "containsKey",
+  "containsValue",
+  "forEach",
+  "remove"
+]);
 
-class MapTracerVisitor extends TracerVisitor<MapTypeInformation> {
+class MapTracerVisitor extends TracerVisitor {
   // These lists are used to keep track of newly discovered assignments to
   // the map. Note that elements at corresponding indices are expected to
   // belong to the same assignment operation.
@@ -67,7 +67,8 @@ class MapTracerVisitor extends TracerVisitor<MapTypeInformation> {
   visitStaticCallSiteTypeInformation(StaticCallSiteTypeInformation info) {
     super.visitStaticCallSiteTypeInformation(info);
     Element called = info.calledElement;
-    if (compiler.backend.isForeign(called) && called.name == 'JS') {
+    if (compiler.backend.isForeign(called) &&
+        called.name == BackendHelpers.JS) {
       bailout('Used in JS ${info.call}');
     }
   }
@@ -121,7 +122,7 @@ class MapTracerVisitor extends TracerVisitor<MapTypeInformation> {
         }
       }
     } else if (selector.isCall &&
-               !info.targets.every((element) => element.isFunction)) {
+        !info.targets.every((element) => element.isFunction)) {
       bailout('Passed to a closure');
       return;
     }

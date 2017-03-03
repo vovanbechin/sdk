@@ -6,22 +6,23 @@ library test.domain.analysis.abstract;
 
 import 'dart:async';
 
-import 'package:analysis_server/plugin/protocol/protocol.dart';
+import 'package:analysis_server/plugin/protocol/protocol.dart'
+    hide AnalysisOptions;
 import 'package:analysis_server/src/analysis_server.dart';
 import 'package:analysis_server/src/constants.dart';
 import 'package:analysis_server/src/domain_analysis.dart';
-import 'package:analysis_server/src/plugin/linter_plugin.dart';
 import 'package:analysis_server/src/plugin/server_plugin.dart';
 import 'package:analysis_server/src/provisional/completion/dart/completion_plugin.dart';
 import 'package:analysis_server/src/services/index/index.dart';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/file_system/memory_file_system.dart';
 import 'package:analyzer/instrumentation/instrumentation.dart';
+import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:linter/src/plugin/linter_plugin.dart';
+import 'package:analyzer/src/generated/sdk.dart';
 import 'package:plugin/manager.dart';
 import 'package:plugin/plugin.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 
 import 'mock_sdk.dart';
 import 'mocks.dart';
@@ -45,6 +46,8 @@ int findIdentifierLength(String search) {
  * An abstract base for all 'analysis' domain tests.
  */
 class AbstractAnalysisTest {
+  bool enableNewAnalysisDriver = false;
+  bool generateSummaryFiles = false;
   MockServerChannel serverChannel;
   MemoryResourceProvider resourceProvider;
   MockPackageMapProvider packageMapProvider;
@@ -56,15 +59,23 @@ class AbstractAnalysisTest {
       <GeneralAnalysisService>[];
   final Map<AnalysisService, List<String>> analysisSubscriptions = {};
 
-  String projectPath = '/project';
-  String testFolder = '/project/bin';
-  String testFile = '/project/bin/test.dart';
+  String projectPath;
+  String testFolder;
+  String testFile;
   String testCode;
 
   AbstractAnalysisTest();
 
   AnalysisDomainHandler get analysisHandler => server.handlers
       .singleWhere((handler) => handler is AnalysisDomainHandler);
+
+  AnalysisOptions get analysisOptions => enableNewAnalysisDriver
+      ? testDiver.analysisOptions
+      : testContext.analysisOptions;
+
+  AnalysisContext get testContext => server.getAnalysisContext(testFile);
+
+  AnalysisDriver get testDiver => server.getAnalysisDriver(testFile);
 
   void addAnalysisSubscription(AnalysisService service, String file) {
     // add file to subscription
@@ -81,6 +92,7 @@ class AbstractAnalysisTest {
   }
 
   String addFile(String path, String content) {
+    path = resourceProvider.convertPath(path);
     resourceProvider.newFile(path, content);
     return path;
   }
@@ -107,12 +119,8 @@ class AbstractAnalysisTest {
     ServerPlugin serverPlugin = new ServerPlugin();
     List<Plugin> plugins = <Plugin>[];
     plugins.addAll(AnalysisEngine.instance.requiredPlugins);
-    plugins.add(AnalysisEngine.instance.commandLinePlugin);
-    plugins.add(AnalysisEngine.instance.optionsPlugin);
     plugins.add(serverPlugin);
     plugins.add(dartCompletionPlugin);
-    plugins.add(linterPlugin);
-    plugins.add(linterServerPlugin);
     addServerPlugins(plugins);
     //
     // Process plugins
@@ -120,16 +128,24 @@ class AbstractAnalysisTest {
     ExtensionManager manager = new ExtensionManager();
     manager.processPlugins(plugins);
     //
+    // Create an SDK in the mock file system.
+    //
+    new MockSdk(
+        generateSummaryFiles: generateSummaryFiles,
+        resourceProvider: resourceProvider);
+    //
     // Create server
     //
+    AnalysisServerOptions options = new AnalysisServerOptions();
+    options.enableNewAnalysisDriver = enableNewAnalysisDriver;
     return new AnalysisServer(
         serverChannel,
         resourceProvider,
         packageMapProvider,
         index,
         serverPlugin,
-        new AnalysisServerOptions(),
-        () => new MockSdk(),
+        options,
+        new DartSdkManager(resourceProvider.convertPath('/'), true),
         InstrumentationService.NULL_SERVICE);
   }
 
@@ -140,10 +156,11 @@ class AbstractAnalysisTest {
   /**
    * Creates a project `/project`.
    */
-  void createProject() {
+  void createProject({Map<String, String> packageRoots}) {
     resourceProvider.newFolder(projectPath);
-    Request request =
-        new AnalysisSetAnalysisRootsParams([projectPath], []).toRequest('0');
+    Request request = new AnalysisSetAnalysisRootsParams([projectPath], [],
+            packageRoots: packageRoots)
+        .toRequest('0');
     handleSuccessfulRequest(request, handler: analysisHandler);
   }
 
@@ -180,7 +197,8 @@ class AbstractAnalysisTest {
   }
 
   String modifyTestFile(String content) {
-    addFile(testFile, content);
+    String path = resourceProvider.convertPath(testFile);
+    resourceProvider.updateFile(path, content);
     this.testCode = content;
     return testFile;
   }
@@ -202,6 +220,9 @@ class AbstractAnalysisTest {
   void setUp() {
     serverChannel = new MockServerChannel();
     resourceProvider = new MemoryResourceProvider();
+    projectPath = resourceProvider.convertPath('/project');
+    testFolder = resourceProvider.convertPath('/project/bin');
+    testFile = resourceProvider.convertPath('/project/bin/test.dart');
     packageMapProvider = new MockPackageMapProvider();
     Index index = createIndex();
     server = createAnalysisServer(index);

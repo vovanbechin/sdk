@@ -13,7 +13,7 @@ class ServiceExtensionResponse {
   final int _errorCode;
   final String _errorDetail;
 
-  /// Creates a successful to a service protocol extension RPC.
+  /// Creates a successful response to a service protocol extension RPC.
   ///
   /// Requires [result] to be a JSON object encoded as a string. When forming
   /// the JSON-RPC message [result] will be inlined directly.
@@ -166,7 +166,7 @@ void postEvent(String eventKind, Map eventData) {
   _postEvent(eventKind, eventDataAsString);
 }
 
-external _postEvent(String eventKind, String eventData);
+external void _postEvent(String eventKind, String eventData);
 
 // Both of these functions are written inside C++ to avoid updating the data
 // structures in Dart, getting an OOB, and observing stale state. Do not move

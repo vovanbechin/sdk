@@ -120,11 +120,11 @@ class _ElementCssClassSet extends CssClassSetImpl {
     _addAll(_element, iterable);
   }
 
-  void removeAll(Iterable<String> iterable) {
+  void removeAll(Iterable<Object> iterable) {
     _removeAll(_element, iterable);
   }
 
-  void retainAll(Iterable<String> iterable) {
+  void retainAll(Iterable<Object> iterable) {
     _removeWhere(_element, iterable.toSet().contains, false);
   }
 
@@ -140,6 +140,7 @@ class _ElementCssClassSet extends CssClassSetImpl {
     return value is String && _classListContains(_classListOf(_element), value);
   }
 
+  @ForceInline()
   static bool _add(Element _element, String value) {
     DomTokenList list = _classListOf(_element);
     // Compute returned result independently of action upon the set.
@@ -148,6 +149,7 @@ class _ElementCssClassSet extends CssClassSetImpl {
     return added;
   }
 
+  @ForceInline()
   static bool _remove(Element _element, String value) {
     DomTokenList list = _classListOf(_element);
     bool removed = _classListContainsBeforeAddOrRemove(list, value);

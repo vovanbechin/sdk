@@ -149,7 +149,7 @@ abstract class HttpStatus {
  * about the streaming qualities of an HttpServer.
  * Pausing the subscription of the stream, pauses at the OS level.
  *
- * * The [http_server](https://pub.dartlang.org/packages/http_server)
+ * * The [shelf](https://pub.dartlang.org/packages/shelf)
  * package on pub.dartlang.org contains a set of high-level classes that,
  * together with this class, makes it easy to provide content through HTTP
  * servers.
@@ -400,7 +400,7 @@ class HttpConnectionsInfo {
  * To set the value of a header use the `set()` method:
  *
  *     request.headers.set(HttpHeaders.CACHE_CONTROL,
-                           'max-age=3600, must-revalidate');
+ *                         'max-age=3600, must-revalidate');
  *
  * To retrieve the value of a header use the `value()` method:
  *
@@ -969,13 +969,13 @@ abstract class HttpRequest implements Stream<List<int>> {
   /**
    * The requested URI for the request.
    *
-   * The returend URI is reconstructed by using http-header fields, to access
+   * The returned URI is reconstructed by using http-header fields, to access
    * otherwise lost information, e.g. host and scheme.
    *
    * To reconstruct the scheme, first 'X-Forwarded-Proto' is checked, and then
    * falling back to server type.
    *
-   * To reconstruct the host, fisrt 'X-Forwarded-Host' is checked, then 'Host'
+   * To reconstruct the host, first 'X-Forwarded-Host' is checked, then 'Host'
    * and finally calling back to server.
    */
   Uri get requestedUri;
@@ -1174,7 +1174,7 @@ abstract class HttpResponse implements IOSink {
    * specified using the [status] argument.
    *
    * This method will also call `close`, and the returned future is
-   * the furure returned by `close`.
+   * the future returned by `close`.
    */
   Future redirect(Uri location, {int status: HttpStatus.MOVED_TEMPORARILY});
 
@@ -1660,7 +1660,7 @@ abstract class HttpClient {
    *
    * If a bad certificate is received on a connection attempt, the library calls
    * the function that was the value of badCertificateCallback at the time
-   * the the request is made, even if the value of badCertificateCallback
+   * the request is made, even if the value of badCertificateCallback
    * has changed since then.
    */
   set badCertificateCallback(bool callback(X509Certificate cert,
@@ -1668,13 +1668,13 @@ abstract class HttpClient {
                                            int port));
 
   /**
-   * Shutdown the HTTP client. If [force] is [:false:] (the default)
+   * Shut down the HTTP client. If [force] is [:false:] (the default)
    * the [:HttpClient:] will be kept alive until all active
    * connections are done. If [force] is [:true:] any active
    * connections will be closed to immediately release all
    * resources. These closed connections will receive an [:onError:]
-   * callback to indicate that the client was shutdown. In both cases
-   * trying to establish a new connection after calling [shutdown]
+   * callback to indicate that the client was shut down. In both cases
+   * trying to establish a new connection after calling [close]
    * will throw an exception.
    */
   void close({bool force: false});
@@ -1729,7 +1729,7 @@ abstract class HttpClientRequest implements IOSink {
    * [:HttpStatus.MOVED_TEMPORARILY:] (302, alias for
    * [:HttpStatus.FOUND:]), [:HttpStatus.SEE_OTHER:] (303) and
    * [:HttpStatus.TEMPORARY_REDIRECT:] (307). For
-   * [:HttpStatus.SEE_OTHER:] (303) autmatic redirect will also happen
+   * [:HttpStatus.SEE_OTHER:] (303) automatic redirect will also happen
    * for "POST" requests with the method changed to "GET" when
    * following the redirect.
    *
@@ -2007,7 +2007,7 @@ class HttpException implements IOException {
   final String message;
   final Uri uri;
 
-  const HttpException(String this.message, {Uri this.uri});
+  const HttpException(this.message, {this.uri});
 
   String toString() {
     var b = new StringBuffer()

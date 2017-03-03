@@ -41,7 +41,8 @@ Future _deleteTemporaryDartDirectories() {
   var environment = Platform.environment;
   if (environment['DART_TESTING_DELETE_TEMPORARY_DIRECTORIES'] == '1') {
     LeftOverTempDirPrinter.getLeftOverTemporaryDirectories().listen(
-        (Directory tempDirectory) {
+        (FileSystemEntity tempEntity) {
+          Directory tempDirectory = tempEntity as Directory;
           try {
             tempDirectory.deleteSync(recursive: true);
           } catch (error) {
@@ -55,12 +56,15 @@ Future _deleteTemporaryDartDirectories() {
 }
 
 void main(List<String> arguments) {
-  // This script is in [dart]/tools.
+  // This script is in [sdk]/tools.
   TestUtils.setDartDirUri(Platform.script.resolve('..'));
   _deleteTemporaryDartDirectories().then((_) {
     var optionsParser = new TestOptionsParser();
     var configurations = optionsParser.parse(arguments);
     if (configurations != null && configurations.length > 0) {
+      // All the testing is carried out asynchronously in tasks created by this
+      // call.
+      // TODO(26372): Ensure that all tasks complete before the returned future.
       testConfigurations(configurations);
     }
   });

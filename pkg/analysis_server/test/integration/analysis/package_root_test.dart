@@ -2,28 +2,27 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.integration.analysis.packageRoot;
-
 import 'package:analysis_server/plugin/protocol/protocol.dart';
-import 'package:path/path.dart';
+import 'package:path/path.dart' as path;
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../utils.dart';
 import '../integration_tests.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(Test);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(SetAnalysisRootsTest);
+    defineReflectiveTests(SetAnalysisRootsTest_Driver);
+  });
 }
 
-@reflectiveTest
-class Test extends AbstractAnalysisServerIntegrationTest {
+class AbstractSetAnalysisRootsTest
+    extends AbstractAnalysisServerIntegrationTest {
   test_package_root() {
     String projPath = sourcePath('project');
-    String mainPath = join(projPath, 'main.dart');
+    String mainPath = path.join(projPath, 'main.dart');
     String packagesPath = sourcePath('packages');
-    String fooBarPath = join(packagesPath, 'foo', 'bar.dart');
+    String fooBarPath = path.join(packagesPath, 'foo', 'bar.dart');
     String mainText = """
 library main;
 
@@ -55,6 +54,7 @@ f() {}
     });
     sendAnalysisSetAnalysisRoots([projPath], [],
         packageRoots: {projPath: packagesPath});
+    sendAnalysisSetPriorityFiles([mainPath]);
     return analysisFinished.then((_) {
       // Verify that fooBarPath was properly resolved by checking that f()
       // refers to it.
@@ -76,4 +76,13 @@ f() {}
       expect(found, isTrue);
     });
   }
+}
+
+@reflectiveTest
+class SetAnalysisRootsTest extends AbstractSetAnalysisRootsTest {}
+
+@reflectiveTest
+class SetAnalysisRootsTest_Driver extends AbstractSetAnalysisRootsTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

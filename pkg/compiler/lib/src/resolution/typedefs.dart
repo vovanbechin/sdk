@@ -5,45 +5,38 @@
 library dart2js.resolution.typedefs;
 
 import '../common.dart';
-import '../compiler.dart' show
-    Compiler;
-import '../dart_types.dart';
-import '../elements/elements.dart' show
-    FunctionSignature,
-    TypedefElement,
-    TypeVariableElement;
-import '../elements/modelx.dart' show
-    ErroneousElementX,
-    TypedefElementX;
+import '../common/resolution.dart';
+import '../elements/resolution_types.dart';
+import '../elements/elements.dart'
+    show FunctionSignature, TypedefElement, TypeVariableElement;
+import '../elements/modelx.dart' show ErroneousElementX, TypedefElementX;
 import '../tree/tree.dart';
-import '../util/util.dart' show
-    Link;
-
-import 'class_hierarchy.dart' show
-    TypeDefinitionVisitor;
-import 'registry.dart' show
-    ResolutionRegistry;
-import 'scope.dart' show
-    MethodScope,
-    TypeDeclarationScope;
-import 'signatures.dart' show
-    SignatureResolver;
+import '../util/util.dart' show Link;
+import 'class_hierarchy.dart' show TypeDefinitionVisitor;
+import 'registry.dart' show ResolutionRegistry;
+import 'scope.dart' show MethodScope, TypeDeclarationScope;
+import 'signatures.dart' show SignatureResolver;
 
 class TypedefResolverVisitor extends TypeDefinitionVisitor {
   TypedefElementX get element => enclosingElement;
 
-  TypedefResolverVisitor(Compiler compiler,
-                         TypedefElement typedefElement,
-                         ResolutionRegistry registry)
-      : super(compiler, typedefElement, registry);
+  TypedefResolverVisitor(Resolution resolution, TypedefElement typedefElement,
+      ResolutionRegistry registry)
+      : super(resolution, typedefElement, registry);
 
   visitTypedef(Typedef node) {
     element.computeType(resolution);
     scope = new TypeDeclarationScope(scope, element);
-    resolveTypeVariableBounds(node.typeParameters);
+    resolveTypeVariableBounds(node.templateParameters);
 
     FunctionSignature signature = SignatureResolver.analyze(
-        compiler, node.formals, node.returnType, element, registry,
+        resolution,
+        scope,
+        node.typeParameters,
+        node.formals,
+        node.returnType,
+        element,
+        registry,
         defaultValuesError: MessageKind.TYPEDEF_FORMAL_WITH_DEFAULT);
     element.functionSignature = signature;
 
@@ -55,6 +48,7 @@ class TypedefResolverVisitor extends TypeDefinitionVisitor {
     void checkCyclicReference() {
       element.checkCyclicReference(resolution);
     }
+
     addDeferredAction(element, checkCyclicReference);
   }
 }
@@ -73,13 +67,13 @@ class TypedefCyclicVisitor extends BaseDartTypeVisitor {
   Link<TypeVariableElement> seenTypeVariables =
       const Link<TypeVariableElement>();
 
-  TypedefCyclicVisitor(this.reporter, TypedefElement this.element);
+  TypedefCyclicVisitor(this.reporter, this.element);
 
-  visitType(DartType type, _) {
+  visitType(ResolutionDartType type, _) {
     // Do nothing.
   }
 
-  visitTypedefType(TypedefType type, _) {
+  visitTypedefType(ResolutionTypedefType type, _) {
     TypedefElementX typedefElement = type.element;
     if (seenTypedefs.contains(typedefElement)) {
       if (!hasCyclicReference && identical(element, typedefElement)) {
@@ -88,33 +82,31 @@ class TypedefCyclicVisitor extends BaseDartTypeVisitor {
         hasCyclicReference = true;
         if (seenTypedefsCount == 1) {
           // Direct cyclicity.
-          reporter.reportErrorMessage(
-              element,
-              MessageKind.CYCLIC_TYPEDEF,
+          reporter.reportErrorMessage(element, MessageKind.CYCLIC_TYPEDEF,
               {'typedefName': element.name});
         } else if (seenTypedefsCount == 2) {
           // Cyclicity through one other typedef.
-          reporter.reportErrorMessage(
-              element,
-              MessageKind.CYCLIC_TYPEDEF_ONE,
-              {'typedefName': element.name,
-               'otherTypedefName': seenTypedefs.head.name});
+          reporter.reportErrorMessage(element, MessageKind.CYCLIC_TYPEDEF_ONE, {
+            'typedefName': element.name,
+            'otherTypedefName': seenTypedefs.head.name
+          });
         } else {
           // Cyclicity through more than one other typedef.
           for (TypedefElement cycle in seenTypedefs) {
             if (!identical(typedefElement, cycle)) {
               reporter.reportErrorMessage(
-                  element,
-                  MessageKind.CYCLIC_TYPEDEF_ONE,
-                  {'typedefName': element.name,
-                   'otherTypedefName': cycle.name});
+                  element, MessageKind.CYCLIC_TYPEDEF_ONE, {
+                'typedefName': element.name,
+                'otherTypedefName': cycle.name
+              });
             }
           }
         }
         ErroneousElementX erroneousElement = new ErroneousElementX(
-              MessageKind.CYCLIC_TYPEDEF,
-              {'typedefName': element.name},
-              element.name, element);
+            MessageKind.CYCLIC_TYPEDEF,
+            {'typedefName': element.name},
+            element.name,
+            element);
         element.aliasCache =
             new MalformedType(erroneousElement, typedefElement.aliasCache);
         element.hasBeenCheckedForCycles = true;
@@ -123,21 +115,23 @@ class TypedefCyclicVisitor extends BaseDartTypeVisitor {
       seenTypedefs = seenTypedefs.prepend(typedefElement);
       seenTypedefsCount++;
       type.visitChildren(this, null);
-      typedefElement.aliasCache.accept(this, null);
+      if (!typedefElement.isMalformed) {
+        typedefElement.aliasCache.accept(this, null);
+      }
       seenTypedefs = seenTypedefs.tail;
       seenTypedefsCount--;
     }
   }
 
-  visitFunctionType(FunctionType type, _) {
+  visitFunctionType(ResolutionFunctionType type, _) {
     type.visitChildren(this, null);
   }
 
-  visitInterfaceType(InterfaceType type, _) {
+  visitInterfaceType(ResolutionInterfaceType type, _) {
     type.visitChildren(this, null);
   }
 
-  visitTypeVariableType(TypeVariableType type, _) {
+  visitTypeVariableType(ResolutionTypeVariableType type, _) {
     TypeVariableElement typeVariableElement = type.element;
     if (seenTypeVariables.contains(typeVariableElement)) {
       // Avoid running in cycles on cyclic type variable bounds.

@@ -6,11 +6,17 @@
 // VMOptions=--short_socket_read
 // VMOptions=--short_socket_write
 // VMOptions=--short_socket_read --short_socket_write
+// OtherResources=http_server_response_test.dart
 
 import "package:expect/expect.dart";
 import "dart:async";
 import "dart:io";
 import "dart:typed_data";
+
+// Platform.script may refer to a AOT or JIT snapshot, which are significantly
+// larger.
+File scriptSource = new File(
+    Platform.script.resolve("http_server_response_test.dart").toFilePath());
 
 void testServerRequest(void handler(server, request),
                        {int bytes,
@@ -81,7 +87,7 @@ void testResponseDone() {
 
 
 void testResponseAddStream() {
-  File file = new File(Platform.script.toFilePath());
+  File file = scriptSource;
   int bytes = file.lengthSync();
 
   testServerRequest((server, request) {
@@ -130,7 +136,7 @@ void testResponseAddStream() {
 
 
 void testResponseAddStreamClosed() {
-  File file = new File(Platform.script.toFilePath());
+  File file = scriptSource;
   testServerRequest((server, request) {
     request.response.addStream(file.openRead())
         .then((response) {
@@ -160,7 +166,7 @@ void testResponseAddStreamClosed() {
 
 
 void testResponseAddClosed() {
-  File file = new File(Platform.script.toFilePath());
+  File file = scriptSource;
   testServerRequest((server, request) {
     request.response.add(file.readAsBytesSync());
     request.response.close();
@@ -275,20 +281,6 @@ void testIgnoreRequestData() {
 }
 
 
-void testBadHeaders() {
-  testServerRequest((server, request) {
-    var value = "a";
-    for (int i = 0; i < 8 * 1024; i++) {
-      value += 'a';
-    }
-    request.response.headers.set('name', value);
-    request.response.close().catchError((error) {
-      server.close();
-    }, test: (e) => e is HttpException);
-  });
-}
-
-
 void testWriteCharCode() {
   testServerRequest((server, request) {
     // Test that default is latin-1 (only 2 bytes).
@@ -309,6 +301,5 @@ void main() {
   testBadResponseAdd();
   testBadResponseClose();
   testIgnoreRequestData();
-  testBadHeaders();
   testWriteCharCode();
 }

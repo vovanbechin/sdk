@@ -33,24 +33,25 @@ main() {
 }
 """;
 
-
 void main() {
   Uri uri = new Uri(scheme: 'source');
   var compiler = compilerFor(TEST, uri);
   asyncTest(() => compiler.run(uri).then((_) {
-    var typesInferrer = compiler.typesTask.typesInferrer;
+        var typesInferrer = compiler.globalInference.typesInferrerInternal;
+        var closedWorld = typesInferrer.closedWorld;
 
-    checkReturn(String name, type) {
-      var element = findElement(compiler, name);
-      Expect.equals(type,
-          typesInferrer.getReturnTypeOfElement(element).simplify(compiler),
-          name);
-    }
+        checkReturn(String name, type) {
+          var element = findElement(compiler, name);
+          Expect.equals(
+              type,
+              typesInferrer.getReturnTypeOfElement(element).simplify(compiler),
+              name);
+        }
 
-    checkReturn('method1', compiler.typesTask.uint31Type);
-    checkReturn('returnInt1', compiler.typesTask.uint31Type);
+        checkReturn('method1', closedWorld.commonMasks.uint31Type);
+        checkReturn('returnInt1', closedWorld.commonMasks.uint31Type);
 
-    checkReturn('method2', compiler.typesTask.uint31Type);
-    checkReturn('returnInt2', compiler.typesTask.uint31Type);
-  }));
+        checkReturn('method2', closedWorld.commonMasks.uint31Type);
+        checkReturn('returnInt2', closedWorld.commonMasks.uint31Type);
+      }));
 }

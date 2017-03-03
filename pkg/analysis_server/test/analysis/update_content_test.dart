@@ -9,19 +9,20 @@ import 'package:analysis_server/src/analysis_server.dart';
 import 'package:analysis_server/src/constants.dart';
 import 'package:analysis_server/src/services/index/index.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/standard_resolution_map.dart';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 import 'package:typed_mock/typed_mock.dart';
-import 'package:unittest/unittest.dart';
 
 import '../analysis_abstract.dart';
-import '../utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(UpdateContentTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(UpdateContentTest);
+  });
 }
 
 compilationUnitMatcher(String file) {
@@ -30,7 +31,7 @@ compilationUnitMatcher(String file) {
 
 @reflectiveTest
 class UpdateContentTest extends AbstractAnalysisTest {
-  Map<String, List<AnalysisError>> filesErrors = {};
+  Map<String, List<String>> filesErrors = {};
   int serverErrorCount = 0;
   int navigationCount = 0;
 
@@ -42,7 +43,8 @@ class UpdateContentTest extends AbstractAnalysisTest {
   void processNotification(Notification notification) {
     if (notification.event == ANALYSIS_ERRORS) {
       var decoded = new AnalysisErrorsParams.fromNotification(notification);
-      _format(AnalysisError e) => "${e.location.startLine}: ${e.message}";
+      String _format(AnalysisError e) =>
+          "${e.location.startLine}: ${e.message}";
       filesErrors[decoded.file] = decoded.errors.map(_format).toList();
     }
     if (notification.event == ANALYSIS_NAVIGATION) {
@@ -169,7 +171,7 @@ f() {}
         {'/project/main.dart': new AddContentOverlay('import "target.dart";')});
     await server.onAnalysisComplete;
     expect(filesErrors, {
-      '/project/main.dart': ["1: Target of URI does not exist: 'target.dart'"],
+      '/project/main.dart': ["1: Target of URI doesn't exist: 'target.dart'."],
       '/project/target.dart': []
     });
 
@@ -177,8 +179,8 @@ f() {}
         {'/project/target.dart': new AddContentOverlay('import "none.dart";')});
     await server.onAnalysisComplete;
     expect(filesErrors, {
-      '/project/main.dart': ["1: Unused import"],
-      '/project/target.dart': ["1: Target of URI does not exist: 'none.dart'"],
+      '/project/main.dart': ["1: Unused import."],
+      '/project/target.dart': ["1: Target of URI doesn't exist: 'none.dart'."],
       '/project/none.dart': []
     });
   }
@@ -292,7 +294,9 @@ class _ArgumentMatcher_CompilationUnit extends ArgumentMatcher {
 
   @override
   bool matches(arg) {
-    return arg is CompilationUnit && arg.element.source.fullName == file;
+    return arg is CompilationUnit &&
+        resolutionMap.elementDeclaredByCompilationUnit(arg).source.fullName ==
+            file;
   }
 }
 

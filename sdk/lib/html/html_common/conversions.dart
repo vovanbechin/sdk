@@ -223,7 +223,7 @@ abstract class _AcceptStructuredClone {
 
     if (isJavaScriptSimpleObject(e)) {
       // TODO(sra): If mustCopy is false, swizzle the prototype for one of a Map
-      // implementation that uses the properies as storage.
+      // implementation that uses the properties as storage.
       var slot = findSlot(e);
       var copy = readSlot(slot);
       if (copy != null) return copy;
@@ -351,14 +351,3 @@ convertDartToNative_ImageData(ImageData imageData) {
   }
   return imageData;
 }
-
-const String _serializedScriptValue =
-    'num|String|bool|'
-    'JSExtendableArray|=Object|'
-    'Blob|File|NativeByteBuffer|NativeTypedData'
-    // TODO(sra): Add Date, RegExp.
-    ;
-const annotation_Creates_SerializedScriptValue =
-    const Creates(_serializedScriptValue);
-const annotation_Returns_SerializedScriptValue =
-    const Returns(_serializedScriptValue);

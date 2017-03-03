@@ -17,13 +17,13 @@ namespace dart {
 DECLARE_FLAG(bool, trace_irregexp);
 
 
-DEFINE_NATIVE_ENTRY(JSSyntaxRegExp_factory, 4) {
+DEFINE_NATIVE_ENTRY(RegExp_factory, 4) {
   ASSERT(TypeArguments::CheckedHandle(arguments->NativeArgAt(0)).IsNull());
   GET_NON_NULL_NATIVE_ARGUMENT(String, pattern, arguments->NativeArgAt(1));
-  GET_NON_NULL_NATIVE_ARGUMENT(
-      Instance, handle_multi_line, arguments->NativeArgAt(2));
-  GET_NON_NULL_NATIVE_ARGUMENT(
-      Instance, handle_case_sensitive, arguments->NativeArgAt(3));
+  GET_NON_NULL_NATIVE_ARGUMENT(Instance, handle_multi_line,
+                               arguments->NativeArgAt(2));
+  GET_NON_NULL_NATIVE_ARGUMENT(Instance, handle_case_sensitive,
+                               arguments->NativeArgAt(3));
   bool ignore_case = handle_case_sensitive.raw() != Bool::True().raw();
   bool multi_line = handle_multi_line.raw() == Bool::True().raw();
 
@@ -35,37 +35,34 @@ DEFINE_NATIVE_ENTRY(JSSyntaxRegExp_factory, 4) {
     UNREACHABLE();
   }
 
-  // Create a JSRegExp object containing only the initial parameters.
-  return RegExpEngine::CreateJSRegExp(zone,
-                                      pattern,
-                                      multi_line,
-                                      ignore_case);
+  // Create a RegExp object containing only the initial parameters.
+  return RegExpEngine::CreateRegExp(thread, pattern, multi_line, ignore_case);
 }
 
 
-DEFINE_NATIVE_ENTRY(JSSyntaxRegExp_getPattern, 1) {
-  const JSRegExp& regexp = JSRegExp::CheckedHandle(arguments->NativeArgAt(0));
+DEFINE_NATIVE_ENTRY(RegExp_getPattern, 1) {
+  const RegExp& regexp = RegExp::CheckedHandle(arguments->NativeArgAt(0));
   ASSERT(!regexp.IsNull());
   return regexp.pattern();
 }
 
 
-DEFINE_NATIVE_ENTRY(JSSyntaxRegExp_getIsMultiLine, 1) {
-  const JSRegExp& regexp = JSRegExp::CheckedHandle(arguments->NativeArgAt(0));
+DEFINE_NATIVE_ENTRY(RegExp_getIsMultiLine, 1) {
+  const RegExp& regexp = RegExp::CheckedHandle(arguments->NativeArgAt(0));
   ASSERT(!regexp.IsNull());
   return Bool::Get(regexp.is_multi_line()).raw();
 }
 
 
-DEFINE_NATIVE_ENTRY(JSSyntaxRegExp_getIsCaseSensitive, 1) {
-  const JSRegExp& regexp = JSRegExp::CheckedHandle(arguments->NativeArgAt(0));
+DEFINE_NATIVE_ENTRY(RegExp_getIsCaseSensitive, 1) {
+  const RegExp& regexp = RegExp::CheckedHandle(arguments->NativeArgAt(0));
   ASSERT(!regexp.IsNull());
   return Bool::Get(!regexp.is_ignore_case()).raw();
 }
 
 
-DEFINE_NATIVE_ENTRY(JSSyntaxRegExp_getGroupCount, 1) {
-  const JSRegExp& regexp = JSRegExp::CheckedHandle(arguments->NativeArgAt(0));
+DEFINE_NATIVE_ENTRY(RegExp_getGroupCount, 1) {
+  const RegExp& regexp = RegExp::CheckedHandle(arguments->NativeArgAt(0));
   ASSERT(!regexp.IsNull());
   if (regexp.is_initialized()) {
     return regexp.num_bracket_expressions();
@@ -81,19 +78,34 @@ DEFINE_NATIVE_ENTRY(JSSyntaxRegExp_getGroupCount, 1) {
 }
 
 
-DEFINE_NATIVE_ENTRY(JSSyntaxRegExp_ExecuteMatch, 3) {
-  // This function is intrinsified. See Intrinsifier::JSRegExp_ExecuteMatch.
-  const JSRegExp& regexp = JSRegExp::CheckedHandle(arguments->NativeArgAt(0));
+static RawObject* ExecuteMatch(Zone* zone,
+                               NativeArguments* arguments,
+                               bool sticky) {
+  const RegExp& regexp = RegExp::CheckedHandle(arguments->NativeArgAt(0));
   ASSERT(!regexp.IsNull());
   GET_NON_NULL_NATIVE_ARGUMENT(String, subject, arguments->NativeArgAt(1));
   GET_NON_NULL_NATIVE_ARGUMENT(Smi, start_index, arguments->NativeArgAt(2));
 
-  if (FLAG_interpret_irregexp || FLAG_precompiled_runtime) {
+  if (FLAG_interpret_irregexp) {
     return BytecodeRegExpMacroAssembler::Interpret(regexp, subject, start_index,
-                                                   zone);
+                                                   /*sticky=*/sticky, zone);
   }
 
-  return IRRegExpMacroAssembler::Execute(regexp, subject, start_index, zone);
+  return IRRegExpMacroAssembler::Execute(regexp, subject, start_index,
+                                         /*sticky=*/sticky, zone);
 }
+
+
+DEFINE_NATIVE_ENTRY(RegExp_ExecuteMatch, 3) {
+  // This function is intrinsified. See Intrinsifier::RegExp_ExecuteMatch.
+  return ExecuteMatch(zone, arguments, /*sticky=*/false);
+}
+
+
+DEFINE_NATIVE_ENTRY(RegExp_ExecuteMatchSticky, 3) {
+  // This function is intrinsified. See Intrinsifier::RegExp_ExecuteMatchSticky.
+  return ExecuteMatch(zone, arguments, /*sticky=*/true);
+}
+
 
 }  // namespace dart

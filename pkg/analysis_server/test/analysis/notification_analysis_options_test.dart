@@ -2,27 +2,31 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.analysis.notification.analysis_options;
+library test.analysis.notification_analysis_options_test;
 
-import 'package:analysis_server/plugin/protocol/protocol.dart';
+import 'package:analysis_server/plugin/protocol/protocol.dart'
+    hide AnalysisOptions;
 import 'package:analysis_server/src/constants.dart';
 import 'package:analysis_server/src/domain_analysis.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/services/lint.dart';
+import 'package:linter/src/rules.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
 import '../analysis_abstract.dart';
 import '../mocks.dart';
-import '../utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(AnalysisOptionsFileNotificationTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(NewAnalysisOptionsFileNotificationTest);
+    defineReflectiveTests(OldAnalysisOptionsFileNotificationTest);
+    defineReflectiveTests(NewAnalysisOptionsFileNotificationTest_Driver);
+    defineReflectiveTests(OldAnalysisOptionsFileNotificationTest_Driver);
+  });
 }
 
-@reflectiveTest
-class AnalysisOptionsFileNotificationTest extends AbstractAnalysisTest {
+abstract class AnalysisOptionsFileNotificationTest
+    extends AbstractAnalysisTest {
   Map<String, List<AnalysisError>> filesErrors = {};
 
   final testSource = '''
@@ -36,9 +40,7 @@ main() {
 
   List<AnalysisError> get optionsFileErrors => filesErrors[optionsFilePath];
 
-  String get optionsFilePath => '$projectPath/.analysis_options';
-
-  AnalysisContext get testContext => server.getContainingContext(testFile);
+  String get optionsFilePath;
 
   List<AnalysisError> get testFileErrors => filesErrors[testFile];
 
@@ -73,6 +75,7 @@ analyzer:
 
   @override
   void setUp() {
+    registerLintRules();
     super.setUp();
     server.handlers = [new AnalysisDomainHandler(server)];
   }
@@ -102,9 +105,14 @@ main() {
     await waitForTasksFinished();
 
     // Verify options file.
-    expect(optionsFileErrors, isEmpty);
+    if (!enableNewAnalysisDriver) {
+      // TODO(brianwilkerson) Implement options file analysis in the new driver.
+      expect(optionsFileErrors, isNotNull);
+      expect(optionsFileErrors, isEmpty);
+    }
 
     // Verify test file.
+    expect(testFileErrors, isNotNull);
     expect(testFileErrors, isEmpty);
   }
 
@@ -126,9 +134,14 @@ main() {
     await waitForTasksFinished();
 
     // Verify options file.
-    expect(optionsFileErrors, isEmpty);
+    if (!enableNewAnalysisDriver) {
+      // TODO(brianwilkerson) Implement options file analysis in the new driver.
+      expect(optionsFileErrors, isNotNull);
+      expect(optionsFileErrors, isEmpty);
+    }
 
     // Verify test file.
+    expect(testFileErrors, isNotNull);
     expect(testFileErrors, isEmpty);
 
     addOptionsFile('''
@@ -141,7 +154,10 @@ analyzer:
     await waitForTasksFinished();
 
     // Verify options file.
-    expect(optionsFileErrors, isEmpty);
+    if (!enableNewAnalysisDriver) {
+      // TODO(brianwilkerson) Implement options file analysis in the new driver.
+      expect(optionsFileErrors, isEmpty);
+    }
 
     // Verify test file.
     expect(testFileErrors, hasLength(1));
@@ -186,9 +202,12 @@ linter:
 
     await waitForTasksFinished();
 
-    expect(optionsFileErrors, hasLength(1));
-    expect(optionsFileErrors.first.severity, AnalysisErrorSeverity.WARNING);
-    expect(optionsFileErrors.first.type, AnalysisErrorType.STATIC_WARNING);
+    if (!enableNewAnalysisDriver) {
+      // TODO(brianwilkerson) Implement options file analysis in the new driver.
+      expect(optionsFileErrors, hasLength(1));
+      expect(optionsFileErrors.first.severity, AnalysisErrorSeverity.WARNING);
+      expect(optionsFileErrors.first.type, AnalysisErrorType.STATIC_WARNING);
+    }
   }
 
   test_options_file_added() async {
@@ -220,9 +239,13 @@ linter:
 
     await waitForTasksFinished();
 
-    expect(optionsFileErrors, hasLength(1));
-    expect(optionsFileErrors.first.severity, AnalysisErrorSeverity.ERROR);
-    expect(optionsFileErrors.first.type, AnalysisErrorType.COMPILE_TIME_ERROR);
+    if (!enableNewAnalysisDriver) {
+      // TODO(brianwilkerson) Implement options file analysis in the new driver.
+      expect(optionsFileErrors, hasLength(1));
+      expect(optionsFileErrors.first.severity, AnalysisErrorSeverity.ERROR);
+      expect(
+          optionsFileErrors.first.type, AnalysisErrorType.COMPILE_TIME_ERROR);
+    }
   }
 
   test_options_file_removed() async {
@@ -286,26 +309,60 @@ linter:
   }
 
   void verifyLintsEnabled(List<String> lints) {
-    expect(testContext.analysisOptions.lint, true);
-    var rules = getLints(testContext).map((rule) => rule.name);
+    AnalysisOptions options = analysisOptions;
+    expect(options.lint, true);
+    var rules = options.lintRules.map((rule) => rule.name);
     expect(rules, unorderedEquals(lints));
   }
 
   verifyStrongMode({bool enabled}) {
     // Verify strong-mode enabled.
-    expect(testContext.analysisOptions.strongMode, enabled);
+    expect(analysisOptions.strongMode, enabled);
 
     if (enabled) {
       // Should produce a type warning.
-      expect(
-          errors.map((error) => error.type),
-          unorderedEquals([
-            AnalysisErrorType.STATIC_TYPE_WARNING
-          ]));
+      expect(errors.map((error) => error.type),
+          unorderedEquals([AnalysisErrorType.STATIC_TYPE_WARNING]));
     } else {
       // Should only produce a hint.
       expect(errors.map((error) => error.type),
           unorderedEquals([AnalysisErrorType.HINT]));
     }
+  }
+}
+
+@reflectiveTest
+class NewAnalysisOptionsFileNotificationTest
+    extends AnalysisOptionsFileNotificationTest {
+  @override
+  String get optionsFilePath => '$projectPath/analysis_options.yaml';
+}
+
+@reflectiveTest
+class NewAnalysisOptionsFileNotificationTest_Driver
+    extends NewAnalysisOptionsFileNotificationTest {
+  @override
+  void setUp() {
+    enableNewAnalysisDriver = true;
+    generateSummaryFiles = true;
+    super.setUp();
+  }
+}
+
+@reflectiveTest
+class OldAnalysisOptionsFileNotificationTest
+    extends AnalysisOptionsFileNotificationTest {
+  @override
+  String get optionsFilePath => '$projectPath/.analysis_options';
+}
+
+@reflectiveTest
+class OldAnalysisOptionsFileNotificationTest_Driver
+    extends OldAnalysisOptionsFileNotificationTest {
+  @override
+  void setUp() {
+    enableNewAnalysisDriver = true;
+    generateSummaryFiles = true;
+    super.setUp();
   }
 }

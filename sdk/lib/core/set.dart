@@ -21,7 +21,7 @@ part of dart.core;
  * or ordered in some way. Examples:
  *
  * * A [HashSet] is unordered, which means that its iteration order is
- *   uspecified,
+ *   unspecified,
  * * [LinkedHashSet] iterates in the insertion order of its elements, and
  * * a sorted set like [SplayTreeSet] iterates the elements in sorted order.
  *
@@ -31,7 +31,7 @@ part of dart.core;
  * iterating either the set itself or any [Iterable] that is backed by the set,
  * such as the ones returned by methods like [where] and [map].
  */
-abstract class Set<E> extends Iterable<E> implements EfficientLength {
+abstract class Set<E> extends EfficientLengthIterable<E> {
   /**
    * Creates an empty [Set].
    *
@@ -180,12 +180,12 @@ abstract class Set<E> extends Iterable<E> implements EfficientLength {
   Set<E> union(Set<E> other);
 
   /**
-   * Returns a new set with the the elements of this that are not in [other].
+   * Returns a new set with the elements of this that are not in [other].
    *
    * That is, the returned set contains all the elements of this [Set] that
    * are not elements of [other] according to `other.contains`.
    */
-  Set<E> difference(Set<E> other);
+  Set<E> difference(Set<Object> other);
 
   /**
    * Removes all elements in the set.

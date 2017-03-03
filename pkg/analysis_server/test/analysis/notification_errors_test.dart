@@ -6,23 +6,28 @@ library test.analysis.notification_errors;
 
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analysis_server/src/constants.dart';
+import 'package:analysis_server/src/context_manager.dart';
 import 'package:analysis_server/src/domain_analysis.dart';
+import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer/src/generated/engine.dart';
+import 'package:analyzer/src/lint/linter.dart';
 import 'package:analyzer/src/services/lint.dart';
-import 'package:linter/src/linter.dart';
+import 'package:linter/src/rules.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
 import '../analysis_abstract.dart';
-import '../utils.dart';
+import '../mocks.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(NotificationErrorsTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(NotificationErrorsTest);
+    defineReflectiveTests(NotificationErrorsTest_Driver);
+  });
 }
 
 @reflectiveTest
-class NotificationErrorsTest extends AbstractAnalysisTest {
+class AbstractNotificationErrorsTest extends AbstractAnalysisTest {
   Map<String, List<AnalysisError>> filesErrors = {};
 
   void processNotification(Notification notification) {
@@ -34,8 +39,11 @@ class NotificationErrorsTest extends AbstractAnalysisTest {
 
   @override
   void setUp() {
+    registerLintRules();
     super.setUp();
-    server.handlers = [new AnalysisDomainHandler(server),];
+    server.handlers = [
+      new AnalysisDomainHandler(server),
+    ];
   }
 
   test_importError() async {
@@ -45,6 +53,7 @@ class NotificationErrorsTest extends AbstractAnalysisTest {
 import 'does_not_exist.dart';
 ''');
     await waitForTasksFinished();
+    await pumpEventQueue();
     List<AnalysisError> errors = filesErrors[testFile];
     // Verify that we are generating only 1 error for the bad URI.
     // https://github.com/dart-lang/sdk/issues/23754
@@ -52,7 +61,7 @@ import 'does_not_exist.dart';
     AnalysisError error = errors[0];
     expect(error.severity, AnalysisErrorSeverity.ERROR);
     expect(error.type, AnalysisErrorType.COMPILE_TIME_ERROR);
-    expect(error.message, startsWith('Target of URI does not exist'));
+    expect(error.message, startsWith("Target of URI doesn't exist"));
   }
 
   test_lintError() async {
@@ -73,8 +82,16 @@ linter:
     handleSuccessfulRequest(request);
 
     await waitForTasksFinished();
-    AnalysisContext testContext = server.getContainingContext(testFile);
-    List<Linter> lints = getLints(testContext);
+    List<Linter> lints;
+    if (enableNewAnalysisDriver) {
+      AnalysisDriver testDriver = (server.contextManager as ContextManagerImpl)
+          .getContextInfoFor(resourceProvider.getFolder(projectPath))
+          .analysisDriver;
+      lints = testDriver.analysisOptions.lintRules;
+    } else {
+      AnalysisContext testContext = server.getContainingContext(testFile);
+      lints = getLints(testContext);
+    }
     // Registry should only contain single lint rule.
     expect(lints, hasLength(1));
     LintRule lint = lints.first as LintRule;
@@ -107,6 +124,7 @@ main() {
     createProject();
     addTestFile('library lib');
     await waitForTasksFinished();
+    await pumpEventQueue();
     List<AnalysisError> errors = filesErrors[testFile];
     expect(errors, hasLength(1));
     AnalysisError error = errors[0];
@@ -126,10 +144,24 @@ main() {
 }
 ''');
     await waitForTasksFinished();
+    await pumpEventQueue();
     List<AnalysisError> errors = filesErrors[testFile];
     expect(errors, hasLength(1));
     AnalysisError error = errors[0];
     expect(error.severity, AnalysisErrorSeverity.WARNING);
     expect(error.type, AnalysisErrorType.STATIC_WARNING);
+  }
+}
+
+@reflectiveTest
+class NotificationErrorsTest extends AbstractNotificationErrorsTest {}
+
+@reflectiveTest
+class NotificationErrorsTest_Driver extends AbstractNotificationErrorsTest {
+  @override
+  void setUp() {
+    enableNewAnalysisDriver = true;
+    generateSummaryFiles = true;
+    super.setUp();
   }
 }

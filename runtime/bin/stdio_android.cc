@@ -2,14 +2,16 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+#if !defined(DART_IO_DISABLED)
+
 #include "platform/globals.h"
 #if defined(TARGET_OS_ANDROID)
 
 #include "bin/stdio.h"
 
-#include <errno.h>  // NOLINT
+#include <errno.h>      // NOLINT
 #include <sys/ioctl.h>  // NOLINT
-#include <termios.h>  // NOLINT
+#include <termios.h>    // NOLINT
 
 #include "bin/fdutils.h"
 #include "platform/signal_blocker.h"
@@ -17,50 +19,67 @@
 namespace dart {
 namespace bin {
 
-int Stdin::ReadByte() {
-  int c = getchar();
-  if (c == EOF) {
-    c = -1;
+bool Stdin::ReadByte(int* byte) {
+  int c = NO_RETRY_EXPECTED(getchar());
+  if ((c == EOF) && (errno != 0)) {
+    return false;
   }
-  return c;
+  *byte = (c == EOF) ? -1 : c;
+  return true;
 }
 
 
-bool Stdin::GetEchoMode() {
+bool Stdin::GetEchoMode(bool* enabled) {
   struct termios term;
-  tcgetattr(STDIN_FILENO, &term);
-  return ((term.c_lflag & ECHO) != 0);
+  int status = NO_RETRY_EXPECTED(tcgetattr(STDIN_FILENO, &term));
+  if (status != 0) {
+    return false;
+  }
+  *enabled = ((term.c_lflag & ECHO) != 0);
+  return true;
 }
 
 
-void Stdin::SetEchoMode(bool enabled) {
+bool Stdin::SetEchoMode(bool enabled) {
   struct termios term;
-  tcgetattr(STDIN_FILENO, &term);
+  int status = NO_RETRY_EXPECTED(tcgetattr(STDIN_FILENO, &term));
+  if (status != 0) {
+    return false;
+  }
   if (enabled) {
     term.c_lflag |= (ECHO | ECHONL);
   } else {
     term.c_lflag &= ~(ECHO | ECHONL);
   }
-  tcsetattr(STDIN_FILENO, TCSANOW, &term);
+  status = NO_RETRY_EXPECTED(tcsetattr(STDIN_FILENO, TCSANOW, &term));
+  return (status == 0);
 }
 
 
-bool Stdin::GetLineMode() {
+bool Stdin::GetLineMode(bool* enabled) {
   struct termios term;
-  tcgetattr(STDIN_FILENO, &term);
-  return ((term.c_lflag & ICANON) != 0);
+  int status = NO_RETRY_EXPECTED(tcgetattr(STDIN_FILENO, &term));
+  if (status != 0) {
+    return false;
+  }
+  *enabled = ((term.c_lflag & ICANON) != 0);
+  return true;
 }
 
 
-void Stdin::SetLineMode(bool enabled) {
+bool Stdin::SetLineMode(bool enabled) {
   struct termios term;
-  tcgetattr(STDIN_FILENO, &term);
+  int status = NO_RETRY_EXPECTED(tcgetattr(STDIN_FILENO, &term));
+  if (status != 0) {
+    return false;
+  }
   if (enabled) {
     term.c_lflag |= ICANON;
   } else {
     term.c_lflag &= ~(ICANON);
   }
-  tcsetattr(STDIN_FILENO, TCSANOW, &term);
+  status = NO_RETRY_EXPECTED(tcsetattr(STDIN_FILENO, TCSANOW, &term));
+  return (status == 0);
 }
 
 
@@ -79,3 +98,5 @@ bool Stdout::GetTerminalSize(intptr_t fd, int size[2]) {
 }  // namespace dart
 
 #endif  // defined(TARGET_OS_ANDROID)
+
+#endif  // !defined(DART_IO_DISABLED)

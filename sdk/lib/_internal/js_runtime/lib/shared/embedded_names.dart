@@ -304,6 +304,8 @@ enum JsGetName {
   CALL_PREFIX1,
   CALL_PREFIX2,
   CALL_PREFIX3,
+  CALL_PREFIX4,
+  CALL_PREFIX5,
   CALL_CATCH_ALL,
   REFLECTABLE,
   CLASS_DESCRIPTOR_PROPERTY,
@@ -315,8 +317,13 @@ enum JsGetName {
   OPERATOR_AS_PREFIX,
   /// Name used for generated function types on classes and methods.
   SIGNATURE_NAME,
+  /// Name of JavaScript property used to store runtime-type information on
+  /// instances of parameterized classes.
+  RTI_NAME,
   /// Name used to tag typedefs.
   TYPEDEF_TAG,
+  /// Name used to tag a function type.
+  FUNCTION_TYPE_TAG,
   /// Name used to tag void return in function type representations in
   /// JavaScript.
   FUNCTION_TYPE_VOID_RETURN_TAG,

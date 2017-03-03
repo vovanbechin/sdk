@@ -6,11 +6,11 @@ library analyzer.src.generated.source_io;
 
 import 'dart:collection';
 
+import 'package:analyzer/exception/exception.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/java_core.dart';
-import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/java_io.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:path/path.dart' as path;
 
 export 'package:analyzer/src/generated/source.dart';
 
@@ -18,6 +18,7 @@ export 'package:analyzer/src/generated/source.dart';
  * Instances of the class [DirectoryBasedSourceContainer] represent a source container that
  * contains all sources within a given directory.
  */
+@deprecated
 class DirectoryBasedSourceContainer implements SourceContainer {
   /**
    * The container's path (not `null`).
@@ -82,6 +83,52 @@ class DirectoryBasedSourceContainer implements SourceContainer {
 }
 
 /**
+ * Instances of the class [ExplicitSourceResolver] map URIs to files on disk
+ * using a fixed mapping provided at construction time.
+ */
+@deprecated
+class ExplicitSourceResolver extends UriResolver {
+  final Map<Uri, JavaFile> uriToFileMap;
+  final Map<String, Uri> pathToUriMap;
+
+  /**
+   * Construct an [ExplicitSourceResolver] based on the given [uriToFileMap].
+   */
+  ExplicitSourceResolver(Map<Uri, JavaFile> uriToFileMap)
+      : uriToFileMap = uriToFileMap,
+        pathToUriMap = _computePathToUriMap(uriToFileMap);
+
+  @override
+  Source resolveAbsolute(Uri uri, [Uri actualUri]) {
+    JavaFile file = uriToFileMap[uri];
+    actualUri ??= uri;
+    if (file == null) {
+      return new NonExistingSource(
+          uri.toString(), actualUri, UriKind.fromScheme(actualUri.scheme));
+    } else {
+      return new FileBasedSource(file, actualUri);
+    }
+  }
+
+  @override
+  Uri restoreAbsolute(Source source) {
+    return pathToUriMap[source.fullName];
+  }
+
+  /**
+   * Build the inverse mapping of [uriToSourceMap].
+   */
+  static Map<String, Uri> _computePathToUriMap(
+      Map<Uri, JavaFile> uriToSourceMap) {
+    Map<String, Uri> pathToUriMap = <String, Uri>{};
+    uriToSourceMap.forEach((Uri uri, JavaFile file) {
+      pathToUriMap[file.getAbsolutePath()] = uri;
+    });
+    return pathToUriMap;
+  }
+}
+
+/**
  * Instances of the class `FileBasedSource` implement a source that represents a file.
  */
 class FileBasedSource extends Source {
@@ -131,11 +178,10 @@ class FileBasedSource extends Source {
    * derived, otherwise a `file:` URI will be created based on the [file].
    */
   FileBasedSource(JavaFile file, [Uri uri])
-      : this.uri = (uri == null ? file.toURI() : uri),
+      : this.uri = uri ?? file.toURI(),
         this.file = file,
         id = _idTable.putIfAbsent(
-            '${uri == null ? file.toURI() : uri}@${file.getPath()}',
-            () => _idTable.length);
+            '${uri ?? file.toURI()}@${file.getPath()}', () => _idTable.length);
 
   @override
   TimestampedData<String> get contents {
@@ -147,7 +193,7 @@ class FileBasedSource extends Source {
   /**
    * Get the contents and timestamp of the underlying file.
    *
-   * Clients should consider using the the method [AnalysisContext.getContents]
+   * Clients should consider using the method [AnalysisContext.getContents]
    * because contexts can have local overrides of the content of a source that the source is not
    * aware of.
    *
@@ -177,7 +223,7 @@ class FileBasedSource extends Source {
   }
 
   @override
-  int get hashCode => id;
+  int get hashCode => uri.hashCode;
 
   @override
   bool get isInSystemLibrary => uri.scheme == DartUriResolver.DART_SCHEME;
@@ -191,48 +237,21 @@ class FileBasedSource extends Source {
   @override
   UriKind get uriKind {
     String scheme = uri.scheme;
-    if (scheme == PackageUriResolver.PACKAGE_SCHEME) {
-      return UriKind.PACKAGE_URI;
-    } else if (scheme == DartUriResolver.DART_SCHEME) {
-      return UriKind.DART_URI;
-    } else if (scheme == FileUriResolver.FILE_SCHEME) {
-      return UriKind.FILE_URI;
-    }
-    return UriKind.FILE_URI;
+    return UriKind.fromScheme(scheme);
   }
 
   @override
-  bool operator ==(Object object) =>
-      object is FileBasedSource && id == object.id;
+  bool operator ==(Object object) {
+    if (object is FileBasedSource) {
+      return id == object.id;
+    } else if (object is Source) {
+      return uri == object.uri;
+    }
+    return false;
+  }
 
   @override
   bool exists() => file.isFile();
-
-  @override
-  Uri resolveRelativeUri(Uri containedUri) {
-    try {
-      Uri baseUri = uri;
-      bool isOpaque = uri.isAbsolute && !uri.path.startsWith('/');
-      if (isOpaque) {
-        String scheme = uri.scheme;
-        String part = uri.path;
-        if (scheme == DartUriResolver.DART_SCHEME && part.indexOf('/') < 0) {
-          part = "$part/$part.dart";
-        }
-        baseUri = parseUriWithException("$scheme:/$part");
-      }
-      Uri result = baseUri.resolveUri(containedUri);
-      if (isOpaque) {
-        result = parseUriWithException(
-            "${result.scheme}:${result.path.substring(1)}");
-      }
-      return result;
-    } catch (exception, stackTrace) {
-      throw new AnalysisException(
-          "Could not resolve URI ($containedUri) relative to source ($uri)",
-          new CaughtException(exception, stackTrace));
-    }
-  }
 
   @override
   String toString() {
@@ -245,7 +264,11 @@ class FileBasedSource extends Source {
 
 /**
  * Instances of the class `FileUriResolver` resolve `file` URI's.
+ *
+ * This class is now deprecated, 'new FileUriResolver()' is equivalent to
+ * 'new ResourceUriResolver(PhysicalResourceProvider.INSTANCE)'.
  */
+@deprecated
 class FileUriResolver extends UriResolver {
   /**
    * The name of the `file` scheme.
@@ -257,8 +280,7 @@ class FileUriResolver extends UriResolver {
     if (!isFileUri(uri)) {
       return null;
     }
-    return new FileBasedSource(
-        new JavaFile.fromUri(uri), actualUri != null ? actualUri : uri);
+    return new FileBasedSource(new JavaFile.fromUri(uri), actualUri ?? uri);
   }
 
   @override
@@ -329,6 +351,7 @@ class LocalSourcePredicate_TRUE implements LocalSourcePredicate {
  * should be canonicalized, but to preserve relative links within a package, the remainder of the
  * path from the package directory to the leaf should not.
  */
+@deprecated
 class PackageUriResolver extends UriResolver {
   /**
    * The name of the `package` scheme.
@@ -354,7 +377,7 @@ class PackageUriResolver extends UriResolver {
    */
   PackageUriResolver(this._packagesDirectories) {
     if (_packagesDirectories.length < 1) {
-      throw new IllegalArgumentException(
+      throw new ArgumentError(
           "At least one package directory must be provided");
     }
   }
@@ -385,7 +408,7 @@ class PackageUriResolver extends UriResolver {
     JavaFile pkgDir = new JavaFile.relative(packagesDirectory, pkgName);
     try {
       pkgDir = pkgDir.getCanonicalFile();
-    } on JavaIOException catch (exception, stackTrace) {
+    } catch (exception, stackTrace) {
       if (!exception.toString().contains("Required key not available")) {
         AnalysisEngine.instance.logger.logError("Canonical failed: $pkgDir",
             new CaughtException(exception, stackTrace));
@@ -433,16 +456,18 @@ class PackageUriResolver extends UriResolver {
       if (resolvedFile.exists()) {
         JavaFile canonicalFile =
             getCanonicalFile(packagesDirectory, pkgName, relPath);
+        if (actualUri != null) {
+          return new FileBasedSource(canonicalFile, actualUri);
+        }
         if (_isSelfReference(packagesDirectory, canonicalFile)) {
           uri = canonicalFile.toURI();
         }
-        return new FileBasedSource(
-            canonicalFile, actualUri != null ? actualUri : uri);
+        return new FileBasedSource(canonicalFile, uri);
       }
     }
     return new FileBasedSource(
         getCanonicalFile(_packagesDirectories[0], pkgName, relPath),
-        actualUri != null ? actualUri : uri);
+        actualUri ?? uri);
   }
 
   @override
@@ -456,8 +481,8 @@ class PackageUriResolver extends UriResolver {
             String pkgCanonicalUri = _toFileUri(pkgFolder.getCanonicalPath());
             if (sourceUri.startsWith(pkgCanonicalUri)) {
               String relPath = sourceUri.substring(pkgCanonicalUri.length);
-              return parseUriWithException(
-                  "$PACKAGE_SCHEME:${pkgFolder.getName()}$relPath");
+              return Uri
+                  .parse("$PACKAGE_SCHEME:${pkgFolder.getName()}$relPath");
             }
           } catch (e) {}
         }
@@ -484,8 +509,7 @@ class PackageUriResolver extends UriResolver {
    * Convert the given file path to a "file:" URI.  On Windows, this transforms
    * backslashes to forward slashes.
    */
-  String _toFileUri(String filePath) =>
-      JavaFile.pathContext.toUri(filePath).toString();
+  String _toFileUri(String filePath) => path.context.toUri(filePath).toString();
 
   /**
    * Return `true` if the given URI is a `package` URI.
@@ -498,7 +522,12 @@ class PackageUriResolver extends UriResolver {
 
 /**
  * Instances of the class `RelativeFileUriResolver` resolve `file` URI's.
+ *
+ * This class is now deprecated, file URI resolution should be done with
+ * ResourceUriResolver, i.e.
+ * 'new ResourceUriResolver(PhysicalResourceProvider.INSTANCE)'.
  */
+@deprecated
 class RelativeFileUriResolver extends UriResolver {
   /**
    * The name of the `file` scheme.
@@ -531,7 +560,7 @@ class RelativeFileUriResolver extends UriResolver {
       for (JavaFile dir in _relativeDirectories) {
         JavaFile file = new JavaFile.relative(dir, filePath);
         if (file.exists()) {
-          return new FileBasedSource(file, actualUri != null ? actualUri : uri);
+          return new FileBasedSource(file, actualUri ?? uri);
         }
       }
     }

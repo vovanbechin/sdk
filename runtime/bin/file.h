@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef BIN_FILE_H_
-#define BIN_FILE_H_
+#ifndef RUNTIME_BIN_FILE_H_
+#define RUNTIME_BIN_FILE_H_
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +12,8 @@
 
 #include "bin/builtin.h"
 #include "bin/dartutils.h"
+#include "bin/log.h"
+#include "bin/reference_counting.h"
 
 namespace dart {
 namespace bin {
@@ -19,7 +21,24 @@ namespace bin {
 // Forward declaration.
 class FileHandle;
 
-class File {
+class MappedMemory {
+ public:
+  MappedMemory(void* address, intptr_t size) : address_(address), size_(size) {}
+  ~MappedMemory() { Unmap(); }
+
+  void* address() const { return address_; }
+  intptr_t size() const { return size_; }
+
+ private:
+  void Unmap();
+
+  void* address_;
+  intptr_t size_;
+
+  DISALLOW_COPY_AND_ASSIGN(MappedMemory);
+};
+
+class File : public ReferenceCounted<File> {
  public:
   enum FileOpenMode {
     kRead = 0,
@@ -41,18 +60,16 @@ class File {
     kDartWriteOnlyAppend = 4
   };
 
-  enum Type {
-    kIsFile = 0,
-    kIsDirectory = 1,
-    kIsLink = 2,
-    kDoesNotExist = 3
+  // These values have to be kept in sync with the values of
+  // _FileTranslation.text and _FileTranslation.binary in file_impl.dart
+  enum DartFileTranslation {
+    kText = 0,
+    kBinary = 1,
   };
 
-  enum Identical {
-    kIdentical = 0,
-    kDifferent = 1,
-    kError = 2
-  };
+  enum Type { kIsFile = 0, kIsDirectory = 1, kIsLink = 2, kDoesNotExist = 3 };
+
+  enum Identical { kIdentical = 0, kDifferent = 1, kError = 2 };
 
   enum StdioHandleType {
     kTerminal = 0,
@@ -79,12 +96,18 @@ class File {
     kLockUnlock = 0,
     kLockShared = 1,
     kLockExclusive = 2,
-    kLockMax = 2
+    kLockBlockingShared = 3,
+    kLockBlockingExclusive = 4,
+    kLockMax = 4
   };
 
-  ~File();
-
   intptr_t GetFD();
+
+  enum MapType {
+    kReadOnly = 0,
+    kReadExecute = 1,
+  };
+  MappedMemory* Map(MapType type, int64_t position, int64_t length);
 
   // Read/Write attempt to transfer num_bytes to/from buffer. It returns
   // the number of bytes read/written.
@@ -97,9 +120,16 @@ class File {
   // occurred the result will be set to false.
   bool ReadFully(void* buffer, int64_t num_bytes);
   bool WriteFully(const void* buffer, int64_t num_bytes);
-  bool WriteByte(uint8_t byte) {
-    return WriteFully(&byte, 1);
+  bool WriteByte(uint8_t byte) { return WriteFully(&byte, 1); }
+
+  bool Print(const char* format, ...) PRINTF_ATTRIBUTE(2, 3) {
+    va_list args;
+    va_start(args, format);
+    bool result = VPrint(format, args);
+    va_end(args);
+    return result;
   }
+  bool VPrint(const char* format, va_list args);
 
   // Get the length of the file. Returns a negative value if the length cannot
   // be determined (e.g. not seekable device).
@@ -111,6 +141,10 @@ class File {
 
   // Set the byte position in the file.
   bool SetPosition(int64_t position);
+
+  // Set the translation mode of the file. This is currently a no-op unless the
+  // file is for a terminal on Windows.
+  void SetTranslation(DartFileTranslation translation);
 
   // Truncate (or extend) the file to the given length in bytes.
   bool Truncate(int64_t length);
@@ -124,14 +158,31 @@ class File {
   // Returns whether the file has been closed.
   bool IsClosed();
 
+  // Calls the platform-specific functions to close the file.
+  void Close();
+
+  // Returns the weak persistent handle for the File's Dart wrapper.
+  Dart_WeakPersistentHandle WeakHandle() const { return weak_handle_; }
+
+  // Set the weak persistent handle for the File's Dart wrapper.
+  void SetWeakHandle(Dart_WeakPersistentHandle handle) {
+    ASSERT(weak_handle_ == NULL);
+    weak_handle_ = handle;
+  }
+
+  // Deletes the weak persistent handle for the File's Dart wrapper. Call
+  // when the file is explicitly closed and the finalizer is no longer
+  // needed.
+  void DeleteWeakHandle(Dart_Isolate isolate) {
+    Dart_DeleteWeakPersistentHandle(isolate, weak_handle_);
+    weak_handle_ = NULL;
+  }
+
   // Open the file with the given path. The file is always opened for
   // reading. If mode contains kWrite the file is opened for both
   // reading and writing. If mode contains kWrite and the file does
   // not exist the file is created. The file is truncated to length 0 if
   // mode contains kTruncate. Assumes we are in an API scope.
-  static File* ScopedOpen(const char* path, FileOpenMode mode);
-
-  // Like ScopedOpen(), but no API scope is needed.
   static File* Open(const char* path, FileOpenMode mode);
 
   // Create a file object for the specified stdio file descriptor
@@ -149,14 +200,19 @@ class File {
   static int64_t LengthFromPath(const char* path);
   static void Stat(const char* path, int64_t* data);
   static time_t LastModified(const char* path);
-  static const char* LinkTarget(const char* pathname);
+  static bool SetLastModified(const char* path, int64_t millis);
+  static time_t LastAccessed(const char* path);
+  static bool SetLastAccessed(const char* path, int64_t millis);
   static bool IsAbsolutePath(const char* path);
-  static const char* GetCanonicalPath(const char* path);
   static const char* PathSeparator();
   static const char* StringEscapedPathSeparator();
   static Type GetType(const char* path, bool follow_links);
   static Identical AreIdentical(const char* file_1, const char* file_2);
   static StdioHandleType GetStdioHandleType(int fd);
+
+  // LinkTarget and GetCanonicalPath may call Dart_ScopeAllocate.
+  static const char* LinkTarget(const char* pathname);
+  static const char* GetCanonicalPath(const char* path);
 
   static FileOpenMode DartModeToFileMode(DartFileOpenMode mode);
 
@@ -174,6 +230,9 @@ class File {
   static CObject* LengthRequest(const CObjectArray& request);
   static CObject* LengthFromPathRequest(const CObjectArray& request);
   static CObject* LastModifiedRequest(const CObjectArray& request);
+  static CObject* SetLastModifiedRequest(const CObjectArray& request);
+  static CObject* LastAccessedRequest(const CObjectArray& request);
+  static CObject* SetLastAccessedRequest(const CObjectArray& request);
   static CObject* FlushRequest(const CObjectArray& request);
   static CObject* ReadByteRequest(const CObjectArray& request);
   static CObject* WriteByteRequest(const CObjectArray& request);
@@ -190,8 +249,10 @@ class File {
   static CObject* LockRequest(const CObjectArray& request);
 
  private:
-  explicit File(FileHandle* handle) : handle_(handle) { }
-  void Close();
+  explicit File(FileHandle* handle)
+      : ReferenceCounted(), handle_(handle), weak_handle_(NULL) {}
+
+  ~File();
 
   static File* FileOpenW(const wchar_t* system_name, FileOpenMode mode);
 
@@ -200,10 +261,16 @@ class File {
   // FileHandle is an OS specific class which stores data about the file.
   FileHandle* handle_;  // OS specific handle for the file.
 
+  // We retain the weak handle because we can do cleanup eagerly when Dart code
+  // calls closeSync(). In that case, we delete the weak handle so that the
+  // finalizer doesn't run.
+  Dart_WeakPersistentHandle weak_handle_;
+
+  friend class ReferenceCounted<File>;
   DISALLOW_COPY_AND_ASSIGN(File);
 };
 
 }  // namespace bin
 }  // namespace dart
 
-#endif  // BIN_FILE_H_
+#endif  // RUNTIME_BIN_FILE_H_

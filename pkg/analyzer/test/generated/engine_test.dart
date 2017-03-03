@@ -8,28 +8,97 @@ import 'dart:async';
 
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
-import 'package:analyzer/source/embedder.dart';
+import 'package:analyzer/error/error.dart';
+import 'package:analyzer/plugin/resolver_provider.dart';
+import 'package:analyzer/src/cancelable_future.dart';
+import 'package:analyzer/src/context/builder.dart' show EmbedderYamlLocator;
 import 'package:analyzer/src/context/cache.dart';
 import 'package:analyzer/src/context/context.dart';
 import 'package:analyzer/src/context/source.dart';
 import 'package:analyzer/src/generated/constant.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
-import 'package:analyzer/src/generated/java_core.dart';
 import 'package:analyzer/src/generated/resolver.dart';
 import 'package:analyzer/src/generated/source_io.dart';
 import 'package:analyzer/src/string_source.dart';
 import 'package:analyzer/task/model.dart';
 import 'package:html/dom.dart' show Document;
+import 'package:test/test.dart';
+import 'package:test_reflective_loader/test_reflective_loader.dart';
 import 'package:typed_mock/typed_mock.dart';
-import 'package:unittest/unittest.dart';
-
-import '../reflective_tests.dart';
-import '../utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  runReflectiveTests(SourcesChangedEventTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(AnalysisOptionsImplTest);
+    defineReflectiveTests(SourcesChangedEventTest);
+  });
+}
+
+@reflectiveTest
+class AnalysisOptionsImplTest {
+  test_resetToDefaults() {
+    // Note that this only tests options visible from the interface.
+    AnalysisOptionsImpl defaultOptions = new AnalysisOptionsImpl();
+    AnalysisOptionsImpl modifiedOptions = new AnalysisOptionsImpl();
+    modifiedOptions.dart2jsHint = true;
+    modifiedOptions.disableCacheFlushing = true;
+    modifiedOptions.enableAssertInitializer = true;
+    modifiedOptions.enableLazyAssignmentOperators = true;
+    modifiedOptions.enableStrictCallChecks = true;
+    modifiedOptions.enableSuperMixins = true;
+    modifiedOptions.enableTiming = true;
+    modifiedOptions.enableUriInPartOf = true;
+    modifiedOptions.errorProcessors = [null];
+    modifiedOptions.excludePatterns = ['a'];
+    modifiedOptions.finerGrainedInvalidation = true;
+    modifiedOptions.generateImplicitErrors = false;
+    modifiedOptions.generateSdkErrors = true;
+    modifiedOptions.hint = false;
+    modifiedOptions.incremental = true;
+    modifiedOptions.incrementalApi = true;
+    modifiedOptions.incrementalValidation = true;
+    modifiedOptions.lint = true;
+    modifiedOptions.lintRules = [null];
+    modifiedOptions.patchPaths = {
+      'dart:core': ['/dart_core.patch.dart']
+    };
+    modifiedOptions.preserveComments = false;
+    modifiedOptions.strongMode = true;
+    modifiedOptions.trackCacheDependencies = false;
+
+    modifiedOptions.resetToDefaults();
+
+    expect(modifiedOptions.dart2jsHint, defaultOptions.dart2jsHint);
+    expect(modifiedOptions.disableCacheFlushing,
+        defaultOptions.disableCacheFlushing);
+    expect(modifiedOptions.enableAssertInitializer,
+        defaultOptions.enableAssertInitializer);
+    expect(modifiedOptions.enableLazyAssignmentOperators,
+        defaultOptions.enableLazyAssignmentOperators);
+    expect(modifiedOptions.enableStrictCallChecks,
+        defaultOptions.enableStrictCallChecks);
+    expect(modifiedOptions.enableSuperMixins, defaultOptions.enableSuperMixins);
+    expect(modifiedOptions.enableTiming, defaultOptions.enableTiming);
+    expect(modifiedOptions.enableUriInPartOf, defaultOptions.enableUriInPartOf);
+    expect(modifiedOptions.errorProcessors, defaultOptions.errorProcessors);
+    expect(modifiedOptions.excludePatterns, defaultOptions.excludePatterns);
+    expect(modifiedOptions.finerGrainedInvalidation,
+        defaultOptions.finerGrainedInvalidation);
+    expect(modifiedOptions.generateImplicitErrors,
+        defaultOptions.generateImplicitErrors);
+    expect(modifiedOptions.generateSdkErrors, defaultOptions.generateSdkErrors);
+    expect(modifiedOptions.hint, defaultOptions.hint);
+    expect(modifiedOptions.incremental, defaultOptions.incremental);
+    expect(modifiedOptions.incrementalApi, defaultOptions.incrementalApi);
+    expect(modifiedOptions.incrementalValidation,
+        defaultOptions.incrementalValidation);
+    expect(modifiedOptions.lint, defaultOptions.lint);
+    expect(modifiedOptions.lintRules, defaultOptions.lintRules);
+    expect(modifiedOptions.patchPaths, defaultOptions.patchPaths);
+    expect(modifiedOptions.preserveComments, defaultOptions.preserveComments);
+    expect(modifiedOptions.strongMode, defaultOptions.strongMode);
+    expect(modifiedOptions.trackCacheDependencies,
+        defaultOptions.trackCacheDependencies);
+  }
 }
 
 /**
@@ -79,7 +148,7 @@ class CompilationUnitMock extends TypedMock implements CompilationUnit {}
 class MockSourceFactory extends SourceFactoryImpl {
   MockSourceFactory() : super([]);
   Source resolveUri(Source containingSource, String containedUri) {
-    throw new JavaIOException();
+    throw new UnimplementedError();
   }
 }
 
@@ -130,14 +199,6 @@ class SourcesChangedEventTest {
     assertEvent(event, changedSources: [source]);
   }
 
-  void test_deleted() {
-    var source = new StringSource('', '/test.dart');
-    var changeSet = new ChangeSet();
-    changeSet.deletedSource(source);
-    var event = new SourcesChangedEvent(changeSet);
-    assertEvent(event, wereSourcesRemovedOrDeleted: true);
-  }
-
   void test_empty() {
     var changeSet = new ChangeSet();
     var event = new SourcesChangedEvent(changeSet);
@@ -149,16 +210,16 @@ class SourcesChangedEventTest {
     var changeSet = new ChangeSet();
     changeSet.removedSource(source);
     var event = new SourcesChangedEvent(changeSet);
-    assertEvent(event, wereSourcesRemovedOrDeleted: true);
+    assertEvent(event, wereSourcesRemoved: true);
   }
 
   static void assertEvent(SourcesChangedEvent event,
       {bool wereSourcesAdded: false,
       List<Source> changedSources: Source.EMPTY_LIST,
-      bool wereSourcesRemovedOrDeleted: false}) {
+      bool wereSourcesRemoved: false}) {
     expect(event.wereSourcesAdded, wereSourcesAdded);
     expect(event.changedSources, changedSources);
-    expect(event.wereSourcesRemovedOrDeleted, wereSourcesRemovedOrDeleted);
+    expect(event.wereSourcesRemoved, wereSourcesRemoved);
   }
 }
 
@@ -176,7 +237,7 @@ class SourcesChangedListener {
     SourcesChangedEventTest.assertEvent(actual,
         wereSourcesAdded: wereSourcesAdded,
         changedSources: changedSources,
-        wereSourcesRemovedOrDeleted: wereSourcesRemovedOrDeleted);
+        wereSourcesRemoved: wereSourcesRemovedOrDeleted);
   }
 
   void assertNoMoreEvents() {
@@ -189,10 +250,14 @@ class SourcesChangedListener {
 }
 
 /**
- * Instances of the class `TestAnalysisContext` implement an analysis context in which every
- * method will cause a test to fail when invoked.
+ * An analysis context in which almost every method will cause a test to fail
+ * when invoked.
  */
 class TestAnalysisContext implements InternalAnalysisContext {
+  @override
+  final ReentrantSynchronousStream<InvalidatedResult> onResultInvalidated =
+      new ReentrantSynchronousStream<InvalidatedResult>();
+
   @override
   ResultProvider resultProvider;
 
@@ -219,6 +284,12 @@ class TestAnalysisContext implements InternalAnalysisContext {
   }
 
   @override
+  CacheConsistencyValidator get cacheConsistencyValidator {
+    fail("Unexpected invocation of cacheConsistencyValidator");
+    return null;
+  }
+
+  @override
   set contentCache(ContentCache value) {
     fail("Unexpected invocation of setContentCache");
   }
@@ -229,6 +300,7 @@ class TestAnalysisContext implements InternalAnalysisContext {
     return null;
   }
 
+  @deprecated
   @override
   EmbedderYamlLocator get embedderYamlLocator {
     fail("Unexpected invocation of get embedderYamlLocator");
@@ -242,6 +314,17 @@ class TestAnalysisContext implements InternalAnalysisContext {
   }
 
   @override
+  ResolverProvider get fileResolverProvider {
+    fail("Unexpected invocation of fileResolverProvider");
+    return null;
+  }
+
+  @override
+  void set fileResolverProvider(ResolverProvider resolverProvider) {
+    fail("Unexpected invocation of fileResolverProvider");
+  }
+
+  @override
   List<Source> get htmlSources {
     fail("Unexpected invocation of getHtmlSources");
     return null;
@@ -251,6 +334,15 @@ class TestAnalysisContext implements InternalAnalysisContext {
   Stream<ImplicitAnalysisEvent> get implicitAnalysisEvents {
     fail("Unexpected invocation of analyzedSources");
     return null;
+  }
+
+  bool get isActive {
+    fail("Unexpected invocation of isActive");
+    return false;
+  }
+
+  void set isActive(bool isActive) {
+    fail("Unexpected invocation of isActive");
   }
 
   @override
@@ -369,7 +461,7 @@ class TestAnalysisContext implements InternalAnalysisContext {
   }
 
   @override
-  ApplyChangesStatus applyChanges(ChangeSet changeSet) {
+  void applyChanges(ChangeSet changeSet) {
     fail("Unexpected invocation of applyChanges");
     return null;
   }
@@ -417,14 +509,15 @@ class TestAnalysisContext implements InternalAnalysisContext {
   }
 
   @override
-  Future<CompilationUnit> computeResolvedCompilationUnitAsync(
+  CancelableFuture<CompilationUnit> computeResolvedCompilationUnitAsync(
       Source source, Source librarySource) {
     fail("Unexpected invocation of getResolvedCompilationUnitFuture");
     return null;
   }
 
   @override
-  Object computeResult(AnalysisTarget target, ResultDescriptor result) {
+  Object/*=V*/ computeResult/*<V>*/(
+      AnalysisTarget target, ResultDescriptor/*<V>*/ result) {
     fail("Unexpected invocation of computeResult");
     return null;
   }
@@ -459,8 +552,9 @@ class TestAnalysisContext implements InternalAnalysisContext {
     return null;
   }
 
+  @deprecated
   @override
-  Object getConfigurationData(ResultDescriptor key) {
+  Object/*=V*/ getConfigurationData/*<V>*/(ResultDescriptor/*<V>*/ key) {
     fail("Unexpected invocation of getConfigurationData");
     return null;
   }
@@ -564,7 +658,8 @@ class TestAnalysisContext implements InternalAnalysisContext {
   }
 
   @override
-  Object getResult(AnalysisTarget target, ResultDescriptor result) {
+  Object/*=V*/ getResult/*<V>*/(
+      AnalysisTarget target, ResultDescriptor/*<V>*/ result) {
     fail("Unexpected invocation of getResult");
     return null;
   }
@@ -605,6 +700,7 @@ class TestAnalysisContext implements InternalAnalysisContext {
     return null;
   }
 
+  @deprecated
   @override
   Stream<ComputedResult> onResultComputed(ResultDescriptor descriptor) {
     fail("Unexpected invocation of onResultComputed");
@@ -659,6 +755,7 @@ class TestAnalysisContext implements InternalAnalysisContext {
     fail("Unexpected invocation of setChangedContents");
   }
 
+  @deprecated
   @override
   void setConfigurationData(ResultDescriptor key, Object data) {
     fail("Unexpected invocation of setConfigurationData");
@@ -678,12 +775,6 @@ class TestAnalysisContext implements InternalAnalysisContext {
   @override
   void test_flushAstStructures(Source source) {
     fail("Unexpected invocation of test_flushAstStructures");
-  }
-
-  @override
-  bool validateCacheConsistency() {
-    fail("Unexpected invocation of validateCacheConsistency");
-    return false;
   }
 
   @override

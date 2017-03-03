@@ -4,6 +4,7 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
+import os
 import os.path
 import shutil
 import sys
@@ -21,8 +22,14 @@ CHANNEL = bot_utils.GetChannelFromName(bot_name)
 
 def BuildSDK():
   with bot.BuildStep('Build SDK'):
+    if BUILD_OS == 'linux':
+      sysroot_env = dict(os.environ)
+      sysroot_env['DART_USE_WHEEZY'] = '1'
+      Run([sys.executable, './tools/generate_buildfiles.py'], env=sysroot_env)
     Run([sys.executable, './tools/build.py', '--mode=release',
-         '--arch=ia32,x64', 'create_sdk'])
+         '--arch=ia32', 'create_sdk'])
+    Run([sys.executable, './tools/build.py', '--mode=release',
+         '--arch=x64', 'create_sdk'])
 
 def BuildDartdocAPIDocs(dirname):
   dart_sdk = os.path.join(bot_utils.DART_DIR,
@@ -32,16 +39,13 @@ def BuildDartdocAPIDocs(dirname):
   dartdoc_dart = os.path.join(bot_utils.DART_DIR,
                               'third_party', 'pkg' , 'dartdoc' , 'bin' , 
                               'dartdoc.dart')
-  packages_dir = os.path.join(bot_utils.DART_DIR,
-                              utils.GetBuildRoot(BUILD_OS, 'release', 'ia32'),
-                              'packages')
   footer_file = os.path.join(bot_utils.DART_DIR,
                               'tools', 'bots', 'dartdoc_footer.html')
   url = 'https://api.dartlang.org/stable'
   with bot.BuildStep('Build API docs by dartdoc'):
-    bot_utils.run([dart_exe, '--package-root=' + packages_dir, dartdoc_dart, 
-                  '--sdk-docs','--output', dirname, '--dart-sdk', dart_sdk, 
-                  '--footer' , footer_file, '--rel-canonical-prefix=' + url])
+    bot_utils.run([dart_exe, dartdoc_dart,
+                  '--sdk-docs','--output', dirname, '--footer' , footer_file,
+                  '--rel-canonical-prefix=' + url])
 
 def CreateUploadVersionFile():
   file_path = os.path.join(bot_utils.DART_DIR,
@@ -81,8 +85,9 @@ def CreateUploadSDKZips():
 
 def DartArchiveUploadSDKs(system, sdk32_zip, sdk64_zip):
   namer = bot_utils.GCSNamer(CHANNEL, bot_utils.ReleaseType.RAW)
-  revision = utils.GetArchiveVersion()
-  for revision in [revision, 'latest']:
+  git_number = utils.GetArchiveVersion()
+  git_hash = 'hash/%s' % utils.GetGitRevision()
+  for revision in [git_number, git_hash, 'latest']:
     path32 = namer.sdk_zipfilepath(revision, system, 'ia32', 'release')
     path64 = namer.sdk_zipfilepath(revision, system, 'x64', 'release')
     DartArchiveFile(sdk32_zip, path32, checksum_files=True)
@@ -213,9 +218,10 @@ def DartArchiveFile(local_path, remote_path, checksum_files=False):
                                                       mangled_filename)
     gsutil.upload(local_sha256, remote_path + '.sha256sum', public=True)
 
-def Run(command):
+def Run(command, env=None):
   print "Running %s" % ' '.join(command)
-  return bot.RunProcess(command)
+  print "Environment %s" % env
+  return bot.RunProcess(command, env=env)
 
 if __name__ == '__main__':
   # We always clobber the bot, to make sure releases are build from scratch

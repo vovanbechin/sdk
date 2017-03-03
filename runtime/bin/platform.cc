@@ -2,20 +2,16 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#include "bin/platform.h"
+#if !defined(DART_IO_DISABLED)
 
-#include "include/dart_api.h"
+#include "bin/platform.h"
 
 #include "bin/file.h"
 #include "bin/utils.h"
+#include "include/dart_api.h"
 
 namespace dart {
 namespace bin {
-
-const char* Platform::executable_name_ = NULL;
-const char* Platform::resolved_executable_name_ = NULL;
-int Platform::script_index_ = 1;
-char** Platform::argv_ = NULL;
 
 void FUNCTION_NAME(Platform_NumberOfProcessors)(Dart_NativeArguments args) {
   Dart_SetReturnValue(args, Dart_NewInteger(Platform::NumberOfProcessors()));
@@ -44,29 +40,16 @@ void FUNCTION_NAME(Platform_LocalHostname)(Dart_NativeArguments args) {
 
 
 void FUNCTION_NAME(Platform_ExecutableName)(Dart_NativeArguments args) {
-  ASSERT(Platform::GetExecutableName() != NULL);
-  if (Dart_IsRunningPrecompiledCode()) {
-    // This is a work-around to be able to use most of the existing test suite
-    // for precompilation. Many tests do something like Process.run(
-    // Platform.executable, some_other_script.dart). But with precompilation
-    // the script is already fixed, so the spawned process runs the same script
-    // again and we have a fork-bomb.
-    Dart_ThrowException(Dart_NewStringFromCString(
-        "Platform.executable not supported under precompilation"));
-    UNREACHABLE();
+  if (Platform::GetExecutableName() != NULL) {
+    Dart_SetReturnValue(
+        args, Dart_NewStringFromCString(Platform::GetExecutableName()));
+  } else {
+    Dart_SetReturnValue(args, Dart_Null());
   }
-  Dart_SetReturnValue(
-      args, Dart_NewStringFromCString(Platform::GetExecutableName()));
 }
 
 
 void FUNCTION_NAME(Platform_ResolvedExecutableName)(Dart_NativeArguments args) {
-  if (Dart_IsRunningPrecompiledCode()) {
-    Dart_ThrowException(Dart_NewStringFromCString(
-        "Platform.resolvedExecutable not supported under precompilation"));
-    UNREACHABLE();
-  }
-
   if (Platform::GetResolvedExecutableName() != NULL) {
     Dart_SetReturnValue(
         args, Dart_NewStringFromCString(Platform::GetResolvedExecutableName()));
@@ -95,8 +78,7 @@ void FUNCTION_NAME(Platform_Environment)(Dart_NativeArguments args) {
   intptr_t count = 0;
   char** env = Platform::Environment(&count);
   if (env == NULL) {
-    OSError error(-1,
-                  "Failed to retrieve environment variables.",
+    OSError error(-1, "Failed to retrieve environment variables.",
                   OSError::kUnknown);
     Dart_SetReturnValue(args, DartUtils::NewDartOSError(&error));
   } else {
@@ -104,15 +86,19 @@ void FUNCTION_NAME(Platform_Environment)(Dart_NativeArguments args) {
     if (Dart_IsError(result)) {
       Dart_PropagateError(result);
     }
-    for (intptr_t i = 0; i < count; i++) {
-      Dart_Handle str = DartUtils::NewString(env[i]);
+    intptr_t result_idx = 0;
+    for (intptr_t env_idx = 0; env_idx < count; env_idx++) {
+      Dart_Handle str = DartUtils::NewString(env[env_idx]);
       if (Dart_IsError(str)) {
-        Dart_PropagateError(str);
+        // Silently skip over environment entries that are not valid UTF8
+        // strings.
+        continue;
       }
-      Dart_Handle error = Dart_ListSetAt(result, i, str);
+      Dart_Handle error = Dart_ListSetAt(result, result_idx, str);
       if (Dart_IsError(error)) {
         Dart_PropagateError(error);
       }
+      result_idx++;
     }
     Dart_SetReturnValue(args, result);
   }
@@ -125,3 +111,5 @@ void FUNCTION_NAME(Platform_GetVersion)(Dart_NativeArguments args) {
 
 }  // namespace bin
 }  // namespace dart
+
+#endif  // !defined(DART_IO_DISABLED)

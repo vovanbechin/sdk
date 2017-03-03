@@ -4,54 +4,85 @@
 
 library analyzer.test.generated.non_hint_code_test;
 
-import 'package:analyzer/src/generated/error.dart';
+import 'package:analyzer/error/error.dart';
+import 'package:analyzer/src/error/codes.dart';
+import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/source_io.dart';
+import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import '../reflective_tests.dart';
-import '../utils.dart';
 import 'resolver_test_case.dart';
 
 main() {
-  initializeTestEnvironment();
-  runReflectiveTests(NonHintCodeTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(NonHintCodeTest);
+  });
 }
 
 @reflectiveTest
 class NonHintCodeTest extends ResolverTestCase {
-  void test_deadCode_deadBlock_conditionalElse_debugConst() {
+  test_async_future_object_without_return() async {
+    Source source = addSource('''
+import 'dart:async';
+Future<Object> f() async {}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_deadCode_afterTryCatch() async {
+    Source source = addSource('''
+main() {
+  try {
+    return f();
+  } catch (e) {
+    print(e);
+  }
+  print('not dead');
+}
+f() {
+  throw 'foo';
+}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_deadCode_deadBlock_conditionalElse_debugConst() async {
     Source source = addSource(r'''
 const bool DEBUG = true;
 f() {
   DEBUG ? 1 : 2;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deadCode_deadBlock_conditionalIf_debugConst() {
+  test_deadCode_deadBlock_conditionalIf_debugConst() async {
     Source source = addSource(r'''
 const bool DEBUG = false;
 f() {
   DEBUG ? 1 : 2;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deadCode_deadBlock_else() {
+  test_deadCode_deadBlock_else() async {
     Source source = addSource(r'''
 const bool DEBUG = true;
 f() {
   if(DEBUG) {} else {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deadCode_deadBlock_if_debugConst_prefixedIdentifier() {
+  test_deadCode_deadBlock_if_debugConst_prefixedIdentifier() async {
     Source source = addSource(r'''
 class A {
   static const bool DEBUG = false;
@@ -59,12 +90,12 @@ class A {
 f() {
   if(A.DEBUG) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deadCode_deadBlock_if_debugConst_prefixedIdentifier2() {
+  test_deadCode_deadBlock_if_debugConst_prefixedIdentifier2() async {
     Source source = addSource(r'''
 library L;
 import 'lib2.dart';
@@ -78,12 +109,12 @@ library lib2;
 class A {
   static const bool DEBUG = false;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deadCode_deadBlock_if_debugConst_propertyAccessor() {
+  test_deadCode_deadBlock_if_debugConst_propertyAccessor() async {
     Source source = addSource(r'''
 library L;
 import 'lib2.dart' as LIB;
@@ -97,68 +128,101 @@ library lib2;
 class A {
   static const bool DEBUG = false;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deadCode_deadBlock_if_debugConst_simpleIdentifier() {
+  test_deadCode_deadBlock_if_debugConst_simpleIdentifier() async {
     Source source = addSource(r'''
 const bool DEBUG = false;
 f() {
   if(DEBUG) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deadCode_deadBlock_while_debugConst() {
+  test_deadCode_deadBlock_while_debugConst() async {
     Source source = addSource(r'''
 const bool DEBUG = false;
 f() {
   while(DEBUG) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deadCode_deadCatch_onCatchSubtype() {
+  test_deadCode_deadCatch_onCatchSubtype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {}
 f() {
   try {} on B catch (e) {} on A catch (e) {} catch (e) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deadCode_deadOperandLHS_and_debugConst() {
+  test_deadCode_deadFinalBreakInCase() async {
+    Source source = addSource(r'''
+f() {
+  switch (true) {
+  case true:
+    try {
+      int a = 1;
+    } finally {
+      return;
+    }
+    break;
+  default:
+    break;
+  }
+}''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_deadCode_deadOperandLHS_and_debugConst() async {
     Source source = addSource(r'''
 const bool DEBUG = false;
 f() {
   bool b = DEBUG && false;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deadCode_deadOperandLHS_or_debugConst() {
+  test_deadCode_deadOperandLHS_or_debugConst() async {
     Source source = addSource(r'''
 const bool DEBUG = true;
 f() {
   bool b = DEBUG || true;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deprecatedMemberUse_inDeprecatedClass() {
+  test_deadCode_statementAfterIfWithoutElse() async {
+    Source source = addSource(r'''
+f() {
+  if (1 < 0) {
+    return;
+  }
+  int a = 1;
+}''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_deprecatedMemberUse_inDeprecatedClass() async {
     Source source = addSource(r'''
 @deprecated
 f() {}
@@ -170,12 +234,12 @@ class C {
   }
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deprecatedMemberUse_inDeprecatedFunction() {
+  test_deprecatedMemberUse_inDeprecatedFunction() async {
     Source source = addSource(r'''
 @deprecated
 f() {}
@@ -185,12 +249,31 @@ g() {
   f();
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deprecatedMemberUse_inDeprecatedMethod() {
+  test_deprecatedMemberUse_inDeprecatedLibrary() async {
+    Source source = addSource(r'''
+@deprecated
+library lib;
+
+@deprecated
+f() {}
+
+class C {
+  m() {
+    f();
+  }
+}
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_deprecatedMemberUse_inDeprecatedMethod() async {
     Source source = addSource(r'''
 @deprecated
 f() {}
@@ -202,12 +285,12 @@ class C {
   }
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_deprecatedMemberUse_inDeprecatedMethod_inDeprecatedClass() {
+  test_deprecatedMemberUse_inDeprecatedMethod_inDeprecatedClass() async {
     Source source = addSource(r'''
 @deprecated
 f() {}
@@ -220,32 +303,32 @@ class C {
   }
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_divisionOptimization() {
+  test_divisionOptimization() async {
     Source source = addSource(r'''
 f(int x, int y) {
   var v = x / y.toInt();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_divisionOptimization_supressIfDivisionNotDefinedInCore() {
+  test_divisionOptimization_supressIfDivisionNotDefinedInCore() async {
     Source source = addSource(r'''
 f(x, y) {
   var v = (x / y).toInt();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_divisionOptimization_supressIfDivisionOverridden() {
+  test_divisionOptimization_supressIfDivisionOverridden() async {
     Source source = addSource(r'''
 class A {
   num operator /(x) { return x; }
@@ -253,12 +336,12 @@ class A {
 f(A x, A y) {
   var v = (x / y).toInt();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_duplicateImport_as() {
+  test_duplicateImport_as() async {
     Source source = addSource(r'''
 library L;
 import 'lib1.dart';
@@ -270,12 +353,12 @@ one.A a2;''');
         r'''
 library lib1;
 class A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_duplicateImport_hide() {
+  test_duplicateImport_hide() async {
     Source source = addSource(r'''
 library L;
 import 'lib1.dart';
@@ -288,12 +371,12 @@ B b;''');
 library lib1;
 class A {}
 class B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_duplicateImport_show() {
+  test_duplicateImport_show() async {
     Source source = addSource(r'''
 library L;
 import 'lib1.dart';
@@ -306,13 +389,13 @@ B b;''');
 library lib1;
 class A {}
 class B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_importDeferredLibraryWithLoadFunction() {
-    resolveWithErrors(<String>[
+  test_importDeferredLibraryWithLoadFunction() async {
+    await resolveWithErrors(<String>[
       r'''
 library lib1;
 f() {}''',
@@ -320,10 +403,10 @@ f() {}''',
 library root;
 import 'lib1.dart' deferred as lib1;
 main() { lib1.f(); }'''
-    ], ErrorCode.EMPTY_LIST);
+    ], const <ErrorCode>[]);
   }
 
-  void test_issue20904BuggyTypePromotionAtIfJoin_1() {
+  test_issue20904BuggyTypePromotionAtIfJoin_1() async {
     // https://code.google.com/p/dart/issues/detail?id=20904
     Source source = addSource(r'''
 f(var message, var dynamic_) {
@@ -332,12 +415,12 @@ f(var message, var dynamic_) {
   }
   int s = message;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_issue20904BuggyTypePromotionAtIfJoin_3() {
+  test_issue20904BuggyTypePromotionAtIfJoin_3() async {
     // https://code.google.com/p/dart/issues/detail?id=20904
     Source source = addSource(r'''
 f(var message) {
@@ -349,12 +432,12 @@ f(var message) {
   }
   int s = message;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_issue20904BuggyTypePromotionAtIfJoin_4() {
+  test_issue20904BuggyTypePromotionAtIfJoin_4() async {
     // https://code.google.com/p/dart/issues/detail?id=20904
     Source source = addSource(r'''
 f(var message) {
@@ -365,79 +448,117 @@ f(var message) {
   }
   String s = message;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_missingReturn_emptyFunctionBody() {
+  test_missingReturn_emptyFunctionBody() async {
     Source source = addSource(r'''
 abstract class A {
   int m();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_missingReturn_expressionFunctionBody() {
+  test_missingReturn_expressionFunctionBody() async {
     Source source = addSource("int f() => 0;");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_missingReturn_noReturnType() {
+  test_missingReturn_noReturnType() async {
     Source source = addSource("f() {}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_missingReturn_voidReturnType() {
+  test_missingReturn_voidReturnType() async {
     Source source = addSource("void f() {}");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nullAwareInCondition_for_noCondition() {
+  test_nullAwareInCondition_for_noCondition() async {
     Source source = addSource(r'''
 m(x) {
   for (var v = x; ; v++) {}
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_nullAwareInCondition_if_notTopLevel() {
+  test_nullAwareInCondition_if_notTopLevel() async {
     Source source = addSource(r'''
 m(x) {
   if (x?.y == null) {}
 }
 ''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_overrideEqualsButNotHashCode() {
+  test_overrideEqualsButNotHashCode() async {
     Source source = addSource(r'''
 class A {
   bool operator ==(x) { return x; }
   get hashCode => 0;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_overrideOnNonOverridingGetter_inInterface() {
+  test_overrideOnNonOverridingField_inInterface() async {
     Source source = addSource(r'''
-library dart.core;
-const override = null;
+class A {
+  int get a => 0;
+  void set b(_) {}
+  int c;
+}
+class B implements A {
+  @override
+  final int a = 1;
+  @override
+  int b;
+  @override
+  int c;
+}''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_overrideOnNonOverridingField_inSuperclass() async {
+    Source source = addSource(r'''
+class A {
+  int get a => 0;
+  void set b(_) {}
+  int c;
+}
+class B extends A {
+  @override
+  final int a = 1;
+  @override
+  int b;
+  @override
+  int c;
+}''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_overrideOnNonOverridingGetter_inInterface() async {
+    Source source = addSource(r'''
 class A {
   int get m => 0;
 }
@@ -445,15 +566,13 @@ class B implements A {
   @override
   int get m => 1;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_overrideOnNonOverridingGetter_inSuperclass() {
+  test_overrideOnNonOverridingGetter_inSuperclass() async {
     Source source = addSource(r'''
-library dart.core;
-const override = null;
 class A {
   int get m => 0;
 }
@@ -461,15 +580,13 @@ class B extends A {
   @override
   int get m => 1;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_overrideOnNonOverridingMethod_inInterface() {
+  test_overrideOnNonOverridingMethod_inInterface() async {
     Source source = addSource(r'''
-library dart.core;
-const override = null;
 class A {
   int m() => 0;
 }
@@ -477,15 +594,13 @@ class B implements A {
   @override
   int m() => 1;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_overrideOnNonOverridingMethod_inSuperclass() {
+  test_overrideOnNonOverridingMethod_inSuperclass() async {
     Source source = addSource(r'''
-library dart.core;
-const override = null;
 class A {
   int m() => 0;
 }
@@ -493,15 +608,27 @@ class B extends A {
   @override
   int m() => 1;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_overrideOnNonOverridingSetter_inInterface() {
+  test_overrideOnNonOverridingMethod_inSuperclass_abstract() async {
     Source source = addSource(r'''
-library dart.core;
-const override = null;
+abstract class A {
+  int m();
+}
+class B extends A {
+  @override
+  int m() => 1;
+}''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_overrideOnNonOverridingSetter_inInterface() async {
+    Source source = addSource(r'''
 class A {
   set m(int x) {}
 }
@@ -509,15 +636,13 @@ class B implements A {
   @override
   set m(int x) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_overrideOnNonOverridingSetter_inSuperclass() {
+  test_overrideOnNonOverridingSetter_inSuperclass() async {
     Source source = addSource(r'''
-library dart.core;
-const override = null;
 class A {
   set m(int x) {}
 }
@@ -525,12 +650,12 @@ class B extends A {
   @override
   set m(int x) {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_propagatedFieldType() {
+  test_propagatedFieldType() async {
     Source source = addSource(r'''
 class A { }
 class X<T> {
@@ -542,12 +667,12 @@ class Z {
     y.x.add(new A());
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_proxy_annotation_prefixed() {
+  test_proxy_annotation_prefixed() async {
     Source source = addSource(r'''
 library L;
 @proxy
@@ -561,11 +686,11 @@ f(var a) {
   a++;
   ++a;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_proxy_annotation_prefixed2() {
+  test_proxy_annotation_prefixed2() async {
     Source source = addSource(r'''
 library L;
 @proxy
@@ -581,11 +706,11 @@ class B {
     ++a;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_proxy_annotation_prefixed3() {
+  test_proxy_annotation_prefixed3() async {
     Source source = addSource(r'''
 library L;
 class B {
@@ -601,11 +726,11 @@ class B {
 }
 @proxy
 class A {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedGetter_inSubtype() {
+  test_undefinedGetter_inSubtype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
@@ -616,11 +741,11 @@ f(var a) {
     return a.b;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedMethod_assignmentExpression_inSubtype() {
+  test_undefinedMethod_assignmentExpression_inSubtype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
@@ -631,21 +756,21 @@ f(var a, var a2) {
   a2 = new A();
   a += a2;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedMethod_dynamic() {
+  test_undefinedMethod_dynamic() async {
     Source source = addSource(r'''
 class D<T extends dynamic> {
   fieldAccess(T t) => t.abc;
   methodAccess(T t) => t.xyz(1, 2, 'three');
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedMethod_inSubtype() {
+  test_undefinedMethod_inSubtype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
@@ -655,11 +780,11 @@ f() {
   var a = new A();
   a.b();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedMethod_unionType_all() {
+  test_undefinedMethod_unionType_all() async {
     Source source = addSource(r'''
 class A {
   int m(int x) => 0;
@@ -676,11 +801,11 @@ f(A a, B b) {
   }
   ab.m();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedMethod_unionType_some() {
+  test_undefinedMethod_unionType_some() async {
     Source source = addSource(r'''
 class A {
   int m(int x) => 0;
@@ -695,11 +820,11 @@ f(A a, B b) {
   }
   ab.m(0);
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedOperator_binaryExpression_inSubtype() {
+  test_undefinedOperator_binaryExpression_inSubtype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
@@ -710,11 +835,11 @@ f(var a) {
     a + 1;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedOperator_indexBoth_inSubtype() {
+  test_undefinedOperator_indexBoth_inSubtype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
@@ -725,11 +850,11 @@ f(var a) {
     a[0]++;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedOperator_indexGetter_inSubtype() {
+  test_undefinedOperator_indexGetter_inSubtype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
@@ -740,11 +865,11 @@ f(var a) {
     a[0];
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedOperator_indexSetter_inSubtype() {
+  test_undefinedOperator_indexSetter_inSubtype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
@@ -755,11 +880,11 @@ f(var a) {
     a[0] = 1;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedOperator_postfixExpression() {
+  test_undefinedOperator_postfixExpression() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
@@ -770,11 +895,11 @@ f(var a) {
     a++;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedOperator_prefixExpression() {
+  test_undefinedOperator_prefixExpression() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
@@ -785,11 +910,11 @@ f(var a) {
     ++a;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_undefinedSetter_inSubtype() {
+  test_undefinedSetter_inSubtype() async {
     Source source = addSource(r'''
 class A {}
 class B extends A {
@@ -800,11 +925,11 @@ f(var a) {
     a.b = 0;
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_unnecessaryCast_13855_parameter_A() {
+  test_unnecessaryCast_13855_parameter_A() async {
     // dartbug.com/13855, dartbug.com/13732
     Source source = addSource(r'''
 class A{
@@ -816,12 +941,12 @@ class B<E> {
     (e as A).a();
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unnecessaryCast_conditionalExpression() {
+  test_unnecessaryCast_conditionalExpression() async {
     Source source = addSource(r'''
 abstract class I {}
 class A implements I {}
@@ -829,22 +954,22 @@ class B implements I {}
 I m(A a, B b) {
   return a == null ? b as I : a as I;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unnecessaryCast_dynamic_type() {
+  test_unnecessaryCast_dynamic_type() async {
     Source source = addSource(r'''
 m(v) {
   var b = v as Object;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unnecessaryCast_generics() {
+  test_unnecessaryCast_generics() async {
     // dartbug.com/18953
     Source source = addSource(r'''
 import 'dart:async';
@@ -852,22 +977,22 @@ Future<int> f() => new Future.value(0);
 void g(bool c) {
   (c ? f(): new Future.value(0) as Future<int>).then((int value) {});
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unnecessaryCast_type_dynamic() {
+  test_unnecessaryCast_type_dynamic() async {
     Source source = addSource(r'''
 m(v) {
   var b = Object as dynamic;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unnecessaryNoSuchMethod_blockBody_notReturnStatement() {
+  test_unnecessaryNoSuchMethod_blockBody_notReturnStatement() async {
     Source source = addSource(r'''
 class A {
   noSuchMethod(x) => super.noSuchMethod(x);
@@ -878,12 +1003,12 @@ class B extends A {
     print(y);
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unnecessaryNoSuchMethod_blockBody_notSingleStatement() {
+  test_unnecessaryNoSuchMethod_blockBody_notSingleStatement() async {
     Source source = addSource(r'''
 class A {
   noSuchMethod(x) => super.noSuchMethod(x);
@@ -895,12 +1020,12 @@ class B extends A {
     return super.noSuchMethod(y);
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unnecessaryNoSuchMethod_expressionBody_notNoSuchMethod() {
+  test_unnecessaryNoSuchMethod_expressionBody_notNoSuchMethod() async {
     Source source = addSource(r'''
 class A {
   noSuchMethod(x) => super.noSuchMethod(x);
@@ -909,12 +1034,12 @@ class B extends A {
   mmm();
   noSuchMethod(y) => super.hashCode;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unnecessaryNoSuchMethod_expressionBody_notSuper() {
+  test_unnecessaryNoSuchMethod_expressionBody_notSuper() async {
     Source source = addSource(r'''
 class A {
   noSuchMethod(x) => super.noSuchMethod(x);
@@ -923,12 +1048,12 @@ class B extends A {
   mmm();
   noSuchMethod(y) => 42;
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unusedImport_annotationOnDirective() {
+  test_unusedImport_annotationOnDirective() async {
     Source source = addSource(r'''
 library L;
 @A()
@@ -940,12 +1065,13 @@ library lib1;
 class A {
   const A() {}
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
+    await computeAnalysisResult(source2);
     assertErrors(source);
     verify([source, source2]);
   }
 
-  void test_unusedImport_as_equalPrefixes() {
+  test_unusedImport_as_equalPrefixes() async {
     // 18818
     Source source = addSource(r'''
 library L;
@@ -963,23 +1089,25 @@ class A {}''');
         r'''
 library lib2;
 class B {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
+    await computeAnalysisResult(source2);
+    await computeAnalysisResult(source3);
     assertErrors(source);
     assertNoErrors(source2);
     assertNoErrors(source3);
     verify([source, source2, source3]);
   }
 
-  void test_unusedImport_core_library() {
+  test_unusedImport_core_library() async {
     Source source = addSource(r'''
 library L;
 import 'dart:core';''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unusedImport_export() {
+  test_unusedImport_export() async {
     Source source = addSource(r'''
 library L;
 import 'lib1.dart';
@@ -995,12 +1123,12 @@ class One {}''');
         r'''
 library lib2;
 class Two {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unusedImport_export2() {
+  test_unusedImport_export2() async {
     Source source = addSource(r'''
 library L;
 import 'lib1.dart';
@@ -1022,12 +1150,12 @@ class Two {}''');
         r'''
 library lib3;
 class Three {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unusedImport_export_infiniteLoop() {
+  test_unusedImport_export_infiniteLoop() async {
     Source source = addSource(r'''
 library L;
 import 'lib1.dart';
@@ -1050,12 +1178,12 @@ class Two {}''');
 library lib3;
 export 'lib2.dart';
 class Three {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unusedImport_metadata() {
+  test_unusedImport_metadata() async {
     Source source = addSource(r'''
 library L;
 @A(x)
@@ -1069,12 +1197,12 @@ class A {
         r'''
 library lib1;
 const x = 0;''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_unusedImport_prefix_topLevelFunction() {
+  test_unusedImport_prefix_topLevelFunction() async {
     Source source = addSource(r'''
 library L;
 import 'lib1.dart' hide topLevelFunction;
@@ -1091,12 +1219,36 @@ class A {
 library lib1;
 class One {}
 topLevelFunction() {}''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_useOfVoidResult_implicitReturnValue() {
+  test_unusedImport_prefix_topLevelFunction2() async {
+    Source source = addSource(r'''
+library L;
+import 'lib1.dart' hide topLevelFunction;
+import 'lib1.dart' as one show topLevelFunction;
+import 'lib1.dart' as two show topLevelFunction;
+class A {
+  static void x() {
+    One o;
+    one.topLevelFunction();
+    two.topLevelFunction();
+  }
+}''');
+    addNamedSource(
+        "/lib1.dart",
+        r'''
+library lib1;
+class One {}
+topLevelFunction() {}''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_useOfVoidResult_implicitReturnValue() async {
     Source source = addSource(r'''
 f() {}
 class A {
@@ -1104,108 +1256,125 @@ class A {
     var a = f();
   }
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 
-  void test_useOfVoidResult_nonVoidReturnValue() {
+  test_useOfVoidResult_nonVoidReturnValue() async {
     Source source = addSource(r'''
 int f() => 1;
 g() {
   var a = f();
 }''');
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
+  test_withSuperMixin() async {
+    resetWith(options: new AnalysisOptionsImpl()..enableSuperMixins = true);
+    Source source = addSource(r'''
+abstract class A {
+  void test();
+}
+class B extends A {
+  void test() {
+    super.test;
+  }
+}
+''');
+    await computeAnalysisResult(source);
     assertNoErrors(source);
     verify([source]);
   }
 }
 
 class PubSuggestionCodeTest extends ResolverTestCase {
-  void test_import_package() {
+  test_import_package() async {
     Source source = addSource("import 'package:somepackage/other.dart';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [CompileTimeErrorCode.URI_DOES_NOT_EXIST]);
   }
 
-  void test_import_packageWithDotDot() {
+  test_import_packageWithDotDot() async {
     Source source = addSource("import 'package:somepackage/../other.dart';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [
       CompileTimeErrorCode.URI_DOES_NOT_EXIST,
       HintCode.PACKAGE_IMPORT_CONTAINS_DOT_DOT
     ]);
   }
 
-  void test_import_packageWithLeadingDotDot() {
+  test_import_packageWithLeadingDotDot() async {
     Source source = addSource("import 'package:../other.dart';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(source, [
       CompileTimeErrorCode.URI_DOES_NOT_EXIST,
       HintCode.PACKAGE_IMPORT_CONTAINS_DOT_DOT
     ]);
   }
 
-  void test_import_referenceIntoLibDirectory() {
-    cacheSource("/myproj/pubspec.yaml", "");
-    cacheSource("/myproj/lib/other.dart", "");
+  test_import_referenceIntoLibDirectory() async {
+    addNamedSource("/myproj/pubspec.yaml", "");
+    addNamedSource("/myproj/lib/other.dart", "");
     Source source =
         addNamedSource("/myproj/web/test.dart", "import '../lib/other.dart';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(
         source, [HintCode.FILE_IMPORT_OUTSIDE_LIB_REFERENCES_FILE_INSIDE]);
   }
 
-  void test_import_referenceIntoLibDirectory_no_pubspec() {
-    cacheSource("/myproj/lib/other.dart", "");
+  test_import_referenceIntoLibDirectory_no_pubspec() async {
+    addNamedSource("/myproj/lib/other.dart", "");
     Source source =
         addNamedSource("/myproj/web/test.dart", "import '../lib/other.dart';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_import_referenceOutOfLibDirectory() {
-    cacheSource("/myproj/pubspec.yaml", "");
-    cacheSource("/myproj/web/other.dart", "");
+  test_import_referenceOutOfLibDirectory() async {
+    addNamedSource("/myproj/pubspec.yaml", "");
+    addNamedSource("/myproj/web/other.dart", "");
     Source source =
         addNamedSource("/myproj/lib/test.dart", "import '../web/other.dart';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertErrors(
         source, [HintCode.FILE_IMPORT_INSIDE_LIB_REFERENCES_FILE_OUTSIDE]);
   }
 
-  void test_import_referenceOutOfLibDirectory_no_pubspec() {
-    cacheSource("/myproj/web/other.dart", "");
+  test_import_referenceOutOfLibDirectory_no_pubspec() async {
+    addNamedSource("/myproj/web/other.dart", "");
     Source source =
         addNamedSource("/myproj/lib/test.dart", "import '../web/other.dart';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_import_valid_inside_lib1() {
-    cacheSource("/myproj/pubspec.yaml", "");
-    cacheSource("/myproj/lib/other.dart", "");
+  test_import_valid_inside_lib1() async {
+    addNamedSource("/myproj/pubspec.yaml", "");
+    addNamedSource("/myproj/lib/other.dart", "");
     Source source =
         addNamedSource("/myproj/lib/test.dart", "import 'other.dart';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_import_valid_inside_lib2() {
-    cacheSource("/myproj/pubspec.yaml", "");
-    cacheSource("/myproj/lib/bar/other.dart", "");
+  test_import_valid_inside_lib2() async {
+    addNamedSource("/myproj/pubspec.yaml", "");
+    addNamedSource("/myproj/lib/bar/other.dart", "");
     Source source = addNamedSource(
         "/myproj/lib/foo/test.dart", "import '../bar/other.dart';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 
-  void test_import_valid_outside_lib() {
-    cacheSource("/myproj/pubspec.yaml", "");
-    cacheSource("/myproj/web/other.dart", "");
+  test_import_valid_outside_lib() async {
+    addNamedSource("/myproj/pubspec.yaml", "");
+    addNamedSource("/myproj/web/other.dart", "");
     Source source =
         addNamedSource("/myproj/lib2/test.dart", "import '../web/other.dart';");
-    computeLibrarySourceErrors(source);
+    await computeAnalysisResult(source);
     assertNoErrors(source);
   }
 }

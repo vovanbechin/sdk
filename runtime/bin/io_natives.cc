@@ -28,12 +28,15 @@ namespace bin {
   V(Directory_CreateTemp, 1)                                                   \
   V(Directory_Delete, 2)                                                       \
   V(Directory_Rename, 2)                                                       \
-  V(Directory_List, 3)                                                         \
+  V(Directory_FillWithDirectoryListing, 4)                                     \
+  V(Directory_GetAsyncDirectoryListerPointer, 1)                               \
+  V(Directory_SetAsyncDirectoryListerPointer, 2)                               \
   V(EventHandler_SendData, 3)                                                  \
   V(EventHandler_TimerMillisecondClock, 0)                                     \
+  V(File_GetPointer, 1)                                                        \
+  V(File_SetPointer, 2)                                                        \
   V(File_Open, 2)                                                              \
   V(File_Exists, 1)                                                            \
-  V(File_GetFD, 1)                                                             \
   V(File_Close, 1)                                                             \
   V(File_ReadByte, 1)                                                          \
   V(File_WriteByte, 2)                                                         \
@@ -42,11 +45,15 @@ namespace bin {
   V(File_WriteFrom, 4)                                                         \
   V(File_Position, 1)                                                          \
   V(File_SetPosition, 2)                                                       \
+  V(File_SetTranslation, 2)                                                    \
   V(File_Truncate, 2)                                                          \
   V(File_Length, 1)                                                            \
   V(File_LengthFromPath, 1)                                                    \
   V(File_Stat, 1)                                                              \
   V(File_LastModified, 1)                                                      \
+  V(File_SetLastModified, 2)                                                   \
+  V(File_LastAccessed, 1)                                                      \
+  V(File_SetLastAccessed, 2)                                                   \
   V(File_Flush, 1)                                                             \
   V(File_Lock, 4)                                                              \
   V(File_Create, 1)                                                            \
@@ -75,6 +82,7 @@ namespace bin {
   V(Filter_Processed, 3)                                                       \
   V(InternetAddress_Parse, 1)                                                  \
   V(IOService_NewServicePort, 0)                                               \
+  V(NetworkInterface_ListSupported, 0)                                         \
   V(Platform_NumberOfProcessors, 0)                                            \
   V(Platform_OperatingSystem, 0)                                               \
   V(Platform_PathSeparator, 0)                                                 \
@@ -106,6 +114,7 @@ namespace bin {
   V(SecureSocket_Renegotiate, 4)                                               \
   V(SecurityContext_Allocate, 1)                                               \
   V(SecurityContext_UsePrivateKeyBytes, 3)                                     \
+  V(SecurityContext_AlpnSupported, 0)                                          \
   V(SecurityContext_SetAlpnProtocols, 3)                                       \
   V(SecurityContext_SetClientAuthoritiesBytes, 3)                              \
   V(SecurityContext_SetTrustedCertificatesBytes, 3)                            \
@@ -116,6 +125,7 @@ namespace bin {
   V(Socket_CreateConnect, 3)                                                   \
   V(Socket_CreateBindConnect, 4)                                               \
   V(Socket_CreateBindDatagram, 4)                                              \
+  V(Socket_IsBindError, 2)                                                     \
   V(Socket_Available, 1)                                                       \
   V(Socket_Read, 2)                                                            \
   V(Socket_RecvFrom, 1)                                                        \
@@ -132,7 +142,7 @@ namespace bin {
   V(Socket_LeaveMulticast, 4)                                                  \
   V(Socket_GetSocketId, 1)                                                     \
   V(Socket_SetSocketId, 2)                                                     \
-  V(Stdin_ReadByte, 1)                                                         \
+  V(Stdin_ReadByte, 0)                                                         \
   V(Stdin_GetEchoMode, 0)                                                      \
   V(Stdin_SetEchoMode, 1)                                                      \
   V(Stdin_GetLineMode, 0)                                                      \
@@ -151,9 +161,7 @@ static struct NativeEntries {
   const char* name_;
   Dart_NativeFunction function_;
   int argument_count_;
-} IOEntries[] = {
-  IO_NATIVE_LIST(REGISTER_FUNCTION)
-};
+} IOEntries[] = {IO_NATIVE_LIST(REGISTER_FUNCTION)};
 
 
 Dart_NativeFunction IONativeLookup(Dart_Handle name,

@@ -17,7 +17,7 @@
 namespace dart {
 
 // Unit test for empty stack frame iteration.
-VM_TEST_CASE(EmptyStackFrameIteration) {
+ISOLATE_UNIT_TEST_CASE(EmptyStackFrameIteration) {
   StackFrameIterator iterator(StackFrameIterator::kValidateFrames);
   EXPECT(!iterator.HasNextFrame());
   EXPECT(iterator.NextFrame() == NULL);
@@ -26,7 +26,7 @@ VM_TEST_CASE(EmptyStackFrameIteration) {
 
 
 // Unit test for empty dart stack frame iteration.
-VM_TEST_CASE(EmptyDartStackFrameIteration) {
+ISOLATE_UNIT_TEST_CASE(EmptyDartStackFrameIteration) {
   DartFrameIterator iterator;
   EXPECT(iterator.NextFrame() == NULL);
   VerifyPointersVisitor::VerifyPointers();
@@ -34,8 +34,7 @@ VM_TEST_CASE(EmptyDartStackFrameIteration) {
 
 
 #define FUNCTION_NAME(name) StackFrame_##name
-#define REGISTER_FUNCTION(name, count)                                         \
-  { ""#name, FUNCTION_NAME(name), count },
+#define REGISTER_FUNCTION(name, count) {"" #name, FUNCTION_NAME(name), count},
 
 
 void FUNCTION_NAME(StackFrame_equals)(Dart_NativeArguments args) {
@@ -43,8 +42,8 @@ void FUNCTION_NAME(StackFrame_equals)(Dart_NativeArguments args) {
   const Instance& expected = Instance::CheckedHandle(arguments->NativeArgAt(0));
   const Instance& actual = Instance::CheckedHandle(arguments->NativeArgAt(1));
   if (!expected.OperatorEquals(actual)) {
-    OS::Print("expected: '%s' actual: '%s'\n",
-        expected.ToCString(), actual.ToCString());
+    OS::Print("expected: '%s' actual: '%s'\n", expected.ToCString(),
+              actual.ToCString());
     FATAL("Expect_equals fails.\n");
   }
 }
@@ -75,6 +74,9 @@ void FUNCTION_NAME(StackFrame_dartFrameCount)(Dart_NativeArguments args) {
 
 
 void FUNCTION_NAME(StackFrame_validateFrame)(Dart_NativeArguments args) {
+  Thread* thread = Thread::Current();
+  Zone* zone = thread->zone();
+
   Dart_Handle index = Dart_GetNativeArgument(args, 0);
   Dart_Handle name = Dart_GetNativeArgument(args, 1);
   const Smi& frame_index_smi = Smi::CheckedHandle(Api::UnwrapHandle(index));
@@ -89,18 +91,18 @@ void FUNCTION_NAME(StackFrame_validateFrame)(Dart_NativeArguments args) {
       // Find the function corresponding to this frame and check if it
       // matches the function name passed in.
       const Function& function =
-          Function::Handle(frame->LookupDartFunction());
+          Function::Handle(zone, frame->LookupDartFunction());
       if (function.IsNull()) {
         FATAL("StackFrame_validateFrame fails, invalid dart frame.\n");
       }
       const char* name = function.ToFullyQualifiedCString();
       // Currently all unit tests are loaded as being part of dart:core-lib.
-      String& url = String::Handle(String::New(TestCase::url()));
-      const Library& lib = Library::Handle(Library::LookupLibrary(url));
+      String& url = String::Handle(zone, String::New(TestCase::url()));
+      const Library& lib =
+          Library::Handle(zone, Library::LookupLibrary(thread, url));
       ASSERT(!lib.IsNull());
-      const char* lib_name = String::Handle(lib.url()).ToCString();
-      char* full_name = OS::SCreate(Thread::Current()->zone(),
-          "%s_%s", lib_name, expected_name);
+      const char* lib_name = String::Handle(zone, lib.url()).ToCString();
+      char* full_name = OS::SCreate(zone, "%s_%s", lib_name, expected_name);
       if (strcmp(full_name, name) != 0) {
         FATAL("StackFrame_validateFrame fails, incorrect frame.\n");
       }
@@ -120,16 +122,14 @@ void FUNCTION_NAME(StackFrame_validateFrame)(Dart_NativeArguments args) {
   V(StackFrame_equals, 2)                                                      \
   V(StackFrame_frameCount, 0)                                                  \
   V(StackFrame_dartFrameCount, 0)                                              \
-  V(StackFrame_validateFrame, 2)                                               \
+  V(StackFrame_validateFrame, 2)
 
 
 static struct NativeEntries {
   const char* name_;
   Dart_NativeFunction function_;
   int argument_count_;
-} BuiltinEntries[] = {
-  STACKFRAME_NATIVE_LIST(REGISTER_FUNCTION)
-};
+} BuiltinEntries[] = {STACKFRAME_NATIVE_LIST(REGISTER_FUNCTION)};
 
 
 static Dart_NativeFunction native_lookup(Dart_Handle name,
@@ -234,8 +234,7 @@ TEST_CASE(ValidateStackFrameIteration) {
       "  }"
       "}";
   Dart_Handle lib = TestCase::LoadTestScript(
-      kScriptChars,
-      reinterpret_cast<Dart_NativeEntryResolver>(native_lookup));
+      kScriptChars, reinterpret_cast<Dart_NativeEntryResolver>(native_lookup));
   Dart_Handle cls = Dart_GetClass(lib, NewString("StackFrameTest"));
   EXPECT_VALID(Dart_Invoke(cls, NewString("testMain"), 0, NULL));
 }
@@ -249,75 +248,77 @@ TEST_CASE(ValidateNoSuchMethodStackFrameIteration) {
   // methods are marked invisible.
   if (FLAG_lazy_dispatchers) {
     kScriptChars =
-      "class StackFrame {"
-      "  static equals(var obj1, var obj2) native \"StackFrame_equals\";"
-      "  static int frameCount() native \"StackFrame_frameCount\";"
-      "  static int dartFrameCount() native \"StackFrame_dartFrameCount\";"
-      "  static validateFrame(int index,"
-      "                       String name) native \"StackFrame_validateFrame\";"
-      "} "
-      "class StackFrame2Test {"
-      "  StackFrame2Test() {}"
-      "  noSuchMethod(Invocation im) {"
-      "    /* We should have 6 general frames and 4 dart frames as follows:"
-      "     * exit frame"
-      "     * dart frame corresponding to StackFrame.frameCount"
-      "     * dart frame corresponding to StackFrame2Test.noSuchMethod"
-      "     * frame for instance function invocation stub calling noSuchMethod"
-      "     * dart frame corresponding to StackFrame2Test.testMain"
-      "     * entry frame"
-      "     */"
-      "    StackFrame.equals(6, StackFrame.frameCount());"
-      "    StackFrame.equals(4, StackFrame.dartFrameCount());"
-      "    StackFrame.validateFrame(0, \"StackFrame_validateFrame\");"
-      "    StackFrame.validateFrame(1, \"StackFrame2Test_noSuchMethod\");"
-      "    StackFrame.validateFrame(2, \"StackFrame2Test_foo\");"
-      "    StackFrame.validateFrame(3, \"StackFrame2Test_testMain\");"
-      "    return 5;"
-      "  }"
-      "  static testMain() {"
-      "    var obj = new StackFrame2Test();"
-      "    StackFrame.equals(5, obj.foo(101, 202));"
-      "  }"
-      "}";
+        "class StackFrame {"
+        "  static equals(var obj1, var obj2) native \"StackFrame_equals\";"
+        "  static int frameCount() native \"StackFrame_frameCount\";"
+        "  static int dartFrameCount() native \"StackFrame_dartFrameCount\";"
+        "  static validateFrame(int index,"
+        "                       String name) native "
+        "\"StackFrame_validateFrame\";"
+        "} "
+        "class StackFrame2Test {"
+        "  StackFrame2Test() {}"
+        "  noSuchMethod(Invocation im) {"
+        "    /* We should have 6 general frames and 4 dart frames as follows:"
+        "     * exit frame"
+        "     * dart frame corresponding to StackFrame.frameCount"
+        "     * dart frame corresponding to StackFrame2Test.noSuchMethod"
+        "     * frame for instance function invocation stub calling "
+        "noSuchMethod"
+        "     * dart frame corresponding to StackFrame2Test.testMain"
+        "     * entry frame"
+        "     */"
+        "    StackFrame.equals(6, StackFrame.frameCount());"
+        "    StackFrame.equals(4, StackFrame.dartFrameCount());"
+        "    StackFrame.validateFrame(0, \"StackFrame_validateFrame\");"
+        "    StackFrame.validateFrame(1, \"StackFrame2Test_noSuchMethod\");"
+        "    StackFrame.validateFrame(2, \"StackFrame2Test_foo\");"
+        "    StackFrame.validateFrame(3, \"StackFrame2Test_testMain\");"
+        "    return 5;"
+        "  }"
+        "  static testMain() {"
+        "    var obj = new StackFrame2Test();"
+        "    StackFrame.equals(5, obj.foo(101, 202));"
+        "  }"
+        "}";
   } else {
     kScriptChars =
-      "class StackFrame {"
-      "  static equals(var obj1, var obj2) native \"StackFrame_equals\";"
-      "  static int frameCount() native \"StackFrame_frameCount\";"
-      "  static int dartFrameCount() native \"StackFrame_dartFrameCount\";"
-      "  static validateFrame(int index,"
-      "                       String name) native \"StackFrame_validateFrame\";"
-      "} "
-      "class StackFrame2Test {"
-      "  StackFrame2Test() {}"
-      "  noSuchMethod(Invocation im) {"
-      "    /* We should have 8 general frames and 3 dart frames as follows:"
-      "     * exit frame"
-      "     * dart frame corresponding to StackFrame.frameCount"
-      "     * dart frame corresponding to StackFrame2Test.noSuchMethod"
-      "     * entry frame"
-      "     * exit frame (call to runtime InvokeNoSuchMethodDispatcher)"
-      "     * IC stub"
-      "     * dart frame corresponding to StackFrame2Test.testMain"
-      "     * entry frame"
-      "     */"
-      "    StackFrame.equals(8, StackFrame.frameCount());"
-      "    StackFrame.equals(3, StackFrame.dartFrameCount());"
-      "    StackFrame.validateFrame(0, \"StackFrame_validateFrame\");"
-      "    StackFrame.validateFrame(1, \"StackFrame2Test_noSuchMethod\");"
-      "    StackFrame.validateFrame(2, \"StackFrame2Test_testMain\");"
-      "    return 5;"
-      "  }"
-      "  static testMain() {"
-      "    var obj = new StackFrame2Test();"
-      "    StackFrame.equals(5, obj.foo(101, 202));"
-      "  }"
-      "}";
+        "class StackFrame {"
+        "  static equals(var obj1, var obj2) native \"StackFrame_equals\";"
+        "  static int frameCount() native \"StackFrame_frameCount\";"
+        "  static int dartFrameCount() native \"StackFrame_dartFrameCount\";"
+        "  static validateFrame(int index,"
+        "                       String name) native "
+        "\"StackFrame_validateFrame\";"
+        "} "
+        "class StackFrame2Test {"
+        "  StackFrame2Test() {}"
+        "  noSuchMethod(Invocation im) {"
+        "    /* We should have 8 general frames and 3 dart frames as follows:"
+        "     * exit frame"
+        "     * dart frame corresponding to StackFrame.frameCount"
+        "     * dart frame corresponding to StackFrame2Test.noSuchMethod"
+        "     * entry frame"
+        "     * exit frame (call to runtime InvokeNoSuchMethodDispatcher)"
+        "     * IC stub"
+        "     * dart frame corresponding to StackFrame2Test.testMain"
+        "     * entry frame"
+        "     */"
+        "    StackFrame.equals(8, StackFrame.frameCount());"
+        "    StackFrame.equals(3, StackFrame.dartFrameCount());"
+        "    StackFrame.validateFrame(0, \"StackFrame_validateFrame\");"
+        "    StackFrame.validateFrame(1, \"StackFrame2Test_noSuchMethod\");"
+        "    StackFrame.validateFrame(2, \"StackFrame2Test_testMain\");"
+        "    return 5;"
+        "  }"
+        "  static testMain() {"
+        "    var obj = new StackFrame2Test();"
+        "    StackFrame.equals(5, obj.foo(101, 202));"
+        "  }"
+        "}";
   }
   Dart_Handle lib = TestCase::LoadTestScript(
-      kScriptChars,
-      reinterpret_cast<Dart_NativeEntryResolver>(native_lookup));
+      kScriptChars, reinterpret_cast<Dart_NativeEntryResolver>(native_lookup));
   Dart_Handle cls = Dart_GetClass(lib, NewString("StackFrame2Test"));
   EXPECT_VALID(Dart_Invoke(cls, NewString("testMain"), 0, NULL));
 }

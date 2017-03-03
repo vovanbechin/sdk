@@ -2,12 +2,19 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-part of dart2js.js_emitter;
+library dart2js.js_emitter.native_generator;
+
+import 'package:js_runtime/shared/embedded_names.dart' as embeddedNames;
+
+import '../js/js.dart' as jsAst;
+import '../js/js.dart' show js;
+import '../js_backend/js_backend.dart' show JavaScriptBackend;
+
+import 'model.dart';
 
 class NativeGenerator {
-
   static bool needsIsolateAffinityTagInitialization(JavaScriptBackend backend) {
-    return backend.needToInitializeIsolateAffinityTag;
+    return backend.backendUsage.needToInitializeIsolateAffinityTag;
   }
 
   /// Generates the code for isolate affinity tags.
@@ -18,7 +25,7 @@ class NativeGenerator {
       JavaScriptBackend backend,
       jsAst.Expression generateEmbeddedGlobalAccess(String global),
       jsAst.Expression internStringFunction) {
-    assert(backend.needToInitializeIsolateAffinityTag);
+    assert(backend.backendUsage.needToInitializeIsolateAffinityTag);
 
     jsAst.Expression getIsolateTagAccess =
         generateEmbeddedGlobalAccess(embeddedNames.GET_ISOLATE_TAG);
@@ -27,7 +34,8 @@ class NativeGenerator {
     jsAst.Expression dispatchPropertyNameAccess =
         generateEmbeddedGlobalAccess(embeddedNames.DISPATCH_PROPERTY_NAME);
 
-    return js.statement('''
+    return js.statement(
+        '''
       !function() {
         var intern = #internStringFunction;
 
@@ -56,11 +64,14 @@ class NativeGenerator {
         }
       }();
     ''',
-    {'initializeDispatchProperty': backend.needToInitializeDispatchProperty,
-     'internStringFunction': internStringFunction,
-     'getIsolateTag': getIsolateTagAccess,
-     'isolateTag': isolateTagAccess,
-     'dispatchPropertyName': dispatchPropertyNameAccess});
+        {
+          'initializeDispatchProperty':
+              backend.backendUsage.needToInitializeDispatchProperty,
+          'internStringFunction': internStringFunction,
+          'getIsolateTag': getIsolateTagAccess,
+          'isolateTag': isolateTagAccess,
+          'dispatchPropertyName': dispatchPropertyNameAccess
+        });
   }
 
   static String generateIsolateTagRoot() {
@@ -83,8 +94,7 @@ class NativeGenerator {
 
     String formatTags(Iterable<String> tags) {
       if (tags == null) return '';
-      return (tags.toList()
-        ..sort()).join('|');
+      return (tags.toList()..sort()).join('|');
     }
 
     String leafStr = formatTags(leafTags);
@@ -92,9 +102,7 @@ class NativeGenerator {
 
     StringBuffer sb = new StringBuffer(leafStr);
     if (nonLeafStr != '') {
-      sb
-        ..write(';')
-        ..write(nonLeafStr);
+      sb..write(';')..write(nonLeafStr);
     }
 
     String encoding = sb.toString();
@@ -104,9 +112,8 @@ class NativeGenerator {
       if (extensions != null) {
         parts
           ..add(js.stringPart(';'))
-          ..addAll(
-            js.joinLiterals(extensions.map((Class cls) => cls.name),
-            js.stringPart('|')));
+          ..addAll(js.joinLiterals(
+              extensions.map((Class cls) => cls.name), js.stringPart('|')));
       }
       return jsAst.concatenateStrings(parts, addQuotes: true);
     }
@@ -148,7 +155,8 @@ class NativeGenerator {
       jsAst.Expression leafTagsAccess) {
     jsAst.Expression subclassRead =
         subclassReadGenerator(js('subclasses[i]', []));
-    return js.statement('''
+    return js.statement(
+        '''
           // The native info looks like this:
           //
           // HtmlElement: {
@@ -196,12 +204,15 @@ class NativeGenerator {
               }
             }
           }
-    ''', {'info': infoAccess,
+    ''',
+        {
+          'info': infoAccess,
           'constructor': constructorAccess,
           'subclassRead': subclassRead,
           'interceptorsByTagAccess': interceptorsByTagAccess,
           'leafTagsAccess': leafTagsAccess,
           'nativeSuperclassTagName': embeddedNames.NATIVE_SUPERCLASS_TAG_NAME,
-          'allowNativesSubclassing': true});
+          'allowNativesSubclassing': true
+        });
   }
 }

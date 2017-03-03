@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_EXCEPTIONS_H_
-#define VM_EXCEPTIONS_H_
+#ifndef RUNTIME_VM_EXCEPTIONS_H_
+#define RUNTIME_VM_EXCEPTIONS_H_
 
 #include "vm/allocation.h"
 #include "vm/token_position.h"
@@ -15,12 +15,13 @@ class AbstractType;
 class Array;
 class DartFrameIterator;
 class Error;
+class LanguageError;
 class Instance;
 class Integer;
 class RawInstance;
 class RawObject;
 class RawScript;
-class RawStacktrace;
+class RawStackTrace;
 class String;
 class Thread;
 
@@ -33,7 +34,7 @@ class Exceptions : AllStatic {
   static void PropagateError(const Error& error);
 
   // Helpers to create and throw errors.
-  static RawStacktrace* CurrentStacktrace();
+  static RawStackTrace* CurrentStackTrace();
   static RawScript* GetCallerScript(DartFrameIterator* iterator);
   static RawInstance* NewInstance(const char* class_name);
   static void CreateAndThrowTypeError(TokenPosition location,
@@ -45,6 +46,7 @@ class Exceptions : AllStatic {
   enum ExceptionType {
     kNone,
     kRange,
+    kRangeMsg,
     kArgument,
     kArgumentValue,
     kNoSuchMethod,
@@ -60,6 +62,7 @@ class Exceptions : AllStatic {
     kFallThrough,
     kAbstractClassInstantiation,
     kCyclicInitializationError,
+    kCompileTimeError,
   };
 
   static void ThrowByType(ExceptionType type, const Array& arguments);
@@ -72,15 +75,33 @@ class Exceptions : AllStatic {
                               const Integer& argument_value,
                               intptr_t expected_from,
                               intptr_t expected_to);
+  static void ThrowRangeErrorMsg(const char* msg);
+  static void ThrowCompileTimeError(const LanguageError& error);
 
   // Returns a RawInstance if the exception is successfully created,
   // otherwise returns a RawError.
   static RawObject* Create(ExceptionType type, const Array& arguments);
 
+  static void JumpToFrame(Thread* thread,
+                          uword program_counter,
+                          uword stack_pointer,
+                          uword frame_pointer,
+                          bool clear_deopt_at_target);
+
  private:
   DISALLOW_COPY_AND_ASSIGN(Exceptions);
 };
 
+// The index into the ExceptionHandlers table corresponds to
+// the try_index of the handler.
+struct ExceptionHandlerInfo {
+  uint32_t handler_pc_offset;  // PC offset value of handler.
+  int16_t outer_try_index;     // Try block index of enclosing try block.
+  int8_t needs_stacktrace;     // True if a stacktrace is needed.
+  int8_t has_catch_all;        // Catches all exceptions.
+  int8_t is_generated;         // True if this is a generated handler.
+};
+
 }  // namespace dart
 
-#endif  // VM_EXCEPTIONS_H_
+#endif  // RUNTIME_VM_EXCEPTIONS_H_

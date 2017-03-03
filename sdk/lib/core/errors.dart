@@ -96,7 +96,9 @@ class Error {
  * Error thrown by the runtime system when an assert statement fails.
  */
 class AssertionError extends Error {
-  AssertionError();
+  /** Message describing the assertion error. */
+  final Object message;
+  AssertionError([this.message]);
   String toString() => "Assertion failed";
 }
 
@@ -157,9 +159,7 @@ class ArgumentError extends Error {
    * names differ from the interface, it might be more useful to use the
    * interface method's argument name (or just rename arguments to match).
    */
-  ArgumentError.value(value,
-                      [String this.name,
-                       String this.message])
+  ArgumentError.value(value, [this.name, this.message])
       : invalidValue = value,
         _hasValue = true;
 
@@ -220,7 +220,7 @@ class RangeError extends ArgumentError {
                     (message != null) ? message : "Value not in range");
 
   /**
-   * Create a new [RangeError] with for an invalid value being outside a range.
+   * Create a new [RangeError] for a value being outside the valid range.
    *
    * The allowed range is from [minValue] to [maxValue], inclusive.
    * If `minValue` or `maxValue` are `null`, the range is infinite in
@@ -414,6 +414,8 @@ class IndexError extends ArgumentError implements RangeError {
  */
 class FallThroughError extends Error {
   FallThroughError();
+
+  external String toString();
 }
 
 /**
@@ -421,8 +423,9 @@ class FallThroughError extends Error {
  */
 class AbstractClassInstantiationError extends Error {
   final String _className;
-  AbstractClassInstantiationError(String this._className);
-  String toString() => "Cannot instantiate abstract class: '$_className'";
+  AbstractClassInstantiationError(String className) : _className = className;
+
+  external String toString();
 }
 
 
@@ -454,21 +457,16 @@ class NoSuchMethodError extends Error {
    * The [namedArguments] is a map from [Symbol]s to the values of named
    * arguments that the method was called with.
    *
-   * The optional [exisitingArgumentNames] is the expected parameters of a
+   * The optional [existingArgumentNames] is the expected parameters of a
    * method with the same name on the receiver, if available. This is
    * the signature of the method that would have been called if the parameters
    * had matched.
    */
-  NoSuchMethodError(Object receiver,
-                    Symbol memberName,
-                    List positionalArguments,
-                    Map<Symbol ,dynamic> namedArguments,
-                    [List existingArgumentNames = null])
-      : _receiver = receiver,
-        _memberName = memberName,
-        _arguments = positionalArguments,
-        _namedArguments = namedArguments,
-        _existingArgumentNames = existingArgumentNames;
+  external NoSuchMethodError(Object receiver,
+                             Symbol memberName,
+                             List positionalArguments,
+                             Map<Symbol, dynamic> namedArguments,
+                             [List existingArgumentNames = null]);
 
   external String toString();
 }
@@ -499,7 +497,7 @@ class UnsupportedError extends Error {
  */
 class UnimplementedError extends Error implements UnsupportedError {
   final String message;
-  UnimplementedError([String this.message]);
+  UnimplementedError([this.message]);
   String toString() => (this.message != null
                         ? "UnimplementedError: $message"
                         : "UnimplementedError");

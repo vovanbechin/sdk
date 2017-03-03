@@ -13,26 +13,27 @@ import 'package:analysis_server/src/context_manager.dart';
 import 'package:analysis_server/src/domain_server.dart';
 import 'package:analysis_server/src/operation/operation.dart';
 import 'package:analysis_server/src/plugin/server_plugin.dart';
+import 'package:analyzer/exception/exception.dart';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/file_system/memory_file_system.dart';
 import 'package:analyzer/instrumentation/instrumentation.dart';
 import 'package:analyzer/source/package_map_resolver.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/java_engine.dart';
+import 'package:analyzer/src/generated/sdk.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:plugin/manager.dart';
 import 'package:plugin/plugin.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 import 'package:typed_mock/typed_mock.dart';
-import 'package:unittest/unittest.dart';
 
 import 'mock_sdk.dart';
 import 'mocks.dart';
-import 'utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(AnalysisServerTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(AnalysisServerTest);
+  });
 }
 
 @reflectiveTest
@@ -70,7 +71,7 @@ import "../foo/foo.dart";
 ''');
     Source barSource = bar.createSource();
     server.setAnalysisRoots('0', ['/foo', '/bar'], [], {});
-    return pumpEventQueue(40).then((_) {
+    return server.onAnalysisComplete.then((_) {
       expect(server.statusAnalyzing, isFalse);
       // Make sure getAnalysisContext returns the proper context for each.
       AnalysisContext fooContext =
@@ -110,7 +111,7 @@ import "../foo/foo.dart";
     AnalysisContext barContext = server.getAnalysisContextForSource(barSource);
     expect(barContext, isNotNull);
     expect(fooContext, isNot(same(barContext)));
-    return pumpEventQueue(40).then((_) {
+    return server.onAnalysisComplete.then((_) {
       expect(server.statusAnalyzing, isFalse);
       // Make sure getAnalysisContext returned the proper context for each.
       expect(fooContext.getKindOf(fooSource), SourceKind.LIBRARY);
@@ -120,34 +121,33 @@ import "../foo/foo.dart";
     });
   }
 
-  void processRequiredPlugins() {
+  void processRequiredPlugins(ServerPlugin serverPlugin) {
     List<Plugin> plugins = <Plugin>[];
     plugins.addAll(AnalysisEngine.instance.requiredPlugins);
-    plugins.add(AnalysisEngine.instance.optionsPlugin);
-    plugins.add(server.serverPlugin);
+    plugins.add(serverPlugin);
 
     ExtensionManager manager = new ExtensionManager();
     manager.processPlugins(plugins);
   }
 
   void setUp() {
-    ExtensionManager manager = new ExtensionManager();
-    ServerPlugin plugin = new ServerPlugin();
-    manager.processPlugins([plugin]);
+    ServerPlugin serverPlugin = new ServerPlugin();
+    processRequiredPlugins(serverPlugin);
     channel = new MockServerChannel();
     resourceProvider = new MemoryResourceProvider();
+    // Create an SDK in the mock file system.
+    new MockSdk(resourceProvider: resourceProvider);
     packageMapProvider = new MockPackageMapProvider();
     server = new AnalysisServer(
         channel,
         resourceProvider,
         packageMapProvider,
         null,
-        plugin,
+        serverPlugin,
         new AnalysisServerOptions(),
-        () => new MockSdk(),
+        new DartSdkManager('/', false),
         InstrumentationService.NULL_SERVICE,
         rethrowExceptions: true);
-    processRequiredPlugins();
   }
 
   Future test_contextDisposed() {
@@ -236,7 +236,7 @@ import "../foo/foo.dart";
     File bar = resourceProvider.newFile('/bar/bar.dart', 'library lib;');
     Source barSource = bar.createSource();
     server.setAnalysisRoots('0', ['/foo', '/bar'], [], {});
-    return pumpEventQueue(500).then((_) {
+    return server.onAnalysisComplete.then((_) {
       expect(server.statusAnalyzing, isFalse);
       // Make sure getAnalysisContext returns the proper context for each.
       AnalysisContext fooContext =
@@ -264,8 +264,8 @@ import "../foo/foo.dart";
     server.setAnalysisRoots('0', [dir1Path], [], {});
     // get pair
     ContextSourcePair pair = server.getContextSourcePair(filePath);
-    Source source = pair.source;
     _assertContextOfFolder(pair.context, dir2Path);
+    Source source = pair.source;
     expect(source, isNotNull);
     expect(source.uri.scheme, 'file');
     expect(source.fullName, filePath);
@@ -285,26 +285,6 @@ import "../foo/foo.dart";
     expect(pair.source, isNull);
   }
 
-  test_getContextSourcePair_package_inRoot() {
-    String rootPath = '/my_package';
-    String filePath = rootPath + '/lib/file.dart';
-    Folder rootFolder = resourceProvider.newFolder(rootPath);
-    resourceProvider.newFile(filePath, 'library lib;');
-
-    packageMapProvider.packageMap = <String, List<Folder>>{
-      'my_package': <Folder>[rootFolder]
-    };
-    // create contexts
-    server.setAnalysisRoots('0', [rootPath], [], {});
-    // get pair
-    ContextSourcePair pair = server.getContextSourcePair(filePath);
-    Source source = pair.source;
-    _assertContextOfFolder(pair.context, rootPath);
-    expect(source, isNotNull);
-    expect(source.uri.scheme, 'package');
-    expect(source.fullName, filePath);
-  }
-
   test_getContextSourcePair_simple() {
     String dirPath = '/dir';
     String filePath = dirPath + '/file.dart';
@@ -313,10 +293,27 @@ import "../foo/foo.dart";
     server.setAnalysisRoots('0', [dirPath], [], {});
     // get pair
     ContextSourcePair pair = server.getContextSourcePair(filePath);
-    Source source = pair.source;
     _assertContextOfFolder(pair.context, dirPath);
+    Source source = pair.source;
     expect(source, isNotNull);
     expect(source.uri.scheme, 'file');
+    expect(source.fullName, filePath);
+  }
+
+  test_getContextSourcePair_withPackagesFile() {
+    String dirPath = '/dir';
+    String packagesFilePath = dirPath + '/.packages';
+    resourceProvider.newFile(packagesFilePath, 'dir:lib/');
+    String filePath = dirPath + '/lib/file.dart';
+    resourceProvider.newFile(filePath, 'library lib;');
+    // create contexts
+    server.setAnalysisRoots('0', [dirPath], [], {});
+    // get pair
+    ContextSourcePair pair = server.getContextSourcePair(filePath);
+    _assertContextOfFolder(pair.context, dirPath);
+    Source source = pair.source;
+    expect(source, isNotNull);
+    expect(source.uri.scheme, 'package');
     expect(source.fullName, filePath);
   }
 
@@ -338,12 +335,12 @@ import "../foo/foo.dart";
       subscriptions[service] = <String>[bar.path].toSet();
     }
     server.setAnalysisSubscriptions(subscriptions);
-    await pumpEventQueue(1000);
+    await server.onAnalysisComplete;
     expect(server.statusAnalyzing, isFalse);
     channel.notificationsReceived.clear();
     server.updateContent(
         '0', {bar.path: new AddContentOverlay('library bar; void f() {}')});
-    await pumpEventQueue(1000);
+    await server.onAnalysisComplete;
     expect(server.statusAnalyzing, isFalse);
     expect(channel.notificationsReceived, isNotEmpty);
     Set<String> notificationTypesReceived = new Set<String>();
@@ -446,7 +443,6 @@ import "../foo/foo.dart";
     AnalysisResult firstResult = new AnalysisResult([notice], 0, '', 0);
     AnalysisResult lastResult = new AnalysisResult(null, 1, '', 1);
     when(context.analysisOptions).thenReturn(new AnalysisOptionsImpl());
-    when(context.validateCacheConsistency()).thenReturn(false);
     when(context.performAnalysisTask)
         .thenReturnList([firstResult, firstResult, firstResult, lastResult]);
     server.serverServices.add(ServerService.STATUS);
@@ -471,7 +467,28 @@ import "../foo/foo.dart";
     });
   }
 
-  test_setAnalysisSubscriptions_fileInIgnoredFolder() async {
+  test_setAnalysisSubscriptions_fileInIgnoredFolder_newOptions() async {
+    String path = '/project/samples/sample.dart';
+    resourceProvider.newFile(path, '');
+    resourceProvider.newFile(
+        '/project/analysis_options.yaml',
+        r'''
+analyzer:
+  exclude:
+    - 'samples/**'
+''');
+    server.setAnalysisRoots('0', ['/project'], [], {});
+    server.setAnalysisSubscriptions(<AnalysisService, Set<String>>{
+      AnalysisService.NAVIGATION: new Set<String>.from([path])
+    });
+    // the file is excluded, so no navigation notification
+    await server.onAnalysisComplete;
+    expect(channel.notificationsReceived.any((notification) {
+      return notification.event == ANALYSIS_NAVIGATION;
+    }), isFalse);
+  }
+
+  test_setAnalysisSubscriptions_fileInIgnoredFolder_oldOptions() async {
     String path = '/project/samples/sample.dart';
     resourceProvider.newFile(path, '');
     resourceProvider.newFile(
@@ -508,28 +525,6 @@ analyzer:
       expect(response.id, equals('my22'));
       expect(response.error, isNotNull);
     });
-  }
-
-  test_watch_modifyFile_hasOverlay() async {
-    server.serverServices.add(ServerService.STATUS);
-    // configure the project
-    String projectPath = '/root';
-    String filePath = '/root/test.dart';
-    resourceProvider.newFolder(projectPath);
-    resourceProvider.newFile(filePath, '// 111');
-    server.setAnalysisRoots('0', ['/root'], [], {});
-    await pumpEventQueue();
-    // add overlay
-    server.updateContent('1', {filePath: new AddContentOverlay('// 222')});
-    await pumpEventQueue();
-    // update the file
-    channel.notificationsReceived.clear();
-    resourceProvider.modifyFile(filePath, '// 333');
-    await pumpEventQueue();
-    // the file has an overlay, so the file-system change was ignored
-    expect(channel.notificationsReceived.any((notification) {
-      return notification.event == SERVER_STATUS;
-    }), isFalse);
   }
 
   void _assertContextOfFolder(

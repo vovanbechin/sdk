@@ -4,12 +4,9 @@
 
 library dart2js.constants.constructors;
 
-import '../dart_types.dart';
-import '../elements/elements.dart' show
-    ConstructorElement,
-    FieldElement;
-import '../universe/call_structure.dart' show
-    CallStructure;
+import '../elements/entities.dart' show FieldEntity;
+import '../elements/types.dart';
+import '../universe/call_structure.dart' show CallStructure;
 import '../util/util.dart';
 import 'evaluation.dart';
 import 'expressions.dart';
@@ -26,11 +23,13 @@ abstract class ConstantConstructor {
 
   /// Computes the type of the instance created in a const constructor
   /// invocation with type [newType].
-  InterfaceType computeInstanceType(InterfaceType newType);
+  InterfaceType computeInstanceType(
+      Environment environment, InterfaceType newType);
 
   /// Computes the constant expressions of the fields of the created instance
   /// in a const constructor invocation with [arguments].
-  Map<FieldElement, ConstantExpression> computeInstanceFields(
+  Map<FieldEntity, ConstantExpression> computeInstanceFields(
+      Environment environment,
       List<ConstantExpression> arguments,
       CallStructure callStructure);
 
@@ -52,33 +51,32 @@ abstract class ConstantConstructorVisitor<R, A> {
 }
 
 /// A generative constant constructor.
-class GenerativeConstantConstructor implements ConstantConstructor{
+class GenerativeConstantConstructor implements ConstantConstructor {
   final InterfaceType type;
-  final Map<dynamic/*int|String*/, ConstantExpression> defaultValues;
-  final Map<FieldElement, ConstantExpression> fieldMap;
+  final Map<dynamic /*int|String*/, ConstantExpression> defaultValues;
+  final Map<FieldEntity, ConstantExpression> fieldMap;
   final ConstructedConstantExpression superConstructorInvocation;
 
-  GenerativeConstantConstructor(
-      this.type,
-      this.defaultValues,
-      this.fieldMap,
+  GenerativeConstantConstructor(this.type, this.defaultValues, this.fieldMap,
       this.superConstructorInvocation);
 
   ConstantConstructorKind get kind => ConstantConstructorKind.GENERATIVE;
 
-  InterfaceType computeInstanceType(InterfaceType newType) {
-    return type.substByContext(newType);
+  InterfaceType computeInstanceType(
+      Environment environment, InterfaceType newType) {
+    return environment.substByContext(type, newType);
   }
 
-  Map<FieldElement, ConstantExpression> computeInstanceFields(
+  Map<FieldEntity, ConstantExpression> computeInstanceFields(
+      Environment environment,
       List<ConstantExpression> arguments,
       CallStructure callStructure) {
-    NormalizedArguments args = new NormalizedArguments(
-        defaultValues, callStructure, arguments);
-    Map<FieldElement, ConstantExpression> appliedFieldMap =
-        applyFields(args, superConstructorInvocation);
-    fieldMap.forEach((FieldElement field, ConstantExpression constant) {
-     appliedFieldMap[field] = constant.apply(args);
+    NormalizedArguments args =
+        new NormalizedArguments(defaultValues, callStructure, arguments);
+    Map<FieldEntity, ConstantExpression> appliedFieldMap =
+        applyFields(environment, args, superConstructorInvocation);
+    fieldMap.forEach((FieldEntity field, ConstantExpression constant) {
+      appliedFieldMap[field] = constant.apply(args);
     });
     return appliedFieldMap;
   }
@@ -97,8 +95,7 @@ class GenerativeConstantConstructor implements ConstantConstructor{
   bool operator ==(other) {
     if (identical(this, other)) return true;
     if (other is! GenerativeConstantConstructor) return false;
-    return
-        type == other.type &&
+    return type == other.type &&
         superConstructorInvocation == other.superConstructorInvocation &&
         mapEquals(defaultValues, other.defaultValues) &&
         mapEquals(fieldMap, other.fieldMap);
@@ -108,13 +105,13 @@ class GenerativeConstantConstructor implements ConstantConstructor{
     StringBuffer sb = new StringBuffer();
     sb.write("{'type': $type");
     defaultValues.forEach((key, ConstantExpression expression) {
-      sb.write(",\n 'default:${key}': ${expression.getText()}");
+      sb.write(",\n 'default:${key}': ${expression.toDartText()}");
     });
-    fieldMap.forEach((FieldElement field, ConstantExpression expression) {
-      sb.write(",\n 'field:${field}': ${expression.getText()}");
+    fieldMap.forEach((FieldEntity field, ConstantExpression expression) {
+      sb.write(",\n 'field:${field}': ${expression.toDartText()}");
     });
     if (superConstructorInvocation != null) {
-      sb.write(",\n 'constructor: ${superConstructorInvocation.getText()}");
+      sb.write(",\n 'constructor: ${superConstructorInvocation.toDartText()}");
     }
     sb.write("}");
     return sb.toString();
@@ -133,15 +130,16 @@ class GenerativeConstantConstructor implements ConstantConstructor{
   /// Creates the field-to-constant map from applying [args] to
   /// [constructorInvocation]. If [constructorInvocation] is `null`, an empty
   /// map is created.
-  static Map<FieldElement, ConstantExpression> applyFields(
+  static Map<FieldEntity, ConstantExpression> applyFields(
+      Environment environment,
       NormalizedArguments args,
       ConstructedConstantExpression constructorInvocation) {
-    Map<FieldElement, ConstantExpression> appliedFieldMap =
-        <FieldElement, ConstantExpression>{};
+    Map<FieldEntity, ConstantExpression> appliedFieldMap =
+        <FieldEntity, ConstantExpression>{};
     if (constructorInvocation != null) {
-      Map<FieldElement, ConstantExpression> fieldMap =
-          constructorInvocation.computeInstanceFields();
-      fieldMap.forEach((FieldElement field, ConstantExpression constant) {
+      Map<FieldEntity, ConstantExpression> fieldMap =
+          constructorInvocation.computeInstanceFields(environment);
+      fieldMap.forEach((FieldEntity field, ConstantExpression constant) {
         appliedFieldMap[field] = constant.apply(args);
       });
     }
@@ -151,30 +149,31 @@ class GenerativeConstantConstructor implements ConstantConstructor{
 
 /// A redirecting generative constant constructor.
 class RedirectingGenerativeConstantConstructor implements ConstantConstructor {
-  final Map<dynamic/*int|String*/, ConstantExpression> defaultValues;
+  final Map<dynamic /*int|String*/, ConstantExpression> defaultValues;
   final ConstructedConstantExpression thisConstructorInvocation;
 
   RedirectingGenerativeConstantConstructor(
-      this.defaultValues,
-      this.thisConstructorInvocation);
+      this.defaultValues, this.thisConstructorInvocation);
 
   ConstantConstructorKind get kind {
     return ConstantConstructorKind.REDIRECTING_GENERATIVE;
   }
 
-  InterfaceType computeInstanceType(InterfaceType newType) {
-    return thisConstructorInvocation.computeInstanceType()
-        .substByContext(newType);
+  InterfaceType computeInstanceType(
+      Environment environment, InterfaceType newType) {
+    return environment.substByContext(
+        thisConstructorInvocation.computeInstanceType(environment), newType);
   }
 
-  Map<FieldElement, ConstantExpression> computeInstanceFields(
+  Map<FieldEntity, ConstantExpression> computeInstanceFields(
+      Environment environment,
       List<ConstantExpression> arguments,
       CallStructure callStructure) {
     NormalizedArguments args =
         new NormalizedArguments(defaultValues, callStructure, arguments);
-    Map<FieldElement, ConstantExpression> appliedFieldMap =
+    Map<FieldEntity, ConstantExpression> appliedFieldMap =
         GenerativeConstantConstructor.applyFields(
-            args, thisConstructorInvocation);
+            environment, args, thisConstructorInvocation);
     return appliedFieldMap;
   }
 
@@ -190,8 +189,7 @@ class RedirectingGenerativeConstantConstructor implements ConstantConstructor {
   bool operator ==(other) {
     if (identical(this, other)) return true;
     if (other is! RedirectingGenerativeConstantConstructor) return false;
-    return
-        thisConstructorInvocation == other.thisConstructorInvocation &&
+    return thisConstructorInvocation == other.thisConstructorInvocation &&
         GenerativeConstantConstructor.mapEquals(
             defaultValues, other.defaultValues);
   }
@@ -200,9 +198,9 @@ class RedirectingGenerativeConstantConstructor implements ConstantConstructor {
     StringBuffer sb = new StringBuffer();
     sb.write("{'type': ${thisConstructorInvocation.type}");
     defaultValues.forEach((key, ConstantExpression expression) {
-      sb.write(",\n 'default:${key}': ${expression.getText()}");
+      sb.write(",\n 'default:${key}': ${expression.toDartText()}");
     });
-    sb.write(",\n 'constructor': ${thisConstructorInvocation.getText()}");
+    sb.write(",\n 'constructor': ${thisConstructorInvocation.toDartText()}");
     sb.write("}");
     return sb.toString();
   }
@@ -218,17 +216,20 @@ class RedirectingFactoryConstantConstructor implements ConstantConstructor {
     return ConstantConstructorKind.REDIRECTING_FACTORY;
   }
 
-  InterfaceType computeInstanceType(InterfaceType newType) {
-    return targetConstructorInvocation.computeInstanceType()
-        .substByContext(newType);
+  InterfaceType computeInstanceType(
+      Environment environment, InterfaceType newType) {
+    return environment.substByContext(
+        targetConstructorInvocation.computeInstanceType(environment), newType);
   }
 
-  Map<FieldElement, ConstantExpression> computeInstanceFields(
+  Map<FieldEntity, ConstantExpression> computeInstanceFields(
+      Environment environment,
       List<ConstantExpression> arguments,
       CallStructure callStructure) {
     ConstantConstructor constantConstructor =
-        targetConstructorInvocation.target.constantConstructor;
-    return constantConstructor.computeInstanceFields(arguments, callStructure);
+        environment.getConstructorConstant(targetConstructorInvocation.target);
+    return constantConstructor.computeInstanceFields(
+        environment, arguments, callStructure);
   }
 
   accept(ConstantConstructorVisitor visitor, arg) {
@@ -248,7 +249,7 @@ class RedirectingFactoryConstantConstructor implements ConstantConstructor {
   String toString() {
     StringBuffer sb = new StringBuffer();
     sb.write("{");
-    sb.write("'constructor': ${targetConstructorInvocation.getText()}");
+    sb.write("'constructor': ${targetConstructorInvocation.toDartText()}");
     sb.write("}");
     return sb.toString();
   }

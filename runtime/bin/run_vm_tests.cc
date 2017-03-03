@@ -7,7 +7,7 @@
 #include "bin/dartutils.h"
 #include "bin/file.h"
 #include "bin/platform.h"
-
+#include "platform/assert.h"
 #include "vm/benchmark_test.h"
 #include "vm/dart.h"
 #include "vm/unit_test.h"
@@ -19,9 +19,10 @@ namespace dart {
 // Defined in vm/os_thread_win.cc
 extern bool private_flag_windows_run_tls_destructors;
 
-// vm_isolate_snapshot_buffer points to a snapshot for the vm isolate if we
+// vm_snapshot_data_buffer points to a snapshot for the vm isolate if we
 // link in a snapshot otherwise it is initialized to NULL.
-extern const uint8_t* bin::vm_isolate_snapshot_buffer;
+extern const uint8_t* bin::vm_snapshot_data;
+extern const uint8_t* bin::vm_snapshot_instructions;
 
 // Only run tests that match the filter string. The default does not match any
 // tests.
@@ -34,9 +35,16 @@ static int run_matches = 0;
 
 
 void TestCase::Run() {
-  fprintf(stdout, "Running test: %s\n", name());
+  OS::Print("Running test: %s\n", name());
   (*run_)();
-  fprintf(stdout, "Done: %s\n", name());
+  OS::Print("Done: %s\n", name());
+}
+
+
+void RawTestCase::Run() {
+  OS::Print("Running test: %s\n", name());
+  (*run_)();
+  OS::Print("Done: %s\n", name());
 }
 
 
@@ -45,7 +53,7 @@ void TestCaseBase::RunTest() {
     this->Run();
     run_matches++;
   } else if (run_filter == kList) {
-    fprintf(stdout, "%s\n", this->name());
+    OS::Print("%s\n", this->name());
     run_matches++;
   }
 }
@@ -55,21 +63,22 @@ void Benchmark::RunBenchmark() {
   if ((run_filter == kAllBenchmarks) ||
       (strcmp(run_filter, this->name()) == 0)) {
     this->Run();
-    OS::Print("%s(%s): %" Pd64 "\n",
-              this->name(), this->score_kind(), this->score());
+    OS::Print("%s(%s): %" Pd64 "\n", this->name(), this->score_kind(),
+              this->score());
     run_matches++;
   } else if (run_filter == kList) {
-    fprintf(stdout, "%s\n", this->name());
+    OS::Print("%s\n", this->name());
     run_matches++;
   }
 }
 
 
 static void PrintUsage() {
-  fprintf(stderr, "run_vm_tests [--list | --benchmarks | "
-                  "<test name> | <benchmark name>]\n");
-  fprintf(stderr, "run_vm_tests [vm-flags ...] <test name>\n");
-  fprintf(stderr, "run_vm_tests [vm-flags ...] <benchmark name>\n");
+  OS::PrintErr(
+      "run_vm_tests [--list | --benchmarks | "
+      "<test name> | <benchmark name>]\n");
+  OS::PrintErr("run_vm_tests [vm-flags ...] <test name>\n");
+  OS::PrintErr("run_vm_tests [vm-flags ...] <benchmark name>\n");
 }
 
 
@@ -77,6 +86,11 @@ static int Main(int argc, const char** argv) {
   // Flags being passed to the Dart VM.
   int dart_argc = 0;
   const char** dart_argv = NULL;
+
+  // Perform platform specific initialization.
+  if (!dart::bin::Platform::Initialize()) {
+    OS::PrintErr("Initialization failed\n");
+  }
 
   if (argc < 2) {
     // Bad parameter count.
@@ -88,6 +102,8 @@ static int Main(int argc, const char** argv) {
       // List all tests and benchmarks and exit without initializing the VM.
       TestCaseBase::RunAll();
       Benchmark::RunAll(argv[0]);
+      TestCaseBase::RunAllRaw();
+      fflush(stdout);
       return 0;
     } else if (strcmp(argv[1], "--benchmarks") == 0) {
       run_filter = kAllBenchmarks;
@@ -102,38 +118,31 @@ static int Main(int argc, const char** argv) {
     dart_argc = argc - 2;
     dart_argv = &argv[1];
   }
-  bool set_vm_flags_success = Flags::ProcessCommandLineFlags(dart_argc,
-                                                             dart_argv);
+  bool set_vm_flags_success =
+      Flags::ProcessCommandLineFlags(dart_argc, dart_argv);
   ASSERT(set_vm_flags_success);
-  const char* err_msg = Dart::InitOnce(dart::bin::vm_isolate_snapshot_buffer,
-                                       NULL, NULL,
-                                       NULL, NULL,
-                                       dart::bin::DartUtils::OpenFile,
-                                       dart::bin::DartUtils::ReadFile,
-                                       dart::bin::DartUtils::WriteFile,
-                                       dart::bin::DartUtils::CloseFile,
-                                       NULL,
-                                       NULL);
+  const char* err_msg = Dart::InitOnce(
+      dart::bin::vm_snapshot_data, dart::bin::vm_snapshot_instructions, NULL,
+      NULL, NULL, NULL, dart::bin::DartUtils::OpenFile,
+      dart::bin::DartUtils::ReadFile, dart::bin::DartUtils::WriteFile,
+      dart::bin::DartUtils::CloseFile, NULL, NULL);
   ASSERT(err_msg == NULL);
   // Apply the filter to all registered tests.
   TestCaseBase::RunAll();
   // Apply the filter to all registered benchmarks.
   Benchmark::RunAll(argv[0]);
 
-  if (Flags::IsSet("shutdown")) {
-    err_msg = Dart::Cleanup();
-    ASSERT(err_msg == NULL);
-  }
+  err_msg = Dart::Cleanup();
+  ASSERT(err_msg == NULL);
 
-#if defined(TARGET_OS_WINDOWS)
-  // TODO(zra): Remove once VM shuts down cleanly.
-  private_flag_windows_run_tls_destructors = false;
-#endif
-
+  TestCaseBase::RunAllRaw();
   // Print a warning message if no tests or benchmarks were matched.
   if (run_matches == 0) {
-    fprintf(stderr, "No tests matched: %s\n", run_filter);
+    OS::PrintErr("No tests matched: %s\n", run_filter);
     return 1;
+  }
+  if (DynamicAssertionHelper::failed()) {
+    return 255;
   }
   return 0;
 }
@@ -142,5 +151,5 @@ static int Main(int argc, const char** argv) {
 
 
 int main(int argc, const char** argv) {
-  return dart::Main(argc, argv);
+  dart::bin::Platform::Exit(dart::Main(argc, argv));
 }

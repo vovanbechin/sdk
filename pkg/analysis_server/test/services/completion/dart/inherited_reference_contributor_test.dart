@@ -4,18 +4,19 @@
 
 library test.services.completion.contributor.dart.inherited_ref;
 
+import 'package:analysis_server/src/protocol_server.dart';
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/inherited_reference_contributor.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../../utils.dart';
 import 'completion_contributor_util.dart';
-import 'package:analysis_server/src/protocol_server.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(InheritedContributorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(InheritedContributorTest);
+    defineReflectiveTests(InheritedContributorTest_Driver);
+  });
 }
 
 @reflectiveTest
@@ -615,5 +616,35 @@ class B extends A1 with A2 {
     assertNotSuggested('y1');
     assertNotSuggested('x2');
     assertNotSuggested('y2');
+  }
+}
+
+@reflectiveTest
+class InheritedContributorTest_Driver extends InheritedContributorTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
+
+  /// Sanity check.  Permutations tested in local_ref_contributor.
+  test_ArgDefaults_inherited_method_with_required_named() async {
+    addMetaPackageSource();
+    resolveSource(
+        '/testB.dart',
+        '''
+import 'package:meta/meta.dart';
+
+lib libB;
+class A {
+   bool foo(int bar, {bool boo, @required int baz}) => false;
+}''');
+    addTestSource('''
+import "/testB.dart";
+class B extends A {
+  b() => f^
+}
+''');
+    await computeSuggestions();
+
+    assertSuggestMethod('foo', 'A', 'bool',
+        defaultArgListString: 'bar, baz: null');
   }
 }

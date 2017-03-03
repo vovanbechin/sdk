@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_ATOMIC_H_
-#define VM_ATOMIC_H_
+#ifndef RUNTIME_VM_ATOMIC_H_
+#define RUNTIME_VM_ATOMIC_H_
 
 #include "platform/globals.h"
 
@@ -20,12 +20,14 @@ class AtomicOperations : public AllStatic {
   // NOTE: Not to be used for any atomic operations involving memory locations
   // that are accessed by generated code.
   static uintptr_t FetchAndIncrement(uintptr_t* p);
+  static intptr_t FetchAndIncrement(intptr_t* p);
 
   // Atomically increment the value at p by 'value'.
   //
   // NOTE: Not to be used for any atomic operations involving memory locations
   // that are accessed by generated code.
   static void IncrementBy(intptr_t* p, intptr_t value);
+  static void IncrementInt64By(int64_t* p, int64_t value);
 
   // Atomically fetch the value at p and decrement the value at p.
   // Returns the original value at p.
@@ -33,6 +35,7 @@ class AtomicOperations : public AllStatic {
   // NOTE: Not to be used for any atomic operations involving memory locations
   // that are accessed by generated code.
   static uintptr_t FetchAndDecrement(uintptr_t* p);
+  static intptr_t FetchAndDecrement(intptr_t* p);
 
   // Atomically decrement the value at p by 'value'.
   //
@@ -45,25 +48,35 @@ class AtomicOperations : public AllStatic {
   //
   // NOTE: OK to use with memory locations that are accessed by generated code
   static uword CompareAndSwapWord(uword* ptr, uword old_value, uword new_value);
-  static uint32_t CompareAndSwapUint32(
-      uint32_t* ptr, uint32_t old_value, uint32_t new_value);
+  static uint32_t CompareAndSwapUint32(uint32_t* ptr,
+                                       uint32_t old_value,
+                                       uint32_t new_value);
 
   // Performs a load of a word from 'ptr', but without any guarantees about
   // memory order (i.e., no load barriers/fences).
-  static uword LoadRelaxed(uword* ptr) {
-    return *static_cast<volatile uword*>(ptr);
+  template <typename T>
+  static T LoadRelaxed(T* ptr) {
+    return *static_cast<volatile T*>(ptr);
   }
 };
 
 
 }  // namespace dart
 
+#if defined(USING_SIMULATOR) && !defined(TARGET_ARCH_DBC)
+#define USING_SIMULATOR_ATOMICS
+#endif
+
+#if defined(USING_SIMULATOR_ATOMICS)
 // We need to use the simulator to ensure that atomic operations are observed
 // both in C++ and in generated code if the simulator is active.
 #include "vm/atomic_simulator.h"
+#endif
 
 #if defined(TARGET_OS_ANDROID)
 #include "vm/atomic_android.h"
+#elif defined(TARGET_OS_FUCHSIA)
+#include "vm/atomic_fuchsia.h"
 #elif defined(TARGET_OS_LINUX)
 #include "vm/atomic_linux.h"
 #elif defined(TARGET_OS_MACOS)
@@ -74,4 +87,4 @@ class AtomicOperations : public AllStatic {
 #error Unknown target os.
 #endif
 
-#endif  // VM_ATOMIC_H_
+#endif  // RUNTIME_VM_ATOMIC_H_

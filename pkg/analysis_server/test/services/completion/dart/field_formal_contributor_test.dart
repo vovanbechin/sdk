@@ -6,15 +6,16 @@ library test.services.completion.field_formal;
 
 import 'package:analysis_server/src/provisional/completion/dart/completion_dart.dart';
 import 'package:analysis_server/src/services/completion/dart/field_formal_contributor.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../../utils.dart';
 import 'completion_contributor_util.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(FieldFormalContributorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(FieldFormalContributorTest);
+    defineReflectiveTests(FieldFormalContributorTest_Driver);
+  });
 }
 
 @reflectiveTest
@@ -164,4 +165,42 @@ class FieldFormalContributorTest extends DartCompletionContributorTest {
     assertNotSuggested('Object');
     assertNotSuggested('==');
   }
+
+  test_ThisExpression_constructor_param_optional() async {
+    // SimpleIdentifier  FieldFormalParameter  FormalParameterList
+    addTestSource('''
+        main() { }
+        class Point {
+          int x;
+          int y;
+          Point({this.x, this.^}) {}
+          ''');
+    await computeSuggestions();
+    expect(replacementOffset, completionOffset);
+    expect(replacementLength, 0);
+    assertSuggestField('y', 'int', relevance: DART_RELEVANCE_LOCAL_FIELD);
+    assertNotSuggested('x');
+  }
+
+  test_ThisExpression_constructor_param_positional() async {
+    // SimpleIdentifier  FieldFormalParameter  FormalParameterList
+    addTestSource('''
+        main() { }
+        class Point {
+          int x;
+          int y;
+          Point({this.x, this.^}) {}
+          ''');
+    await computeSuggestions();
+    expect(replacementOffset, completionOffset);
+    expect(replacementLength, 0);
+    assertSuggestField('y', 'int', relevance: DART_RELEVANCE_LOCAL_FIELD);
+    assertNotSuggested('x');
+  }
+}
+
+@reflectiveTest
+class FieldFormalContributorTest_Driver extends FieldFormalContributorTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

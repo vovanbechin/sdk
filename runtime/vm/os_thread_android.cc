@@ -3,24 +3,30 @@
 // BSD-style license that can be found in the LICENSE file.
 
 #include "platform/globals.h"  // NOLINT
+
+
 #if defined(TARGET_OS_ANDROID)
 
 #include "vm/os_thread.h"
 
-#include <errno.h>  // NOLINT
+#include <errno.h>     // NOLINT
 #include <sys/time.h>  // NOLINT
 
 #include "platform/assert.h"
+#include "platform/signal_blocker.h"
 #include "platform/utils.h"
+
+#include "vm/profiler.h"
 
 namespace dart {
 
-#define VALIDATE_PTHREAD_RESULT(result) \
-  if (result != 0) { \
-    const int kBufferSize = 1024; \
-    char error_message[kBufferSize]; \
-    Utils::StrError(result, error_message, kBufferSize); \
-    FATAL2("pthread error: %d (%s)", result, error_message); \
+#define VALIDATE_PTHREAD_RESULT(result)                                        \
+  if (result != 0) {                                                           \
+    const int kBufferSize = 1024;                                              \
+    char error_message[kBufferSize];                                           \
+    NOT_IN_PRODUCT(Profiler::DumpStackTrace());                                \
+    Utils::StrError(result, error_message, kBufferSize);                       \
+    FATAL2("pthread error: %d (%s)", result, error_message);                   \
   }
 
 
@@ -33,17 +39,17 @@ namespace dart {
 
 
 #ifdef DEBUG
-#define RETURN_ON_PTHREAD_FAILURE(result) \
-  if (result != 0) { \
-    const int kBufferSize = 1024; \
-    char error_message[kBufferSize]; \
-    Utils::StrError(result, error_message, kBufferSize); \
-    fprintf(stderr, "%s:%d: pthread error: %d (%s)\n", \
-            __FILE__, __LINE__, result, error_message); \
-    return result; \
+#define RETURN_ON_PTHREAD_FAILURE(result)                                      \
+  if (result != 0) {                                                           \
+    const int kBufferSize = 1024;                                              \
+    char error_message[kBufferSize];                                           \
+    Utils::StrError(result, error_message, kBufferSize);                       \
+    fprintf(stderr, "%s:%d: pthread error: %d (%s)\n", __FILE__, __LINE__,     \
+            result, error_message);                                            \
+    return result;                                                             \
   }
 #else
-#define RETURN_ON_PTHREAD_FAILURE(result) \
+#define RETURN_ON_PTHREAD_FAILURE(result)                                      \
   if (result != 0) return result;
 #endif
 
@@ -83,6 +89,21 @@ class ThreadStartData {
 };
 
 
+// Spawned threads inherit their spawner's signal mask. We sometimes spawn
+// threads for running Dart code from a thread that is blocking SIGPROF.
+// This function explicitly unblocks SIGPROF so the profiler continues to
+// sample this thread.
+static void UnblockSIGPROF() {
+  sigset_t set;
+  sigemptyset(&set);
+  sigaddset(&set, SIGPROF);
+  int r = pthread_sigmask(SIG_UNBLOCK, &set, NULL);
+  USE(r);
+  ASSERT(r == 0);
+  ASSERT(!CHECK_IS_BLOCKING(SIGPROF));
+}
+
+
 // Dispatch to the thread start function provided by the caller. This trampoline
 // is used to ensure that the thread is properly destroyed if the thread just
 // exits.
@@ -99,7 +120,7 @@ static void* ThreadStart(void* data_ptr) {
   if (thread != NULL) {
     OSThread::SetCurrent(thread);
     thread->set_name(name);
-
+    UnblockSIGPROF();
     // Call the supplied thread start function handing it its parameters.
     function(parameter);
   }
@@ -170,13 +191,24 @@ ThreadId OSThread::GetCurrentThreadId() {
 }
 
 
+#ifndef PRODUCT
 ThreadId OSThread::GetCurrentThreadTraceId() {
   return GetCurrentThreadId();
 }
+#endif  // PRODUCT
 
 
-ThreadJoinId OSThread::GetCurrentThreadJoinId() {
-  return pthread_self();
+ThreadJoinId OSThread::GetCurrentThreadJoinId(OSThread* thread) {
+  ASSERT(thread != NULL);
+  // Make sure we're filling in the join id for the current thread.
+  ASSERT(thread->id() == GetCurrentThreadId());
+  // Make sure the join_id_ hasn't been set, yet.
+  DEBUG_ASSERT(thread->join_id_ == kInvalidThreadJoinId);
+  pthread_t id = pthread_self();
+#if defined(DEBUG)
+  thread->join_id_ = id;
+#endif
+  return id;
 }
 
 
@@ -202,14 +234,23 @@ bool OSThread::Compare(ThreadId a, ThreadId b) {
 }
 
 
-void OSThread::GetThreadCpuUsage(ThreadId thread_id, int64_t* cpu_usage) {
-  ASSERT(thread_id == GetCurrentThreadId());
-  ASSERT(cpu_usage != NULL);
-  struct timespec ts;
-  int r = clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts);
-  ASSERT(r == 0);
-  *cpu_usage = (ts.tv_sec * kNanosecondsPerSecond + ts.tv_nsec) /
-               kNanosecondsPerMicrosecond;
+bool OSThread::GetCurrentStackBounds(uword* lower, uword* upper) {
+  pthread_attr_t attr;
+  if (pthread_getattr_np(pthread_self(), &attr)) {
+    return false;
+  }
+
+  void* base;
+  size_t size;
+  int error = pthread_attr_getstack(&attr, &base, &size);
+  pthread_attr_destroy(&attr);
+  if (error) {
+    return false;
+  }
+
+  *lower = reinterpret_cast<uword>(base);
+  *upper = *lower + size;
+  return true;
 }
 
 

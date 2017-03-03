@@ -3,12 +3,11 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import '../compiler.dart' show Compiler;
-import '../elements/elements.dart';
+import '../elements/entities.dart';
 import '../js_backend/js_backend.dart';
 import '../types/types.dart';
 import '../universe/selector.dart' show Selector;
-import '../world.dart' show ClassWorld, World;
-
+import '../world.dart' show ClosedWorld;
 import 'nodes.dart';
 import 'optimize.dart';
 
@@ -19,13 +18,11 @@ class SsaTypePropagator extends HBaseVisitor implements OptimizationPhase {
       new Map<HInstruction, Function>();
 
   final Compiler compiler;
-  final ClassWorld classWorld;
+  final ClosedWorld closedWorld;
   JavaScriptBackend get backend => compiler.backend;
   String get name => 'type propagator';
 
-  SsaTypePropagator(Compiler compiler)
-      : this.compiler = compiler,
-        this.classWorld = compiler.world;
+  SsaTypePropagator(this.compiler, this.closedWorld);
 
   TypeMask computeType(HInstruction instruction) {
     return instruction.accept(this);
@@ -98,7 +95,6 @@ class SsaTypePropagator extends HBaseVisitor implements OptimizationPhase {
     } while (!worklist.isEmpty);
   }
 
-
   void addToWorkList(HInstruction instruction) {
     final int id = instruction.id;
 
@@ -111,18 +107,21 @@ class SsaTypePropagator extends HBaseVisitor implements OptimizationPhase {
   TypeMask visitBinaryArithmetic(HBinaryArithmetic instruction) {
     HInstruction left = instruction.left;
     HInstruction right = instruction.right;
-    if (left.isInteger(compiler) && right.isInteger(compiler)) {
-      return backend.intType;
+    if (left.isInteger(closedWorld) && right.isInteger(closedWorld)) {
+      return closedWorld.commonMasks.intType;
     }
-    if (left.isDouble(compiler)) return backend.doubleType;
-    return backend.numType;
+    if (left.isDouble(closedWorld)) {
+      return closedWorld.commonMasks.doubleType;
+    }
+    return closedWorld.commonMasks.numType;
   }
 
   TypeMask checkPositiveInteger(HBinaryArithmetic instruction) {
     HInstruction left = instruction.left;
     HInstruction right = instruction.right;
-    if (left.isPositiveInteger(compiler) && right.isPositiveInteger(compiler)) {
-      return backend.positiveIntType;
+    if (left.isPositiveInteger(closedWorld) &&
+        right.isPositiveInteger(closedWorld)) {
+      return closedWorld.commonMasks.positiveIntType;
     }
     return visitBinaryArithmetic(instruction);
   }
@@ -145,11 +144,18 @@ class SsaTypePropagator extends HBaseVisitor implements OptimizationPhase {
     return instruction.instructionType;
   }
 
+  TypeMask visitRemainder(HRemainder instruction) {
+    // Always as initialized.
+    return instruction.instructionType;
+  }
+
   TypeMask visitNegate(HNegate instruction) {
     HInstruction operand = instruction.operand;
     // We have integer subclasses that represent ranges, so widen any int
     // subclass to full integer.
-    if (operand.isInteger(compiler)) return backend.intType;
+    if (operand.isInteger(closedWorld)) {
+      return closedWorld.commonMasks.intType;
+    }
     return instruction.operand.instructionType;
   }
 
@@ -159,10 +165,10 @@ class SsaTypePropagator extends HBaseVisitor implements OptimizationPhase {
   }
 
   TypeMask visitPhi(HPhi phi) {
-    TypeMask candidateType = backend.emptyType;
+    TypeMask candidateType = closedWorld.commonMasks.emptyType;
     for (int i = 0, length = phi.inputs.length; i < length; i++) {
       TypeMask inputType = phi.inputs[i].instructionType;
-      candidateType = candidateType.union(inputType, classWorld);
+      candidateType = candidateType.union(inputType, closedWorld);
     }
     return candidateType;
   }
@@ -175,34 +181,46 @@ class SsaTypePropagator extends HBaseVisitor implements OptimizationPhase {
       // We must make sure a type conversion for receiver or argument check
       // does not try to do an int check, because an int check is not enough.
       // We only do an int check if the input is integer or null.
-      if (checkedType.containsOnlyNum(classWorld)
-          && !checkedType.containsOnlyDouble(classWorld)
-          && input.isIntegerOrNull(compiler)) {
-        instruction.checkedType = backend.intType;
-      } else if (checkedType.containsOnlyInt(classWorld)
-                 && !input.isIntegerOrNull(compiler)) {
-        instruction.checkedType = backend.numType;
+      if (checkedType.containsOnlyNum(closedWorld) &&
+          !checkedType.containsOnlyDouble(closedWorld) &&
+          input.isIntegerOrNull(closedWorld)) {
+        instruction.checkedType = closedWorld.commonMasks.intType;
+      } else if (checkedType.containsOnlyInt(closedWorld) &&
+          !input.isIntegerOrNull(closedWorld)) {
+        instruction.checkedType = closedWorld.commonMasks.numType;
       }
     }
 
-    TypeMask outputType = checkedType.intersection(inputType, classWorld);
+    TypeMask outputType = checkedType.intersection(inputType, closedWorld);
     if (outputType.isEmpty) {
       // Intersection of double and integer conflicts (is empty), but JS numbers
       // can be both int and double at the same time.  For example, the input
       // can be a literal double '8.0' that is marked as an integer (because 'is
       // int' will return 'true').  What we really need to do is make the
       // overlap between int and double values explicit in the TypeMask system.
-      if (inputType.containsOnlyInt(classWorld)
-          && checkedType.containsOnlyDouble(classWorld)) {
+      if (inputType.containsOnlyInt(closedWorld) &&
+          checkedType.containsOnlyDouble(closedWorld)) {
         if (inputType.isNullable && checkedType.isNullable) {
-          outputType = backend.doubleType.nullable();
+          outputType = closedWorld.commonMasks.doubleType.nullable();
         } else {
-          outputType = backend.doubleType;
+          outputType = closedWorld.commonMasks.doubleType;
         }
       }
     }
     if (inputType != outputType) {
-      input.replaceAllUsersDominatedBy(instruction.next, instruction);
+      // Replace dominated uses of input with uses of this HTypeConversion so
+      // the uses benefit from the stronger type.
+      //
+      // The dependency on the checked value also improves the generated
+      // JavaScript. Many checks are compiled to a function call expression that
+      // returns the checked result, so the check can be generated as a
+      // subexpression rather than a separate statement.
+      //
+      // Do not replace local accesses, since the local must be a HLocalValue,
+      // not a HTypeConversion.
+      if (!(input is HParameterValue && input.usedAsVariable())) {
+        input.replaceAllUsersDominatedBy(instruction.next, instruction);
+      }
     }
     return outputType;
   }
@@ -211,37 +229,34 @@ class SsaTypePropagator extends HBaseVisitor implements OptimizationPhase {
     HInstruction input = instruction.checkedInput;
     TypeMask inputType = input.instructionType;
     TypeMask outputType =
-        instruction.knownType.intersection(inputType, classWorld);
+        instruction.knownType.intersection(inputType, closedWorld);
     if (inputType != outputType) {
       input.replaceAllUsersDominatedBy(instruction.next, instruction);
     }
     return outputType;
   }
 
-  void convertInput(HInvokeDynamic instruction,
-                    HInstruction input,
-                    TypeMask type,
-                    int kind) {
+  void convertInput(
+      HInvokeDynamic instruction, HInstruction input, TypeMask type, int kind) {
     Selector selector = (kind == HTypeConversion.RECEIVER_TYPE_CHECK)
         ? instruction.selector
         : null;
-    HTypeConversion converted = new HTypeConversion(
-        null, kind, type, input, selector)
-        ..sourceInformation = instruction.sourceInformation;
+    HTypeConversion converted = new HTypeConversion(null, kind, type, input,
+        receiverTypeCheckSelector: selector)
+      ..sourceInformation = instruction.sourceInformation;
     instruction.block.addBefore(instruction, converted);
     input.replaceAllUsersDominatedBy(instruction, converted);
   }
 
-  bool isCheckEnoughForNsmOrAe(HInstruction instruction,
-                               TypeMask type) {
+  bool isCheckEnoughForNsmOrAe(HInstruction instruction, TypeMask type) {
     // In some cases, we want the receiver to be an integer,
     // but that does not mean we will get a NoSuchMethodError
     // if it's not: the receiver could be a double.
-    if (type.containsOnlyInt(classWorld)) {
+    if (type.containsOnlyInt(closedWorld)) {
       // If the instruction's type is integer or null, the codegen
       // will emit a null check, which is enough to know if it will
       // hit a noSuchMethod.
-      return instruction.isIntegerOrNull(compiler);
+      return instruction.isIntegerOrNull(closedWorld);
     }
     return true;
   }
@@ -252,35 +267,32 @@ class SsaTypePropagator extends HBaseVisitor implements OptimizationPhase {
   bool checkReceiver(HInvokeDynamic instruction) {
     assert(instruction.isInterceptedCall);
     HInstruction receiver = instruction.inputs[1];
-    if (receiver.isNumber(compiler)) return false;
-    if (receiver.isNumberOrNull(compiler)) {
-      convertInput(instruction,
-                   receiver,
-                   receiver.instructionType.nonNullable(),
-                   HTypeConversion.RECEIVER_TYPE_CHECK);
+    if (receiver.isNumber(closedWorld)) return false;
+    if (receiver.isNumberOrNull(closedWorld)) {
+      convertInput(
+          instruction,
+          receiver,
+          receiver.instructionType.nonNullable(),
+          HTypeConversion.RECEIVER_TYPE_CHECK);
       return true;
     } else if (instruction.element == null) {
-      Iterable<Element> targets =
-          compiler.world.allFunctions.filter(
-              instruction.selector, instruction.mask);
+      Iterable<MemberEntity> targets = closedWorld.allFunctions
+          .filter(instruction.selector, instruction.mask);
       if (targets.length == 1) {
-        Element target = targets.first;
-        ClassElement cls = target.enclosingClass;
-        TypeMask type = new TypeMask.nonNullSubclass(
-            cls.declaration, classWorld);
+        MemberEntity target = targets.first;
+        ClassEntity cls = target.enclosingClass;
+        TypeMask type = new TypeMask.nonNullSubclass(cls, closedWorld);
         // TODO(ngeoffray): We currently only optimize on primitive
         // types.
-        if (!type.satisfies(backend.helpers.jsIndexableClass, classWorld) &&
-            !type.containsOnlyNum(classWorld) &&
-            !type.containsOnlyBool(classWorld)) {
+        if (!type.satisfies(backend.helpers.jsIndexableClass, closedWorld) &&
+            !type.containsOnlyNum(closedWorld) &&
+            !type.containsOnlyBool(closedWorld)) {
           return false;
         }
         if (!isCheckEnoughForNsmOrAe(receiver, type)) return false;
         instruction.element = target;
-        convertInput(instruction,
-                     receiver,
-                     type,
-                     HTypeConversion.RECEIVER_TYPE_CHECK);
+        convertInput(
+            instruction, receiver, type, HTypeConversion.RECEIVER_TYPE_CHECK);
         return true;
       }
     }
@@ -292,24 +304,22 @@ class SsaTypePropagator extends HBaseVisitor implements OptimizationPhase {
   // Return true if the argument type check was added.
   bool checkArgument(HInvokeDynamic instruction) {
     // We want the right error in checked mode.
-    if (compiler.enableTypeAssertions) return false;
+    if (compiler.options.enableTypeAssertions) return false;
     HInstruction left = instruction.inputs[1];
     HInstruction right = instruction.inputs[2];
 
     Selector selector = instruction.selector;
-    if (selector.isOperator && left.isNumber(compiler)) {
-      if (right.isNumber(compiler)) return false;
-      TypeMask type = right.isIntegerOrNull(compiler)
+    if (selector.isOperator && left.isNumber(closedWorld)) {
+      if (right.isNumber(closedWorld)) return false;
+      TypeMask type = right.isIntegerOrNull(closedWorld)
           ? right.instructionType.nonNullable()
-          : backend.numType;
+          : closedWorld.commonMasks.numType;
       // TODO(ngeoffray): Some number operations don't have a builtin
       // variant and will do the check in their method anyway. We
       // still add a check because it allows to GVN these operations,
       // but we should find a better way.
-      convertInput(instruction,
-                   right,
-                   type,
-                   HTypeConversion.ARGUMENT_TYPE_CHECK);
+      convertInput(
+          instruction, right, type, HTypeConversion.ARGUMENT_TYPE_CHECK);
       return true;
     }
     return false;
@@ -339,53 +349,70 @@ class SsaTypePropagator extends HBaseVisitor implements OptimizationPhase {
       // We cannot do the following optimization now, because we have
       // to wait for the type propagation to be stable. The receiver
       // of [instruction] might move from number to dynamic.
-      pendingOptimizations.putIfAbsent(instruction, () => () {
-        Selector selector = instruction.selector;
-        if (selector.isOperator && selector.name != '==') {
-          if (checkReceiver(instruction)) {
-            addAllUsersBut(instruction, instruction.inputs[1]);
-          }
-          if (!selector.isUnaryOperator &&
-              checkArgument(instruction)) {
-            addAllUsersBut(instruction, instruction.inputs[2]);
-          }
-        }
-      });
+      pendingOptimizations.putIfAbsent(
+          instruction,
+          () => () {
+                Selector selector = instruction.selector;
+                if (selector.isOperator && selector.name != '==') {
+                  if (checkReceiver(instruction)) {
+                    addAllUsersBut(instruction, instruction.inputs[1]);
+                  }
+                  if (!selector.isUnaryOperator && checkArgument(instruction)) {
+                    addAllUsersBut(instruction, instruction.inputs[2]);
+                  }
+                }
+              });
     }
 
-    HInstruction receiver = instruction.getDartReceiver(compiler);
+    HInstruction receiver = instruction.getDartReceiver(closedWorld);
     TypeMask receiverType = receiver.instructionType;
     instruction.mask = receiverType;
 
-    // Try to specialize the receiver after this call.
-    if (receiver.dominatedUsers(instruction).length != 1
-        && !instruction.selector.isClosureCall) {
-      TypeMask newType = compiler.world.allFunctions.receiverType(
-              instruction.selector, instruction.mask);
-      newType = newType.intersection(receiverType, classWorld);
+    // Try to specialize the receiver after this call by instering a refinement
+    // node (HTypeKnown). There are two potentially expensive tests - are there
+    // any uses of the receiver dominated by and following this call?, and what
+    // is the refined type? The first is expensive if the receiver has many
+    // uses, the second is expensive if many classes implement the selector. So
+    // we try to do the least expensive test first.
+    const int _MAX_QUICK_USERS = 50;
+    if (!instruction.selector.isClosureCall) {
+      TypeMask newType;
+      TypeMask computeNewType() {
+        newType = closedWorld.allFunctions
+            .receiverType(instruction.selector, instruction.mask);
+        newType = newType.intersection(receiverType, closedWorld);
+        return newType;
+      }
+
       var next = instruction.next;
       if (next is HTypeKnown && next.checkedInput == receiver) {
-        // We already have refined [receiver]. We still update the
-        // type of the [HTypeKnown] instruction because it may have
-        // been refined with a correct type at the time, but
-        // incorrect now.
-        if (next.instructionType != newType) {
+        // On a previous pass or iteration we already refined [receiver] by
+        // inserting a [HTypeKnown] instruction. That replaced several dominated
+        // uses with the refinement. We update the type of the [HTypeKnown]
+        // instruction because it may have been refined with a correct type at
+        // the time, but incorrect now.
+        if (next.instructionType != computeNewType()) {
           next.knownType = next.instructionType = newType;
           addDependentInstructionsToWorkList(next);
         }
-      } else if (newType != receiverType) {
-        // Insert a refinement node after the call and update all
-        // users dominated by the call to use that node instead of
-        // [receiver].
-        HTypeKnown converted =
-            new HTypeKnown.witnessed(newType, receiver, instruction);
-        instruction.block.addBefore(instruction.next, converted);
-        receiver.replaceAllUsersDominatedBy(converted.next, converted);
-        addDependentInstructionsToWorkList(converted);
+      } else {
+        bool hasCandidates() => receiver.dominatedUsers(instruction).length > 1;
+
+        if ((receiver.usedBy.length <= _MAX_QUICK_USERS)
+            ? (hasCandidates() && computeNewType() != receiverType)
+            : (computeNewType() != receiverType && hasCandidates())) {
+          // Insert a refinement node after the call and update all users
+          // dominated by the call to use that node instead of [receiver].
+          HTypeKnown converted =
+              new HTypeKnown.witnessed(newType, receiver, instruction);
+          instruction.block.addBefore(instruction.next, converted);
+          receiver.replaceAllUsersDominatedBy(converted.next, converted);
+          addDependentInstructionsToWorkList(converted);
+        }
       }
     }
 
-    return instruction.specializer.computeTypeFromInputTypes(
-        instruction, compiler);
+    return instruction.specializer
+        .computeTypeFromInputTypes(instruction, compiler, closedWorld);
   }
 }

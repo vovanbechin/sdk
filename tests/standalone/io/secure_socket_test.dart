@@ -6,6 +6,12 @@
 // VMOptions=--short_socket_read
 // VMOptions=--short_socket_write
 // VMOptions=--short_socket_read --short_socket_write
+// OtherResources=certificates/server_chain.pem
+// OtherResources=certificates/server_key.pem
+// OtherResources=certificates/trusted_certs.pem
+// OtherResources=certificates/server_chain.p12
+// OtherResources=certificates/server_key.p12
+// OtherResources=certificates/trusted_certs.p12
 
 import "package:async_helper/async_helper.dart";
 import "package:expect/expect.dart";
@@ -50,6 +56,7 @@ Future<HttpServer> startServer(String certType, String password) {
 
 Future test(String certType, String password) {
   List<int> body = <int>[];
+  Completer completer = new Completer();
   startServer(certType, password).then((server) {
     SecureSocket.connect(
         "localhost", server.port, context: clientContext(certType, password))
@@ -65,14 +72,17 @@ Future test(String certType, String password) {
           Expect.equals(72, body[0]);
           Expect.equals(9, body[body.length - 1]);
           server.close();
+          completer.complete(null);
         },
         onError: (e, trace) {
           String msg = "Unexpected error $e";
           if (trace != null) msg += "\nStackTrace: $trace";
           Expect.fail(msg);
+          completer.complete(null);
         });
     });
   });
+  return completer.future;
 }
 
 main() async {

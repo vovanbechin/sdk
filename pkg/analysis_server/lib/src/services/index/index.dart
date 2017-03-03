@@ -4,13 +4,14 @@
 
 import 'dart:async';
 
+import 'package:analysis_server/src/services/index/index_unit.dart';
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/standard_resolution_map.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/src/generated/engine.dart' show AnalysisContext;
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/summary/format.dart';
 import 'package:analyzer/src/summary/idl.dart';
-import 'package:analyzer/src/summary/index_unit.dart';
 import 'package:collection/collection.dart';
 
 /**
@@ -77,13 +78,34 @@ class Index {
   }
 
   /**
+   * Index declarations in the given partially resolved [unit].
+   */
+  void indexDeclarations(CompilationUnit unit) {
+    if (unit == null) {
+      return;
+    }
+    CompilationUnitElement compilationUnitElement =
+        resolutionMap.elementDeclaredByCompilationUnit(unit);
+    if (compilationUnitElement?.library == null) {
+      return;
+    }
+    AnalysisContext context = compilationUnitElement.context;
+    _getContextIndex(context).indexDeclarations(unit);
+  }
+
+  /**
    * Index the given fully resolved [unit].
    */
   void indexUnit(CompilationUnit unit) {
-    if (unit == null || unit.element == null) {
+    if (unit == null) {
       return;
     }
-    AnalysisContext context = unit.element.context;
+    CompilationUnitElement compilationUnitElement =
+        resolutionMap.elementDeclaredByCompilationUnit(unit);
+    if (compilationUnitElement?.library == null) {
+      return;
+    }
+    AnalysisContext context = compilationUnitElement.context;
     _getContextIndex(context).indexUnit(unit);
   }
 
@@ -256,18 +278,25 @@ class _ContextIndex {
   }
 
   /**
+   * Index declarations in the given partially resolved [unit].
+   */
+  void indexDeclarations(CompilationUnit unit) {
+    String key = _getUnitKeyForElement(unit.element);
+    if (!indexMap.containsKey(key)) {
+      PackageIndexAssembler assembler = new PackageIndexAssembler();
+      assembler.indexDeclarations(unit);
+      _putUnitIndexBuilder(key, assembler);
+    }
+  }
+
+  /**
    * Index the given fully resolved [unit].
    */
   void indexUnit(CompilationUnit unit) {
-    // Index the unit.
-    PackageIndexAssembler assembler = new PackageIndexAssembler();
-    assembler.index(unit);
-    PackageIndexBuilder indexBuilder = assembler.assemble();
-    // Put the index into the map.
-    List<int> indexBytes = indexBuilder.toBuffer();
-    PackageIndex index = new PackageIndex.fromBuffer(indexBytes);
     String key = _getUnitKeyForElement(unit.element);
-    indexMap[key] = index;
+    PackageIndexAssembler assembler = new PackageIndexAssembler();
+    assembler.indexUnit(unit);
+    _putUnitIndexBuilder(key, assembler);
   }
 
   /**
@@ -300,6 +329,14 @@ class _ContextIndex {
     }
     return locations;
   }
+
+  void _putUnitIndexBuilder(String key, PackageIndexAssembler assembler) {
+    PackageIndexBuilder indexBuilder = assembler.assemble();
+    // Put the index into the map.
+    List<int> indexBytes = indexBuilder.toBuffer();
+    PackageIndex index = new PackageIndex.fromBuffer(indexBytes);
+    indexMap[key] = index;
+  }
 }
 
 /**
@@ -315,24 +352,39 @@ class _PackageIndexRequester {
    * [element] is not referenced in the [index].
    */
   int findElementId(Element element) {
+    IndexElementInfo info = new IndexElementInfo(element);
+    element = info.element;
     // Find the id of the element's unit.
     int unitId = getUnitId(element);
     if (unitId == -1) {
       return -1;
     }
     // Prepare information about the element.
-    ElementInfo info = PackageIndexAssembler.newElementInfo(unitId, element);
-    // Find the first occurrence of an element with the same offset.
-    int elementId = _findFirstOccurrence(index.elementOffsets, info.offset);
+    int unitMemberId = getElementUnitMemberId(element);
+    if (unitMemberId == -1) {
+      return -1;
+    }
+    int classMemberId = getElementClassMemberId(element);
+    if (classMemberId == -1) {
+      return -1;
+    }
+    int parameterId = getElementParameterId(element);
+    if (parameterId == -1) {
+      return -1;
+    }
+    // Try to find the element id using classMemberId, parameterId, and kind.
+    int elementId =
+        _findFirstOccurrence(index.elementNameUnitMemberIds, unitMemberId);
     if (elementId == -1) {
       return -1;
     }
-    // Try to find the element id using offset, unit and kind.
     for (;
-        elementId < index.elementOffsets.length &&
-            index.elementOffsets[elementId] == info.offset;
+        elementId < index.elementNameUnitMemberIds.length &&
+            index.elementNameUnitMemberIds[elementId] == unitMemberId;
         elementId++) {
       if (index.elementUnits[elementId] == unitId &&
+          index.elementNameClassMemberIds[elementId] == classMemberId &&
+          index.elementNameParameterIds[elementId] == parameterId &&
           index.elementKinds[elementId] == info.kind) {
         return elementId;
       }
@@ -354,6 +406,45 @@ class _PackageIndexRequester {
       locations.addAll(unitLocations);
     }
     return locations;
+  }
+
+  /**
+   * Return the [element]'s class member name identifier, `null` is not a class
+   * member, or `-1` if the [element] is not referenced in the [index].
+   */
+  int getElementClassMemberId(Element element) {
+    for (; element != null; element = element.enclosingElement) {
+      if (element.enclosingElement is ClassElement) {
+        return getStringId(element.name);
+      }
+    }
+    return getStringId(PackageIndexAssembler.NULL_STRING);
+  }
+
+  /**
+   * Return the [element]'s class member name identifier, `null` is not a class
+   * member, or `-1` if the [element] is not referenced in the [index].
+   */
+  int getElementParameterId(Element element) {
+    for (; element != null; element = element.enclosingElement) {
+      if (element is ParameterElement) {
+        return getStringId(element.name);
+      }
+    }
+    return getStringId(PackageIndexAssembler.NULL_STRING);
+  }
+
+  /**
+   * Return the [element]'s top-level name identifier, `0` is the unit, or
+   * `-1` if the [element] is not referenced in the [index].
+   */
+  int getElementUnitMemberId(Element element) {
+    for (; element != null; element = element.enclosingElement) {
+      if (element.enclosingElement is CompilationUnitElement) {
+        return getStringId(element.name);
+      }
+    }
+    return getStringId(PackageIndexAssembler.NULL_STRING);
   }
 
   /**

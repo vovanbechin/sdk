@@ -9,10 +9,11 @@ import 'dart:async';
 import 'package:analysis_server/plugin/edit/fix/fix_core.dart';
 import 'package:analysis_server/src/plugin/server_plugin.dart';
 import 'package:analysis_server/src/services/correction/fix_internal.dart';
+import 'package:analyzer/error/error.dart';
+import 'package:analyzer/exception/exception.dart';
 import 'package:analyzer/file_system/file_system.dart';
+import 'package:analyzer/src/error/codes.dart';
 import 'package:analyzer/src/generated/engine.dart';
-import 'package:analyzer/src/generated/error.dart';
-import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/parser.dart';
 
 /**
@@ -70,6 +71,7 @@ bool hasFix(ErrorCode errorCode) =>
     errorCode == StaticWarningCode.FINAL_NOT_INITIALIZED_CONSTRUCTOR_1 ||
     errorCode == StaticWarningCode.FINAL_NOT_INITIALIZED_CONSTRUCTOR_2 ||
     errorCode == StaticWarningCode.FINAL_NOT_INITIALIZED_CONSTRUCTOR_3_PLUS ||
+    errorCode == StaticWarningCode.FUNCTION_WITHOUT_CALL ||
     errorCode == StaticWarningCode.UNDEFINED_IDENTIFIER ||
     errorCode ==
         CompileTimeErrorCode.CONST_INITIALIZED_WITH_NON_CONSTANT_VALUE ||
@@ -79,6 +81,7 @@ bool hasFix(ErrorCode errorCode) =>
     errorCode ==
         CompileTimeErrorCode.UNDEFINED_CONSTRUCTOR_IN_INITIALIZER_DEFAULT ||
     errorCode == CompileTimeErrorCode.URI_DOES_NOT_EXIST ||
+    errorCode == CompileTimeErrorCode.URI_HAS_NOT_BEEN_GENERATED ||
     errorCode == HintCode.CAN_BE_NULL_AFTER_NULL_AWARE ||
     errorCode == HintCode.DEAD_CODE ||
     errorCode == HintCode.DIVISION_OPTIMIZATION ||
@@ -102,7 +105,9 @@ bool hasFix(ErrorCode errorCode) =>
     errorCode == StaticTypeWarningCode.UNDEFINED_GETTER ||
     errorCode == StaticTypeWarningCode.UNDEFINED_METHOD ||
     errorCode == StaticTypeWarningCode.UNDEFINED_SETTER ||
-    (errorCode is LintCode && errorCode.name == LintNames.annotate_overrides);
+    (errorCode is LintCode &&
+        (errorCode.name == LintNames.annotate_overrides ||
+            errorCode.name == LintNames.unnecessary_brace_in_string_interp));
 
 /**
  * An enumeration of possible quick fix kinds.
@@ -118,11 +123,11 @@ class DartFixKind {
       "Add optional positional parameter");
   static const ADD_MISSING_PARAMETER_REQUIRED = const FixKind(
       'ADD_MISSING_PARAMETER_REQUIRED', 30, "Add required parameter");
+  static const ADD_MISSING_REQUIRED_ARGUMENT = const FixKind(
+      'ADD_MISSING_REQUIRED_ARGUMENT', 30, "Add required argument '{0}'");
   static const ADD_NE_NULL = const FixKind('ADD_NE_NULL', 50, "Add != null");
   static const ADD_PACKAGE_DEPENDENCY = const FixKind(
       'ADD_PACKAGE_DEPENDENCY', 50, "Add dependency on package '{0}'");
-  static const ADD_PART_OF =
-      const FixKind('ADD_PART_OF', 50, "Add 'part of' directive");
   static const ADD_SUPER_CONSTRUCTOR_INVOCATION = const FixKind(
       'ADD_SUPER_CONSTRUCTOR_INVOCATION',
       50,
@@ -154,14 +159,20 @@ class DartFixKind {
       const FixKind('CREATE_LOCAL_VARIABLE', 50, "Create local variable '{0}'");
   static const CREATE_METHOD =
       const FixKind('CREATE_METHOD', 50, "Create method '{0}'");
+  static const CREATE_MISSING_METHOD_CALL =
+      const FixKind('CREATE_MISSING_METHOD_CALL', 49, "Create method 'call'.");
   static const CREATE_MISSING_OVERRIDES = const FixKind(
       'CREATE_MISSING_OVERRIDES', 49, "Create {0} missing override(s)");
   static const CREATE_NO_SUCH_METHOD = const FixKind(
       'CREATE_NO_SUCH_METHOD', 51, "Create 'noSuchMethod' method");
   static const IMPORT_LIBRARY_PREFIX = const FixKind('IMPORT_LIBRARY_PREFIX',
       51, "Use imported library '{0}' with prefix '{1}'");
-  static const IMPORT_LIBRARY_PROJECT =
-      const FixKind('IMPORT_LIBRARY_PROJECT', 49, "Import library '{0}'");
+  static const IMPORT_LIBRARY_PROJECT1 =
+      const FixKind('IMPORT_LIBRARY_PROJECT1', 47, "Import library '{0}'");
+  static const IMPORT_LIBRARY_PROJECT2 =
+      const FixKind('IMPORT_LIBRARY_PROJECT2', 48, "Import library '{0}'");
+  static const IMPORT_LIBRARY_PROJECT3 =
+      const FixKind('IMPORT_LIBRARY_PROJECT3', 49, "Import library '{0}'");
   static const IMPORT_LIBRARY_SDK =
       const FixKind('IMPORT_LIBRARY_SDK', 49, "Import library '{0}'");
   static const IMPORT_LIBRARY_SHOW =
@@ -170,6 +181,10 @@ class DartFixKind {
       const FixKind('INSERT_SEMICOLON', 50, "Insert ';'");
   static const LINT_ADD_OVERRIDE =
       const FixKind('LINT_ADD_OVERRIDE', 50, "Add '@override' annotation");
+  static const LINT_REMOVE_INTERPOLATION_BRACES = const FixKind(
+      'LINT_REMOVE_INTERPOLATION_BRACES',
+      50,
+      'Remove unnecessary interpolation braces');
   static const MAKE_CLASS_ABSTRACT =
       const FixKind('MAKE_CLASS_ABSTRACT', 50, "Make class '{0}' abstract");
   static const REMOVE_DEAD_CODE =
@@ -194,8 +209,6 @@ class DartFixKind {
       const FixKind('REMOVE_UNUSED_IMPORT', 50, "Remove unused import");
   static const REPLACE_BOOLEAN_WITH_BOOL = const FixKind(
       'REPLACE_BOOLEAN_WITH_BOOL', 50, "Replace 'boolean' with 'bool'");
-  static const REPLACE_IMPORT_URI =
-      const FixKind('REPLACE_IMPORT_URI', 50, "Replace with '{0}'");
   static const REPLACE_VAR_WITH_DYNAMIC = const FixKind(
       'REPLACE_VAR_WITH_DYNAMIC', 50, "Replace 'var' with 'dynamic'");
   static const REPLACE_RETURN_TYPE_FUTURE = const FixKind(

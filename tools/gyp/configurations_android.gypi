@@ -19,8 +19,17 @@
       # order.
       'Dart_Android_Base': {
         'abstract': 1,
-        'cflags': [ '-Wno-abi', '-Wall', '-W', '-Wno-unused-parameter',
-                    '-Wnon-virtual-dtor', '-fno-rtti', '-fno-exceptions',],
+        'cflags': [
+          # No -Werror due to warnings in stl.
+          '<@(common_gcc_warning_flags)',
+          '-Wnon-virtual-dtor',
+          '-Wvla',
+          '-Woverloaded-virtual',
+          '-g3',
+          '-ggdb3',
+          '-fno-rtti',
+          '-fno-exceptions',
+        ],
         'target_conditions': [
           ['_toolset=="target"', {
             'defines': [
@@ -36,6 +45,7 @@
             ],
             'cflags': [
               '-U__linux__',  # Don't allow toolchain to claim -D__linux__
+              '-U__linux',
               '-ffunction-sections',
               '-funwind-tables',
               '-fstack-protector',

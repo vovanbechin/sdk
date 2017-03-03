@@ -37,6 +37,17 @@ bool VMTag::IsNativeEntryTag(uword tag) {
 }
 
 
+bool VMTag::IsDartTag(uword id) {
+  return id == kDartTagId;
+}
+
+
+bool VMTag::IsExitFrameTag(uword id) {
+  return (id != 0) && !IsDartTag(id) && (id != kIdleTagId) &&
+         (id != kVMTagId) && (id != kEmbedderTagId);
+}
+
+
 static RuntimeEntry* runtime_entry_list = NULL;
 
 
@@ -72,12 +83,13 @@ void VMTag::RegisterRuntimeEntry(RuntimeEntry* runtime_entry) {
 
 
 VMTag::TagEntry VMTag::entries_[] = {
-  { "InvalidTag", kInvalidTagId, },
-#define DEFINE_VM_TAG_ENTRY(tag)                                               \
-  { ""#tag, k##tag##TagId },
-  VM_TAG_LIST(DEFINE_VM_TAG_ENTRY)
+    {
+        "InvalidTag", kInvalidTagId,
+    },
+#define DEFINE_VM_TAG_ENTRY(tag) {"" #tag, k##tag##TagId},
+    VM_TAG_LIST(DEFINE_VM_TAG_ENTRY)
 #undef DEFINE_VM_TAG_ENTRY
-  { "kNumVMTags", kNumVMTags },
+        {"kNumVMTags", kNumVMTags},
 };
 
 
@@ -126,6 +138,7 @@ int64_t VMTagCounters::count(uword tag) {
 }
 
 
+#ifndef PRODUCT
 void VMTagCounters::PrintToJSONObject(JSONObject* obj) {
   if (!FLAG_support_service) {
     return;
@@ -143,14 +156,14 @@ void VMTagCounters::PrintToJSONObject(JSONObject* obj) {
     }
   }
 }
+#endif  // !PRODUCT
 
 
 const char* UserTags::TagName(uword tag_id) {
   ASSERT(tag_id >= kUserTagIdOffset);
   ASSERT(tag_id < kUserTagIdOffset + kMaxUserTags);
   Zone* zone = Thread::Current()->zone();
-  const UserTag& tag =
-      UserTag::Handle(zone, UserTag::FindTagById(tag_id));
+  const UserTag& tag = UserTag::Handle(zone, UserTag::FindTagById(tag_id));
   ASSERT(!tag.IsNull());
   const String& label = String::Handle(zone, tag.label());
   return label.ToCString();

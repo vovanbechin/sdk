@@ -6,11 +6,11 @@ library test.services.src.index.abstract_single_file;
 
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/error/error.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
-import 'package:analyzer/src/generated/error.dart';
 import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/source.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
 
 import 'context/abstract_context.dart';
 
@@ -24,9 +24,10 @@ class AbstractSingleUnitTest extends AbstractContextTest {
   CompilationUnitElement testUnitElement;
   LibraryElement testLibraryElement;
 
-  void addTestSource(String code, [Uri uri]) {
+  Source addTestSource(String code, [Uri uri]) {
     testCode = code;
     testSource = addSource(testFile, code);
+    return testSource;
   }
 
   void assertNoErrorsInSource(Source source) {

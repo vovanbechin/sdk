@@ -4,55 +4,50 @@
 
 library tracer;
 
-import 'dart:async' show EventSink;
-import '../compiler.dart' as api;
-import 'common/work.dart' show
-    ItemCompilationContext;
-import 'compiler.dart' show
-    Compiler;
-import 'ssa/nodes.dart' as ssa show
-    HGraph;
-import 'ssa/ssa_tracer.dart' show
-    HTracer;
-import 'cps_ir/cps_ir_nodes.dart' as cps_ir;
-import 'cps_ir/cps_ir_tracer.dart' show
-    IRTracer;
-import 'tree_ir/tree_ir_nodes.dart' as tree_ir;
-import 'tree_ir/tree_ir_tracer.dart' show
-    TreeTracer;
-import 'util/util.dart' show
-    Indentation;
+import '../compiler_new.dart' as api;
+import 'compiler.dart' show Compiler;
+import 'js_backend/namer.dart' show Namer;
+import 'ssa/nodes.dart' as ssa show HGraph;
+import 'ssa/ssa_tracer.dart' show HTracer;
+import 'util/util.dart' show Indentation;
+import 'world.dart' show ClosedWorld;
 
 /**
  * If non-null, we only trace methods whose name match the regexp defined by the
  * given pattern.
  */
-const String TRACE_FILTER_PATTERN = const String.fromEnvironment("DUMP_IR");
+String get TRACE_FILTER_PATTERN =>
+    TRACE_FILTER_PATTERN_FROM_ENVIRONMENT ?? TRACE_FILTER_PATTERN_FOR_TEST;
 
-final RegExp TRACE_FILTER =
-    TRACE_FILTER_PATTERN == null ? null : new RegExp(TRACE_FILTER_PATTERN);
+const String TRACE_FILTER_PATTERN_FROM_ENVIRONMENT =
+    const String.fromEnvironment("DUMP_IR");
+String TRACE_FILTER_PATTERN_FOR_TEST;
 
 /**
  * Dumps the intermediate representation after each phase in a format
  * readable by IR Hydra.
  */
 class Tracer extends TracerUtil {
-  final Compiler compiler;
-  ItemCompilationContext context;
+  final ClosedWorld closedWorld;
+  final Namer namer;
   bool traceActive = false;
-  final EventSink<String> output;
-  final bool isEnabled = TRACE_FILTER != null;
+  final api.OutputSink output;
+  final RegExp traceFilter;
 
-  Tracer(Compiler compiler, api.CompilerOutputProvider outputProvider)
-      : this.compiler = compiler,
-        output = TRACE_FILTER != null ? outputProvider('dart', 'cfg') : null;
+  Tracer(this.closedWorld, this.namer, Compiler compiler)
+      : traceFilter = TRACE_FILTER_PATTERN == null
+            ? null
+            : new RegExp(TRACE_FILTER_PATTERN),
+        output = TRACE_FILTER_PATTERN != null
+            ? compiler.outputProvider('dart', 'cfg', api.OutputType.debug)
+            : null;
 
-  void traceCompilation(String methodName,
-                        ItemCompilationContext compilationContext) {
+  bool get isEnabled => traceFilter != null;
+
+  void traceCompilation(String methodName) {
     if (!isEnabled) return;
-    traceActive = TRACE_FILTER.hasMatch(methodName);
+    traceActive = traceFilter.hasMatch(methodName);
     if (!traceActive) return;
-    this.context = compilationContext;
     tag("compilation", () {
       printProperty("name", methodName);
       printProperty("method", methodName);
@@ -63,13 +58,7 @@ class Tracer extends TracerUtil {
   void traceGraph(String name, var irObject) {
     if (!traceActive) return;
     if (irObject is ssa.HGraph) {
-      new HTracer(output, compiler, context).traceGraph(name, irObject);
-    }
-    else if (irObject is cps_ir.FunctionDefinition) {
-      new IRTracer(output).traceGraph(name, irObject);
-    }
-    else if (irObject is tree_ir.FunctionDefinition) {
-      new TreeTracer(output).traceGraph(name, irObject);
+      new HTracer(output, closedWorld, namer).traceGraph(name, irObject);
     }
   }
 
@@ -80,9 +69,8 @@ class Tracer extends TracerUtil {
   }
 }
 
-
 abstract class TracerUtil {
-  EventSink<String> get output;
+  api.OutputSink get output;
   final Indentation _ind = new Indentation();
 
   void tag(String tagName, Function f) {

@@ -96,7 +96,8 @@ getMangledTypeName(TypeImpl type) => type._typeName;
 @NoInline()
 Object setRuntimeTypeInfo(Object target, var rti) {
   assert(rti == null || isJsArray(rti));
-  JS('var', r'#.$builtinTypeInfo = #', target, rti);
+  String rtiName = JS_GET_NAME(JsGetName.RTI_NAME);
+  JS('var', r'#[#] = #', target, rtiName, rti);
   return target;
 }
 
@@ -106,7 +107,8 @@ Object setRuntimeTypeInfo(Object target, var rti) {
  */
 getRuntimeTypeInfo(Object target) {
   if (target == null) return null;
-  return JS('var', r'#.$builtinTypeInfo', target);
+  String rtiName = JS_GET_NAME(JsGetName.RTI_NAME);
+  return JS('var', r'#[#]', target, rtiName);
 }
 
 /**
@@ -134,10 +136,6 @@ getTypeArgumentByIndex(Object target, int index) {
   return rti == null ? null : getIndex(rti, index);
 }
 
-void copyTypeArguments(Object source, Object target) {
-  JS('var', r'#.$builtinTypeInfo = #.$builtinTypeInfo', target, source);
-}
-
 /**
  * Retrieves the class name from type information stored on the constructor
  * of [object].
@@ -163,22 +161,100 @@ String getRuntimeTypeAsString(var rti, {String onTypeVariable(int i)}) {
 String runtimeTypeToString(var rti, {String onTypeVariable(int i)}) {
   if (rti == null) {
     return 'dynamic';
-  } else if (isJsArray(rti)) {
+  }
+  if (isJsArray(rti)) {
     // A list representing a type with arguments.
     return getRuntimeTypeAsString(rti, onTypeVariable: onTypeVariable);
-  } else if (isJsFunction(rti)) {
+  }
+  if (isJsFunction(rti)) {
     // A reference to the constructor.
     return rawRtiToJsConstructorName(rti);
-  } else if (rti is int) {
-    if (onTypeVariable == null) {
-      return rti.toString();
-    } else {
-      return onTypeVariable(rti);
-    }
-  } else {
-    // TODO(ahe): Handle function types, and be sure to always return a string.
-    return null;
   }
+  if (rti is int) {
+    return '${onTypeVariable == null ? rti : onTypeVariable(rti)}';
+  }
+  String functionPropertyName = JS_GET_NAME(JsGetName.FUNCTION_TYPE_TAG);
+  if (JS('bool', 'typeof #[#] != "undefined"', rti, functionPropertyName)) {
+    // If the RTI has typedef equivalence info (via mirrors), use that since the
+    // mirrors helpers will re-parse the generated string.
+
+    String typedefPropertyName = JS_GET_NAME(JsGetName.TYPEDEF_TAG);
+    var typedefInfo = JS('', '#[#]', rti, typedefPropertyName);
+    if (typedefInfo != null) {
+      return runtimeTypeToString(typedefInfo, onTypeVariable: onTypeVariable);
+    }
+    return _functionRtiToString(rti, onTypeVariable);
+  }
+  // We should not get here.
+  return 'unknown-reified-type';
+}
+
+String _functionRtiToString(var rti, String onTypeVariable(int i)) {
+  String returnTypeText;
+  String voidTag = JS_GET_NAME(JsGetName.FUNCTION_TYPE_VOID_RETURN_TAG);
+  if (JS('bool', '!!#[#]', rti, voidTag)) {
+    returnTypeText = 'void';
+  } else {
+    String returnTypeTag = JS_GET_NAME(JsGetName.FUNCTION_TYPE_RETURN_TYPE_TAG);
+    var returnRti = JS('', '#[#]', rti, returnTypeTag);
+    returnTypeText =
+        runtimeTypeToString(returnRti, onTypeVariable: onTypeVariable);
+  }
+
+  String argumentsText = '';
+  String sep = '';
+
+  String requiredParamsTag =
+      JS_GET_NAME(JsGetName.FUNCTION_TYPE_REQUIRED_PARAMETERS_TAG);
+  bool hasArguments = JS('bool', '# in #', requiredParamsTag, rti);
+  if (hasArguments) {
+    List arguments = JS('JSFixedArray', '#[#]', rti, requiredParamsTag);
+    for (var argument in arguments) {
+      argumentsText += sep;
+      argumentsText +=
+          runtimeTypeToString(argument, onTypeVariable: onTypeVariable);
+      sep = ', ';
+    }
+  }
+
+  String optionalParamsTag =
+      JS_GET_NAME(JsGetName.FUNCTION_TYPE_OPTIONAL_PARAMETERS_TAG);
+  bool hasOptionalArguments = JS('bool', '# in #', optionalParamsTag, rti);
+  if (hasOptionalArguments) {
+    List optionalArguments = JS('JSFixedArray', '#[#]', rti, optionalParamsTag);
+    argumentsText += '$sep[';
+    sep = '';
+    for (var argument in optionalArguments) {
+      argumentsText += sep;
+      argumentsText +=
+          runtimeTypeToString(argument, onTypeVariable: onTypeVariable);
+      sep = ', ';
+    }
+    argumentsText += ']';
+  }
+
+  String namedParamsTag =
+      JS_GET_NAME(JsGetName.FUNCTION_TYPE_NAMED_PARAMETERS_TAG);
+  bool hasNamedArguments = JS('bool', '# in #', namedParamsTag, rti);
+  if (hasNamedArguments) {
+    var namedArguments = JS('', '#[#]', rti, namedParamsTag);
+    argumentsText += '$sep{';
+    sep = '';
+    for (String name in extractKeys(namedArguments)) {
+      argumentsText += sep;
+      argumentsText += runtimeTypeToString(JS('', '#[#]', namedArguments, name),
+                                           onTypeVariable: onTypeVariable);
+      argumentsText += ' $name';
+      sep = ', ';
+    }
+    argumentsText += '}';
+  }
+
+  // TODO(sra): Below is the same format as the VM. Change to:
+  //
+  //     '${returnTypeText} Function(${argumentsText})';
+  //
+  return '(${argumentsText}) => ${returnTypeText}';
 }
 
 /**
@@ -192,7 +268,7 @@ String joinArguments(var types, int startIndex,
   assert(isJsArray(types));
   bool firstArgument = true;
   bool allDynamic = true;
-  StringBuffer buffer = new StringBuffer();
+  StringBuffer buffer = new StringBuffer('');
   for (int index = startIndex; index < getLength(types); index++) {
     if (firstArgument) {
       firstArgument = false;
@@ -214,9 +290,14 @@ String joinArguments(var types, int startIndex,
  * In minified mode does *not* use unminified identifiers (even when present).
  */
 String getRuntimeTypeString(var object) {
+  // Check for function type first, since non-tearoff closures look like classes
+  // due to closure conversion.
+  var functionRti = extractFunctionTypeObjectFrom(object);
+  if (functionRti != null) return runtimeTypeToString(functionRti);
   String className = getClassName(object);
   if (object == null) return className;
-  var rti = JS('var', r'#.$builtinTypeInfo', object);
+  String rtiName = JS_GET_NAME(JsGetName.RTI_NAME);
+  var rti = JS('var', r'#[#]', object, rtiName);
   return "$className${joinArguments(rti, 0)}";
 }
 
@@ -232,23 +313,21 @@ Type getRuntimeType(var object) {
  * possible values for [substitution].
  */
 substitute(var substitution, var arguments) {
-  assert(substitution == null ||
-         isJsFunction(substitution));
+  if (substitution == null) return arguments;
+  assert(isJsFunction(substitution));
   assert(arguments == null || isJsArray(arguments));
+  substitution = invoke(substitution, arguments);
+  if (substitution == null) return null;
+  if (isJsArray(substitution)) {
+    // Substitutions are generated too late to mark Array as used, so use a
+    // tautological JS 'cast' to mark Array as used. This is needed only in
+    // some tiny tests where the substition is the only thing that creates an
+    // Array.
+    return JS('JSArray', '#', substitution);
+  }
   if (isJsFunction(substitution)) {
-    substitution = invoke(substitution, arguments);
-    if (substitution == null) return substitution;
-    if (isJsArray(substitution)) {
-      // Substitutions are generated too late to mark Array as used, so use a
-      // tautological JS 'cast' to mark Array as used. This is needed only in
-      // some tiny tests where the substition is the only thing that creates an
-      // Array.
-      return JS('JSArray', '#', substitution);
-    }
-    if (isJsFunction(substitution)) {
-      // TODO(johnniwinther): Check if this is still needed.
-      return invoke(substitution, arguments);
-    }
+    // TODO(johnniwinther): Check if this is still needed.
+    return invoke(substitution, arguments);
   }
   return arguments;
 }
@@ -292,23 +371,21 @@ String computeTypeName(String isField, List arguments) {
 }
 
 Object subtypeCast(Object object, String isField, List checks, String asField) {
-  if (object != null && !checkSubtype(object, isField, checks, asField)) {
-    String actualType = Primitives.objectTypeName(object);
-    String typeName = computeTypeName(isField, checks);
-    // TODO(johnniwinther): Move type lookup to [CastErrorImplementation] to
-    // align with [TypeErrorImplementation].
-    throw new CastErrorImplementation(actualType, typeName);
-  }
-  return object;
+  if (object == null) return object;
+  if (checkSubtype(object, isField, checks, asField)) return object;
+  String actualType = Primitives.objectTypeName(object);
+  String typeName = computeTypeName(isField, checks);
+  // TODO(johnniwinther): Move type lookup to [CastErrorImplementation] to
+  // align with [TypeErrorImplementation].
+  throw new CastErrorImplementation(actualType, typeName);
 }
 
-Object assertSubtype(Object object, String isField, List checks,
-                     String asField) {
-  if (object != null && !checkSubtype(object, isField, checks, asField)) {
-    String typeName = computeTypeName(isField, checks);
-    throw new TypeErrorImplementation(object, typeName);
-  }
-  return object;
+Object assertSubtype(
+    Object object, String isField, List checks, String asField) {
+  if (object == null) return object;
+  if (checkSubtype(object, isField, checks, asField)) return object;
+  String typeName = computeTypeName(isField, checks);
+  throw new TypeErrorImplementation(object, typeName);
 }
 
 /// Checks that the type represented by [subtype] is a subtype of [supertype].
@@ -454,12 +531,13 @@ bool isSubtype(var s, var t) {
   if (isIdentical(s, t)) return true;
   // If either type is dynamic, [s] is a subtype of [t].
   if (s == null || t == null) return true;
+  if (isNullType(s)) return true;
   if (isDartFunctionType(t)) {
     return isFunctionSubtype(s, t);
   }
-  // Check function types against the Function class.
+  // Check function types against the Function class and the Object class.
   if (isDartFunctionType(s)) {
-    return isDartFunctionTypeRti(t);
+    return isDartFunctionTypeRti(t) || isDartObjectTypeRti(t);
   }
 
   // Get the object describing the class and check for the subtyping flag
@@ -471,12 +549,12 @@ bool isSubtype(var s, var t) {
   // Get the necessary substitution of the type arguments, if there is one.
   var substitution;
   if (isNotIdentical(typeOfT, typeOfS)) {
-    if (!builtinIsSubtype(typeOfS, runtimeTypeToString(typeOfT))) {
+    String typeOfTString = runtimeTypeToString(typeOfT);
+    if (!builtinIsSubtype(typeOfS, typeOfTString)) {
       return false;
     }
     var typeOfSPrototype = JS('', '#.prototype', typeOfS);
-    var field = '${JS_GET_NAME(JsGetName.OPERATOR_AS_PREFIX)}'
-        '${runtimeTypeToString(typeOfT)}';
+    var field = '${JS_GET_NAME(JsGetName.OPERATOR_AS_PREFIX)}${typeOfTString}';
     substitution = getField(typeOfSPrototype, field);
   }
   // The class of [s] is a subclass of the class of [t].  If [s] has no type

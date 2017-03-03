@@ -51,13 +51,13 @@ class Stdin extends _StdStream implements Stream<List<int>> {
    *
    * If end-of-file is reached after any bytes have been read from stdin,
    * that data is returned.
-   * Returns `null` if no bytes preceeded the end of input.
+   * Returns `null` if no bytes preceded the end of input.
    */
   String readLineSync({Encoding encoding: SYSTEM_ENCODING,
                        bool retainNewlines: false}) {
     const CR = 13;
     const LF = 10;
-    final List line = [];
+    final List<int> line = <int>[];
     // On Windows, if lineMode is disabled, only CR is received.
     bool crIsNewline = Platform.isWindows &&
         (stdioType(stdin) == StdioType.TERMINAL) &&
@@ -86,7 +86,7 @@ class Stdin extends _StdStream implements Stream<List<int>> {
         line.add(byte);
       }
     } else {
-      // Case having to hande CR LF as a single unretained line terminator.
+      // Case having to handel CR LF as a single unretained line terminator.
       outer: while (true) {
         int byte = readByteSync();
         if (byte == LF) break;
@@ -120,6 +120,8 @@ class Stdin extends _StdStream implements Stream<List<int>> {
    * If disabled, input from to console will not be echoed.
    *
    * Default depends on the parent process, but usually enabled.
+   *
+   * On Windows this mode can only be enabled if [lineMode] is enabled as well.
    */
   external void set echoMode(bool enabled);
 
@@ -135,6 +137,8 @@ class Stdin extends _StdStream implements Stream<List<int>> {
    * If disabled, characters will be available as typed.
    *
    * Default depends on the parent process, but usually enabled.
+   *
+   * On Windows this mode can only be disabled if [echoMode] is disabled as well.
    */
   external void set lineMode(bool enabled);
 
@@ -162,7 +166,7 @@ class Stdin extends _StdStream implements Stream<List<int>> {
  * This class can also be used to check whether `stdout` or `stderr` is
  * connected to a terminal and query some terminal properties.
  */
-class Stdout extends _StdSink implements IOSink {
+class Stdout extends _StdFileSink implements IOSink {
   final int _fd;
   IOSink _nonBlocking;
 
@@ -216,6 +220,19 @@ class StdoutException implements IOException {
   }
 }
 
+
+class StdinException implements IOException {
+  final String message;
+  final OSError osError;
+
+  const StdinException(this.message, [this.osError]);
+
+  String toString() {
+    return "StdinException: $message${osError == null ? "" : ", $osError"}";
+  }
+}
+
+
 class _StdConsumer implements StreamConsumer<List<int>> {
   final _file;
 
@@ -245,26 +262,64 @@ class _StdConsumer implements StreamConsumer<List<int>> {
   }
 }
 
-class _StdSink implements IOSink {
+class _StdSinkHelper implements IOSink {
   final IOSink _sink;
+  final bool _isTranslatable;
 
-  _StdSink(this._sink);
+  _StdSinkHelper(this._sink, this._isTranslatable);
 
   Encoding get encoding => _sink.encoding;
   void set encoding(Encoding encoding) {
     _sink.encoding = encoding;
   }
-  void write(object) => _sink.write(object);
-  void writeln([object = "" ]) => _sink.writeln(object);
-  void writeAll(objects, [sep = ""]) => _sink.writeAll(objects, sep);
-  void add(List<int> data) => _sink.add(data);
-  void addError(error, [StackTrace stackTrace]) =>
-      _sink.addError(error, stackTrace);
-  void writeCharCode(int charCode) => _sink.writeCharCode(charCode);
-  Future addStream(Stream<List<int>> stream) => _sink.addStream(stream);
+
+  void set _translation(_FileTranslation t) {
+    if (_isTranslatable) {
+      _IOSinkImpl sink = _sink;
+      _StdConsumer target = sink._target;
+      target._file.translation = t;
+    }
+  }
+
+  void write(object) {
+    _translation = _FileTranslation.text;
+    _sink.write(object);
+  }
+  void writeln([object = "" ]) {
+    _translation = _FileTranslation.text;
+    _sink.writeln(object);
+  }
+  void writeAll(objects, [sep = ""]) {
+    _translation = _FileTranslation.text;
+    _sink.writeAll(objects, sep);
+  }
+  void add(List<int> data) {
+    _translation = _FileTranslation.binary;
+    _sink.add(data);
+  }
+  void addError(error, [StackTrace stackTrace]) {
+    _sink.addError(error, stackTrace);
+  }
+  void writeCharCode(int charCode) {
+    _translation = _FileTranslation.text;
+    _sink.writeCharCode(charCode);
+  }
+  Future addStream(Stream<List<int>> stream) {
+    _translation = _FileTranslation.binary;
+    return _sink.addStream(stream);
+  }
   Future flush() => _sink.flush();
   Future close() => _sink.close();
   Future get done => _sink.done;
+}
+
+class _StdFileSink extends _StdSinkHelper {
+  // The target of `sink` is expected to be a _StdConsumer.
+  _StdFileSink(IOSink sink) : super(sink, true);
+}
+
+class _StdSocketSink extends _StdSinkHelper {
+  _StdSocketSink(IOSink sink) : super(sink, false);
 }
 
 /// The type of object a standard IO stream is attached to.
@@ -327,13 +382,18 @@ StdioType stdioType(object) {
     return StdioType.FILE;
   }
   if (object is Socket) {
-    switch (_StdIOUtils._socketType(object._nativeSocket)) {
-      case _STDIO_HANDLE_TYPE_TERMINAL: return StdioType.TERMINAL;
-      case _STDIO_HANDLE_TYPE_PIPE: return StdioType.PIPE;
-      case _STDIO_HANDLE_TYPE_FILE:  return StdioType.FILE;
+    int socketType = _StdIOUtils._socketType(object);
+    if (socketType == null) return StdioType.OTHER;
+    switch (socketType) {
+      case _STDIO_HANDLE_TYPE_TERMINAL:
+        return StdioType.TERMINAL;
+      case _STDIO_HANDLE_TYPE_PIPE:
+        return StdioType.PIPE;
+      case _STDIO_HANDLE_TYPE_FILE:
+        return StdioType.FILE;
     }
   }
-  if (object is IOSink) {
+  if (object is _IOSinkImpl) {
     try {
       if (object._target is _FileStreamConsumer) {
         return StdioType.FILE;
@@ -349,6 +409,7 @@ StdioType stdioType(object) {
 class _StdIOUtils {
   external static _getStdioOutputStream(int fd);
   external static Stdin _getStdioInputStream();
-  external static int _socketType(nativeSocket);
+  /// Returns the socket type or `null` if [socket] is not a builtin socket.
+  external static int _socketType(Socket socket);
   external static _getStdioHandleType(int fd);
 }

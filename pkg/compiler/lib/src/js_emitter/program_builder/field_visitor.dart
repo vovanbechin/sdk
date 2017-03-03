@@ -22,21 +22,22 @@ part of dart2js.js_emitter.program_builder;
  * case, [needsSetter] is always false. [needsCheckedSetter] is only true when
  * type assertions are enabled (checked mode).
  */
-typedef void AcceptField(VariableElement member,
-                         js.Name name,
-                         js.Name accessorName,
-                         bool needsGetter,
-                         bool needsSetter,
-                         bool needsCheckedSetter);
-
+typedef void AcceptField(
+    VariableElement member,
+    js.Name name,
+    js.Name accessorName,
+    bool needsGetter,
+    bool needsSetter,
+    bool needsCheckedSetter);
 
 class FieldVisitor {
   final Compiler compiler;
   final Namer namer;
+  final ClosedWorld closedWorld;
 
   JavaScriptBackend get backend => compiler.backend;
 
-  FieldVisitor(this.compiler, this.namer);
+  FieldVisitor(this.compiler, this.namer, this.closedWorld);
 
   /**
    * Invokes [f] for each of the fields of [element].
@@ -71,8 +72,9 @@ class FieldVisitor {
 
     // If the class is never instantiated we still need to set it up for
     // inheritance purposes, but we can simplify its JavaScript constructor.
-    bool isInstantiated =
-        compiler.codegenWorld.directlyInstantiatedClasses.contains(element);
+    bool isInstantiated = compiler
+        .codegenWorldBuilder.directlyInstantiatedClasses
+        .contains(element);
 
     void visitField(Element holder, FieldElement field) {
       assert(invariant(element, field.isDeclaration));
@@ -93,15 +95,15 @@ class FieldVisitor {
         needsSetter = fieldNeedsSetter(field);
       }
 
-      if ((isInstantiated && !backend.isNative(holder))
-          || needsGetter
-          || needsSetter) {
+      if ((isInstantiated && !backend.isNative(holder)) ||
+          needsGetter ||
+          needsSetter) {
         js.Name accessorName = namer.fieldAccessorName(field);
         js.Name fieldName = namer.fieldPropertyName(field);
         bool needsCheckedSetter = false;
-        if (compiler.enableTypeAssertions
-            && needsSetter
-            && !canAvoidGeneratedCheckedSetter(field)) {
+        if (compiler.options.enableTypeAssertions &&
+            needsSetter &&
+            !canAvoidGeneratedCheckedSetter(field)) {
           needsCheckedSetter = true;
           needsSetter = false;
         }
@@ -130,41 +132,41 @@ class FieldVisitor {
       // generate the field getter/setter dynamically. Since this is only
       // allowed on fields that are in [element] we don't need to visit
       // superclasses for non-instantiated classes.
-      cls.implementation.forEachInstanceField(
-          visitField, includeSuperAndInjectedMembers: isInstantiated);
+      cls.implementation.forEachInstanceField(visitField,
+          includeSuperAndInjectedMembers: isInstantiated);
     }
   }
 
   bool fieldNeedsGetter(VariableElement field) {
     assert(field.isField);
     if (fieldAccessNeverThrows(field)) return false;
-    if (backend.shouldRetainGetter(field)) return true;
+    if (backend.mirrorsData.shouldRetainGetter(field)) return true;
     return field.isClassMember &&
-    compiler.codegenWorld.hasInvokedGetter(field, compiler.world);
+        compiler.codegenWorldBuilder.hasInvokedGetter(field, closedWorld);
   }
 
   bool fieldNeedsSetter(VariableElement field) {
     assert(field.isField);
     if (fieldAccessNeverThrows(field)) return false;
     if (field.isFinal || field.isConst) return false;
-    if (backend.shouldRetainSetter(field)) return true;
+    if (backend.mirrorsData.shouldRetainSetter(field)) return true;
     return field.isClassMember &&
-        compiler.codegenWorld.hasInvokedSetter(field, compiler.world);
+        compiler.codegenWorldBuilder.hasInvokedSetter(field, closedWorld);
   }
 
   static bool fieldAccessNeverThrows(VariableElement field) {
     return
-      // We never access a field in a closure (a captured variable) without
-      // knowing that it is there.  Therefore we don't need to use a getter
-      // (that will throw if the getter method is missing), but can always
-      // access the field directly.
-      field is ClosureFieldElement;
+        // We never access a field in a closure (a captured variable) without
+        // knowing that it is there.  Therefore we don't need to use a getter
+        // (that will throw if the getter method is missing), but can always
+        // access the field directly.
+        field is ClosureFieldElement;
   }
 
   bool canAvoidGeneratedCheckedSetter(VariableElement member) {
     // We never generate accessors for top-level/static fields.
     if (!member.isInstanceMember) return true;
-    DartType type = member.type;
+    ResolutionDartType type = member.type;
     return type.treatAsDynamic || type.isObject;
   }
 }

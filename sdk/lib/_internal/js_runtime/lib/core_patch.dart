@@ -19,8 +19,9 @@ import 'dart:_js_helper' show checkInt,
                               patch_lazy,
                               patch_startup,
                               Primitives,
-                              readHttp,
-                              stringJoinUnchecked;
+                              stringJoinUnchecked,
+                              getTraceFromException,
+                              RuntimeError;
 
 import 'dart:_foreign_helper' show JS;
 
@@ -46,6 +47,9 @@ int identityHashCode(Object object) => objectHashCode(object);
 @patch
 class Object {
   @patch
+  bool operator==(other) => identical(this, other);
+
+  @patch
   int get hashCode => Primitives.objectHashCode(this);
 
 
@@ -63,6 +67,12 @@ class Object {
 
   @patch
   Type get runtimeType => getRuntimeType(this);
+}
+
+@patch
+class Null {
+  @patch
+  int get hashCode => super.hashCode;
 }
 
 // Patch for Function implementation.
@@ -204,6 +214,18 @@ class Error {
 
   @patch
   StackTrace get stackTrace => Primitives.extractStackTrace(this);
+}
+
+@patch
+class FallThroughError {
+  @patch
+  String toString() => super.toString();
+}
+
+@patch
+class AbstractClassInstantiationError {
+  @patch
+  String toString() => "Cannot instantiate abstract class: '$_className'";
 }
 
 // Patch for DateTime implementation.
@@ -460,10 +482,14 @@ class bool {
     throw new UnsupportedError(
         'bool.fromEnvironment can only be used as a const constructor');
   }
+
+  @patch
+  int get hashCode => super.hashCode;
 }
 
 @patch
 class RegExp {
+  @NoInline()
   @patch
   factory RegExp(String source,
                        {bool multiLine: false,
@@ -474,6 +500,7 @@ class RegExp {
 }
 
 // Patch for 'identical' function.
+@NoInline() // No inlining since we recognize the call in optimizer.
 @patch
 bool identical(Object a, Object b) {
   return JS('bool', '(# == null ? # == null : # === #)', a, b, a, b);
@@ -546,8 +573,20 @@ class StringBuffer {
 @patch
 class NoSuchMethodError {
   @patch
+  NoSuchMethodError(Object receiver,
+                    Symbol memberName,
+                    List positionalArguments,
+                    Map<Symbol, dynamic> namedArguments,
+                    [List existingArgumentNames = null])
+      : _receiver = receiver,
+        _memberName = memberName,
+        _arguments = positionalArguments,
+        _namedArguments = namedArguments,
+        _existingArgumentNames = existingArgumentNames;
+
+  @patch
   String toString() {
-    StringBuffer sb = new StringBuffer();
+    StringBuffer sb = new StringBuffer('');
     String comma = '';
     if (_arguments != null) {
       for (var argument in _arguments) {
@@ -586,15 +625,17 @@ class NoSuchMethodError {
 @patch
 class Uri {
   @patch
-  static bool get _isWindows => false;
-
-  @patch
   static Uri get base {
     String uri = Primitives.currentUri();
     if (uri != null) return Uri.parse(uri);
     throw new UnsupportedError("'Uri.base' is not supported");
   }
+}
 
+@patch
+class _Uri {
+  @patch
+  static bool get _isWindows => false;
 
   // Matches a String that _uriEncodes to itself regardless of the kind of
   // component.  This corresponds to [_unreservedTable], i.e. characters that
@@ -617,7 +658,7 @@ class Uri {
 
     // Encode the string into bytes then generate an ASCII only string
     // by percent encoding selected bytes.
-    StringBuffer result = new StringBuffer();
+    StringBuffer result = new StringBuffer('');
     var bytes = encoding.encode(text);
     for (int i = 0; i < bytes.length; i++) {
       int byte = bytes[i];
@@ -637,12 +678,6 @@ class Uri {
   }
 }
 
-@patch
-class Resource {
-  @patch
-  const factory Resource(String uri) = _Resource;
-}
-
 Uri _resolvePackageUri(Uri packageUri) {
   assert(packageUri.scheme == "package");
   if (packageUri.hasAuthority) {
@@ -652,109 +687,115 @@ Uri _resolvePackageUri(Uri packageUri) {
   return resolved;
 }
 
-class _Resource implements Resource {
-  final String _location;
-
-  const _Resource(String uri) : _location = uri;
-
-  Uri get uri => Uri.base.resolve(_location);
-
-  Stream<List<int>> openRead() {
-    Uri uri = this.uri;
-    if (uri.scheme == "package") {
-      uri = _resolvePackageUri(uri);
-    }
-    if (uri.scheme == "http" || uri.scheme == "https") {
-      return _readAsStream(uri);
-    }
-    throw new StateError("Unable to find resource, unknown scheme: $_location");
-  }
-
-  Future<List<int>> readAsBytes() {
-    Uri uri = this.uri;
-    if (uri.scheme == "package") {
-      uri = _resolvePackageUri(uri);
-    }
-    if (uri.scheme == "http" || uri.scheme == "https") {
-      return _readAsBytes(uri);
-    }
-    throw new StateError("Unable to find resource, unknown scheme: $_location");
-  }
-
-  Future<String> readAsString({Encoding encoding: UTF8}) {
-    Uri uri = this.uri;
-    if (uri.scheme == "package") {
-      uri = _resolvePackageUri(uri);
-    }
-    if (uri.scheme == "http" || uri.scheme == "https") {
-      return _readAsString(uri, encoding);
-    }
-    throw new StateError("Unable to find resource, unknown scheme: $_location");
-  }
-
-  // TODO(het): Use a streaming XHR request instead of returning the entire
-  // payload in one event.
-  Stream<List<int>> _readAsStream(Uri uri) {
-    var controller = new StreamController.broadcast();
-    // We only need to implement the listener as there is no way to provide
-    // back pressure into the channel.
-    controller.onListen = () {
-      // Once there is a listener, we kick off the loading of the resource.
-      _readAsBytes(uri).then((value) {
-        // The resource loading implementation sends all of the data in a
-        // single message. So the stream will only get a single value posted.
-        controller.add(value);
-        controller.close();
-      },
-      onError: (e, s) {
-        // In case the future terminates with an error we propagate it to the
-        // stream.
-        controller.addError(e, s);
-        controller.close();
-      });
-    };
-
-    return controller.stream;
-  }
-
-  Future<List<int>> _readAsBytes(Uri uri) {
-    return readHttp('$uri').then((data) {
-      if (data is NativeUint8List) return data;
-      if (data is String) return data.codeUnits;
-      throw new StateError(
-          "Unable to read Resource, data could not be decoded");
-    });
-  }
-
-  Future<String> _readAsString(Uri uri, Encoding encoding) {
-    return readHttp('$uri').then((data) {
-      if (data is String) return data;
-      if (data is NativeUint8List) {
-        return encoding.decode(data);
-      };
-      throw new StateError(
-          "Unable to read Resource, data could not be decoded");
-    });
-  }
-}
+bool _hasErrorStackProperty = JS('bool', 'new Error().stack != void 0');
 
 @patch
 class StackTrace {
   @patch
   @NoInline()
   static StackTrace get current {
-    var error = JS('', 'new Error()');
-    var stack = JS('String|Null', '#.stack', error);
-    if (stack is String) return new StackTrace.fromString(stack);
-    if (JS('', 'Error.captureStackTrace') != null) {
-      JS('void', 'Error.captureStackTrace(#)', error);
-      var stack = JS('String|Null', '#.stack', error);
-      if (stack is String) return new StackTrace.fromString(stack);
+    if (_hasErrorStackProperty) {
+      return getTraceFromException(JS('', 'new Error()'));
     }
+    // Fallback if new Error().stack does not exist.
+    // Currently only required for IE 11.
     try {
-      throw 0;
+      throw '';
     } catch (_, stackTrace) {
       return stackTrace;
     }
   }
+}
+
+// Called from kernel generated code.
+_malformedTypeError(message) => new RuntimeError(message);
+
+// Called from kernel generated code.
+_genericNoSuchMethod(receiver, memberName, positionalArguments, namedArguments,
+    existingArguments) {
+  return new NoSuchMethodError(
+      receiver,
+      memberName,
+      positionalArguments,
+      namedArguments);
+}
+
+// Called from kernel generated code.
+_unresolvedConstructorError(receiver, memberName, positionalArguments,
+    namedArguments, existingArguments) {
+  // TODO(sra): Generate an error that reads:
+  //
+  //     No constructor '$memberName' declared in class '$receiver'.
+
+  return new NoSuchMethodError(
+      receiver,
+      memberName,
+      positionalArguments,
+      namedArguments);
+}
+
+// Called from kernel generated code.
+_unresolvedStaticGetterError(receiver, memberName, positionalArguments,
+    namedArguments, existingArguments) {
+  // TODO(sra): Generate customized message.
+  return new NoSuchMethodError(
+      receiver,
+      memberName,
+      positionalArguments,
+      namedArguments);
+}
+
+// Called from kernel generated code.
+_unresolvedStaticSetterError(receiver, memberName, positionalArguments,
+    namedArguments, existingArguments) {
+  // TODO(sra): Generate customized message.
+  return new NoSuchMethodError(
+      receiver,
+      memberName,
+      positionalArguments,
+      namedArguments);
+}
+
+// Called from kernel generated code.
+_unresolvedStaticMethodError(receiver, memberName, positionalArguments,
+    namedArguments, existingArguments) {
+  // TODO(sra): Generate customized message.
+  return new NoSuchMethodError(
+      receiver,
+      memberName,
+      positionalArguments,
+      namedArguments);
+}
+
+// Called from kernel generated code.
+_unresolvedTopLevelGetterError(receiver, memberName, positionalArguments,
+    namedArguments, existingArguments) {
+  // TODO(sra): Generate customized message.
+  return new NoSuchMethodError(
+      receiver,
+      memberName,
+      positionalArguments,
+      namedArguments);
+}
+
+// Called from kernel generated code.
+_unresolvedTopLevelSetterError(receiver, memberName, positionalArguments,
+    namedArguments, existingArguments) {
+  // TODO(sra): Generate customized message.
+  return new NoSuchMethodError(
+      receiver,
+      memberName,
+      positionalArguments,
+      namedArguments);
+}
+
+// Called from kernel generated code.
+_unresolvedTopLevelMethodError(receiver, memberName, positionalArguments,
+    namedArguments, existingArguments) {
+  // TODO(sra): Generate customized message.
+  return new NoSuchMethodError(
+      receiver,
+      memberName,
+      positionalArguments,
+      namedArguments);
 }

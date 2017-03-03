@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+import 'dart:typed_data' show Uint32List;
+
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -1206,9 +1208,9 @@ class _Bigint extends _IntegerImplementation implements int {
     return r_used;
   }
 
-  int get _identityHashCode {
-    return this;
-  }
+  int get hashCode => this;
+  int get _identityHashCode => this;
+
   int operator ~() {
     return _not()._toValidInt();
   }
@@ -1336,15 +1338,7 @@ class _Bigint extends _IntegerImplementation implements int {
     return str;
   }
 
-  _leftShiftWithMask32(int count, int mask) {
-    if (_used == 0) return 0;
-    if (count is! _Smi) {
-      _shlFromInt(count);  // Throws out of memory exception.
-    }
-    assert(_DIGIT_BITS == 32);  // Otherwise this code needs to be revised.
-    if (count > 31) return 0;
-    return (_digits[0] << count) & mask;
-  }
+  int _bitAndFromSmi(int other) => _bitAndFromInteger(other);
 
   int _bitAndFromInteger(int other) {
     return other._toBigint()._and(this)._toValidInt();

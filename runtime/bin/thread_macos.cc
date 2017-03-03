@@ -8,16 +8,16 @@
 #include "bin/thread.h"
 #include "bin/thread_macos.h"
 
-#include <mach/mach_host.h>  // NOLINT
-#include <mach/mach_init.h>  // NOLINT
-#include <mach/mach_port.h>  // NOLINT
-#include <mach/mach_traps.h>  // NOLINT
-#include <mach/task_info.h>  // NOLINT
-#include <mach/thread_act.h>  // NOLINT
+#include <mach/mach_host.h>    // NOLINT
+#include <mach/mach_init.h>    // NOLINT
+#include <mach/mach_port.h>    // NOLINT
+#include <mach/mach_traps.h>   // NOLINT
+#include <mach/task_info.h>    // NOLINT
+#include <mach/thread_act.h>   // NOLINT
 #include <mach/thread_info.h>  // NOLINT
-#include <sys/errno.h>  // NOLINT
-#include <sys/sysctl.h>  // NOLINT
-#include <sys/types.h>  // NOLINT
+#include <sys/errno.h>         // NOLINT
+#include <sys/sysctl.h>        // NOLINT
+#include <sys/types.h>         // NOLINT
 
 #include "platform/assert.h"
 #include "platform/utils.h"
@@ -25,37 +25,36 @@
 namespace dart {
 namespace bin {
 
-#define VALIDATE_PTHREAD_RESULT(result)         \
-  if (result != 0) { \
-    const int kBufferSize = 1024; \
-    char error_message[kBufferSize]; \
-    Utils::StrError(result, error_message, kBufferSize); \
-    FATAL2("pthread error: %d (%s)", result, error_message); \
+#define VALIDATE_PTHREAD_RESULT(result)                                        \
+  if (result != 0) {                                                           \
+    const int kBufferSize = 1024;                                              \
+    char error_message[kBufferSize];                                           \
+    Utils::StrError(result, error_message, kBufferSize);                       \
+    FATAL2("pthread error: %d (%s)", result, error_message);                   \
   }
 
 
 #ifdef DEBUG
-#define RETURN_ON_PTHREAD_FAILURE(result) \
-  if (result != 0) { \
-    const int kBufferSize = 1024; \
-    char error_message[kBufferSize]; \
-    Utils::StrError(result, error_message, kBufferSize); \
-    fprintf(stderr, "%s:%d: pthread error: %d (%s)\n", \
-            __FILE__, __LINE__, result, error_message); \
-    return result; \
+#define RETURN_ON_PTHREAD_FAILURE(result)                                      \
+  if (result != 0) {                                                           \
+    const int kBufferSize = 1024;                                              \
+    char error_message[kBufferSize];                                           \
+    Utils::StrError(result, error_message, kBufferSize);                       \
+    fprintf(stderr, "%s:%d: pthread error: %d (%s)\n", __FILE__, __LINE__,     \
+            result, error_message);                                            \
+    return result;                                                             \
   }
 #else
-#define RETURN_ON_PTHREAD_FAILURE(result) \
-  if (result != 0) { \
-    return result; \
+#define RETURN_ON_PTHREAD_FAILURE(result)                                      \
+  if (result != 0) {                                                           \
+    return result;                                                             \
   }
 #endif
 
 
 class ThreadStartData {
  public:
-  ThreadStartData(Thread::ThreadStartFunction function,
-                  uword parameter)
+  ThreadStartData(Thread::ThreadStartFunction function, uword parameter)
       : function_(function), parameter_(parameter) {}
 
   Thread::ThreadStartFunction function() const { return function_; }
@@ -148,11 +147,6 @@ ThreadId Thread::GetCurrentThreadId() {
 }
 
 
-bool Thread::Join(ThreadId id) {
-  return false;
-}
-
-
 intptr_t Thread::ThreadIdToIntPtr(ThreadId id) {
   ASSERT(sizeof(id) == sizeof(intptr_t));
   return reinterpret_cast<intptr_t>(id);
@@ -161,30 +155,6 @@ intptr_t Thread::ThreadIdToIntPtr(ThreadId id) {
 
 bool Thread::Compare(ThreadId a, ThreadId b) {
   return (pthread_equal(a, b) != 0);
-}
-
-
-void Thread::GetThreadCpuUsage(ThreadId thread_id, int64_t* cpu_usage) {
-  ASSERT(thread_id == GetCurrentThreadId());
-  ASSERT(cpu_usage != NULL);
-  // TODO(johnmccutchan): Enable this after fixing issue with macos directory
-  // watcher.
-  const bool get_cpu_usage = false;
-  if (get_cpu_usage) {
-    mach_msg_type_number_t count = THREAD_BASIC_INFO_COUNT;
-    thread_basic_info_data_t info_data;
-    thread_basic_info_t info = &info_data;
-    mach_port_t thread_port = mach_thread_self();
-    kern_return_t r = thread_info(thread_port, THREAD_BASIC_INFO,
-                                  (thread_info_t)info, &count);
-    mach_port_deallocate(mach_task_self(), thread_port);
-    if (r == KERN_SUCCESS) {
-      *cpu_usage = (info->user_time.seconds * kMicrosecondsPerSecond) +
-                   info->user_time.microseconds;
-      return;
-    }
-  }
-  *cpu_usage = 0;
 }
 
 
@@ -316,9 +286,8 @@ Monitor::WaitResult Monitor::WaitMicros(int64_t micros) {
         (micros - (secs * kMicrosecondsPerSecond)) * kNanosecondsPerMicrosecond;
     ts.tv_sec = static_cast<int32_t>(secs);
     ts.tv_nsec = static_cast<long>(nanos);  // NOLINT (long used in timespec).
-    int result = pthread_cond_timedwait_relative_np(data_.cond(),
-                                                    data_.mutex(),
-                                                    &ts);
+    int result =
+        pthread_cond_timedwait_relative_np(data_.cond(), data_.mutex(), &ts);
     ASSERT((result == 0) || (result == ETIMEDOUT));
     if (result == ETIMEDOUT) {
       retval = kTimedOut;

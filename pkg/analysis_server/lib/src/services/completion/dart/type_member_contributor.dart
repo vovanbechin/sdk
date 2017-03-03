@@ -14,8 +14,7 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 
-import '../../../protocol_server.dart'
-    show CompletionSuggestion, CompletionSuggestionKind;
+import '../../../protocol_server.dart' show CompletionSuggestion;
 
 /**
  * A contributor for calculating instance invocation / access suggestions
@@ -33,7 +32,7 @@ class TypeMemberContributor extends DartCompletionContributor {
     }
 
     // Resolve the expression and the containing library
-    await request.resolveExpression(parsedExpression);
+    await request.resolveContainingExpression(parsedExpression);
     LibraryElement containingLibrary = request.libraryElement;
     // Gracefully degrade if the library element could not be resolved
     // e.g. detached part file or source change
@@ -162,7 +161,7 @@ class _LocalBestTypeVisitor extends LocalDeclarationVisitor {
   @override
   void declaredFunction(FunctionDeclaration declaration) {
     if (declaration.name.name == targetName) {
-      TypeName typeName = declaration.returnType;
+      TypeAnnotation typeName = declaration.returnType;
       if (typeName != null) {
         typeFound = typeName.type;
       }
@@ -173,7 +172,7 @@ class _LocalBestTypeVisitor extends LocalDeclarationVisitor {
   @override
   void declaredFunctionTypeAlias(FunctionTypeAlias declaration) {
     if (declaration.name.name == targetName) {
-      TypeName typeName = declaration.returnType;
+      TypeAnnotation typeName = declaration.returnType;
       if (typeName != null) {
         typeFound = typeName.type;
       }
@@ -190,7 +189,7 @@ class _LocalBestTypeVisitor extends LocalDeclarationVisitor {
   }
 
   @override
-  void declaredLocalVar(SimpleIdentifier name, TypeName type) {
+  void declaredLocalVar(SimpleIdentifier name, TypeAnnotation type) {
     if (name.name == targetName) {
       typeFound = name.bestType;
       finished();
@@ -200,7 +199,7 @@ class _LocalBestTypeVisitor extends LocalDeclarationVisitor {
   @override
   void declaredMethod(MethodDeclaration declaration) {
     if (declaration.name.name == targetName) {
-      TypeName typeName = declaration.returnType;
+      TypeAnnotation typeName = declaration.returnType;
       if (typeName != null) {
         typeFound = typeName.type;
       }
@@ -209,7 +208,7 @@ class _LocalBestTypeVisitor extends LocalDeclarationVisitor {
   }
 
   @override
-  void declaredParam(SimpleIdentifier name, TypeName type) {
+  void declaredParam(SimpleIdentifier name, TypeAnnotation type) {
     if (name.name == targetName) {
       // Type provided by the element in computeFull above
       finished();
@@ -332,6 +331,15 @@ class _SuggestionBuilder {
       }
     }
     String identifier = element.displayName;
+
+    if (relevance == DART_RELEVANCE_DEFAULT && identifier != null) {
+      // Decrease relevance of suggestions starting with $
+      // https://github.com/dart-lang/sdk/issues/27303
+      if (identifier.startsWith(r'$')) {
+        relevance = DART_RELEVANCE_LOW;
+      }
+    }
+
     int alreadyGenerated = _completionTypesGenerated.putIfAbsent(
         identifier, () => _COMPLETION_TYPE_NONE);
     if (element is MethodElement) {

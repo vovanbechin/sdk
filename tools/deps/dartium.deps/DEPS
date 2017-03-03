@@ -8,8 +8,8 @@ execfile(os.path.join(path, 'src', 'dart', 'tools', 'deps', 'dartium.deps', 'DEP
 # Now we need to override some settings and add some new ones.
 
 vars.update({
-  "dartium_chromium_commit": "18e2b11bf18e8db4dd3e0f77991a1dc6b87ce07b",
-  "dartium_webkit_commit": "28b9a6c03797eaecf6c92677cba747eb9df0787c",
+  "dartium_chromium_commit": "7558afb6379171d7f96b2db68ae9d2b64b2c5544",
+  "dartium_webkit_commit": "56e20cfbfa7e1a680add908ed9c316c067454ff0",
   "chromium_base_revision": "338390",
 
   # We use mirrors of all github repos to guarantee reproducibility and
@@ -29,10 +29,10 @@ vars.update({
   "args_tag": "@0.13.0",
   "barback_rev" : "@29ee90dbcf77cfd64632fa2797a4c8a4f29a4b51",
   "charcode_tag": "@1.1.0",
-  "collection_rev": "@f6135e6350c63eb3f4dd12953b8d4363faff16fc",
+  "collection_tag": "@1.9.1",
   "crypto_rev" : "@2df57a1e26dd88e8d0614207d4b062c73209917d",
   "csslib_tag" : "@0.12.0",
-  "dart2js_info_rev" : "@0a221eaf16aec3879c45719de656680ccb80d8a1",
+  "dart2js_info_tag" : "@0.5.3+1",
   "glob_rev": "@704cf75e4f26b417505c5c611bdaacd8808467dd",
   "html_tag" : "@0.12.1+1",
   "http_rev" : "@9b93e1542c753090c50b46ef1592d44bc858bfe7",
@@ -45,14 +45,16 @@ vars.update({
   "mime_rev": "@75890811d4af5af080351ba8a2853ad4c8df98dd",
   "metatest_rev": "@e5aa8e4e19fc4188ac2f6d38368a47d8f07c3df1",
   "oauth2_rev": "@1bff41f4d54505c36f2d1a001b83b8b745c452f5",
-  "observatory_pub_packages_rev": "@cf90eb9077177d3d6b3fd5e8289477c2385c026a",
+  "observatory_pub_packages_rev": "@26aad88f1c1915d39bbcbff3cad589e2402fdcf1",
   "package_config_rev": "@0.1.3",
+  "package_resolver_tag": "@1.0.2+1",
   "path_rev": "@b657c0854d1cf41c014986fa9d2321f1173df805",
   "plugin_tag": "@0.1.0",
   "pool_rev": "@22e12aeb16ad0b626900dbe79e4a25391ddfb28c",
-  "pub_rev": "@9d707158fedc86fc2b02f62cdfe804902b098d9d",
+  "pub_rev": "@d7649be15213c43669a40c33af516d8eb210e876",
   "pub_semver_tag": "@1.2.0",
   "quiver_tag": "@0.21.4",
+  "root_certificates_rev": "@aed07942ce98507d2be28cbd29e879525410c7fc",
   "shelf_rev": "@1e87b79b21ac5e6fa2f93576d6c06eaa65285ef4",
   "shelf_web_socket_rev": "@ff170cec2c0e4e5722cdf47c557be63b5035a602",
   "source_span_rev": "@42501132e43599a151ba6727d340e44442f86c05",
@@ -64,10 +66,10 @@ vars.update({
   "watcher_tag": "@0.9.5",
   "yaml_rev": "@563a5ffd4a800a2897b8f4dd6b19f2a370df2f2b",
   "zlib_rev": "@c3d0a6190f2f8c924a05ab6cc97b8f975bddd33f",
-  "web_components_rev": "@0e636b534d9b12c9e96f841e6679398e91a986ec",
+  "web_components_rev": "@6349e09f9118dce7ae1b309af5763745e25a9d61",
   "WebCore_rev": "@a86fe28efadcfc781f836037a80f27e22a5dad17",
 
-  "co19_rev": "@3ed795ea02e022ef19c77cf1b6095b7c8f5584d0",
+  "co19_rev": "@4af9ef149be554216c5bb16cbac8e50d4c28cdf1",
 })
 
 deps.update({
@@ -90,9 +92,9 @@ deps.update({
   "src/dart/third_party/pkg/csslib":
       (Var("github_mirror") % "csslib") + Var("csslib_tag"),
   "src/dart/third_party/pkg/dart2js_info":
-      (Var("github_mirror") % "dart2js_info") + Var("dart2js_info_rev"),
+      (Var("github_mirror") % "dart2js_info") + Var("dart2js_info_tag"),
   "src/dart/third_party/pkg/collection":
-      (Var("github_mirror") % "collection") + Var("collection_rev"),
+      (Var("github_mirror") % "collection") + Var("collection_tag"),
   "src/dart/third_party/pkg/glob":
       (Var("github_mirror") % "glob") + Var("glob_rev"),
   "src/dart/third_party/pkg/html":
@@ -121,8 +123,11 @@ deps.update({
   "src/dart/third_party/observatory_pub_packages":
       (Var("github_mirror") % "observatory_pub_packages") +
       Var("observatory_pub_packages_rev"),
-  "src/dart/third_party/pkg/package_config":
+  "src/dart/third_party/pkg_tested/package_config":
       (Var("github_mirror") % "package_config") + Var("package_config_rev"),
+  "src/dart/third_party/pkg_tested/package_resolver":
+      "https://github.com/dart-lang/package_resolver.git" +
+      Var("package_resolver_tag"),
   "src/dart/third_party/pkg/path":
       (Var("github_mirror") % "path") + Var("path_rev"),
   "src/dart/third_party/pkg/plugin":
@@ -137,6 +142,9 @@ deps.update({
       Var("chromium_git")
       + "/external/github.com/google/quiver-dart.git"
       + Var("quiver_tag"),
+  "src/dart/third_party/root_certificates":
+      (Var("github_mirror") % "root_certificates")
+      + Var("root_certificates_rev"),
   "src/dart/third_party/pkg/shelf":
       (Var("github_mirror") % "shelf") + Var("shelf_rev"),
   "src/dart/third_party/pkg/shelf_web_socket":
@@ -221,5 +229,21 @@ hooks.append({
     "--extract",
     "--directory",
     "src/dart/tools/sdks",
+  ],
+})
+hooks.append({
+  "name": "unittest",
+  # Unittest is an early version, 0.11.6, of the package "test"
+  # Do not use it in any new tests.
+  "pattern": ".",
+  "action": [
+    "download_from_google_storage",
+    "--no_auth",
+    "--no_resume",
+    "--bucket",
+    "dart-dependencies",
+    "--extract",
+    "-s",
+    "src/dart/third_party/pkg/unittest.tar.gz.sha1",
   ],
 })

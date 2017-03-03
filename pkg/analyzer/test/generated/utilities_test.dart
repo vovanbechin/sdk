@@ -7,36 +7,38 @@ library analyzer.test.generated.utilities_test;
 import 'dart:collection';
 
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/standard_ast_factory.dart';
 import 'package:analyzer/dart/ast/token.dart';
+import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/src/dart/ast/token.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
 import 'package:analyzer/src/dart/scanner/reader.dart';
 import 'package:analyzer/src/dart/scanner/scanner.dart';
-import 'package:analyzer/src/generated/java_core.dart';
 import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/parser.dart';
 import 'package:analyzer/src/generated/source.dart';
-import 'package:analyzer/src/generated/testing/ast_factory.dart';
+import 'package:analyzer/src/generated/testing/ast_test_factory.dart';
 import 'package:analyzer/src/generated/testing/token_factory.dart';
 import 'package:analyzer/src/generated/utilities_collection.dart';
-import 'package:unittest/unittest.dart';
+import 'package:test/test.dart';
+import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import '../reflective_tests.dart';
-import '../utils.dart';
 import 'test_support.dart';
 
 main() {
-  initializeTestEnvironment();
-  runReflectiveTests(AstClonerTest);
-  runReflectiveTests(NodeReplacerTest);
-  runReflectiveTests(LineInfoTest);
-  runReflectiveTests(SourceRangeTest);
-  runReflectiveTests(BooleanArrayTest);
-  runReflectiveTests(DirectedGraphTest);
-  runReflectiveTests(MultipleMapIteratorTest);
-  runReflectiveTests(SingleMapIteratorTest);
-  runReflectiveTests(TokenMapTest);
-  runReflectiveTests(StringUtilitiesTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(AstClonerTest);
+    defineReflectiveTests(BooleanArrayTest);
+    defineReflectiveTests(DirectedGraphTest);
+    defineReflectiveTests(ExceptionHandlingDelegatingAstVisitorTest);
+    defineReflectiveTests(LineInfoTest);
+    defineReflectiveTests(MultipleMapIteratorTest);
+    defineReflectiveTests(NodeReplacerTest);
+    defineReflectiveTests(SingleMapIteratorTest);
+    defineReflectiveTests(SourceRangeTest);
+    defineReflectiveTests(StringUtilitiesTest);
+    defineReflectiveTests(TokenMapTest);
+  });
 }
 
 class AstCloneComparator extends AstComparator {
@@ -59,6 +61,12 @@ class AstCloneComparator extends AstComparator {
       fail('Failed to copy token: ${first.lexeme} (${first.offset})');
       return false;
     }
+    if (first is TokenWithComment) {
+      CommentToken comment = first.precedingComments;
+      if (comment.parent != first) {
+        fail('Failed to link the comment "$comment" with the token "$first".');
+      }
+    }
     return super.isEqualTokens(first, second);
   }
 }
@@ -75,6 +83,13 @@ class AstClonerTest extends EngineTestCase {
 
   void test_visitAnnotation_constructor() {
     _assertCloneUnitMember('@A.c() main() {}');
+  }
+
+  void test_visitAnnotation_withComment() {
+    CompilationUnitMember clazz =
+        _parseUnitMember('/** comment */ @deprecated class A {}');
+    Annotation annotation = clazz.metadata.single;
+    _assertClone(annotation);
   }
 
   void test_visitArgumentList() {
@@ -1442,12 +1457,7 @@ class DirectedGraphTest extends EngineTestCase {
   void test_findCycleContaining_null() {
     DirectedGraph<DirectedGraphTest_Node> graph =
         new DirectedGraph<DirectedGraphTest_Node>();
-    try {
-      graph.findCycleContaining(null);
-      fail("Expected IllegalArgumentException");
-    } on IllegalArgumentException {
-      // Expected
-    }
+    expect(() => graph.findCycleContaining(null), throwsArgumentError);
   }
 
   void test_findCycleContaining_singleton() {
@@ -1587,887 +1597,936 @@ class DirectedGraphTest extends EngineTestCase {
  */
 class DirectedGraphTest_Node {}
 
+@reflectiveTest
+class ExceptionHandlingDelegatingAstVisitorTest extends EngineTestCase {
+  void test_handlerIsCalled() {
+    AstVisitor exceptionThrowingVisitor = new _ExceptionThrowingVisitor();
+    bool handlerInvoked = false;
+    AstVisitor visitor = new ExceptionHandlingDelegatingAstVisitor(
+        [exceptionThrowingVisitor], (AstNode node, AstVisitor visitor,
+            dynamic exception, StackTrace stackTrace) {
+      handlerInvoked = true;
+    });
+    astFactory.nullLiteral(null).accept(visitor);
+    expect(handlerInvoked, isTrue);
+  }
+}
+
 class Getter_NodeReplacerTest_test_annotation
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<Annotation, ArgumentList> {
   @override
   ArgumentList get(Annotation node) => node.arguments;
 }
 
 class Getter_NodeReplacerTest_test_annotation_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<Annotation, Identifier> {
   @override
   Identifier get(Annotation node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_annotation_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<Annotation, SimpleIdentifier> {
   @override
   SimpleIdentifier get(Annotation node) => node.constructorName;
 }
 
 class Getter_NodeReplacerTest_test_asExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<AsExpression, TypeAnnotation> {
   @override
-  TypeName get(AsExpression node) => node.type;
+  TypeAnnotation get(AsExpression node) => node.type;
 }
 
 class Getter_NodeReplacerTest_test_asExpression_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<AsExpression, Expression> {
   @override
   Expression get(AsExpression node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_assertStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<AssertStatement, Expression> {
   @override
   Expression get(AssertStatement node) => node.condition;
 }
 
 class Getter_NodeReplacerTest_test_assertStatement_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<AssertStatement, Expression> {
   @override
   Expression get(AssertStatement node) => node.message;
 }
 
 class Getter_NodeReplacerTest_test_assignmentExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<AssignmentExpression, Expression> {
   @override
   Expression get(AssignmentExpression node) => node.rightHandSide;
 }
 
 class Getter_NodeReplacerTest_test_assignmentExpression_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<AssignmentExpression, Expression> {
   @override
   Expression get(AssignmentExpression node) => node.leftHandSide;
 }
 
 class Getter_NodeReplacerTest_test_awaitExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<AwaitExpression, Expression> {
   @override
   Expression get(AwaitExpression node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_binaryExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<BinaryExpression, Expression> {
   @override
   Expression get(BinaryExpression node) => node.leftOperand;
 }
 
 class Getter_NodeReplacerTest_test_binaryExpression_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<BinaryExpression, Expression> {
   @override
   Expression get(BinaryExpression node) => node.rightOperand;
 }
 
 class Getter_NodeReplacerTest_test_blockFunctionBody
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<BlockFunctionBody, Block> {
   @override
   Block get(BlockFunctionBody node) => node.block;
 }
 
 class Getter_NodeReplacerTest_test_breakStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<BreakStatement, SimpleIdentifier> {
   @override
   SimpleIdentifier get(BreakStatement node) => node.label;
 }
 
 class Getter_NodeReplacerTest_test_cascadeExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<CascadeExpression, Expression> {
   @override
   Expression get(CascadeExpression node) => node.target;
 }
 
 class Getter_NodeReplacerTest_test_catchClause
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<CatchClause, SimpleIdentifier> {
   @override
   SimpleIdentifier get(CatchClause node) => node.stackTraceParameter;
 }
 
 class Getter_NodeReplacerTest_test_catchClause_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<CatchClause, SimpleIdentifier> {
   @override
   SimpleIdentifier get(CatchClause node) => node.exceptionParameter;
 }
 
 class Getter_NodeReplacerTest_test_catchClause_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<CatchClause, TypeAnnotation> {
   @override
-  TypeName get(CatchClause node) => node.exceptionType;
+  TypeAnnotation get(CatchClause node) => node.exceptionType;
 }
 
 class Getter_NodeReplacerTest_test_classDeclaration
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassDeclaration, ImplementsClause> {
   @override
   ImplementsClause get(ClassDeclaration node) => node.implementsClause;
 }
 
 class Getter_NodeReplacerTest_test_classDeclaration_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassDeclaration, WithClause> {
   @override
   WithClause get(ClassDeclaration node) => node.withClause;
 }
 
 class Getter_NodeReplacerTest_test_classDeclaration_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassDeclaration, NativeClause> {
   @override
   NativeClause get(ClassDeclaration node) => node.nativeClause;
 }
 
 class Getter_NodeReplacerTest_test_classDeclaration_4
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassDeclaration, ExtendsClause> {
   @override
   ExtendsClause get(ClassDeclaration node) => node.extendsClause;
 }
 
 class Getter_NodeReplacerTest_test_classDeclaration_5
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassDeclaration, TypeParameterList> {
   @override
   TypeParameterList get(ClassDeclaration node) => node.typeParameters;
 }
 
 class Getter_NodeReplacerTest_test_classDeclaration_6
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassDeclaration, SimpleIdentifier> {
   @override
   SimpleIdentifier get(ClassDeclaration node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_classTypeAlias
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassTypeAlias, TypeName> {
   @override
   TypeName get(ClassTypeAlias node) => node.superclass;
 }
 
 class Getter_NodeReplacerTest_test_classTypeAlias_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassTypeAlias, ImplementsClause> {
   @override
   ImplementsClause get(ClassTypeAlias node) => node.implementsClause;
 }
 
 class Getter_NodeReplacerTest_test_classTypeAlias_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassTypeAlias, WithClause> {
   @override
   WithClause get(ClassTypeAlias node) => node.withClause;
 }
 
 class Getter_NodeReplacerTest_test_classTypeAlias_4
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassTypeAlias, SimpleIdentifier> {
   @override
   SimpleIdentifier get(ClassTypeAlias node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_classTypeAlias_5
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ClassTypeAlias, TypeParameterList> {
   @override
   TypeParameterList get(ClassTypeAlias node) => node.typeParameters;
 }
 
 class Getter_NodeReplacerTest_test_commentReference
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<CommentReference, Identifier> {
   @override
   Identifier get(CommentReference node) => node.identifier;
 }
 
 class Getter_NodeReplacerTest_test_compilationUnit
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<CompilationUnit, ScriptTag> {
   @override
   ScriptTag get(CompilationUnit node) => node.scriptTag;
 }
 
 class Getter_NodeReplacerTest_test_conditionalExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ConditionalExpression, Expression> {
   @override
   Expression get(ConditionalExpression node) => node.elseExpression;
 }
 
 class Getter_NodeReplacerTest_test_conditionalExpression_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ConditionalExpression, Expression> {
   @override
   Expression get(ConditionalExpression node) => node.thenExpression;
 }
 
 class Getter_NodeReplacerTest_test_conditionalExpression_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ConditionalExpression, Expression> {
   @override
   Expression get(ConditionalExpression node) => node.condition;
 }
 
 class Getter_NodeReplacerTest_test_constructorDeclaration
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<ConstructorDeclaration, ConstructorName> {
   @override
   ConstructorName get(ConstructorDeclaration node) =>
       node.redirectedConstructor;
 }
 
 class Getter_NodeReplacerTest_test_constructorDeclaration_2
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<ConstructorDeclaration, SimpleIdentifier> {
   @override
   SimpleIdentifier get(ConstructorDeclaration node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_constructorDeclaration_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ConstructorDeclaration, Identifier> {
   @override
   Identifier get(ConstructorDeclaration node) => node.returnType;
 }
 
 class Getter_NodeReplacerTest_test_constructorDeclaration_4
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<ConstructorDeclaration, FormalParameterList> {
   @override
   FormalParameterList get(ConstructorDeclaration node) => node.parameters;
 }
 
 class Getter_NodeReplacerTest_test_constructorDeclaration_5
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ConstructorDeclaration, FunctionBody> {
   @override
   FunctionBody get(ConstructorDeclaration node) => node.body;
 }
 
 class Getter_NodeReplacerTest_test_constructorFieldInitializer
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<ConstructorFieldInitializer, SimpleIdentifier> {
   @override
   SimpleIdentifier get(ConstructorFieldInitializer node) => node.fieldName;
 }
 
 class Getter_NodeReplacerTest_test_constructorFieldInitializer_2
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<ConstructorFieldInitializer, Expression> {
   @override
   Expression get(ConstructorFieldInitializer node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_constructorName
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ConstructorName, TypeName> {
   @override
   TypeName get(ConstructorName node) => node.type;
 }
 
 class Getter_NodeReplacerTest_test_constructorName_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ConstructorName, SimpleIdentifier> {
   @override
   SimpleIdentifier get(ConstructorName node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_continueStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ContinueStatement, SimpleIdentifier> {
   @override
   SimpleIdentifier get(ContinueStatement node) => node.label;
 }
 
 class Getter_NodeReplacerTest_test_declaredIdentifier
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<DeclaredIdentifier, TypeAnnotation> {
   @override
-  TypeName get(DeclaredIdentifier node) => node.type;
+  TypeAnnotation get(DeclaredIdentifier node) => node.type;
 }
 
 class Getter_NodeReplacerTest_test_declaredIdentifier_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<DeclaredIdentifier, SimpleIdentifier> {
   @override
   SimpleIdentifier get(DeclaredIdentifier node) => node.identifier;
 }
 
 class Getter_NodeReplacerTest_test_defaultFormalParameter
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<DefaultFormalParameter, NormalFormalParameter> {
   @override
   NormalFormalParameter get(DefaultFormalParameter node) => node.parameter;
 }
 
 class Getter_NodeReplacerTest_test_defaultFormalParameter_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<DefaultFormalParameter, Expression> {
   @override
   Expression get(DefaultFormalParameter node) => node.defaultValue;
 }
 
 class Getter_NodeReplacerTest_test_doStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<DoStatement, Expression> {
   @override
   Expression get(DoStatement node) => node.condition;
 }
 
 class Getter_NodeReplacerTest_test_doStatement_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<DoStatement, Statement> {
   @override
   Statement get(DoStatement node) => node.body;
 }
 
 class Getter_NodeReplacerTest_test_enumConstantDeclaration
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<EnumConstantDeclaration, SimpleIdentifier> {
   @override
   SimpleIdentifier get(EnumConstantDeclaration node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_enumDeclaration
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<EnumDeclaration, SimpleIdentifier> {
   @override
   SimpleIdentifier get(EnumDeclaration node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_expressionFunctionBody
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ExpressionFunctionBody, Expression> {
   @override
   Expression get(ExpressionFunctionBody node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_expressionStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ExpressionStatement, Expression> {
   @override
   Expression get(ExpressionStatement node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_extendsClause
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ExtendsClause, TypeName> {
   @override
   TypeName get(ExtendsClause node) => node.superclass;
 }
 
 class Getter_NodeReplacerTest_test_fieldDeclaration
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<FieldDeclaration, VariableDeclarationList> {
   @override
   VariableDeclarationList get(FieldDeclaration node) => node.fields;
 }
 
 class Getter_NodeReplacerTest_test_fieldFormalParameter
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<FieldFormalParameter, FormalParameterList> {
   @override
   FormalParameterList get(FieldFormalParameter node) => node.parameters;
 }
 
 class Getter_NodeReplacerTest_test_fieldFormalParameter_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<FieldFormalParameter, TypeAnnotation> {
   @override
-  TypeName get(FieldFormalParameter node) => node.type;
+  TypeAnnotation get(FieldFormalParameter node) => node.type;
 }
 
 class Getter_NodeReplacerTest_test_forEachStatement_withIdentifier
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForEachStatement, Statement> {
   @override
   Statement get(ForEachStatement node) => node.body;
 }
 
 class Getter_NodeReplacerTest_test_forEachStatement_withIdentifier_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForEachStatement, SimpleIdentifier> {
   @override
   SimpleIdentifier get(ForEachStatement node) => node.identifier;
 }
 
 class Getter_NodeReplacerTest_test_forEachStatement_withIdentifier_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForEachStatement, Expression> {
   @override
   Expression get(ForEachStatement node) => node.iterable;
 }
 
 class Getter_NodeReplacerTest_test_forEachStatement_withLoopVariable
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForEachStatement, Expression> {
   @override
   Expression get(ForEachStatement node) => node.iterable;
 }
 
 class Getter_NodeReplacerTest_test_forEachStatement_withLoopVariable_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForEachStatement, DeclaredIdentifier> {
   @override
   DeclaredIdentifier get(ForEachStatement node) => node.loopVariable;
 }
 
 class Getter_NodeReplacerTest_test_forEachStatement_withLoopVariable_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForEachStatement, Statement> {
   @override
   Statement get(ForEachStatement node) => node.body;
 }
 
 class Getter_NodeReplacerTest_test_forStatement_withInitialization
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForStatement, Statement> {
   @override
   Statement get(ForStatement node) => node.body;
 }
 
 class Getter_NodeReplacerTest_test_forStatement_withInitialization_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForStatement, Expression> {
   @override
   Expression get(ForStatement node) => node.condition;
 }
 
 class Getter_NodeReplacerTest_test_forStatement_withInitialization_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForStatement, Expression> {
   @override
   Expression get(ForStatement node) => node.initialization;
 }
 
 class Getter_NodeReplacerTest_test_forStatement_withVariables
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForStatement, Statement> {
   @override
   Statement get(ForStatement node) => node.body;
 }
 
 class Getter_NodeReplacerTest_test_forStatement_withVariables_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForStatement, VariableDeclarationList> {
   @override
   VariableDeclarationList get(ForStatement node) => node.variables;
 }
 
 class Getter_NodeReplacerTest_test_forStatement_withVariables_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ForStatement, Expression> {
   @override
   Expression get(ForStatement node) => node.condition;
 }
 
 class Getter_NodeReplacerTest_test_functionDeclaration
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<FunctionDeclaration, TypeAnnotation> {
   @override
-  TypeName get(FunctionDeclaration node) => node.returnType;
+  TypeAnnotation get(FunctionDeclaration node) => node.returnType;
 }
 
 class Getter_NodeReplacerTest_test_functionDeclaration_2
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<FunctionDeclaration, FunctionExpression> {
   @override
   FunctionExpression get(FunctionDeclaration node) => node.functionExpression;
 }
 
 class Getter_NodeReplacerTest_test_functionDeclaration_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<FunctionDeclaration, SimpleIdentifier> {
   @override
   SimpleIdentifier get(FunctionDeclaration node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_functionDeclarationStatement
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<FunctionDeclarationStatement,
+            FunctionDeclaration> {
   @override
   FunctionDeclaration get(FunctionDeclarationStatement node) =>
       node.functionDeclaration;
 }
 
 class Getter_NodeReplacerTest_test_functionExpression
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<FunctionExpression, FormalParameterList> {
   @override
   FormalParameterList get(FunctionExpression node) => node.parameters;
 }
 
 class Getter_NodeReplacerTest_test_functionExpression_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<FunctionExpression, FunctionBody> {
   @override
   FunctionBody get(FunctionExpression node) => node.body;
 }
 
 class Getter_NodeReplacerTest_test_functionExpressionInvocation
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<FunctionExpressionInvocation, Expression> {
   @override
   Expression get(FunctionExpressionInvocation node) => node.function;
 }
 
 class Getter_NodeReplacerTest_test_functionExpressionInvocation_2
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<FunctionExpressionInvocation, ArgumentList> {
   @override
   ArgumentList get(FunctionExpressionInvocation node) => node.argumentList;
 }
 
 class Getter_NodeReplacerTest_test_functionTypeAlias
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<FunctionTypeAlias, TypeParameterList> {
   @override
   TypeParameterList get(FunctionTypeAlias node) => node.typeParameters;
 }
 
 class Getter_NodeReplacerTest_test_functionTypeAlias_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<FunctionTypeAlias, FormalParameterList> {
   @override
   FormalParameterList get(FunctionTypeAlias node) => node.parameters;
 }
 
 class Getter_NodeReplacerTest_test_functionTypeAlias_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<FunctionTypeAlias, TypeAnnotation> {
   @override
-  TypeName get(FunctionTypeAlias node) => node.returnType;
+  TypeAnnotation get(FunctionTypeAlias node) => node.returnType;
 }
 
 class Getter_NodeReplacerTest_test_functionTypeAlias_4
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<FunctionTypeAlias, SimpleIdentifier> {
   @override
   SimpleIdentifier get(FunctionTypeAlias node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_functionTypedFormalParameter
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<FunctionTypedFormalParameter, TypeAnnotation> {
   @override
-  TypeName get(FunctionTypedFormalParameter node) => node.returnType;
+  TypeAnnotation get(FunctionTypedFormalParameter node) => node.returnType;
 }
 
 class Getter_NodeReplacerTest_test_functionTypedFormalParameter_2
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<FunctionTypedFormalParameter,
+            FormalParameterList> {
   @override
   FormalParameterList get(FunctionTypedFormalParameter node) => node.parameters;
 }
 
 class Getter_NodeReplacerTest_test_ifStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<IfStatement, Expression> {
   @override
   Expression get(IfStatement node) => node.condition;
 }
 
 class Getter_NodeReplacerTest_test_ifStatement_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<IfStatement, Statement> {
   @override
   Statement get(IfStatement node) => node.elseStatement;
 }
 
 class Getter_NodeReplacerTest_test_ifStatement_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<IfStatement, Statement> {
   @override
   Statement get(IfStatement node) => node.thenStatement;
 }
 
 class Getter_NodeReplacerTest_test_importDirective
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ImportDirective, SimpleIdentifier> {
   @override
   SimpleIdentifier get(ImportDirective node) => node.prefix;
 }
 
 class Getter_NodeReplacerTest_test_indexExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<IndexExpression, Expression> {
   @override
   Expression get(IndexExpression node) => node.target;
 }
 
 class Getter_NodeReplacerTest_test_indexExpression_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<IndexExpression, Expression> {
   @override
   Expression get(IndexExpression node) => node.index;
 }
 
 class Getter_NodeReplacerTest_test_instanceCreationExpression
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<InstanceCreationExpression, ArgumentList> {
   @override
   ArgumentList get(InstanceCreationExpression node) => node.argumentList;
 }
 
 class Getter_NodeReplacerTest_test_instanceCreationExpression_2
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<InstanceCreationExpression, ConstructorName> {
   @override
   ConstructorName get(InstanceCreationExpression node) => node.constructorName;
 }
 
 class Getter_NodeReplacerTest_test_interpolationExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<InterpolationExpression, Expression> {
   @override
   Expression get(InterpolationExpression node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_isExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<IsExpression, Expression> {
   @override
   Expression get(IsExpression node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_isExpression_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<IsExpression, TypeAnnotation> {
   @override
-  TypeName get(IsExpression node) => node.type;
+  TypeAnnotation get(IsExpression node) => node.type;
 }
 
-class Getter_NodeReplacerTest_test_label implements NodeReplacerTest_Getter {
+class Getter_NodeReplacerTest_test_label
+    implements NodeReplacerTest_Getter<Label, SimpleIdentifier> {
   @override
   SimpleIdentifier get(Label node) => node.label;
 }
 
 class Getter_NodeReplacerTest_test_labeledStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<LabeledStatement, Statement> {
   @override
   Statement get(LabeledStatement node) => node.statement;
 }
 
 class Getter_NodeReplacerTest_test_libraryDirective
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<LibraryDirective, LibraryIdentifier> {
   @override
   LibraryIdentifier get(LibraryDirective node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_mapLiteralEntry
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<MapLiteralEntry, Expression> {
   @override
   Expression get(MapLiteralEntry node) => node.value;
 }
 
 class Getter_NodeReplacerTest_test_mapLiteralEntry_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<MapLiteralEntry, Expression> {
   @override
   Expression get(MapLiteralEntry node) => node.key;
 }
 
 class Getter_NodeReplacerTest_test_methodDeclaration
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<MethodDeclaration, TypeAnnotation> {
   @override
-  TypeName get(MethodDeclaration node) => node.returnType;
+  TypeAnnotation get(MethodDeclaration node) => node.returnType;
 }
 
 class Getter_NodeReplacerTest_test_methodDeclaration_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<MethodDeclaration, FunctionBody> {
   @override
   FunctionBody get(MethodDeclaration node) => node.body;
 }
 
 class Getter_NodeReplacerTest_test_methodDeclaration_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<MethodDeclaration, SimpleIdentifier> {
   @override
   SimpleIdentifier get(MethodDeclaration node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_methodDeclaration_4
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<MethodDeclaration, FormalParameterList> {
   @override
   FormalParameterList get(MethodDeclaration node) => node.parameters;
 }
 
 class Getter_NodeReplacerTest_test_methodInvocation
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<MethodInvocation, ArgumentList> {
   @override
   ArgumentList get(MethodInvocation node) => node.argumentList;
 }
 
 class Getter_NodeReplacerTest_test_methodInvocation_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<MethodInvocation, Expression> {
   @override
   Expression get(MethodInvocation node) => node.target;
 }
 
 class Getter_NodeReplacerTest_test_methodInvocation_3
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<MethodInvocation, SimpleIdentifier> {
   @override
   SimpleIdentifier get(MethodInvocation node) => node.methodName;
 }
 
 class Getter_NodeReplacerTest_test_namedExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<NamedExpression, Label> {
   @override
   Label get(NamedExpression node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_namedExpression_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<NamedExpression, Expression> {
   @override
   Expression get(NamedExpression node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_nativeClause
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<NativeClause, StringLiteral> {
   @override
   StringLiteral get(NativeClause node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_nativeFunctionBody
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<NativeFunctionBody, StringLiteral> {
   @override
   StringLiteral get(NativeFunctionBody node) => node.stringLiteral;
 }
 
 class Getter_NodeReplacerTest_test_parenthesizedExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ParenthesizedExpression, Expression> {
   @override
   Expression get(ParenthesizedExpression node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_partOfDirective
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<PartOfDirective, LibraryIdentifier> {
   @override
   LibraryIdentifier get(PartOfDirective node) => node.libraryName;
 }
 
 class Getter_NodeReplacerTest_test_postfixExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<PostfixExpression, Expression> {
   @override
   Expression get(PostfixExpression node) => node.operand;
 }
 
 class Getter_NodeReplacerTest_test_prefixedIdentifier
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<PrefixedIdentifier, SimpleIdentifier> {
   @override
   SimpleIdentifier get(PrefixedIdentifier node) => node.identifier;
 }
 
 class Getter_NodeReplacerTest_test_prefixedIdentifier_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<PrefixedIdentifier, SimpleIdentifier> {
   @override
   SimpleIdentifier get(PrefixedIdentifier node) => node.prefix;
 }
 
 class Getter_NodeReplacerTest_test_prefixExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<PrefixExpression, Expression> {
   @override
   Expression get(PrefixExpression node) => node.operand;
 }
 
 class Getter_NodeReplacerTest_test_propertyAccess
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<PropertyAccess, Expression> {
   @override
   Expression get(PropertyAccess node) => node.target;
 }
 
 class Getter_NodeReplacerTest_test_propertyAccess_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<PropertyAccess, SimpleIdentifier> {
   @override
   SimpleIdentifier get(PropertyAccess node) => node.propertyName;
 }
 
 class Getter_NodeReplacerTest_test_redirectingConstructorInvocation
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<RedirectingConstructorInvocation,
+            SimpleIdentifier> {
   @override
   SimpleIdentifier get(RedirectingConstructorInvocation node) =>
       node.constructorName;
 }
 
 class Getter_NodeReplacerTest_test_redirectingConstructorInvocation_2
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<RedirectingConstructorInvocation,
+            ArgumentList> {
   @override
   ArgumentList get(RedirectingConstructorInvocation node) => node.argumentList;
 }
 
 class Getter_NodeReplacerTest_test_returnStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ReturnStatement, Expression> {
   @override
   Expression get(ReturnStatement node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_simpleFormalParameter
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<SimpleFormalParameter, TypeAnnotation> {
   @override
-  TypeName get(SimpleFormalParameter node) => node.type;
+  TypeAnnotation get(SimpleFormalParameter node) => node.type;
 }
 
 class Getter_NodeReplacerTest_test_superConstructorInvocation
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<SuperConstructorInvocation, SimpleIdentifier> {
   @override
   SimpleIdentifier get(SuperConstructorInvocation node) => node.constructorName;
 }
 
 class Getter_NodeReplacerTest_test_superConstructorInvocation_2
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<SuperConstructorInvocation, ArgumentList> {
   @override
   ArgumentList get(SuperConstructorInvocation node) => node.argumentList;
 }
 
 class Getter_NodeReplacerTest_test_switchCase
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<SwitchCase, Expression> {
   @override
   Expression get(SwitchCase node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_switchStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<SwitchStatement, Expression> {
   @override
   Expression get(SwitchStatement node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_throwExpression
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<ThrowExpression, Expression> {
   @override
   Expression get(ThrowExpression node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_test_topLevelVariableDeclaration
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<TopLevelVariableDeclaration,
+            VariableDeclarationList> {
   @override
   VariableDeclarationList get(TopLevelVariableDeclaration node) =>
       node.variables;
 }
 
 class Getter_NodeReplacerTest_test_tryStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<TryStatement, Block> {
   @override
   Block get(TryStatement node) => node.finallyBlock;
 }
 
 class Getter_NodeReplacerTest_test_tryStatement_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<TryStatement, Block> {
   @override
   Block get(TryStatement node) => node.body;
 }
 
-class Getter_NodeReplacerTest_test_typeName implements NodeReplacerTest_Getter {
+class Getter_NodeReplacerTest_test_typeName
+    implements NodeReplacerTest_Getter<TypeName, TypeArgumentList> {
   @override
   TypeArgumentList get(TypeName node) => node.typeArguments;
 }
 
 class Getter_NodeReplacerTest_test_typeName_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<TypeName, Identifier> {
   @override
   Identifier get(TypeName node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_typeParameter
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<TypeParameter, TypeAnnotation> {
   @override
-  TypeName get(TypeParameter node) => node.bound;
+  TypeAnnotation get(TypeParameter node) => node.bound;
 }
 
 class Getter_NodeReplacerTest_test_typeParameter_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<TypeParameter, SimpleIdentifier> {
   @override
   SimpleIdentifier get(TypeParameter node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_variableDeclaration
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<VariableDeclaration, SimpleIdentifier> {
   @override
   SimpleIdentifier get(VariableDeclaration node) => node.name;
 }
 
 class Getter_NodeReplacerTest_test_variableDeclaration_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<VariableDeclaration, Expression> {
   @override
   Expression get(VariableDeclaration node) => node.initializer;
 }
 
 class Getter_NodeReplacerTest_test_variableDeclarationList
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<VariableDeclarationList, TypeAnnotation> {
   @override
-  TypeName get(VariableDeclarationList node) => node.type;
+  TypeAnnotation get(VariableDeclarationList node) => node.type;
 }
 
 class Getter_NodeReplacerTest_test_variableDeclarationStatement
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<VariableDeclarationStatement,
+            VariableDeclarationList> {
   @override
   VariableDeclarationList get(VariableDeclarationStatement node) =>
       node.variables;
 }
 
 class Getter_NodeReplacerTest_test_whileStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<WhileStatement, Expression> {
   @override
   Expression get(WhileStatement node) => node.condition;
 }
 
 class Getter_NodeReplacerTest_test_whileStatement_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<WhileStatement, Statement> {
   @override
   Statement get(WhileStatement node) => node.body;
 }
 
 class Getter_NodeReplacerTest_test_yieldStatement
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<YieldStatement, Expression> {
   @override
   Expression get(YieldStatement node) => node.expression;
 }
 
 class Getter_NodeReplacerTest_testAnnotatedNode
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<AnnotatedNode, Comment> {
   @override
   Comment get(AnnotatedNode node) => node.documentationComment;
 }
 
 class Getter_NodeReplacerTest_testNormalFormalParameter
-    implements NodeReplacerTest_Getter {
+    implements
+        NodeReplacerTest_Getter<NormalFormalParameter, SimpleIdentifier> {
   @override
   SimpleIdentifier get(NormalFormalParameter node) => node.identifier;
 }
 
 class Getter_NodeReplacerTest_testNormalFormalParameter_2
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<NormalFormalParameter, Comment> {
   @override
   Comment get(NormalFormalParameter node) => node.documentationComment;
 }
 
 class Getter_NodeReplacerTest_testTypedLiteral
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<TypedLiteral, TypeArgumentList> {
   @override
   TypeArgumentList get(TypedLiteral node) => node.typeArguments;
 }
 
 class Getter_NodeReplacerTest_testUriBasedDirective
-    implements NodeReplacerTest_Getter {
+    implements NodeReplacerTest_Getter<UriBasedDirective, StringLiteral> {
   @override
   StringLiteral get(UriBasedDirective node) => node.uri;
 }
@@ -2479,21 +2538,15 @@ class LineInfoTest {
   }
 
   void test_creation_empty() {
-    try {
+    expect(() {
       new LineInfo(<int>[]);
-      fail("Expected IllegalArgumentException");
-    } on IllegalArgumentException {
-      // Expected
-    }
+    }, throwsArgumentError);
   }
 
   void test_creation_null() {
-    try {
+    expect(() {
       new LineInfo(null);
-      fail("Expected IllegalArgumentException");
-    } on IllegalArgumentException {
-      // Expected
-    }
+    }, throwsArgumentError);
   }
 
   void test_firstLine() {
@@ -2713,11 +2766,11 @@ class ListGetter_NodeReplacerTest_test_tryStatement
 }
 
 class ListGetter_NodeReplacerTest_test_typeArgumentList
-    extends NodeReplacerTest_ListGetter<TypeArgumentList, TypeName> {
+    extends NodeReplacerTest_ListGetter<TypeArgumentList, TypeAnnotation> {
   ListGetter_NodeReplacerTest_test_typeArgumentList(int arg0) : super(arg0);
 
   @override
-  NodeList<TypeName> getList(TypeArgumentList node) => node.arguments;
+  NodeList<TypeAnnotation> getList(TypeArgumentList node) => node.arguments;
 }
 
 class ListGetter_NodeReplacerTest_test_typeParameterList
@@ -2854,24 +2907,11 @@ class MultipleMapIteratorTest extends EngineTestCase {
     Map<String, String> map = new HashMap<String, String>();
     MultipleMapIterator<String, String> iterator = _iterator(<Map>[map]);
     expect(iterator.moveNext(), isFalse);
-    try {
-      iterator.key;
-      fail("Expected NoSuchElementException");
-    } on NoSuchElementException {
-      // Expected
-    }
-    try {
-      iterator.value;
-      fail("Expected NoSuchElementException");
-    } on NoSuchElementException {
-      // Expected
-    }
-    try {
-      iterator.value = "x";
-      fail("Expected NoSuchElementException");
-    } on NoSuchElementException {
-      // Expected
-    }
+    expect(() => iterator.key, throwsStateError);
+    expect(() => iterator.value, throwsStateError);
+    expect(() {
+      iterator.value = 'x';
+    }, throwsStateError);
   }
 
   void test_singleMap_multiple() {
@@ -2914,8 +2954,8 @@ class NodeReplacerTest extends EngineTestCase {
   static const List<Token> EMPTY_TOKEN_LIST = const <Token>[];
 
   void test_adjacentStrings() {
-    AdjacentStrings node = AstFactory
-        .adjacentStrings([AstFactory.string2("a"), AstFactory.string2("b")]);
+    AdjacentStrings node = AstTestFactory.adjacentStrings(
+        [AstTestFactory.string2("a"), AstTestFactory.string2("b")]);
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_adjacentStrings_2(0));
     _assertReplace(
@@ -2923,39 +2963,42 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_annotation() {
-    Annotation node = AstFactory.annotation2(
-        AstFactory.identifier3("C"),
-        AstFactory.identifier3("c"),
-        AstFactory.argumentList([AstFactory.integer(0)]));
+    Annotation node = AstTestFactory.annotation2(
+        AstTestFactory.identifier3("C"),
+        AstTestFactory.identifier3("c"),
+        AstTestFactory.argumentList([AstTestFactory.integer(0)]));
     _assertReplace(node, new Getter_NodeReplacerTest_test_annotation());
     _assertReplace(node, new Getter_NodeReplacerTest_test_annotation_3());
     _assertReplace(node, new Getter_NodeReplacerTest_test_annotation_2());
   }
 
   void test_argumentList() {
-    ArgumentList node = AstFactory.argumentList([AstFactory.integer(0)]);
+    ArgumentList node =
+        AstTestFactory.argumentList([AstTestFactory.integer(0)]);
     _assertReplace(node, new ListGetter_NodeReplacerTest_test_argumentList(0));
   }
 
   void test_asExpression() {
-    AsExpression node = AstFactory.asExpression(
-        AstFactory.integer(0),
-        AstFactory.typeName3(
-            AstFactory.identifier3("a"), [AstFactory.typeName4("C")]));
+    AsExpression node = AstTestFactory.asExpression(
+        AstTestFactory.integer(0),
+        AstTestFactory.typeName3(
+            AstTestFactory.identifier3("a"), [AstTestFactory.typeName4("C")]));
     _assertReplace(node, new Getter_NodeReplacerTest_test_asExpression_2());
     _assertReplace(node, new Getter_NodeReplacerTest_test_asExpression());
   }
 
   void test_assertStatement() {
-    AssertStatement node = AstFactory.assertStatement(
-        AstFactory.booleanLiteral(true), AstFactory.string2('foo'));
+    AssertStatement node = AstTestFactory.assertStatement(
+        AstTestFactory.booleanLiteral(true), AstTestFactory.string2('foo'));
     _assertReplace(node, new Getter_NodeReplacerTest_test_assertStatement());
     _assertReplace(node, new Getter_NodeReplacerTest_test_assertStatement_2());
   }
 
   void test_assignmentExpression() {
-    AssignmentExpression node = AstFactory.assignmentExpression(
-        AstFactory.identifier3("l"), TokenType.EQ, AstFactory.identifier3("r"));
+    AssignmentExpression node = AstTestFactory.assignmentExpression(
+        AstTestFactory.identifier3("l"),
+        TokenType.EQ,
+        AstTestFactory.identifier3("r"));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_assignmentExpression_2());
     _assertReplace(
@@ -2963,65 +3006,70 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_awaitExpression() {
-    var node = AstFactory.awaitExpression(AstFactory.identifier3("A"));
+    var node = AstTestFactory.awaitExpression(AstTestFactory.identifier3("A"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_awaitExpression());
   }
 
   void test_binaryExpression() {
-    BinaryExpression node = AstFactory.binaryExpression(
-        AstFactory.identifier3("l"),
+    BinaryExpression node = AstTestFactory.binaryExpression(
+        AstTestFactory.identifier3("l"),
         TokenType.PLUS,
-        AstFactory.identifier3("r"));
+        AstTestFactory.identifier3("r"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_binaryExpression());
     _assertReplace(node, new Getter_NodeReplacerTest_test_binaryExpression_2());
   }
 
   void test_block() {
-    Block node = AstFactory.block([AstFactory.emptyStatement()]);
+    Block node = AstTestFactory.block([AstTestFactory.emptyStatement()]);
     _assertReplace(node, new ListGetter_NodeReplacerTest_test_block(0));
   }
 
   void test_blockFunctionBody() {
-    BlockFunctionBody node = AstFactory.blockFunctionBody(AstFactory.block());
+    BlockFunctionBody node =
+        AstTestFactory.blockFunctionBody(AstTestFactory.block());
     _assertReplace(node, new Getter_NodeReplacerTest_test_blockFunctionBody());
   }
 
   void test_breakStatement() {
-    BreakStatement node = AstFactory.breakStatement2("l");
+    BreakStatement node = AstTestFactory.breakStatement2("l");
     _assertReplace(node, new Getter_NodeReplacerTest_test_breakStatement());
   }
 
   void test_cascadeExpression() {
-    CascadeExpression node = AstFactory.cascadeExpression(AstFactory.integer(0),
-        [AstFactory.propertyAccess(null, AstFactory.identifier3("b"))]);
+    CascadeExpression node = AstTestFactory.cascadeExpression(
+        AstTestFactory.integer(0),
+        [AstTestFactory.propertyAccess(null, AstTestFactory.identifier3("b"))]);
     _assertReplace(node, new Getter_NodeReplacerTest_test_cascadeExpression());
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_cascadeExpression(0));
   }
 
   void test_catchClause() {
-    CatchClause node = AstFactory.catchClause5(
-        AstFactory.typeName4("E"), "e", "s", [AstFactory.emptyStatement()]);
+    CatchClause node = AstTestFactory.catchClause5(
+        AstTestFactory.typeName4("E"),
+        "e",
+        "s",
+        [AstTestFactory.emptyStatement()]);
     _assertReplace(node, new Getter_NodeReplacerTest_test_catchClause_3());
     _assertReplace(node, new Getter_NodeReplacerTest_test_catchClause_2());
     _assertReplace(node, new Getter_NodeReplacerTest_test_catchClause());
   }
 
   void test_classDeclaration() {
-    ClassDeclaration node = AstFactory.classDeclaration(
+    ClassDeclaration node = AstTestFactory.classDeclaration(
         null,
         "A",
-        AstFactory.typeParameterList(["E"]),
-        AstFactory.extendsClause(AstFactory.typeName4("B")),
-        AstFactory.withClause([AstFactory.typeName4("C")]),
-        AstFactory.implementsClause([AstFactory.typeName4("D")]), [
-      AstFactory
-          .fieldDeclaration2(false, null, [AstFactory.variableDeclaration("f")])
+        AstTestFactory.typeParameterList(["E"]),
+        AstTestFactory.extendsClause(AstTestFactory.typeName4("B")),
+        AstTestFactory.withClause([AstTestFactory.typeName4("C")]),
+        AstTestFactory.implementsClause([AstTestFactory.typeName4("D")]), [
+      AstTestFactory.fieldDeclaration2(
+          false, null, [AstTestFactory.variableDeclaration("f")])
     ]);
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
-    node.nativeClause = AstFactory.nativeClause("");
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
+    node.nativeClause = AstTestFactory.nativeClause("");
     _assertReplace(node, new Getter_NodeReplacerTest_test_classDeclaration_6());
     _assertReplace(node, new Getter_NodeReplacerTest_test_classDeclaration_5());
     _assertReplace(node, new Getter_NodeReplacerTest_test_classDeclaration_4());
@@ -3034,16 +3082,16 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_classTypeAlias() {
-    ClassTypeAlias node = AstFactory.classTypeAlias(
+    ClassTypeAlias node = AstTestFactory.classTypeAlias(
         "A",
-        AstFactory.typeParameterList(["E"]),
+        AstTestFactory.typeParameterList(["E"]),
         null,
-        AstFactory.typeName4("B"),
-        AstFactory.withClause([AstFactory.typeName4("C")]),
-        AstFactory.implementsClause([AstFactory.typeName4("D")]));
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+        AstTestFactory.typeName4("B"),
+        AstTestFactory.withClause([AstTestFactory.typeName4("C")]),
+        AstTestFactory.implementsClause([AstTestFactory.typeName4("D")]));
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(node, new Getter_NodeReplacerTest_test_classTypeAlias_4());
     _assertReplace(node, new Getter_NodeReplacerTest_test_classTypeAlias_5());
     _assertReplace(node, new Getter_NodeReplacerTest_test_classTypeAlias());
@@ -3053,24 +3101,24 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_comment() {
-    Comment node = Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.references
-        .add(new CommentReference(null, AstFactory.identifier3("x")));
+    Comment node = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.references.add(
+        astFactory.commentReference(null, AstTestFactory.identifier3("x")));
     _assertReplace(node, new ListGetter_NodeReplacerTest_test_comment(0));
   }
 
   void test_commentReference() {
     CommentReference node =
-        new CommentReference(null, AstFactory.identifier3("x"));
+        astFactory.commentReference(null, AstTestFactory.identifier3("x"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_commentReference());
   }
 
   void test_compilationUnit() {
-    CompilationUnit node = AstFactory.compilationUnit8("", [
-      AstFactory.libraryDirective2("lib")
+    CompilationUnit node = AstTestFactory.compilationUnit8("", [
+      AstTestFactory.libraryDirective2("lib")
     ], [
-      AstFactory.topLevelVariableDeclaration2(
-          null, [AstFactory.variableDeclaration("X")])
+      AstTestFactory.topLevelVariableDeclaration2(
+          null, [AstTestFactory.variableDeclaration("X")])
     ]);
     _assertReplace(node, new Getter_NodeReplacerTest_test_compilationUnit());
     _assertReplace(
@@ -3080,10 +3128,10 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_conditionalExpression() {
-    ConditionalExpression node = AstFactory.conditionalExpression(
-        AstFactory.booleanLiteral(true),
-        AstFactory.integer(0),
-        AstFactory.integer(1));
+    ConditionalExpression node = AstTestFactory.conditionalExpression(
+        AstTestFactory.booleanLiteral(true),
+        AstTestFactory.integer(0),
+        AstTestFactory.integer(1));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_conditionalExpression_3());
     _assertReplace(
@@ -3093,22 +3141,22 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_constructorDeclaration() {
-    ConstructorDeclaration node = AstFactory.constructorDeclaration2(
+    ConstructorDeclaration node = AstTestFactory.constructorDeclaration2(
         null,
         null,
-        AstFactory.identifier3("C"),
+        AstTestFactory.identifier3("C"),
         "d",
-        AstFactory.formalParameterList(),
+        AstTestFactory.formalParameterList(),
         [
-          AstFactory.constructorFieldInitializer(
-              false, "x", AstFactory.integer(0))
+          AstTestFactory.constructorFieldInitializer(
+              false, "x", AstTestFactory.integer(0))
         ],
-        AstFactory.emptyFunctionBody());
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+        AstTestFactory.emptyFunctionBody());
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     node.redirectedConstructor =
-        AstFactory.constructorName(AstFactory.typeName4("B"), "a");
+        AstTestFactory.constructorName(AstTestFactory.typeName4("B"), "a");
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_constructorDeclaration_3());
     _assertReplace(
@@ -3125,8 +3173,8 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_constructorFieldInitializer() {
-    ConstructorFieldInitializer node = AstFactory.constructorFieldInitializer(
-        false, "f", AstFactory.integer(0));
+    ConstructorFieldInitializer node = AstTestFactory
+        .constructorFieldInitializer(false, "f", AstTestFactory.integer(0));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_constructorFieldInitializer());
     _assertReplace(
@@ -3135,22 +3183,22 @@ class NodeReplacerTest extends EngineTestCase {
 
   void test_constructorName() {
     ConstructorName node =
-        AstFactory.constructorName(AstFactory.typeName4("C"), "n");
+        AstTestFactory.constructorName(AstTestFactory.typeName4("C"), "n");
     _assertReplace(node, new Getter_NodeReplacerTest_test_constructorName());
     _assertReplace(node, new Getter_NodeReplacerTest_test_constructorName_2());
   }
 
   void test_continueStatement() {
-    ContinueStatement node = AstFactory.continueStatement("l");
+    ContinueStatement node = AstTestFactory.continueStatement("l");
     _assertReplace(node, new Getter_NodeReplacerTest_test_continueStatement());
   }
 
   void test_declaredIdentifier() {
     DeclaredIdentifier node =
-        AstFactory.declaredIdentifier4(AstFactory.typeName4("C"), "i");
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+        AstTestFactory.declaredIdentifier4(AstTestFactory.typeName4("C"), "i");
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(node, new Getter_NodeReplacerTest_test_declaredIdentifier());
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_declaredIdentifier_2());
@@ -3158,8 +3206,8 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_defaultFormalParameter() {
-    DefaultFormalParameter node = AstFactory.positionalFormalParameter(
-        AstFactory.simpleFormalParameter3("p"), AstFactory.integer(0));
+    DefaultFormalParameter node = AstTestFactory.positionalFormalParameter(
+        AstTestFactory.simpleFormalParameter3("p"), AstTestFactory.integer(0));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_defaultFormalParameter());
     _assertReplace(
@@ -3167,76 +3215,84 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_doStatement() {
-    DoStatement node = AstFactory.doStatement(
-        AstFactory.block(), AstFactory.booleanLiteral(true));
+    DoStatement node = AstTestFactory.doStatement(
+        AstTestFactory.block(), AstTestFactory.booleanLiteral(true));
     _assertReplace(node, new Getter_NodeReplacerTest_test_doStatement_2());
     _assertReplace(node, new Getter_NodeReplacerTest_test_doStatement());
   }
 
   void test_enumConstantDeclaration() {
-    EnumConstantDeclaration node = new EnumConstantDeclaration(
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST),
-        [AstFactory.annotation(AstFactory.identifier3("a"))],
-        AstFactory.identifier3("C"));
+    EnumConstantDeclaration node = astFactory.enumConstantDeclaration(
+        astFactory.endOfLineComment(EMPTY_TOKEN_LIST),
+        [AstTestFactory.annotation(AstTestFactory.identifier3("a"))],
+        AstTestFactory.identifier3("C"));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_enumConstantDeclaration());
     _testAnnotatedNode(node);
   }
 
   void test_enumDeclaration() {
-    EnumDeclaration node = AstFactory.enumDeclaration2("E", ["ONE", "TWO"]);
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+    EnumDeclaration node = AstTestFactory.enumDeclaration2("E", ["ONE", "TWO"]);
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(node, new Getter_NodeReplacerTest_test_enumDeclaration());
     _testAnnotatedNode(node);
   }
 
   void test_exportDirective() {
-    ExportDirective node = AstFactory.exportDirective2("", [
-      AstFactory.hideCombinator2(["C"])
+    ExportDirective node = AstTestFactory.exportDirective2("", [
+      AstTestFactory.hideCombinator2(["C"])
     ]);
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _testNamespaceDirective(node);
   }
 
   void test_expressionFunctionBody() {
     ExpressionFunctionBody node =
-        AstFactory.expressionFunctionBody(AstFactory.integer(0));
+        AstTestFactory.expressionFunctionBody(AstTestFactory.integer(0));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_expressionFunctionBody());
   }
 
   void test_expressionStatement() {
     ExpressionStatement node =
-        AstFactory.expressionStatement(AstFactory.integer(0));
+        AstTestFactory.expressionStatement(AstTestFactory.integer(0));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_expressionStatement());
   }
 
   void test_extendsClause() {
-    ExtendsClause node = AstFactory.extendsClause(AstFactory.typeName4("S"));
+    ExtendsClause node =
+        AstTestFactory.extendsClause(AstTestFactory.typeName4("S"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_extendsClause());
   }
 
   void test_fieldDeclaration() {
-    FieldDeclaration node = AstFactory.fieldDeclaration(false, null,
-        AstFactory.typeName4("C"), [AstFactory.variableDeclaration("c")]);
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+    FieldDeclaration node = AstTestFactory.fieldDeclaration(
+        false,
+        null,
+        AstTestFactory.typeName4("C"),
+        [AstTestFactory.variableDeclaration("c")]);
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(node, new Getter_NodeReplacerTest_test_fieldDeclaration());
     _testAnnotatedNode(node);
   }
 
   void test_fieldFormalParameter() {
-    FieldFormalParameter node = AstFactory.fieldFormalParameter(
-        null, AstFactory.typeName4("C"), "f", AstFactory.formalParameterList());
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata = [AstFactory.annotation(AstFactory.identifier3("a"))];
+    FieldFormalParameter node = AstTestFactory.fieldFormalParameter(
+        null,
+        AstTestFactory.typeName4("C"),
+        "f",
+        AstTestFactory.formalParameterList());
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata = [
+      AstTestFactory.annotation(AstTestFactory.identifier3("a"))
+    ];
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_fieldFormalParameter_2());
     _assertReplace(
@@ -3245,10 +3301,10 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_forEachStatement_withIdentifier() {
-    ForEachStatement node = AstFactory.forEachStatement2(
-        AstFactory.identifier3("i"),
-        AstFactory.identifier3("l"),
-        AstFactory.block());
+    ForEachStatement node = AstTestFactory.forEachStatement2(
+        AstTestFactory.identifier3("i"),
+        AstTestFactory.identifier3("l"),
+        AstTestFactory.block());
     _assertReplace(node,
         new Getter_NodeReplacerTest_test_forEachStatement_withIdentifier_2());
     _assertReplace(node,
@@ -3258,10 +3314,10 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_forEachStatement_withLoopVariable() {
-    ForEachStatement node = AstFactory.forEachStatement(
-        AstFactory.declaredIdentifier3("e"),
-        AstFactory.identifier3("l"),
-        AstFactory.block());
+    ForEachStatement node = AstTestFactory.forEachStatement(
+        AstTestFactory.declaredIdentifier3("e"),
+        AstTestFactory.identifier3("l"),
+        AstTestFactory.block());
     _assertReplace(node,
         new Getter_NodeReplacerTest_test_forEachStatement_withLoopVariable_2());
     _assertReplace(node,
@@ -3271,18 +3327,18 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_formalParameterList() {
-    FormalParameterList node = AstFactory
-        .formalParameterList([AstFactory.simpleFormalParameter3("p")]);
+    FormalParameterList node = AstTestFactory
+        .formalParameterList([AstTestFactory.simpleFormalParameter3("p")]);
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_formalParameterList(0));
   }
 
   void test_forStatement_withInitialization() {
-    ForStatement node = AstFactory.forStatement(
-        AstFactory.identifier3("a"),
-        AstFactory.booleanLiteral(true),
-        [AstFactory.integer(0)],
-        AstFactory.block());
+    ForStatement node = AstTestFactory.forStatement(
+        AstTestFactory.identifier3("a"),
+        AstTestFactory.booleanLiteral(true),
+        [AstTestFactory.integer(0)],
+        AstTestFactory.block());
     _assertReplace(node,
         new Getter_NodeReplacerTest_test_forStatement_withInitialization_3());
     _assertReplace(node,
@@ -3296,12 +3352,12 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_forStatement_withVariables() {
-    ForStatement node = AstFactory.forStatement2(
-        AstFactory.variableDeclarationList2(
-            null, [AstFactory.variableDeclaration("i")]),
-        AstFactory.booleanLiteral(true),
-        [AstFactory.integer(0)],
-        AstFactory.block());
+    ForStatement node = AstTestFactory.forStatement2(
+        AstTestFactory.variableDeclarationList2(
+            null, [AstTestFactory.variableDeclaration("i")]),
+        AstTestFactory.booleanLiteral(true),
+        [AstTestFactory.integer(0)],
+        AstTestFactory.block());
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_forStatement_withVariables_2());
     _assertReplace(
@@ -3313,15 +3369,15 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_functionDeclaration() {
-    FunctionDeclaration node = AstFactory.functionDeclaration(
-        AstFactory.typeName4("R"),
+    FunctionDeclaration node = AstTestFactory.functionDeclaration(
+        AstTestFactory.typeName4("R"),
         null,
         "f",
-        AstFactory.functionExpression2(AstFactory.formalParameterList(),
-            AstFactory.blockFunctionBody(AstFactory.block())));
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+        AstTestFactory.functionExpression2(AstTestFactory.formalParameterList(),
+            AstTestFactory.blockFunctionBody(AstTestFactory.block())));
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_functionDeclaration());
     _assertReplace(
@@ -3332,28 +3388,31 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_functionDeclarationStatement() {
-    FunctionDeclarationStatement node = AstFactory.functionDeclarationStatement(
-        AstFactory.typeName4("R"),
-        null,
-        "f",
-        AstFactory.functionExpression2(AstFactory.formalParameterList(),
-            AstFactory.blockFunctionBody(AstFactory.block())));
+    FunctionDeclarationStatement node =
+        AstTestFactory.functionDeclarationStatement(
+            AstTestFactory.typeName4("R"),
+            null,
+            "f",
+            AstTestFactory.functionExpression2(
+                AstTestFactory.formalParameterList(),
+                AstTestFactory.blockFunctionBody(AstTestFactory.block())));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_functionDeclarationStatement());
   }
 
   void test_functionExpression() {
-    FunctionExpression node = AstFactory.functionExpression2(
-        AstFactory.formalParameterList(),
-        AstFactory.blockFunctionBody(AstFactory.block()));
+    FunctionExpression node = AstTestFactory.functionExpression2(
+        AstTestFactory.formalParameterList(),
+        AstTestFactory.blockFunctionBody(AstTestFactory.block()));
     _assertReplace(node, new Getter_NodeReplacerTest_test_functionExpression());
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_functionExpression_2());
   }
 
   void test_functionExpressionInvocation() {
-    FunctionExpressionInvocation node = AstFactory.functionExpressionInvocation(
-        AstFactory.identifier3("f"), [AstFactory.integer(0)]);
+    FunctionExpressionInvocation node = AstTestFactory
+        .functionExpressionInvocation(
+            AstTestFactory.identifier3("f"), [AstTestFactory.integer(0)]);
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_functionExpressionInvocation());
     _assertReplace(node,
@@ -3361,14 +3420,14 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_functionTypeAlias() {
-    FunctionTypeAlias node = AstFactory.typeAlias(
-        AstFactory.typeName4("R"),
+    FunctionTypeAlias node = AstTestFactory.typeAlias(
+        AstTestFactory.typeName4("R"),
         "F",
-        AstFactory.typeParameterList(["E"]),
-        AstFactory.formalParameterList());
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+        AstTestFactory.typeParameterList(["E"]),
+        AstTestFactory.formalParameterList());
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_functionTypeAlias_3());
     _assertReplace(
@@ -3380,13 +3439,13 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_functionTypedFormalParameter() {
-    FunctionTypedFormalParameter node = AstFactory.functionTypedFormalParameter(
-        AstFactory.typeName4("R"),
-        "f",
-        [AstFactory.simpleFormalParameter3("p")]);
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata = [AstFactory.annotation(AstFactory.identifier3("a"))];
+    FunctionTypedFormalParameter node = AstTestFactory
+        .functionTypedFormalParameter(AstTestFactory.typeName4("R"), "f",
+            [AstTestFactory.simpleFormalParameter3("p")]);
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata = [
+      AstTestFactory.annotation(AstTestFactory.identifier3("a"))
+    ];
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_functionTypedFormalParameter());
     _assertReplace(node,
@@ -3395,48 +3454,51 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_hideCombinator() {
-    HideCombinator node = AstFactory.hideCombinator2(["A", "B"]);
+    HideCombinator node = AstTestFactory.hideCombinator2(["A", "B"]);
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_hideCombinator(0));
   }
 
   void test_ifStatement() {
-    IfStatement node = AstFactory.ifStatement2(AstFactory.booleanLiteral(true),
-        AstFactory.block(), AstFactory.block());
+    IfStatement node = AstTestFactory.ifStatement2(
+        AstTestFactory.booleanLiteral(true),
+        AstTestFactory.block(),
+        AstTestFactory.block());
     _assertReplace(node, new Getter_NodeReplacerTest_test_ifStatement());
     _assertReplace(node, new Getter_NodeReplacerTest_test_ifStatement_3());
     _assertReplace(node, new Getter_NodeReplacerTest_test_ifStatement_2());
   }
 
   void test_implementsClause() {
-    ImplementsClause node = AstFactory.implementsClause(
-        [AstFactory.typeName4("I"), AstFactory.typeName4("J")]);
+    ImplementsClause node = AstTestFactory.implementsClause(
+        [AstTestFactory.typeName4("I"), AstTestFactory.typeName4("J")]);
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_implementsClause(0));
   }
 
   void test_importDirective() {
-    ImportDirective node = AstFactory.importDirective3("", "p", [
-      AstFactory.showCombinator2(["A"]),
-      AstFactory.hideCombinator2(["B"])
+    ImportDirective node = AstTestFactory.importDirective3("", "p", [
+      AstTestFactory.showCombinator2(["A"]),
+      AstTestFactory.hideCombinator2(["B"])
     ]);
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(node, new Getter_NodeReplacerTest_test_importDirective());
     _testNamespaceDirective(node);
   }
 
   void test_indexExpression() {
-    IndexExpression node = AstFactory.indexExpression(
-        AstFactory.identifier3("a"), AstFactory.identifier3("i"));
+    IndexExpression node = AstTestFactory.indexExpression(
+        AstTestFactory.identifier3("a"), AstTestFactory.identifier3("i"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_indexExpression());
     _assertReplace(node, new Getter_NodeReplacerTest_test_indexExpression_2());
   }
 
   void test_instanceCreationExpression() {
-    InstanceCreationExpression node = AstFactory.instanceCreationExpression3(
-        null, AstFactory.typeName4("C"), "c", [AstFactory.integer(2)]);
+    InstanceCreationExpression node = AstTestFactory
+        .instanceCreationExpression3(null, AstTestFactory.typeName4("C"), "c",
+            [AstTestFactory.integer(2)]);
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_instanceCreationExpression_2());
     _assertReplace(
@@ -3444,83 +3506,83 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_interpolationExpression() {
-    InterpolationExpression node = AstFactory.interpolationExpression2("x");
+    InterpolationExpression node = AstTestFactory.interpolationExpression2("x");
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_interpolationExpression());
   }
 
   void test_isExpression() {
-    IsExpression node = AstFactory.isExpression(
-        AstFactory.identifier3("v"), false, AstFactory.typeName4("T"));
+    IsExpression node = AstTestFactory.isExpression(
+        AstTestFactory.identifier3("v"), false, AstTestFactory.typeName4("T"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_isExpression());
     _assertReplace(node, new Getter_NodeReplacerTest_test_isExpression_2());
   }
 
   void test_label() {
-    Label node = AstFactory.label2("l");
+    Label node = AstTestFactory.label2("l");
     _assertReplace(node, new Getter_NodeReplacerTest_test_label());
   }
 
   void test_labeledStatement() {
-    LabeledStatement node = AstFactory
-        .labeledStatement([AstFactory.label2("l")], AstFactory.block());
+    LabeledStatement node = AstTestFactory
+        .labeledStatement([AstTestFactory.label2("l")], AstTestFactory.block());
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_labeledStatement(0));
     _assertReplace(node, new Getter_NodeReplacerTest_test_labeledStatement());
   }
 
   void test_libraryDirective() {
-    LibraryDirective node = AstFactory.libraryDirective2("lib");
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+    LibraryDirective node = AstTestFactory.libraryDirective2("lib");
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(node, new Getter_NodeReplacerTest_test_libraryDirective());
     _testAnnotatedNode(node);
   }
 
   void test_libraryIdentifier() {
-    LibraryIdentifier node = AstFactory.libraryIdentifier2(["lib"]);
+    LibraryIdentifier node = AstTestFactory.libraryIdentifier2(["lib"]);
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_libraryIdentifier(0));
   }
 
   void test_listLiteral() {
-    ListLiteral node = AstFactory.listLiteral2(
+    ListLiteral node = AstTestFactory.listLiteral2(
         null,
-        AstFactory.typeArgumentList([AstFactory.typeName4("E")]),
-        [AstFactory.identifier3("e")]);
+        AstTestFactory.typeArgumentList([AstTestFactory.typeName4("E")]),
+        [AstTestFactory.identifier3("e")]);
     _assertReplace(node, new ListGetter_NodeReplacerTest_test_listLiteral(0));
     _testTypedLiteral(node);
   }
 
   void test_mapLiteral() {
-    MapLiteral node = AstFactory.mapLiteral(
+    MapLiteral node = AstTestFactory.mapLiteral(
         null,
-        AstFactory.typeArgumentList([AstFactory.typeName4("E")]),
-        [AstFactory.mapLiteralEntry("k", AstFactory.identifier3("v"))]);
+        AstTestFactory.typeArgumentList([AstTestFactory.typeName4("E")]),
+        [AstTestFactory.mapLiteralEntry("k", AstTestFactory.identifier3("v"))]);
     _assertReplace(node, new ListGetter_NodeReplacerTest_test_mapLiteral(0));
     _testTypedLiteral(node);
   }
 
   void test_mapLiteralEntry() {
     MapLiteralEntry node =
-        AstFactory.mapLiteralEntry("k", AstFactory.identifier3("v"));
+        AstTestFactory.mapLiteralEntry("k", AstTestFactory.identifier3("v"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_mapLiteralEntry_2());
     _assertReplace(node, new Getter_NodeReplacerTest_test_mapLiteralEntry());
   }
 
   void test_methodDeclaration() {
-    MethodDeclaration node = AstFactory.methodDeclaration2(
+    MethodDeclaration node = AstTestFactory.methodDeclaration2(
         null,
-        AstFactory.typeName4("A"),
+        AstTestFactory.typeName4("A"),
         null,
         null,
-        AstFactory.identifier3("m"),
-        AstFactory.formalParameterList(),
-        AstFactory.blockFunctionBody(AstFactory.block()));
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+        AstTestFactory.identifier3("m"),
+        AstTestFactory.formalParameterList(),
+        AstTestFactory.blockFunctionBody(AstTestFactory.block()));
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(node, new Getter_NodeReplacerTest_test_methodDeclaration());
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_methodDeclaration_3());
@@ -3532,8 +3594,8 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_methodInvocation() {
-    MethodInvocation node = AstFactory.methodInvocation(
-        AstFactory.identifier3("t"), "m", [AstFactory.integer(0)]);
+    MethodInvocation node = AstTestFactory.methodInvocation(
+        AstTestFactory.identifier3("t"), "m", [AstTestFactory.integer(0)]);
     _assertReplace(node, new Getter_NodeReplacerTest_test_methodInvocation_2());
     _assertReplace(node, new Getter_NodeReplacerTest_test_methodInvocation_3());
     _assertReplace(node, new Getter_NodeReplacerTest_test_methodInvocation());
@@ -3541,75 +3603,75 @@ class NodeReplacerTest extends EngineTestCase {
 
   void test_namedExpression() {
     NamedExpression node =
-        AstFactory.namedExpression2("l", AstFactory.identifier3("v"));
+        AstTestFactory.namedExpression2("l", AstTestFactory.identifier3("v"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_namedExpression());
     _assertReplace(node, new Getter_NodeReplacerTest_test_namedExpression_2());
   }
 
   void test_nativeClause() {
-    NativeClause node = AstFactory.nativeClause("");
+    NativeClause node = AstTestFactory.nativeClause("");
     _assertReplace(node, new Getter_NodeReplacerTest_test_nativeClause());
   }
 
   void test_nativeFunctionBody() {
-    NativeFunctionBody node = AstFactory.nativeFunctionBody("m");
+    NativeFunctionBody node = AstTestFactory.nativeFunctionBody("m");
     _assertReplace(node, new Getter_NodeReplacerTest_test_nativeFunctionBody());
   }
 
   void test_parenthesizedExpression() {
     ParenthesizedExpression node =
-        AstFactory.parenthesizedExpression(AstFactory.integer(0));
+        AstTestFactory.parenthesizedExpression(AstTestFactory.integer(0));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_parenthesizedExpression());
   }
 
   void test_partDirective() {
-    PartDirective node = AstFactory.partDirective2("");
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+    PartDirective node = AstTestFactory.partDirective2("");
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _testUriBasedDirective(node);
   }
 
   void test_partOfDirective() {
-    PartOfDirective node =
-        AstFactory.partOfDirective(AstFactory.libraryIdentifier2(["lib"]));
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+    PartOfDirective node = AstTestFactory
+        .partOfDirective(AstTestFactory.libraryIdentifier2(["lib"]));
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(node, new Getter_NodeReplacerTest_test_partOfDirective());
     _testAnnotatedNode(node);
   }
 
   void test_postfixExpression() {
-    PostfixExpression node = AstFactory.postfixExpression(
-        AstFactory.identifier3("x"), TokenType.MINUS_MINUS);
+    PostfixExpression node = AstTestFactory.postfixExpression(
+        AstTestFactory.identifier3("x"), TokenType.MINUS_MINUS);
     _assertReplace(node, new Getter_NodeReplacerTest_test_postfixExpression());
   }
 
   void test_prefixedIdentifier() {
-    PrefixedIdentifier node = AstFactory.identifier5("a", "b");
+    PrefixedIdentifier node = AstTestFactory.identifier5("a", "b");
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_prefixedIdentifier_2());
     _assertReplace(node, new Getter_NodeReplacerTest_test_prefixedIdentifier());
   }
 
   void test_prefixExpression() {
-    PrefixExpression node = AstFactory.prefixExpression(
-        TokenType.PLUS_PLUS, AstFactory.identifier3("y"));
+    PrefixExpression node = AstTestFactory.prefixExpression(
+        TokenType.PLUS_PLUS, AstTestFactory.identifier3("y"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_prefixExpression());
   }
 
   void test_propertyAccess() {
     PropertyAccess node =
-        AstFactory.propertyAccess2(AstFactory.identifier3("x"), "y");
+        AstTestFactory.propertyAccess2(AstTestFactory.identifier3("x"), "y");
     _assertReplace(node, new Getter_NodeReplacerTest_test_propertyAccess());
     _assertReplace(node, new Getter_NodeReplacerTest_test_propertyAccess_2());
   }
 
   void test_redirectingConstructorInvocation() {
-    RedirectingConstructorInvocation node = AstFactory
-        .redirectingConstructorInvocation2("c", [AstFactory.integer(0)]);
+    RedirectingConstructorInvocation node = AstTestFactory
+        .redirectingConstructorInvocation2("c", [AstTestFactory.integer(0)]);
     _assertReplace(node,
         new Getter_NodeReplacerTest_test_redirectingConstructorInvocation());
     _assertReplace(node,
@@ -3617,22 +3679,24 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_returnStatement() {
-    ReturnStatement node = AstFactory.returnStatement2(AstFactory.integer(0));
+    ReturnStatement node =
+        AstTestFactory.returnStatement2(AstTestFactory.integer(0));
     _assertReplace(node, new Getter_NodeReplacerTest_test_returnStatement());
   }
 
   void test_showCombinator() {
-    ShowCombinator node = AstFactory.showCombinator2(["X", "Y"]);
+    ShowCombinator node = AstTestFactory.showCombinator2(["X", "Y"]);
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_showCombinator(0));
   }
 
   void test_simpleFormalParameter() {
-    SimpleFormalParameter node =
-        AstFactory.simpleFormalParameter4(AstFactory.typeName4("T"), "p");
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata = [AstFactory.annotation(AstFactory.identifier3("a"))];
+    SimpleFormalParameter node = AstTestFactory.simpleFormalParameter4(
+        AstTestFactory.typeName4("T"), "p");
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata = [
+      AstTestFactory.annotation(AstTestFactory.identifier3("a"))
+    ];
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_simpleFormalParameter());
     _testNormalFormalParameter(node);
@@ -3640,14 +3704,14 @@ class NodeReplacerTest extends EngineTestCase {
 
   void test_stringInterpolation() {
     StringInterpolation node =
-        AstFactory.string([AstFactory.interpolationExpression2("a")]);
+        AstTestFactory.string([AstTestFactory.interpolationExpression2("a")]);
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_stringInterpolation(0));
   }
 
   void test_superConstructorInvocation() {
-    SuperConstructorInvocation node =
-        AstFactory.superConstructorInvocation2("s", [AstFactory.integer(1)]);
+    SuperConstructorInvocation node = AstTestFactory
+        .superConstructorInvocation2("s", [AstTestFactory.integer(1)]);
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_superConstructorInvocation());
     _assertReplace(
@@ -3655,24 +3719,25 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_switchCase() {
-    SwitchCase node = AstFactory.switchCase2(
-        [AstFactory.label2("l")], AstFactory.integer(0), [AstFactory.block()]);
+    SwitchCase node = AstTestFactory.switchCase2([AstTestFactory.label2("l")],
+        AstTestFactory.integer(0), [AstTestFactory.block()]);
     _assertReplace(node, new Getter_NodeReplacerTest_test_switchCase());
     _testSwitchMember(node);
   }
 
   void test_switchDefault() {
-    SwitchDefault node = AstFactory
-        .switchDefault([AstFactory.label2("l")], [AstFactory.block()]);
+    SwitchDefault node = AstTestFactory
+        .switchDefault([AstTestFactory.label2("l")], [AstTestFactory.block()]);
     _testSwitchMember(node);
   }
 
   void test_switchStatement() {
     SwitchStatement node =
-        AstFactory.switchStatement(AstFactory.identifier3("x"), [
-      AstFactory.switchCase2([AstFactory.label2("l")], AstFactory.integer(0),
-          [AstFactory.block()]),
-      AstFactory.switchDefault([AstFactory.label2("l")], [AstFactory.block()])
+        AstTestFactory.switchStatement(AstTestFactory.identifier3("x"), [
+      AstTestFactory.switchCase2([AstTestFactory.label2("l")],
+          AstTestFactory.integer(0), [AstTestFactory.block()]),
+      AstTestFactory
+          .switchDefault([AstTestFactory.label2("l")], [AstTestFactory.block()])
     ]);
     _assertReplace(node, new Getter_NodeReplacerTest_test_switchStatement());
     _assertReplace(
@@ -3681,28 +3746,29 @@ class NodeReplacerTest extends EngineTestCase {
 
   void test_throwExpression() {
     ThrowExpression node =
-        AstFactory.throwExpression2(AstFactory.identifier3("e"));
+        AstTestFactory.throwExpression2(AstTestFactory.identifier3("e"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_throwExpression());
   }
 
   void test_topLevelVariableDeclaration() {
-    TopLevelVariableDeclaration node = AstFactory.topLevelVariableDeclaration(
-        null, AstFactory.typeName4("T"), [AstFactory.variableDeclaration("t")]);
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+    TopLevelVariableDeclaration node = AstTestFactory
+        .topLevelVariableDeclaration(null, AstTestFactory.typeName4("T"),
+            [AstTestFactory.variableDeclaration("t")]);
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_topLevelVariableDeclaration());
     _testAnnotatedNode(node);
   }
 
   void test_tryStatement() {
-    TryStatement node = AstFactory.tryStatement3(
-        AstFactory.block(),
+    TryStatement node = AstTestFactory.tryStatement3(
+        AstTestFactory.block(),
         [
-          AstFactory.catchClause("e", [AstFactory.block()])
+          AstTestFactory.catchClause("e", [AstTestFactory.block()])
         ],
-        AstFactory.block());
+        AstTestFactory.block());
     _assertReplace(node, new Getter_NodeReplacerTest_test_tryStatement_2());
     _assertReplace(node, new Getter_NodeReplacerTest_test_tryStatement());
     _assertReplace(node, new ListGetter_NodeReplacerTest_test_tryStatement(0));
@@ -3710,37 +3776,37 @@ class NodeReplacerTest extends EngineTestCase {
 
   void test_typeArgumentList() {
     TypeArgumentList node =
-        AstFactory.typeArgumentList([AstFactory.typeName4("A")]);
+        AstTestFactory.typeArgumentList([AstTestFactory.typeName4("A")]);
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_typeArgumentList(0));
   }
 
   void test_typeName() {
-    TypeName node = AstFactory
-        .typeName4("T", [AstFactory.typeName4("E"), AstFactory.typeName4("F")]);
+    TypeName node = AstTestFactory.typeName4(
+        "T", [AstTestFactory.typeName4("E"), AstTestFactory.typeName4("F")]);
     _assertReplace(node, new Getter_NodeReplacerTest_test_typeName_2());
     _assertReplace(node, new Getter_NodeReplacerTest_test_typeName());
   }
 
   void test_typeParameter() {
     TypeParameter node =
-        AstFactory.typeParameter2("E", AstFactory.typeName4("B"));
+        AstTestFactory.typeParameter2("E", AstTestFactory.typeName4("B"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_typeParameter_2());
     _assertReplace(node, new Getter_NodeReplacerTest_test_typeParameter());
   }
 
   void test_typeParameterList() {
-    TypeParameterList node = AstFactory.typeParameterList(["A", "B"]);
+    TypeParameterList node = AstTestFactory.typeParameterList(["A", "B"]);
     _assertReplace(
         node, new ListGetter_NodeReplacerTest_test_typeParameterList(0));
   }
 
   void test_variableDeclaration() {
     VariableDeclaration node =
-        AstFactory.variableDeclaration2("a", AstFactory.nullLiteral());
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+        AstTestFactory.variableDeclaration2("a", AstTestFactory.nullLiteral());
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_variableDeclaration());
     _assertReplace(
@@ -3749,11 +3815,13 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_variableDeclarationList() {
-    VariableDeclarationList node = AstFactory.variableDeclarationList(
-        null, AstFactory.typeName4("T"), [AstFactory.variableDeclaration("a")]);
-    node.documentationComment =
-        Comment.createEndOfLineComment(EMPTY_TOKEN_LIST);
-    node.metadata.add(AstFactory.annotation(AstFactory.identifier3("a")));
+    VariableDeclarationList node = AstTestFactory.variableDeclarationList(
+        null,
+        AstTestFactory.typeName4("T"),
+        [AstTestFactory.variableDeclaration("a")]);
+    node.documentationComment = astFactory.endOfLineComment(EMPTY_TOKEN_LIST);
+    node.metadata
+        .add(AstTestFactory.annotation(AstTestFactory.identifier3("a")));
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_variableDeclarationList());
     _assertReplace(
@@ -3762,26 +3830,28 @@ class NodeReplacerTest extends EngineTestCase {
   }
 
   void test_variableDeclarationStatement() {
-    VariableDeclarationStatement node = AstFactory.variableDeclarationStatement(
-        null, AstFactory.typeName4("T"), [AstFactory.variableDeclaration("a")]);
+    VariableDeclarationStatement node = AstTestFactory
+        .variableDeclarationStatement(null, AstTestFactory.typeName4("T"),
+            [AstTestFactory.variableDeclaration("a")]);
     _assertReplace(
         node, new Getter_NodeReplacerTest_test_variableDeclarationStatement());
   }
 
   void test_whileStatement() {
-    WhileStatement node = AstFactory.whileStatement(
-        AstFactory.booleanLiteral(true), AstFactory.block());
+    WhileStatement node = AstTestFactory.whileStatement(
+        AstTestFactory.booleanLiteral(true), AstTestFactory.block());
     _assertReplace(node, new Getter_NodeReplacerTest_test_whileStatement());
     _assertReplace(node, new Getter_NodeReplacerTest_test_whileStatement_2());
   }
 
   void test_withClause() {
-    WithClause node = AstFactory.withClause([AstFactory.typeName4("M")]);
+    WithClause node =
+        AstTestFactory.withClause([AstTestFactory.typeName4("M")]);
     _assertReplace(node, new ListGetter_NodeReplacerTest_test_withClause(0));
   }
 
   void test_yieldStatement() {
-    var node = AstFactory.yieldStatement(AstFactory.identifier3("A"));
+    var node = AstTestFactory.yieldStatement(AstTestFactory.identifier3("A"));
     _assertReplace(node, new Getter_NodeReplacerTest_test_yieldStatement());
   }
 
@@ -3859,24 +3929,11 @@ class SingleMapIteratorTest extends EngineTestCase {
     SingleMapIterator<String, String> iterator =
         new SingleMapIterator<String, String>(map);
     expect(iterator.moveNext(), isFalse);
-    try {
-      iterator.key;
-      fail("Expected NoSuchElementException");
-    } on NoSuchElementException {
-      // Expected
-    }
-    try {
-      iterator.value;
-      fail("Expected NoSuchElementException");
-    } on NoSuchElementException {
-      // Expected
-    }
-    try {
-      iterator.value = "x";
-      fail("Expected NoSuchElementException");
-    } on NoSuchElementException {
-      // Expected
-    }
+    expect(() => iterator.key, throwsStateError);
+    expect(() => iterator.value, throwsStateError);
+    expect(() {
+      iterator.value = 'x';
+    }, throwsStateError);
     expect(iterator.moveNext(), isFalse);
   }
 
@@ -4169,12 +4226,9 @@ class StringUtilitiesTest {
   }
 
   void test_printListOfQuotedNames_empty() {
-    try {
+    expect(() {
       StringUtilities.printListOfQuotedNames(new List<String>(0));
-      fail("Expected IllegalArgumentException");
-    } on IllegalArgumentException {
-      // Expected
-    }
+    }, throwsArgumentError);
   }
 
   void test_printListOfQuotedNames_five() {
@@ -4185,21 +4239,15 @@ class StringUtilitiesTest {
   }
 
   void test_printListOfQuotedNames_null() {
-    try {
+    expect(() {
       StringUtilities.printListOfQuotedNames(null);
-      fail("Expected IllegalArgumentException");
-    } on IllegalArgumentException {
-      // Expected
-    }
+    }, throwsArgumentError);
   }
 
   void test_printListOfQuotedNames_one() {
-    try {
+    expect(() {
       StringUtilities.printListOfQuotedNames(<String>["a"]);
-      fail("Expected IllegalArgumentException");
-    } on IllegalArgumentException {
-      // Expected
-    }
+    }, throwsArgumentError);
   }
 
   void test_printListOfQuotedNames_three() {
@@ -4340,5 +4388,11 @@ class TokenMapTest {
     Token value = TokenFactory.tokenFromType(TokenType.AT);
     tokenMap.put(key, value);
     expect(tokenMap.get(key), same(value));
+  }
+}
+
+class _ExceptionThrowingVisitor extends SimpleAstVisitor {
+  visitNullLiteral(NullLiteral node) {
+    throw new ArgumentError('');
   }
 }

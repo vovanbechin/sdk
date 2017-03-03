@@ -9,55 +9,22 @@ import 'package:analysis_server/src/services/correction/status.dart';
 import 'package:analysis_server/src/services/refactoring/refactoring.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
-import '../../utils.dart';
 import 'abstract_rename.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(RenameConstructorTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(RenameConstructorTest);
+    defineReflectiveTests(RenameConstructorTest_Driver);
+  });
 }
 
 @reflectiveTest
 class RenameConstructorTest extends RenameRefactoringTest {
-  test_checkFinalConditions_hasMember_constructor() async {
-    indexTestUnit('''
-class A {
-  A.test() {}
-  A.newName() {} // existing
-}
-''');
-    _createConstructorDeclarationRefactoring('test() {}');
-    // check status
-    refactoring.newName = 'newName';
-    RefactoringStatus status = await refactoring.checkFinalConditions();
-    assertRefactoringStatus(status, RefactoringProblemSeverity.ERROR,
-        expectedMessage:
-            "Class 'A' already declares constructor with name 'newName'.",
-        expectedContextSearch: 'newName() {} // existing');
-  }
-
-  test_checkFinalConditions_hasMember_method() async {
-    indexTestUnit('''
-class A {
-  A.test() {}
-  newName() {} // existing
-}
-''');
-    _createConstructorDeclarationRefactoring('test() {}');
-    // check status
-    refactoring.newName = 'newName';
-    RefactoringStatus status = await refactoring.checkFinalConditions();
-    assertRefactoringStatus(status, RefactoringProblemSeverity.ERROR,
-        expectedMessage:
-            "Class 'A' already declares method with name 'newName'.",
-        expectedContextSearch: 'newName() {} // existing');
-  }
-
   test_checkInitialConditions_inSDK() async {
-    indexTestUnit('''
+    await indexTestUnit('''
 main() {
   new String.fromCharCodes([]);
 }
@@ -71,8 +38,8 @@ main() {
             "The constructor 'String.fromCharCodes' is defined in the SDK, so cannot be renamed.");
   }
 
-  test_checkNewName() {
-    indexTestUnit('''
+  test_checkNewName() async {
+    await indexTestUnit('''
 class A {
   A.test() {}
 }
@@ -98,8 +65,42 @@ class A {
     assertRefactoringStatusOK(refactoring.checkNewName());
   }
 
-  test_createChange_add() {
-    indexTestUnit('''
+  test_checkNewName_hasMember_constructor() async {
+    await indexTestUnit('''
+class A {
+  A.test() {}
+  A.newName() {} // existing
+}
+''');
+    _createConstructorDeclarationRefactoring('test() {}');
+    // check status
+    refactoring.newName = 'newName';
+    RefactoringStatus status = refactoring.checkNewName();
+    assertRefactoringStatus(status, RefactoringProblemSeverity.ERROR,
+        expectedMessage:
+            "Class 'A' already declares constructor with name 'newName'.",
+        expectedContextSearch: 'newName() {} // existing');
+  }
+
+  test_checkNewName_hasMember_method() async {
+    await indexTestUnit('''
+class A {
+  A.test() {}
+  newName() {} // existing
+}
+''');
+    _createConstructorDeclarationRefactoring('test() {}');
+    // check status
+    refactoring.newName = 'newName';
+    RefactoringStatus status = refactoring.checkNewName();
+    assertRefactoringStatus(status, RefactoringProblemSeverity.ERROR,
+        expectedMessage:
+            "Class 'A' already declares method with name 'newName'.",
+        expectedContextSearch: 'newName() {} // existing');
+  }
+
+  test_createChange_add() async {
+    await indexTestUnit('''
 class A {
   A() {} // marker
 }
@@ -132,8 +133,41 @@ main() {
 ''');
   }
 
-  test_createChange_change() {
-    indexTestUnit('''
+  test_createChange_add_toSynthetic() async {
+    await indexTestUnit('''
+class A {
+}
+class B extends A {
+  B() : super() {}
+  factory B._() = A;
+}
+main() {
+  new A();
+}
+''');
+    // configure refactoring
+    _createConstructorInvocationRefactoring('new A();');
+    expect(refactoring.refactoringName, 'Rename Constructor');
+    expect(refactoring.elementKindName, 'constructor');
+    expect(refactoring.oldName, '');
+    // validate change
+    refactoring.newName = 'newName';
+    return assertSuccessfulRefactoring('''
+class A {
+  A.newName();
+}
+class B extends A {
+  B() : super.newName() {}
+  factory B._() = A.newName;
+}
+main() {
+  new A.newName();
+}
+''');
+  }
+
+  test_createChange_change() async {
+    await indexTestUnit('''
 class A {
   A.test() {} // marker
 }
@@ -166,8 +200,8 @@ main() {
 ''');
   }
 
-  test_createChange_remove() {
-    indexTestUnit('''
+  test_createChange_remove() async {
+    await indexTestUnit('''
 class A {
   A.test() {} // marker
 }
@@ -200,8 +234,9 @@ main() {
 ''');
   }
 
-  void test_newInstance_nullElement() {
-    RenameRefactoring refactoring = new RenameRefactoring(searchEngine, null);
+  test_newInstance_nullElement() async {
+    RenameRefactoring refactoring =
+        new RenameRefactoring(searchEngine, null, null);
     expect(refactoring, isNull);
   }
 
@@ -210,4 +245,16 @@ main() {
         search, (node) => node is ConstructorDeclaration);
     createRenameRefactoringForElement(element);
   }
+
+  void _createConstructorInvocationRefactoring(String search) {
+    ConstructorElement element = findNodeElementAtString(
+        search, (node) => node is InstanceCreationExpression);
+    createRenameRefactoringForElement(element);
+  }
+}
+
+@reflectiveTest
+class RenameConstructorTest_Driver extends RenameConstructorTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

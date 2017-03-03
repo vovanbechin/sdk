@@ -2,45 +2,70 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+#if !defined(DART_IO_DISABLED)
+
 #include "bin/stdio.h"
 
 #include "bin/builtin.h"
 #include "bin/dartutils.h"
 #include "bin/utils.h"
 
+#include "include/dart_api.h"
+
 #include "platform/globals.h"
 #include "platform/utils.h"
-
-#include "include/dart_api.h"
 
 namespace dart {
 namespace bin {
 
 void FUNCTION_NAME(Stdin_ReadByte)(Dart_NativeArguments args) {
   ScopedBlockingCall blocker;
-  Dart_SetReturnValue(args, Dart_NewInteger(Stdin::ReadByte()));
+  int byte = -1;
+  if (Stdin::ReadByte(&byte)) {
+    Dart_SetReturnValue(args, Dart_NewInteger(byte));
+  } else {
+    Dart_SetReturnValue(args, DartUtils::NewDartOSError());
+  }
 }
 
 
 void FUNCTION_NAME(Stdin_GetEchoMode)(Dart_NativeArguments args) {
-  Dart_SetReturnValue(args, Dart_NewBoolean(Stdin::GetEchoMode()));
+  bool enabled = false;
+  if (Stdin::GetEchoMode(&enabled)) {
+    Dart_SetReturnValue(args, Dart_NewBoolean(enabled));
+  } else {
+    Dart_SetReturnValue(args, DartUtils::NewDartOSError());
+  }
 }
 
 
 void FUNCTION_NAME(Stdin_SetEchoMode)(Dart_NativeArguments args) {
   bool enabled = DartUtils::GetBooleanValue(Dart_GetNativeArgument(args, 0));
-  Stdin::SetEchoMode(enabled);
+  if (Stdin::SetEchoMode(enabled)) {
+    Dart_SetReturnValue(args, Dart_True());
+  } else {
+    Dart_SetReturnValue(args, DartUtils::NewDartOSError());
+  }
 }
 
 
 void FUNCTION_NAME(Stdin_GetLineMode)(Dart_NativeArguments args) {
-  Dart_SetReturnValue(args, Dart_NewBoolean(Stdin::GetLineMode()));
+  bool enabled = false;
+  if (Stdin::GetLineMode(&enabled)) {
+    Dart_SetReturnValue(args, Dart_NewBoolean(enabled));
+  } else {
+    Dart_SetReturnValue(args, DartUtils::NewDartOSError());
+  }
 }
 
 
 void FUNCTION_NAME(Stdin_SetLineMode)(Dart_NativeArguments args) {
   bool enabled = DartUtils::GetBooleanValue(Dart_GetNativeArgument(args, 0));
-  Stdin::SetLineMode(enabled);
+  if (Stdin::SetLineMode(enabled)) {
+    Dart_SetReturnValue(args, Dart_True());
+  } else {
+    Dart_SetReturnValue(args, DartUtils::NewDartOSError());
+  }
 }
 
 
@@ -69,3 +94,5 @@ void FUNCTION_NAME(Stdout_GetTerminalSize)(Dart_NativeArguments args) {
 
 }  // namespace bin
 }  // namespace dart
+
+#endif  // !defined(DART_IO_DISABLED)

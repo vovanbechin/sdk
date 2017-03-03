@@ -266,12 +266,18 @@ class ServerSetSubscriptionsResult {
  *
  * {
  *   "version": String
+ *   "pid": int
+ *   "sessionId": optional String
  * }
  *
  * Clients may not extend, implement or mix-in this class.
  */
 class ServerConnectedParams implements HasToJson {
   String _version;
+
+  int _pid;
+
+  String _sessionId;
 
   /**
    * The version number of the analysis server.
@@ -286,8 +292,35 @@ class ServerConnectedParams implements HasToJson {
     this._version = value;
   }
 
-  ServerConnectedParams(String version) {
+  /**
+   * The process id of the analysis server process.
+   */
+  int get pid => _pid;
+
+  /**
+   * The process id of the analysis server process.
+   */
+  void set pid(int value) {
+    assert(value != null);
+    this._pid = value;
+  }
+
+  /**
+   * The session id for this session.
+   */
+  String get sessionId => _sessionId;
+
+  /**
+   * The session id for this session.
+   */
+  void set sessionId(String value) {
+    this._sessionId = value;
+  }
+
+  ServerConnectedParams(String version, int pid, {String sessionId}) {
     this.version = version;
+    this.pid = pid;
+    this.sessionId = sessionId;
   }
 
   factory ServerConnectedParams.fromJson(JsonDecoder jsonDecoder, String jsonPath, Object json) {
@@ -301,7 +334,17 @@ class ServerConnectedParams implements HasToJson {
       } else {
         throw jsonDecoder.missingKey(jsonPath, "version");
       }
-      return new ServerConnectedParams(version);
+      int pid;
+      if (json.containsKey("pid")) {
+        pid = jsonDecoder.decodeInt(jsonPath + ".pid", json["pid"]);
+      } else {
+        throw jsonDecoder.missingKey(jsonPath, "pid");
+      }
+      String sessionId;
+      if (json.containsKey("sessionId")) {
+        sessionId = jsonDecoder.decodeString(jsonPath + ".sessionId", json["sessionId"]);
+      }
+      return new ServerConnectedParams(version, pid, sessionId: sessionId);
     } else {
       throw jsonDecoder.mismatch(jsonPath, "server.connected params", json);
     }
@@ -315,6 +358,10 @@ class ServerConnectedParams implements HasToJson {
   Map<String, dynamic> toJson() {
     Map<String, dynamic> result = {};
     result["version"] = version;
+    result["pid"] = pid;
+    if (sessionId != null) {
+      result["sessionId"] = sessionId;
+    }
     return result;
   }
 
@@ -328,7 +375,9 @@ class ServerConnectedParams implements HasToJson {
   @override
   bool operator==(other) {
     if (other is ServerConnectedParams) {
-      return version == other.version;
+      return version == other.version &&
+          pid == other.pid &&
+          sessionId == other.sessionId;
     }
     return false;
   }
@@ -337,6 +386,8 @@ class ServerConnectedParams implements HasToJson {
   int get hashCode {
     int hash = 0;
     hash = JenkinsSmiHash.combine(hash, version.hashCode);
+    hash = JenkinsSmiHash.combine(hash, pid.hashCode);
+    hash = JenkinsSmiHash.combine(hash, sessionId.hashCode);
     return JenkinsSmiHash.finish(hash);
   }
 }
@@ -6176,7 +6227,7 @@ class EditGetRefactoringParams implements HasToJson {
    * Data used to provide values provided by the user. The structure of the
    * data is dependent on the kind of refactoring being performed. The data
    * that is expected is documented in the section titled Refactorings, labeled
-   * as “Options”. This field can be omitted if the refactoring does not
+   * as "Options". This field can be omitted if the refactoring does not
    * require any options or if the values of those options are not known.
    */
   RefactoringOptions get options => _options;
@@ -6185,7 +6236,7 @@ class EditGetRefactoringParams implements HasToJson {
    * Data used to provide values provided by the user. The structure of the
    * data is dependent on the kind of refactoring being performed. The data
    * that is expected is documented in the section titled Refactorings, labeled
-   * as “Options”. This field can be omitted if the refactoring does not
+   * as "Options". This field can be omitted if the refactoring does not
    * require any options or if the values of those options are not known.
    */
   void set options(RefactoringOptions value) {
@@ -6381,7 +6432,7 @@ class EditGetRefactoringResult implements HasToJson {
    * Data used to provide feedback to the user. The structure of the data is
    * dependent on the kind of refactoring being created. The data that is
    * returned is documented in the section titled Refactorings, labeled as
-   * “Feedback”.
+   * "Feedback".
    */
   RefactoringFeedback get feedback => _feedback;
 
@@ -6389,7 +6440,7 @@ class EditGetRefactoringResult implements HasToJson {
    * Data used to provide feedback to the user. The structure of the data is
    * dependent on the kind of refactoring being created. The data that is
    * returned is documented in the section titled Refactorings, labeled as
-   * “Feedback”.
+   * "Feedback".
    */
   void set feedback(RefactoringFeedback value) {
     this._feedback = value;
@@ -7708,6 +7759,109 @@ class DiagnosticGetDiagnosticsResult implements HasToJson {
     return JenkinsSmiHash.finish(hash);
   }
 }
+/**
+ * diagnostic.getServerPort params
+ *
+ * Clients may not extend, implement or mix-in this class.
+ */
+class DiagnosticGetServerPortParams {
+  Request toRequest(String id) {
+    return new Request(id, "diagnostic.getServerPort", null);
+  }
+
+  @override
+  bool operator==(other) {
+    if (other is DiagnosticGetServerPortParams) {
+      return true;
+    }
+    return false;
+  }
+
+  @override
+  int get hashCode {
+    return 367508704;
+  }
+}
+
+/**
+ * diagnostic.getServerPort result
+ *
+ * {
+ *   "port": int
+ * }
+ *
+ * Clients may not extend, implement or mix-in this class.
+ */
+class DiagnosticGetServerPortResult implements HasToJson {
+  int _port;
+
+  /**
+   * The diagnostic server port.
+   */
+  int get port => _port;
+
+  /**
+   * The diagnostic server port.
+   */
+  void set port(int value) {
+    assert(value != null);
+    this._port = value;
+  }
+
+  DiagnosticGetServerPortResult(int port) {
+    this.port = port;
+  }
+
+  factory DiagnosticGetServerPortResult.fromJson(JsonDecoder jsonDecoder, String jsonPath, Object json) {
+    if (json == null) {
+      json = {};
+    }
+    if (json is Map) {
+      int port;
+      if (json.containsKey("port")) {
+        port = jsonDecoder.decodeInt(jsonPath + ".port", json["port"]);
+      } else {
+        throw jsonDecoder.missingKey(jsonPath, "port");
+      }
+      return new DiagnosticGetServerPortResult(port);
+    } else {
+      throw jsonDecoder.mismatch(jsonPath, "diagnostic.getServerPort result", json);
+    }
+  }
+
+  factory DiagnosticGetServerPortResult.fromResponse(Response response) {
+    return new DiagnosticGetServerPortResult.fromJson(
+        new ResponseDecoder(REQUEST_ID_REFACTORING_KINDS.remove(response.id)), "result", response._result);
+  }
+
+  Map<String, dynamic> toJson() {
+    Map<String, dynamic> result = {};
+    result["port"] = port;
+    return result;
+  }
+
+  Response toResponse(String id) {
+    return new Response(id, result: toJson());
+  }
+
+  @override
+  String toString() => JSON.encode(toJson());
+
+  @override
+  bool operator==(other) {
+    if (other is DiagnosticGetServerPortResult) {
+      return port == other.port;
+    }
+    return false;
+  }
+
+  @override
+  int get hashCode {
+    int hash = 0;
+    hash = JenkinsSmiHash.combine(hash, port.hashCode);
+    return JenkinsSmiHash.finish(hash);
+  }
+}
 
 /**
  * AddContentOverlay
@@ -8144,11 +8298,11 @@ class AnalysisErrorFixes implements HasToJson {
  * Clients may not extend, implement or mix-in this class.
  */
 class AnalysisErrorSeverity implements Enum {
-  static const INFO = const AnalysisErrorSeverity._("INFO");
+  static const AnalysisErrorSeverity INFO = const AnalysisErrorSeverity._("INFO");
 
-  static const WARNING = const AnalysisErrorSeverity._("WARNING");
+  static const AnalysisErrorSeverity WARNING = const AnalysisErrorSeverity._("WARNING");
 
-  static const ERROR = const AnalysisErrorSeverity._("ERROR");
+  static const AnalysisErrorSeverity ERROR = const AnalysisErrorSeverity._("ERROR");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -8205,21 +8359,21 @@ class AnalysisErrorSeverity implements Enum {
  * Clients may not extend, implement or mix-in this class.
  */
 class AnalysisErrorType implements Enum {
-  static const CHECKED_MODE_COMPILE_TIME_ERROR = const AnalysisErrorType._("CHECKED_MODE_COMPILE_TIME_ERROR");
+  static const AnalysisErrorType CHECKED_MODE_COMPILE_TIME_ERROR = const AnalysisErrorType._("CHECKED_MODE_COMPILE_TIME_ERROR");
 
-  static const COMPILE_TIME_ERROR = const AnalysisErrorType._("COMPILE_TIME_ERROR");
+  static const AnalysisErrorType COMPILE_TIME_ERROR = const AnalysisErrorType._("COMPILE_TIME_ERROR");
 
-  static const HINT = const AnalysisErrorType._("HINT");
+  static const AnalysisErrorType HINT = const AnalysisErrorType._("HINT");
 
-  static const LINT = const AnalysisErrorType._("LINT");
+  static const AnalysisErrorType LINT = const AnalysisErrorType._("LINT");
 
-  static const STATIC_TYPE_WARNING = const AnalysisErrorType._("STATIC_TYPE_WARNING");
+  static const AnalysisErrorType STATIC_TYPE_WARNING = const AnalysisErrorType._("STATIC_TYPE_WARNING");
 
-  static const STATIC_WARNING = const AnalysisErrorType._("STATIC_WARNING");
+  static const AnalysisErrorType STATIC_WARNING = const AnalysisErrorType._("STATIC_WARNING");
 
-  static const SYNTACTIC_ERROR = const AnalysisErrorType._("SYNTACTIC_ERROR");
+  static const AnalysisErrorType SYNTACTIC_ERROR = const AnalysisErrorType._("SYNTACTIC_ERROR");
 
-  static const TODO = const AnalysisErrorType._("TODO");
+  static const AnalysisErrorType TODO = const AnalysisErrorType._("TODO");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -8559,25 +8713,25 @@ class AnalysisOptions implements HasToJson {
  * Clients may not extend, implement or mix-in this class.
  */
 class AnalysisService implements Enum {
-  static const FOLDING = const AnalysisService._("FOLDING");
+  static const AnalysisService FOLDING = const AnalysisService._("FOLDING");
 
-  static const HIGHLIGHTS = const AnalysisService._("HIGHLIGHTS");
+  static const AnalysisService HIGHLIGHTS = const AnalysisService._("HIGHLIGHTS");
 
-  static const IMPLEMENTED = const AnalysisService._("IMPLEMENTED");
+  static const AnalysisService IMPLEMENTED = const AnalysisService._("IMPLEMENTED");
 
   /**
    * This service is not currently implemented and will become a
    * GeneralAnalysisService in a future release.
    */
-  static const INVALIDATE = const AnalysisService._("INVALIDATE");
+  static const AnalysisService INVALIDATE = const AnalysisService._("INVALIDATE");
 
-  static const NAVIGATION = const AnalysisService._("NAVIGATION");
+  static const AnalysisService NAVIGATION = const AnalysisService._("NAVIGATION");
 
-  static const OCCURRENCES = const AnalysisService._("OCCURRENCES");
+  static const AnalysisService OCCURRENCES = const AnalysisService._("OCCURRENCES");
 
-  static const OUTLINE = const AnalysisService._("OUTLINE");
+  static const AnalysisService OUTLINE = const AnalysisService._("OUTLINE");
 
-  static const OVERRIDES = const AnalysisService._("OVERRIDES");
+  static const AnalysisService OVERRIDES = const AnalysisService._("OVERRIDES");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -8816,6 +8970,8 @@ class ChangeContentOverlay implements HasToJson {
  *   "docSummary": optional String
  *   "docComplete": optional String
  *   "declaringType": optional String
+ *   "defaultArgumentListString": optional String
+ *   "defaultArgumentListTextRanges": optional List<int>
  *   "element": optional Element
  *   "returnType": optional String
  *   "parameterNames": optional List<String>
@@ -8849,6 +9005,10 @@ class CompletionSuggestion implements HasToJson {
   String _docComplete;
 
   String _declaringType;
+
+  String _defaultArgumentListString;
+
+  List<int> _defaultArgumentListTextRanges;
 
   Element _element;
 
@@ -9016,6 +9176,42 @@ class CompletionSuggestion implements HasToJson {
   }
 
   /**
+   * A default String for use in generating argument list source contents on
+   * the client side.
+   */
+  String get defaultArgumentListString => _defaultArgumentListString;
+
+  /**
+   * A default String for use in generating argument list source contents on
+   * the client side.
+   */
+  void set defaultArgumentListString(String value) {
+    this._defaultArgumentListString = value;
+  }
+
+  /**
+   * Pairs of offsets and lengths describing 'defaultArgumentListString' text
+   * ranges suitable for use by clients to set up linked edits of default
+   * argument source contents. For example, given an argument list string 'x,
+   * y', the corresponding text range [0, 1, 3, 1], indicates two text ranges
+   * of length 1, starting at offsets 0 and 3. Clients can use these ranges to
+   * treat the 'x' and 'y' values specially for linked edits.
+   */
+  List<int> get defaultArgumentListTextRanges => _defaultArgumentListTextRanges;
+
+  /**
+   * Pairs of offsets and lengths describing 'defaultArgumentListString' text
+   * ranges suitable for use by clients to set up linked edits of default
+   * argument source contents. For example, given an argument list string 'x,
+   * y', the corresponding text range [0, 1, 3, 1], indicates two text ranges
+   * of length 1, starting at offsets 0 and 3. Clients can use these ranges to
+   * treat the 'x' and 'y' values specially for linked edits.
+   */
+  void set defaultArgumentListTextRanges(List<int> value) {
+    this._defaultArgumentListTextRanges = value;
+  }
+
+  /**
    * Information about the element reference being suggested.
    */
   Element get element => _element;
@@ -9145,7 +9341,7 @@ class CompletionSuggestion implements HasToJson {
     this._importUri = value;
   }
 
-  CompletionSuggestion(CompletionSuggestionKind kind, int relevance, String completion, int selectionOffset, int selectionLength, bool isDeprecated, bool isPotential, {String docSummary, String docComplete, String declaringType, Element element, String returnType, List<String> parameterNames, List<String> parameterTypes, int requiredParameterCount, bool hasNamedParameters, String parameterName, String parameterType, String importUri}) {
+  CompletionSuggestion(CompletionSuggestionKind kind, int relevance, String completion, int selectionOffset, int selectionLength, bool isDeprecated, bool isPotential, {String docSummary, String docComplete, String declaringType, String defaultArgumentListString, List<int> defaultArgumentListTextRanges, Element element, String returnType, List<String> parameterNames, List<String> parameterTypes, int requiredParameterCount, bool hasNamedParameters, String parameterName, String parameterType, String importUri}) {
     this.kind = kind;
     this.relevance = relevance;
     this.completion = completion;
@@ -9156,6 +9352,8 @@ class CompletionSuggestion implements HasToJson {
     this.docSummary = docSummary;
     this.docComplete = docComplete;
     this.declaringType = declaringType;
+    this.defaultArgumentListString = defaultArgumentListString;
+    this.defaultArgumentListTextRanges = defaultArgumentListTextRanges;
     this.element = element;
     this.returnType = returnType;
     this.parameterNames = parameterNames;
@@ -9226,6 +9424,14 @@ class CompletionSuggestion implements HasToJson {
       if (json.containsKey("declaringType")) {
         declaringType = jsonDecoder.decodeString(jsonPath + ".declaringType", json["declaringType"]);
       }
+      String defaultArgumentListString;
+      if (json.containsKey("defaultArgumentListString")) {
+        defaultArgumentListString = jsonDecoder.decodeString(jsonPath + ".defaultArgumentListString", json["defaultArgumentListString"]);
+      }
+      List<int> defaultArgumentListTextRanges;
+      if (json.containsKey("defaultArgumentListTextRanges")) {
+        defaultArgumentListTextRanges = jsonDecoder.decodeList(jsonPath + ".defaultArgumentListTextRanges", json["defaultArgumentListTextRanges"], jsonDecoder.decodeInt);
+      }
       Element element;
       if (json.containsKey("element")) {
         element = new Element.fromJson(jsonDecoder, jsonPath + ".element", json["element"]);
@@ -9262,7 +9468,7 @@ class CompletionSuggestion implements HasToJson {
       if (json.containsKey("importUri")) {
         importUri = jsonDecoder.decodeString(jsonPath + ".importUri", json["importUri"]);
       }
-      return new CompletionSuggestion(kind, relevance, completion, selectionOffset, selectionLength, isDeprecated, isPotential, docSummary: docSummary, docComplete: docComplete, declaringType: declaringType, element: element, returnType: returnType, parameterNames: parameterNames, parameterTypes: parameterTypes, requiredParameterCount: requiredParameterCount, hasNamedParameters: hasNamedParameters, parameterName: parameterName, parameterType: parameterType, importUri: importUri);
+      return new CompletionSuggestion(kind, relevance, completion, selectionOffset, selectionLength, isDeprecated, isPotential, docSummary: docSummary, docComplete: docComplete, declaringType: declaringType, defaultArgumentListString: defaultArgumentListString, defaultArgumentListTextRanges: defaultArgumentListTextRanges, element: element, returnType: returnType, parameterNames: parameterNames, parameterTypes: parameterTypes, requiredParameterCount: requiredParameterCount, hasNamedParameters: hasNamedParameters, parameterName: parameterName, parameterType: parameterType, importUri: importUri);
     } else {
       throw jsonDecoder.mismatch(jsonPath, "CompletionSuggestion", json);
     }
@@ -9285,6 +9491,12 @@ class CompletionSuggestion implements HasToJson {
     }
     if (declaringType != null) {
       result["declaringType"] = declaringType;
+    }
+    if (defaultArgumentListString != null) {
+      result["defaultArgumentListString"] = defaultArgumentListString;
+    }
+    if (defaultArgumentListTextRanges != null) {
+      result["defaultArgumentListTextRanges"] = defaultArgumentListTextRanges;
     }
     if (element != null) {
       result["element"] = element.toJson();
@@ -9332,6 +9544,8 @@ class CompletionSuggestion implements HasToJson {
           docSummary == other.docSummary &&
           docComplete == other.docComplete &&
           declaringType == other.declaringType &&
+          defaultArgumentListString == other.defaultArgumentListString &&
+          listEqual(defaultArgumentListTextRanges, other.defaultArgumentListTextRanges, (int a, int b) => a == b) &&
           element == other.element &&
           returnType == other.returnType &&
           listEqual(parameterNames, other.parameterNames, (String a, String b) => a == b) &&
@@ -9358,6 +9572,8 @@ class CompletionSuggestion implements HasToJson {
     hash = JenkinsSmiHash.combine(hash, docSummary.hashCode);
     hash = JenkinsSmiHash.combine(hash, docComplete.hashCode);
     hash = JenkinsSmiHash.combine(hash, declaringType.hashCode);
+    hash = JenkinsSmiHash.combine(hash, defaultArgumentListString.hashCode);
+    hash = JenkinsSmiHash.combine(hash, defaultArgumentListTextRanges.hashCode);
     hash = JenkinsSmiHash.combine(hash, element.hashCode);
     hash = JenkinsSmiHash.combine(hash, returnType.hashCode);
     hash = JenkinsSmiHash.combine(hash, parameterNames.hashCode);
@@ -9394,9 +9610,9 @@ class CompletionSuggestionKind implements Enum {
    * the invocation and the parameterNames, parameterTypes, and
    * requiredParameterCount attributes are defined.
    */
-  static const ARGUMENT_LIST = const CompletionSuggestionKind._("ARGUMENT_LIST");
+  static const CompletionSuggestionKind ARGUMENT_LIST = const CompletionSuggestionKind._("ARGUMENT_LIST");
 
-  static const IMPORT = const CompletionSuggestionKind._("IMPORT");
+  static const CompletionSuggestionKind IMPORT = const CompletionSuggestionKind._("IMPORT");
 
   /**
    * The element identifier should be inserted at the completion location. For
@@ -9404,7 +9620,7 @@ class CompletionSuggestionKind implements Enum {
    * suggestions of this kind, the element attribute is defined and the
    * completion field is the element's identifier.
    */
-  static const IDENTIFIER = const CompletionSuggestionKind._("IDENTIFIER");
+  static const CompletionSuggestionKind IDENTIFIER = const CompletionSuggestionKind._("IDENTIFIER");
 
   /**
    * The element is being invoked at the completion location. For example,
@@ -9412,24 +9628,24 @@ class CompletionSuggestionKind implements Enum {
    * element attribute is defined and the completion field is the element's
    * identifier.
    */
-  static const INVOCATION = const CompletionSuggestionKind._("INVOCATION");
+  static const CompletionSuggestionKind INVOCATION = const CompletionSuggestionKind._("INVOCATION");
 
   /**
    * A keyword is being suggested. For suggestions of this kind, the completion
    * is the keyword.
    */
-  static const KEYWORD = const CompletionSuggestionKind._("KEYWORD");
+  static const CompletionSuggestionKind KEYWORD = const CompletionSuggestionKind._("KEYWORD");
 
   /**
    * A named argument for the current callsite is being suggested. For
    * suggestions of this kind, the completion is the named argument identifier
    * including a trailing ':' and space.
    */
-  static const NAMED_ARGUMENT = const CompletionSuggestionKind._("NAMED_ARGUMENT");
+  static const CompletionSuggestionKind NAMED_ARGUMENT = const CompletionSuggestionKind._("NAMED_ARGUMENT");
 
-  static const OPTIONAL_ARGUMENT = const CompletionSuggestionKind._("OPTIONAL_ARGUMENT");
+  static const CompletionSuggestionKind OPTIONAL_ARGUMENT = const CompletionSuggestionKind._("OPTIONAL_ARGUMENT");
 
-  static const PARAMETER = const CompletionSuggestionKind._("PARAMETER");
+  static const CompletionSuggestionKind PARAMETER = const CompletionSuggestionKind._("PARAMETER");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -9964,57 +10180,57 @@ class Element implements HasToJson {
  * Clients may not extend, implement or mix-in this class.
  */
 class ElementKind implements Enum {
-  static const CLASS = const ElementKind._("CLASS");
+  static const ElementKind CLASS = const ElementKind._("CLASS");
 
-  static const CLASS_TYPE_ALIAS = const ElementKind._("CLASS_TYPE_ALIAS");
+  static const ElementKind CLASS_TYPE_ALIAS = const ElementKind._("CLASS_TYPE_ALIAS");
 
-  static const COMPILATION_UNIT = const ElementKind._("COMPILATION_UNIT");
+  static const ElementKind COMPILATION_UNIT = const ElementKind._("COMPILATION_UNIT");
 
-  static const CONSTRUCTOR = const ElementKind._("CONSTRUCTOR");
+  static const ElementKind CONSTRUCTOR = const ElementKind._("CONSTRUCTOR");
 
-  static const ENUM = const ElementKind._("ENUM");
+  static const ElementKind ENUM = const ElementKind._("ENUM");
 
-  static const ENUM_CONSTANT = const ElementKind._("ENUM_CONSTANT");
+  static const ElementKind ENUM_CONSTANT = const ElementKind._("ENUM_CONSTANT");
 
-  static const FIELD = const ElementKind._("FIELD");
+  static const ElementKind FIELD = const ElementKind._("FIELD");
 
-  static const FILE = const ElementKind._("FILE");
+  static const ElementKind FILE = const ElementKind._("FILE");
 
-  static const FUNCTION = const ElementKind._("FUNCTION");
+  static const ElementKind FUNCTION = const ElementKind._("FUNCTION");
 
-  static const FUNCTION_TYPE_ALIAS = const ElementKind._("FUNCTION_TYPE_ALIAS");
+  static const ElementKind FUNCTION_TYPE_ALIAS = const ElementKind._("FUNCTION_TYPE_ALIAS");
 
-  static const GETTER = const ElementKind._("GETTER");
+  static const ElementKind GETTER = const ElementKind._("GETTER");
 
-  static const LABEL = const ElementKind._("LABEL");
+  static const ElementKind LABEL = const ElementKind._("LABEL");
 
-  static const LIBRARY = const ElementKind._("LIBRARY");
+  static const ElementKind LIBRARY = const ElementKind._("LIBRARY");
 
-  static const LOCAL_VARIABLE = const ElementKind._("LOCAL_VARIABLE");
+  static const ElementKind LOCAL_VARIABLE = const ElementKind._("LOCAL_VARIABLE");
 
-  static const METHOD = const ElementKind._("METHOD");
+  static const ElementKind METHOD = const ElementKind._("METHOD");
 
-  static const PARAMETER = const ElementKind._("PARAMETER");
+  static const ElementKind PARAMETER = const ElementKind._("PARAMETER");
 
-  static const PREFIX = const ElementKind._("PREFIX");
+  static const ElementKind PREFIX = const ElementKind._("PREFIX");
 
-  static const SETTER = const ElementKind._("SETTER");
+  static const ElementKind SETTER = const ElementKind._("SETTER");
 
-  static const TOP_LEVEL_VARIABLE = const ElementKind._("TOP_LEVEL_VARIABLE");
+  static const ElementKind TOP_LEVEL_VARIABLE = const ElementKind._("TOP_LEVEL_VARIABLE");
 
-  static const TYPE_PARAMETER = const ElementKind._("TYPE_PARAMETER");
-
-  /**
-   * Deprecated: support for tests was removed.
-   */
-  static const UNIT_TEST_GROUP = const ElementKind._("UNIT_TEST_GROUP");
+  static const ElementKind TYPE_PARAMETER = const ElementKind._("TYPE_PARAMETER");
 
   /**
    * Deprecated: support for tests was removed.
    */
-  static const UNIT_TEST_TEST = const ElementKind._("UNIT_TEST_TEST");
+  static const ElementKind UNIT_TEST_GROUP = const ElementKind._("UNIT_TEST_GROUP");
 
-  static const UNKNOWN = const ElementKind._("UNKNOWN");
+  /**
+   * Deprecated: support for tests was removed.
+   */
+  static const ElementKind UNIT_TEST_TEST = const ElementKind._("UNIT_TEST_TEST");
+
+  static const ElementKind UNKNOWN = const ElementKind._("UNKNOWN");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -10204,13 +10420,13 @@ class ExecutableFile implements HasToJson {
  * Clients may not extend, implement or mix-in this class.
  */
 class ExecutableKind implements Enum {
-  static const CLIENT = const ExecutableKind._("CLIENT");
+  static const ExecutableKind CLIENT = const ExecutableKind._("CLIENT");
 
-  static const EITHER = const ExecutableKind._("EITHER");
+  static const ExecutableKind EITHER = const ExecutableKind._("EITHER");
 
-  static const NOT_EXECUTABLE = const ExecutableKind._("NOT_EXECUTABLE");
+  static const ExecutableKind NOT_EXECUTABLE = const ExecutableKind._("NOT_EXECUTABLE");
 
-  static const SERVER = const ExecutableKind._("SERVER");
+  static const ExecutableKind SERVER = const ExecutableKind._("SERVER");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -10262,7 +10478,7 @@ class ExecutableKind implements Enum {
  * Clients may not extend, implement or mix-in this class.
  */
 class ExecutionService implements Enum {
-  static const LAUNCH_DATA = const ExecutionService._("LAUNCH_DATA");
+  static const ExecutionService LAUNCH_DATA = const ExecutionService._("LAUNCH_DATA");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -10309,9 +10525,9 @@ class ExecutionService implements Enum {
  * Clients may not extend, implement or mix-in this class.
  */
 class FileKind implements Enum {
-  static const LIBRARY = const FileKind._("LIBRARY");
+  static const FileKind LIBRARY = const FileKind._("LIBRARY");
 
-  static const PART = const FileKind._("PART");
+  static const FileKind PART = const FileKind._("PART");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -10363,15 +10579,15 @@ class FileKind implements Enum {
  * Clients may not extend, implement or mix-in this class.
  */
 class FoldingKind implements Enum {
-  static const COMMENT = const FoldingKind._("COMMENT");
+  static const FoldingKind COMMENT = const FoldingKind._("COMMENT");
 
-  static const CLASS_MEMBER = const FoldingKind._("CLASS_MEMBER");
+  static const FoldingKind CLASS_MEMBER = const FoldingKind._("CLASS_MEMBER");
 
-  static const DIRECTIVES = const FoldingKind._("DIRECTIVES");
+  static const FoldingKind DIRECTIVES = const FoldingKind._("DIRECTIVES");
 
-  static const DOCUMENTATION_COMMENT = const FoldingKind._("DOCUMENTATION_COMMENT");
+  static const FoldingKind DOCUMENTATION_COMMENT = const FoldingKind._("DOCUMENTATION_COMMENT");
 
-  static const TOP_LEVEL_DECLARATION = const FoldingKind._("TOP_LEVEL_DECLARATION");
+  static const FoldingKind TOP_LEVEL_DECLARATION = const FoldingKind._("TOP_LEVEL_DECLARATION");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -10548,7 +10764,7 @@ class FoldingRegion implements HasToJson {
  * Clients may not extend, implement or mix-in this class.
  */
 class GeneralAnalysisService implements Enum {
-  static const ANALYZED_FILES = const GeneralAnalysisService._("ANALYZED_FILES");
+  static const GeneralAnalysisService ANALYZED_FILES = const GeneralAnalysisService._("ANALYZED_FILES");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -10789,298 +11005,298 @@ class HighlightRegion implements HasToJson {
  * Clients may not extend, implement or mix-in this class.
  */
 class HighlightRegionType implements Enum {
-  static const ANNOTATION = const HighlightRegionType._("ANNOTATION");
+  static const HighlightRegionType ANNOTATION = const HighlightRegionType._("ANNOTATION");
 
-  static const BUILT_IN = const HighlightRegionType._("BUILT_IN");
+  static const HighlightRegionType BUILT_IN = const HighlightRegionType._("BUILT_IN");
 
-  static const CLASS = const HighlightRegionType._("CLASS");
+  static const HighlightRegionType CLASS = const HighlightRegionType._("CLASS");
 
-  static const COMMENT_BLOCK = const HighlightRegionType._("COMMENT_BLOCK");
+  static const HighlightRegionType COMMENT_BLOCK = const HighlightRegionType._("COMMENT_BLOCK");
 
-  static const COMMENT_DOCUMENTATION = const HighlightRegionType._("COMMENT_DOCUMENTATION");
+  static const HighlightRegionType COMMENT_DOCUMENTATION = const HighlightRegionType._("COMMENT_DOCUMENTATION");
 
-  static const COMMENT_END_OF_LINE = const HighlightRegionType._("COMMENT_END_OF_LINE");
+  static const HighlightRegionType COMMENT_END_OF_LINE = const HighlightRegionType._("COMMENT_END_OF_LINE");
 
-  static const CONSTRUCTOR = const HighlightRegionType._("CONSTRUCTOR");
+  static const HighlightRegionType CONSTRUCTOR = const HighlightRegionType._("CONSTRUCTOR");
 
-  static const DIRECTIVE = const HighlightRegionType._("DIRECTIVE");
-
-  /**
-   * Only for version 1 of highlight.
-   */
-  static const DYNAMIC_TYPE = const HighlightRegionType._("DYNAMIC_TYPE");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const DYNAMIC_LOCAL_VARIABLE_DECLARATION = const HighlightRegionType._("DYNAMIC_LOCAL_VARIABLE_DECLARATION");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const DYNAMIC_LOCAL_VARIABLE_REFERENCE = const HighlightRegionType._("DYNAMIC_LOCAL_VARIABLE_REFERENCE");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const DYNAMIC_PARAMETER_DECLARATION = const HighlightRegionType._("DYNAMIC_PARAMETER_DECLARATION");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const DYNAMIC_PARAMETER_REFERENCE = const HighlightRegionType._("DYNAMIC_PARAMETER_REFERENCE");
-
-  static const ENUM = const HighlightRegionType._("ENUM");
-
-  static const ENUM_CONSTANT = const HighlightRegionType._("ENUM_CONSTANT");
+  static const HighlightRegionType DIRECTIVE = const HighlightRegionType._("DIRECTIVE");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const FIELD = const HighlightRegionType._("FIELD");
+  static const HighlightRegionType DYNAMIC_TYPE = const HighlightRegionType._("DYNAMIC_TYPE");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType DYNAMIC_LOCAL_VARIABLE_DECLARATION = const HighlightRegionType._("DYNAMIC_LOCAL_VARIABLE_DECLARATION");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType DYNAMIC_LOCAL_VARIABLE_REFERENCE = const HighlightRegionType._("DYNAMIC_LOCAL_VARIABLE_REFERENCE");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType DYNAMIC_PARAMETER_DECLARATION = const HighlightRegionType._("DYNAMIC_PARAMETER_DECLARATION");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType DYNAMIC_PARAMETER_REFERENCE = const HighlightRegionType._("DYNAMIC_PARAMETER_REFERENCE");
+
+  static const HighlightRegionType ENUM = const HighlightRegionType._("ENUM");
+
+  static const HighlightRegionType ENUM_CONSTANT = const HighlightRegionType._("ENUM_CONSTANT");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const FIELD_STATIC = const HighlightRegionType._("FIELD_STATIC");
+  static const HighlightRegionType FIELD = const HighlightRegionType._("FIELD");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const FUNCTION = const HighlightRegionType._("FUNCTION");
+  static const HighlightRegionType FIELD_STATIC = const HighlightRegionType._("FIELD_STATIC");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const FUNCTION_DECLARATION = const HighlightRegionType._("FUNCTION_DECLARATION");
-
-  static const FUNCTION_TYPE_ALIAS = const HighlightRegionType._("FUNCTION_TYPE_ALIAS");
+  static const HighlightRegionType FUNCTION = const HighlightRegionType._("FUNCTION");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const GETTER_DECLARATION = const HighlightRegionType._("GETTER_DECLARATION");
+  static const HighlightRegionType FUNCTION_DECLARATION = const HighlightRegionType._("FUNCTION_DECLARATION");
 
-  static const IDENTIFIER_DEFAULT = const HighlightRegionType._("IDENTIFIER_DEFAULT");
-
-  static const IMPORT_PREFIX = const HighlightRegionType._("IMPORT_PREFIX");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const INSTANCE_FIELD_DECLARATION = const HighlightRegionType._("INSTANCE_FIELD_DECLARATION");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const INSTANCE_FIELD_REFERENCE = const HighlightRegionType._("INSTANCE_FIELD_REFERENCE");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const INSTANCE_GETTER_DECLARATION = const HighlightRegionType._("INSTANCE_GETTER_DECLARATION");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const INSTANCE_GETTER_REFERENCE = const HighlightRegionType._("INSTANCE_GETTER_REFERENCE");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const INSTANCE_METHOD_DECLARATION = const HighlightRegionType._("INSTANCE_METHOD_DECLARATION");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const INSTANCE_METHOD_REFERENCE = const HighlightRegionType._("INSTANCE_METHOD_REFERENCE");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const INSTANCE_SETTER_DECLARATION = const HighlightRegionType._("INSTANCE_SETTER_DECLARATION");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const INSTANCE_SETTER_REFERENCE = const HighlightRegionType._("INSTANCE_SETTER_REFERENCE");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const INVALID_STRING_ESCAPE = const HighlightRegionType._("INVALID_STRING_ESCAPE");
-
-  static const KEYWORD = const HighlightRegionType._("KEYWORD");
-
-  static const LABEL = const HighlightRegionType._("LABEL");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const LIBRARY_NAME = const HighlightRegionType._("LIBRARY_NAME");
-
-  static const LITERAL_BOOLEAN = const HighlightRegionType._("LITERAL_BOOLEAN");
-
-  static const LITERAL_DOUBLE = const HighlightRegionType._("LITERAL_DOUBLE");
-
-  static const LITERAL_INTEGER = const HighlightRegionType._("LITERAL_INTEGER");
-
-  static const LITERAL_LIST = const HighlightRegionType._("LITERAL_LIST");
-
-  static const LITERAL_MAP = const HighlightRegionType._("LITERAL_MAP");
-
-  static const LITERAL_STRING = const HighlightRegionType._("LITERAL_STRING");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const LOCAL_FUNCTION_DECLARATION = const HighlightRegionType._("LOCAL_FUNCTION_DECLARATION");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const LOCAL_FUNCTION_REFERENCE = const HighlightRegionType._("LOCAL_FUNCTION_REFERENCE");
+  static const HighlightRegionType FUNCTION_TYPE_ALIAS = const HighlightRegionType._("FUNCTION_TYPE_ALIAS");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const LOCAL_VARIABLE = const HighlightRegionType._("LOCAL_VARIABLE");
+  static const HighlightRegionType GETTER_DECLARATION = const HighlightRegionType._("GETTER_DECLARATION");
 
-  static const LOCAL_VARIABLE_DECLARATION = const HighlightRegionType._("LOCAL_VARIABLE_DECLARATION");
+  static const HighlightRegionType IDENTIFIER_DEFAULT = const HighlightRegionType._("IDENTIFIER_DEFAULT");
+
+  static const HighlightRegionType IMPORT_PREFIX = const HighlightRegionType._("IMPORT_PREFIX");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const LOCAL_VARIABLE_REFERENCE = const HighlightRegionType._("LOCAL_VARIABLE_REFERENCE");
+  static const HighlightRegionType INSTANCE_FIELD_DECLARATION = const HighlightRegionType._("INSTANCE_FIELD_DECLARATION");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType INSTANCE_FIELD_REFERENCE = const HighlightRegionType._("INSTANCE_FIELD_REFERENCE");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType INSTANCE_GETTER_DECLARATION = const HighlightRegionType._("INSTANCE_GETTER_DECLARATION");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType INSTANCE_GETTER_REFERENCE = const HighlightRegionType._("INSTANCE_GETTER_REFERENCE");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType INSTANCE_METHOD_DECLARATION = const HighlightRegionType._("INSTANCE_METHOD_DECLARATION");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType INSTANCE_METHOD_REFERENCE = const HighlightRegionType._("INSTANCE_METHOD_REFERENCE");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType INSTANCE_SETTER_DECLARATION = const HighlightRegionType._("INSTANCE_SETTER_DECLARATION");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType INSTANCE_SETTER_REFERENCE = const HighlightRegionType._("INSTANCE_SETTER_REFERENCE");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType INVALID_STRING_ESCAPE = const HighlightRegionType._("INVALID_STRING_ESCAPE");
+
+  static const HighlightRegionType KEYWORD = const HighlightRegionType._("KEYWORD");
+
+  static const HighlightRegionType LABEL = const HighlightRegionType._("LABEL");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType LIBRARY_NAME = const HighlightRegionType._("LIBRARY_NAME");
+
+  static const HighlightRegionType LITERAL_BOOLEAN = const HighlightRegionType._("LITERAL_BOOLEAN");
+
+  static const HighlightRegionType LITERAL_DOUBLE = const HighlightRegionType._("LITERAL_DOUBLE");
+
+  static const HighlightRegionType LITERAL_INTEGER = const HighlightRegionType._("LITERAL_INTEGER");
+
+  static const HighlightRegionType LITERAL_LIST = const HighlightRegionType._("LITERAL_LIST");
+
+  static const HighlightRegionType LITERAL_MAP = const HighlightRegionType._("LITERAL_MAP");
+
+  static const HighlightRegionType LITERAL_STRING = const HighlightRegionType._("LITERAL_STRING");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType LOCAL_FUNCTION_DECLARATION = const HighlightRegionType._("LOCAL_FUNCTION_DECLARATION");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType LOCAL_FUNCTION_REFERENCE = const HighlightRegionType._("LOCAL_FUNCTION_REFERENCE");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const METHOD = const HighlightRegionType._("METHOD");
+  static const HighlightRegionType LOCAL_VARIABLE = const HighlightRegionType._("LOCAL_VARIABLE");
+
+  static const HighlightRegionType LOCAL_VARIABLE_DECLARATION = const HighlightRegionType._("LOCAL_VARIABLE_DECLARATION");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType LOCAL_VARIABLE_REFERENCE = const HighlightRegionType._("LOCAL_VARIABLE_REFERENCE");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const METHOD_DECLARATION = const HighlightRegionType._("METHOD_DECLARATION");
+  static const HighlightRegionType METHOD = const HighlightRegionType._("METHOD");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const METHOD_DECLARATION_STATIC = const HighlightRegionType._("METHOD_DECLARATION_STATIC");
+  static const HighlightRegionType METHOD_DECLARATION = const HighlightRegionType._("METHOD_DECLARATION");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const METHOD_STATIC = const HighlightRegionType._("METHOD_STATIC");
+  static const HighlightRegionType METHOD_DECLARATION_STATIC = const HighlightRegionType._("METHOD_DECLARATION_STATIC");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const PARAMETER = const HighlightRegionType._("PARAMETER");
+  static const HighlightRegionType METHOD_STATIC = const HighlightRegionType._("METHOD_STATIC");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const SETTER_DECLARATION = const HighlightRegionType._("SETTER_DECLARATION");
+  static const HighlightRegionType PARAMETER = const HighlightRegionType._("PARAMETER");
 
   /**
    * Only for version 1 of highlight.
    */
-  static const TOP_LEVEL_VARIABLE = const HighlightRegionType._("TOP_LEVEL_VARIABLE");
+  static const HighlightRegionType SETTER_DECLARATION = const HighlightRegionType._("SETTER_DECLARATION");
+
+  /**
+   * Only for version 1 of highlight.
+   */
+  static const HighlightRegionType TOP_LEVEL_VARIABLE = const HighlightRegionType._("TOP_LEVEL_VARIABLE");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const PARAMETER_DECLARATION = const HighlightRegionType._("PARAMETER_DECLARATION");
+  static const HighlightRegionType PARAMETER_DECLARATION = const HighlightRegionType._("PARAMETER_DECLARATION");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const PARAMETER_REFERENCE = const HighlightRegionType._("PARAMETER_REFERENCE");
+  static const HighlightRegionType PARAMETER_REFERENCE = const HighlightRegionType._("PARAMETER_REFERENCE");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const STATIC_FIELD_DECLARATION = const HighlightRegionType._("STATIC_FIELD_DECLARATION");
+  static const HighlightRegionType STATIC_FIELD_DECLARATION = const HighlightRegionType._("STATIC_FIELD_DECLARATION");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const STATIC_GETTER_DECLARATION = const HighlightRegionType._("STATIC_GETTER_DECLARATION");
+  static const HighlightRegionType STATIC_GETTER_DECLARATION = const HighlightRegionType._("STATIC_GETTER_DECLARATION");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const STATIC_GETTER_REFERENCE = const HighlightRegionType._("STATIC_GETTER_REFERENCE");
+  static const HighlightRegionType STATIC_GETTER_REFERENCE = const HighlightRegionType._("STATIC_GETTER_REFERENCE");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const STATIC_METHOD_DECLARATION = const HighlightRegionType._("STATIC_METHOD_DECLARATION");
+  static const HighlightRegionType STATIC_METHOD_DECLARATION = const HighlightRegionType._("STATIC_METHOD_DECLARATION");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const STATIC_METHOD_REFERENCE = const HighlightRegionType._("STATIC_METHOD_REFERENCE");
+  static const HighlightRegionType STATIC_METHOD_REFERENCE = const HighlightRegionType._("STATIC_METHOD_REFERENCE");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const STATIC_SETTER_DECLARATION = const HighlightRegionType._("STATIC_SETTER_DECLARATION");
+  static const HighlightRegionType STATIC_SETTER_DECLARATION = const HighlightRegionType._("STATIC_SETTER_DECLARATION");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const STATIC_SETTER_REFERENCE = const HighlightRegionType._("STATIC_SETTER_REFERENCE");
+  static const HighlightRegionType STATIC_SETTER_REFERENCE = const HighlightRegionType._("STATIC_SETTER_REFERENCE");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const TOP_LEVEL_FUNCTION_DECLARATION = const HighlightRegionType._("TOP_LEVEL_FUNCTION_DECLARATION");
+  static const HighlightRegionType TOP_LEVEL_FUNCTION_DECLARATION = const HighlightRegionType._("TOP_LEVEL_FUNCTION_DECLARATION");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const TOP_LEVEL_FUNCTION_REFERENCE = const HighlightRegionType._("TOP_LEVEL_FUNCTION_REFERENCE");
+  static const HighlightRegionType TOP_LEVEL_FUNCTION_REFERENCE = const HighlightRegionType._("TOP_LEVEL_FUNCTION_REFERENCE");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const TOP_LEVEL_GETTER_DECLARATION = const HighlightRegionType._("TOP_LEVEL_GETTER_DECLARATION");
+  static const HighlightRegionType TOP_LEVEL_GETTER_DECLARATION = const HighlightRegionType._("TOP_LEVEL_GETTER_DECLARATION");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const TOP_LEVEL_GETTER_REFERENCE = const HighlightRegionType._("TOP_LEVEL_GETTER_REFERENCE");
+  static const HighlightRegionType TOP_LEVEL_GETTER_REFERENCE = const HighlightRegionType._("TOP_LEVEL_GETTER_REFERENCE");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const TOP_LEVEL_SETTER_DECLARATION = const HighlightRegionType._("TOP_LEVEL_SETTER_DECLARATION");
+  static const HighlightRegionType TOP_LEVEL_SETTER_DECLARATION = const HighlightRegionType._("TOP_LEVEL_SETTER_DECLARATION");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const TOP_LEVEL_SETTER_REFERENCE = const HighlightRegionType._("TOP_LEVEL_SETTER_REFERENCE");
+  static const HighlightRegionType TOP_LEVEL_SETTER_REFERENCE = const HighlightRegionType._("TOP_LEVEL_SETTER_REFERENCE");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const TOP_LEVEL_VARIABLE_DECLARATION = const HighlightRegionType._("TOP_LEVEL_VARIABLE_DECLARATION");
+  static const HighlightRegionType TOP_LEVEL_VARIABLE_DECLARATION = const HighlightRegionType._("TOP_LEVEL_VARIABLE_DECLARATION");
 
-  static const TYPE_NAME_DYNAMIC = const HighlightRegionType._("TYPE_NAME_DYNAMIC");
+  static const HighlightRegionType TYPE_NAME_DYNAMIC = const HighlightRegionType._("TYPE_NAME_DYNAMIC");
 
-  static const TYPE_PARAMETER = const HighlightRegionType._("TYPE_PARAMETER");
-
-  /**
-   * Only for version 2 of highlight.
-   */
-  static const UNRESOLVED_INSTANCE_MEMBER_REFERENCE = const HighlightRegionType._("UNRESOLVED_INSTANCE_MEMBER_REFERENCE");
+  static const HighlightRegionType TYPE_PARAMETER = const HighlightRegionType._("TYPE_PARAMETER");
 
   /**
    * Only for version 2 of highlight.
    */
-  static const VALID_STRING_ESCAPE = const HighlightRegionType._("VALID_STRING_ESCAPE");
+  static const HighlightRegionType UNRESOLVED_INSTANCE_MEMBER_REFERENCE = const HighlightRegionType._("UNRESOLVED_INSTANCE_MEMBER_REFERENCE");
+
+  /**
+   * Only for version 2 of highlight.
+   */
+  static const HighlightRegionType VALID_STRING_ESCAPE = const HighlightRegionType._("VALID_STRING_ESCAPE");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -11272,6 +11488,7 @@ class HighlightRegionType implements Enum {
  *   "dartdoc": optional String
  *   "elementDescription": optional String
  *   "elementKind": optional String
+ *   "isDeprecated": optional bool
  *   "parameter": optional String
  *   "propagatedType": optional String
  *   "staticType": optional String
@@ -11295,6 +11512,8 @@ class HoverInformation implements HasToJson {
   String _elementDescription;
 
   String _elementKind;
+
+  bool _isDeprecated;
 
   String _parameter;
 
@@ -11414,18 +11633,30 @@ class HoverInformation implements HasToJson {
 
   /**
    * A human-readable description of the kind of element being referenced (such
-   * as “class” or “function type alias”). This data is omitted if there is no
+   * as "class" or "function type alias"). This data is omitted if there is no
    * referenced element.
    */
   String get elementKind => _elementKind;
 
   /**
    * A human-readable description of the kind of element being referenced (such
-   * as “class” or “function type alias”). This data is omitted if there is no
+   * as "class" or "function type alias"). This data is omitted if there is no
    * referenced element.
    */
   void set elementKind(String value) {
     this._elementKind = value;
+  }
+
+  /**
+   * True if the referenced element is deprecated.
+   */
+  bool get isDeprecated => _isDeprecated;
+
+  /**
+   * True if the referenced element is deprecated.
+   */
+  void set isDeprecated(bool value) {
+    this._isDeprecated = value;
   }
 
   /**
@@ -11474,7 +11705,7 @@ class HoverInformation implements HasToJson {
     this._staticType = value;
   }
 
-  HoverInformation(int offset, int length, {String containingLibraryPath, String containingLibraryName, String containingClassDescription, String dartdoc, String elementDescription, String elementKind, String parameter, String propagatedType, String staticType}) {
+  HoverInformation(int offset, int length, {String containingLibraryPath, String containingLibraryName, String containingClassDescription, String dartdoc, String elementDescription, String elementKind, bool isDeprecated, String parameter, String propagatedType, String staticType}) {
     this.offset = offset;
     this.length = length;
     this.containingLibraryPath = containingLibraryPath;
@@ -11483,6 +11714,7 @@ class HoverInformation implements HasToJson {
     this.dartdoc = dartdoc;
     this.elementDescription = elementDescription;
     this.elementKind = elementKind;
+    this.isDeprecated = isDeprecated;
     this.parameter = parameter;
     this.propagatedType = propagatedType;
     this.staticType = staticType;
@@ -11529,6 +11761,10 @@ class HoverInformation implements HasToJson {
       if (json.containsKey("elementKind")) {
         elementKind = jsonDecoder.decodeString(jsonPath + ".elementKind", json["elementKind"]);
       }
+      bool isDeprecated;
+      if (json.containsKey("isDeprecated")) {
+        isDeprecated = jsonDecoder.decodeBool(jsonPath + ".isDeprecated", json["isDeprecated"]);
+      }
       String parameter;
       if (json.containsKey("parameter")) {
         parameter = jsonDecoder.decodeString(jsonPath + ".parameter", json["parameter"]);
@@ -11541,7 +11777,7 @@ class HoverInformation implements HasToJson {
       if (json.containsKey("staticType")) {
         staticType = jsonDecoder.decodeString(jsonPath + ".staticType", json["staticType"]);
       }
-      return new HoverInformation(offset, length, containingLibraryPath: containingLibraryPath, containingLibraryName: containingLibraryName, containingClassDescription: containingClassDescription, dartdoc: dartdoc, elementDescription: elementDescription, elementKind: elementKind, parameter: parameter, propagatedType: propagatedType, staticType: staticType);
+      return new HoverInformation(offset, length, containingLibraryPath: containingLibraryPath, containingLibraryName: containingLibraryName, containingClassDescription: containingClassDescription, dartdoc: dartdoc, elementDescription: elementDescription, elementKind: elementKind, isDeprecated: isDeprecated, parameter: parameter, propagatedType: propagatedType, staticType: staticType);
     } else {
       throw jsonDecoder.mismatch(jsonPath, "HoverInformation", json);
     }
@@ -11569,6 +11805,9 @@ class HoverInformation implements HasToJson {
     if (elementKind != null) {
       result["elementKind"] = elementKind;
     }
+    if (isDeprecated != null) {
+      result["isDeprecated"] = isDeprecated;
+    }
     if (parameter != null) {
       result["parameter"] = parameter;
     }
@@ -11595,6 +11834,7 @@ class HoverInformation implements HasToJson {
           dartdoc == other.dartdoc &&
           elementDescription == other.elementDescription &&
           elementKind == other.elementKind &&
+          isDeprecated == other.isDeprecated &&
           parameter == other.parameter &&
           propagatedType == other.propagatedType &&
           staticType == other.staticType;
@@ -11613,6 +11853,7 @@ class HoverInformation implements HasToJson {
     hash = JenkinsSmiHash.combine(hash, dartdoc.hashCode);
     hash = JenkinsSmiHash.combine(hash, elementDescription.hashCode);
     hash = JenkinsSmiHash.combine(hash, elementKind.hashCode);
+    hash = JenkinsSmiHash.combine(hash, isDeprecated.hashCode);
     hash = JenkinsSmiHash.combine(hash, parameter.hashCode);
     hash = JenkinsSmiHash.combine(hash, propagatedType.hashCode);
     hash = JenkinsSmiHash.combine(hash, staticType.hashCode);
@@ -12069,13 +12310,13 @@ class LinkedEditSuggestion implements HasToJson {
  * Clients may not extend, implement or mix-in this class.
  */
 class LinkedEditSuggestionKind implements Enum {
-  static const METHOD = const LinkedEditSuggestionKind._("METHOD");
+  static const LinkedEditSuggestionKind METHOD = const LinkedEditSuggestionKind._("METHOD");
 
-  static const PARAMETER = const LinkedEditSuggestionKind._("PARAMETER");
+  static const LinkedEditSuggestionKind PARAMETER = const LinkedEditSuggestionKind._("PARAMETER");
 
-  static const TYPE = const LinkedEditSuggestionKind._("TYPE");
+  static const LinkedEditSuggestionKind TYPE = const LinkedEditSuggestionKind._("TYPE");
 
-  static const VARIABLE = const LinkedEditSuggestionKind._("VARIABLE");
+  static const LinkedEditSuggestionKind VARIABLE = const LinkedEditSuggestionKind._("VARIABLE");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -12479,12 +12720,12 @@ class NavigationTarget implements HasToJson {
   }
 
   /**
-   * The offset of the region from which the user can navigate.
+   * The offset of the region to which the user can navigate.
    */
   int get offset => _offset;
 
   /**
-   * The offset of the region from which the user can navigate.
+   * The offset of the region to which the user can navigate.
    */
   void set offset(int value) {
     assert(value != null);
@@ -12492,12 +12733,12 @@ class NavigationTarget implements HasToJson {
   }
 
   /**
-   * The length of the region from which the user can navigate.
+   * The length of the region to which the user can navigate.
    */
   int get length => _length;
 
   /**
-   * The length of the region from which the user can navigate.
+   * The length of the region to which the user can navigate.
    */
   void set length(int value) {
     assert(value != null);
@@ -13349,23 +13590,23 @@ class PubStatus implements HasToJson {
  * Clients may not extend, implement or mix-in this class.
  */
 class RefactoringKind implements Enum {
-  static const CONVERT_GETTER_TO_METHOD = const RefactoringKind._("CONVERT_GETTER_TO_METHOD");
+  static const RefactoringKind CONVERT_GETTER_TO_METHOD = const RefactoringKind._("CONVERT_GETTER_TO_METHOD");
 
-  static const CONVERT_METHOD_TO_GETTER = const RefactoringKind._("CONVERT_METHOD_TO_GETTER");
+  static const RefactoringKind CONVERT_METHOD_TO_GETTER = const RefactoringKind._("CONVERT_METHOD_TO_GETTER");
 
-  static const EXTRACT_LOCAL_VARIABLE = const RefactoringKind._("EXTRACT_LOCAL_VARIABLE");
+  static const RefactoringKind EXTRACT_LOCAL_VARIABLE = const RefactoringKind._("EXTRACT_LOCAL_VARIABLE");
 
-  static const EXTRACT_METHOD = const RefactoringKind._("EXTRACT_METHOD");
+  static const RefactoringKind EXTRACT_METHOD = const RefactoringKind._("EXTRACT_METHOD");
 
-  static const INLINE_LOCAL_VARIABLE = const RefactoringKind._("INLINE_LOCAL_VARIABLE");
+  static const RefactoringKind INLINE_LOCAL_VARIABLE = const RefactoringKind._("INLINE_LOCAL_VARIABLE");
 
-  static const INLINE_METHOD = const RefactoringKind._("INLINE_METHOD");
+  static const RefactoringKind INLINE_METHOD = const RefactoringKind._("INLINE_METHOD");
 
-  static const MOVE_FILE = const RefactoringKind._("MOVE_FILE");
+  static const RefactoringKind MOVE_FILE = const RefactoringKind._("MOVE_FILE");
 
-  static const RENAME = const RefactoringKind._("RENAME");
+  static const RefactoringKind RENAME = const RefactoringKind._("RENAME");
 
-  static const SORT_MEMBERS = const RefactoringKind._("SORT_MEMBERS");
+  static const RefactoringKind SORT_MEMBERS = const RefactoringKind._("SORT_MEMBERS");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -13686,11 +13927,11 @@ class RefactoringOptions implements HasToJson {
  * Clients may not extend, implement or mix-in this class.
  */
 class RefactoringMethodParameterKind implements Enum {
-  static const REQUIRED = const RefactoringMethodParameterKind._("REQUIRED");
+  static const RefactoringMethodParameterKind REQUIRED = const RefactoringMethodParameterKind._("REQUIRED");
 
-  static const POSITIONAL = const RefactoringMethodParameterKind._("POSITIONAL");
+  static const RefactoringMethodParameterKind POSITIONAL = const RefactoringMethodParameterKind._("POSITIONAL");
 
-  static const NAMED = const RefactoringMethodParameterKind._("NAMED");
+  static const RefactoringMethodParameterKind NAMED = const RefactoringMethodParameterKind._("NAMED");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -13869,13 +14110,38 @@ class RefactoringProblem implements HasToJson {
  * Clients may not extend, implement or mix-in this class.
  */
 class RefactoringProblemSeverity implements Enum {
-  static const INFO = const RefactoringProblemSeverity._("INFO");
+  /**
+   * A minor code problem. No example, because it is not used yet.
+   */
+  static const RefactoringProblemSeverity INFO = const RefactoringProblemSeverity._("INFO");
 
-  static const WARNING = const RefactoringProblemSeverity._("WARNING");
+  /**
+   * A minor code problem. For example names of local variables should be camel
+   * case and start with a lower case letter. Staring the name of a variable
+   * with an upper case is OK from the language point of view, but it is nice
+   * to warn the user.
+   */
+  static const RefactoringProblemSeverity WARNING = const RefactoringProblemSeverity._("WARNING");
 
-  static const ERROR = const RefactoringProblemSeverity._("ERROR");
+  /**
+   * The refactoring technically can be performed, but there is a logical
+   * problem. For example the name of a local variable being extracted
+   * conflicts with another name in the scope, or duplicate parameter names in
+   * the method being extracted, or a conflict between a parameter name and a
+   * local variable, etc. In some cases the location of the problem is also
+   * provided, so the IDE can show user the location and the problem, and let
+   * the user decide whether she wants to perform the refactoring. For example
+   * the name conflict might be expected, and the user wants to fix it
+   * afterwards.
+   */
+  static const RefactoringProblemSeverity ERROR = const RefactoringProblemSeverity._("ERROR");
 
-  static const FATAL = const RefactoringProblemSeverity._("FATAL");
+  /**
+   * A fatal error, which prevents performing the refactoring. For example the
+   * name of a local variable being extracted is not a valid identifier, or
+   * selection is not a valid expression.
+   */
+  static const RefactoringProblemSeverity FATAL = const RefactoringProblemSeverity._("FATAL");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -14103,6 +14369,7 @@ class RequestError implements HasToJson {
  *
  * enum {
  *   CONTENT_MODIFIED
+ *   DEBUG_PORT_COULD_NOT_BE_OPENED
  *   FILE_NOT_ANALYZED
  *   FORMAT_INVALID_FILE
  *   FORMAT_WITH_ERRORS
@@ -14136,93 +14403,98 @@ class RequestErrorCode implements Enum {
    * satisfied because the content of the file changed before the requested
    * results could be computed.
    */
-  static const CONTENT_MODIFIED = const RequestErrorCode._("CONTENT_MODIFIED");
+  static const RequestErrorCode CONTENT_MODIFIED = const RequestErrorCode._("CONTENT_MODIFIED");
+
+  /**
+   * The server was unable to open a port for the diagnostic server.
+   */
+  static const RequestErrorCode DEBUG_PORT_COULD_NOT_BE_OPENED = const RequestErrorCode._("DEBUG_PORT_COULD_NOT_BE_OPENED");
 
   /**
    * A request specified a FilePath which does not match a file in an analysis
    * root, or the requested operation is not available for the file.
    */
-  static const FILE_NOT_ANALYZED = const RequestErrorCode._("FILE_NOT_ANALYZED");
+  static const RequestErrorCode FILE_NOT_ANALYZED = const RequestErrorCode._("FILE_NOT_ANALYZED");
 
   /**
    * An "edit.format" request specified a FilePath which does not match a Dart
    * file in an analysis root.
    */
-  static const FORMAT_INVALID_FILE = const RequestErrorCode._("FORMAT_INVALID_FILE");
+  static const RequestErrorCode FORMAT_INVALID_FILE = const RequestErrorCode._("FORMAT_INVALID_FILE");
 
   /**
    * An "edit.format" request specified a file that contains syntax errors.
    */
-  static const FORMAT_WITH_ERRORS = const RequestErrorCode._("FORMAT_WITH_ERRORS");
+  static const RequestErrorCode FORMAT_WITH_ERRORS = const RequestErrorCode._("FORMAT_WITH_ERRORS");
 
   /**
    * An "analysis.getErrors" request specified a FilePath which does not match
    * a file currently subject to analysis.
    */
-  static const GET_ERRORS_INVALID_FILE = const RequestErrorCode._("GET_ERRORS_INVALID_FILE");
+  static const RequestErrorCode GET_ERRORS_INVALID_FILE = const RequestErrorCode._("GET_ERRORS_INVALID_FILE");
 
   /**
    * An "analysis.getNavigation" request specified a FilePath which does not
    * match a file currently subject to analysis.
    */
-  static const GET_NAVIGATION_INVALID_FILE = const RequestErrorCode._("GET_NAVIGATION_INVALID_FILE");
+  static const RequestErrorCode GET_NAVIGATION_INVALID_FILE = const RequestErrorCode._("GET_NAVIGATION_INVALID_FILE");
 
   /**
    * An "analysis.getReachableSources" request specified a FilePath which does
    * not match a file currently subject to analysis.
    */
-  static const GET_REACHABLE_SOURCES_INVALID_FILE = const RequestErrorCode._("GET_REACHABLE_SOURCES_INVALID_FILE");
+  static const RequestErrorCode GET_REACHABLE_SOURCES_INVALID_FILE = const RequestErrorCode._("GET_REACHABLE_SOURCES_INVALID_FILE");
 
   /**
    * A path passed as an argument to a request (such as analysis.reanalyze) is
    * required to be an analysis root, but isn't.
    */
-  static const INVALID_ANALYSIS_ROOT = const RequestErrorCode._("INVALID_ANALYSIS_ROOT");
+  static const RequestErrorCode INVALID_ANALYSIS_ROOT = const RequestErrorCode._("INVALID_ANALYSIS_ROOT");
 
   /**
    * The context root used to create an execution context does not exist.
    */
-  static const INVALID_EXECUTION_CONTEXT = const RequestErrorCode._("INVALID_EXECUTION_CONTEXT");
+  static const RequestErrorCode INVALID_EXECUTION_CONTEXT = const RequestErrorCode._("INVALID_EXECUTION_CONTEXT");
 
   /**
    * The format of the given file path is invalid, e.g. is not absolute and
    * normalized.
    */
-  static const INVALID_FILE_PATH_FORMAT = const RequestErrorCode._("INVALID_FILE_PATH_FORMAT");
+  static const RequestErrorCode INVALID_FILE_PATH_FORMAT = const RequestErrorCode._("INVALID_FILE_PATH_FORMAT");
 
   /**
    * An "analysis.updateContent" request contained a ChangeContentOverlay
    * object which can't be applied, due to an edit having an offset or length
    * that is out of range.
    */
-  static const INVALID_OVERLAY_CHANGE = const RequestErrorCode._("INVALID_OVERLAY_CHANGE");
+  static const RequestErrorCode INVALID_OVERLAY_CHANGE = const RequestErrorCode._("INVALID_OVERLAY_CHANGE");
 
   /**
    * One of the method parameters was invalid.
    */
-  static const INVALID_PARAMETER = const RequestErrorCode._("INVALID_PARAMETER");
+  static const RequestErrorCode INVALID_PARAMETER = const RequestErrorCode._("INVALID_PARAMETER");
 
   /**
    * A malformed request was received.
    */
-  static const INVALID_REQUEST = const RequestErrorCode._("INVALID_REQUEST");
+  static const RequestErrorCode INVALID_REQUEST = const RequestErrorCode._("INVALID_REQUEST");
 
   /**
    * The "--no-index" flag was passed when the analysis server created, but
    * this API call requires an index to have been generated.
    */
-  static const NO_INDEX_GENERATED = const RequestErrorCode._("NO_INDEX_GENERATED");
+  static const RequestErrorCode NO_INDEX_GENERATED = const RequestErrorCode._("NO_INDEX_GENERATED");
 
   /**
    * An "edit.organizeDirectives" request specified a Dart file that cannot be
    * analyzed. The reason is described in the message.
    */
-  static const ORGANIZE_DIRECTIVES_ERROR = const RequestErrorCode._("ORGANIZE_DIRECTIVES_ERROR");
+  static const RequestErrorCode ORGANIZE_DIRECTIVES_ERROR = const RequestErrorCode._("ORGANIZE_DIRECTIVES_ERROR");
 
   /**
    * Another refactoring request was received during processing of this one.
    */
-  static const REFACTORING_REQUEST_CANCELLED = const RequestErrorCode._("REFACTORING_REQUEST_CANCELLED");
+  static const RequestErrorCode REFACTORING_REQUEST_CANCELLED = const RequestErrorCode._("REFACTORING_REQUEST_CANCELLED");
 
   /**
    * The analysis server has already been started (and hence won't accept new
@@ -14232,25 +14504,25 @@ class RequestErrorCode implements Enum {
    * server can only speak to one client at a time so this error will never
    * occur.
    */
-  static const SERVER_ALREADY_STARTED = const RequestErrorCode._("SERVER_ALREADY_STARTED");
+  static const RequestErrorCode SERVER_ALREADY_STARTED = const RequestErrorCode._("SERVER_ALREADY_STARTED");
 
   /**
    * An internal error occurred in the analysis server. Also see the
    * server.error notification.
    */
-  static const SERVER_ERROR = const RequestErrorCode._("SERVER_ERROR");
+  static const RequestErrorCode SERVER_ERROR = const RequestErrorCode._("SERVER_ERROR");
 
   /**
    * An "edit.sortMembers" request specified a FilePath which does not match a
    * Dart file in an analysis root.
    */
-  static const SORT_MEMBERS_INVALID_FILE = const RequestErrorCode._("SORT_MEMBERS_INVALID_FILE");
+  static const RequestErrorCode SORT_MEMBERS_INVALID_FILE = const RequestErrorCode._("SORT_MEMBERS_INVALID_FILE");
 
   /**
    * An "edit.sortMembers" request specified a Dart file that has scan or parse
    * errors.
    */
-  static const SORT_MEMBERS_PARSE_ERRORS = const RequestErrorCode._("SORT_MEMBERS_PARSE_ERRORS");
+  static const RequestErrorCode SORT_MEMBERS_PARSE_ERRORS = const RequestErrorCode._("SORT_MEMBERS_PARSE_ERRORS");
 
   /**
    * An "analysis.setPriorityFiles" request includes one or more files that are
@@ -14259,19 +14531,19 @@ class RequestErrorCode implements Enum {
    * This is a legacy error; it will be removed before the API reaches version
    * 1.0.
    */
-  static const UNANALYZED_PRIORITY_FILES = const RequestErrorCode._("UNANALYZED_PRIORITY_FILES");
+  static const RequestErrorCode UNANALYZED_PRIORITY_FILES = const RequestErrorCode._("UNANALYZED_PRIORITY_FILES");
 
   /**
    * A request was received which the analysis server does not recognize, or
    * cannot handle in its current configuration.
    */
-  static const UNKNOWN_REQUEST = const RequestErrorCode._("UNKNOWN_REQUEST");
+  static const RequestErrorCode UNKNOWN_REQUEST = const RequestErrorCode._("UNKNOWN_REQUEST");
 
   /**
    * The analysis server was requested to perform an action on a source that
    * does not exist.
    */
-  static const UNKNOWN_SOURCE = const RequestErrorCode._("UNKNOWN_SOURCE");
+  static const RequestErrorCode UNKNOWN_SOURCE = const RequestErrorCode._("UNKNOWN_SOURCE");
 
   /**
    * The analysis server was requested to perform an action which is not
@@ -14280,12 +14552,12 @@ class RequestErrorCode implements Enum {
    * This is a legacy error; it will be removed before the API reaches version
    * 1.0.
    */
-  static const UNSUPPORTED_FEATURE = const RequestErrorCode._("UNSUPPORTED_FEATURE");
+  static const RequestErrorCode UNSUPPORTED_FEATURE = const RequestErrorCode._("UNSUPPORTED_FEATURE");
 
   /**
    * A list containing all of the enum values that are defined.
    */
-  static const List<RequestErrorCode> VALUES = const <RequestErrorCode>[CONTENT_MODIFIED, FILE_NOT_ANALYZED, FORMAT_INVALID_FILE, FORMAT_WITH_ERRORS, GET_ERRORS_INVALID_FILE, GET_NAVIGATION_INVALID_FILE, GET_REACHABLE_SOURCES_INVALID_FILE, INVALID_ANALYSIS_ROOT, INVALID_EXECUTION_CONTEXT, INVALID_FILE_PATH_FORMAT, INVALID_OVERLAY_CHANGE, INVALID_PARAMETER, INVALID_REQUEST, NO_INDEX_GENERATED, ORGANIZE_DIRECTIVES_ERROR, REFACTORING_REQUEST_CANCELLED, SERVER_ALREADY_STARTED, SERVER_ERROR, SORT_MEMBERS_INVALID_FILE, SORT_MEMBERS_PARSE_ERRORS, UNANALYZED_PRIORITY_FILES, UNKNOWN_REQUEST, UNKNOWN_SOURCE, UNSUPPORTED_FEATURE];
+  static const List<RequestErrorCode> VALUES = const <RequestErrorCode>[CONTENT_MODIFIED, DEBUG_PORT_COULD_NOT_BE_OPENED, FILE_NOT_ANALYZED, FORMAT_INVALID_FILE, FORMAT_WITH_ERRORS, GET_ERRORS_INVALID_FILE, GET_NAVIGATION_INVALID_FILE, GET_REACHABLE_SOURCES_INVALID_FILE, INVALID_ANALYSIS_ROOT, INVALID_EXECUTION_CONTEXT, INVALID_FILE_PATH_FORMAT, INVALID_OVERLAY_CHANGE, INVALID_PARAMETER, INVALID_REQUEST, NO_INDEX_GENERATED, ORGANIZE_DIRECTIVES_ERROR, REFACTORING_REQUEST_CANCELLED, SERVER_ALREADY_STARTED, SERVER_ERROR, SORT_MEMBERS_INVALID_FILE, SORT_MEMBERS_PARSE_ERRORS, UNANALYZED_PRIORITY_FILES, UNKNOWN_REQUEST, UNKNOWN_SOURCE, UNSUPPORTED_FEATURE];
 
   final String name;
 
@@ -14295,6 +14567,8 @@ class RequestErrorCode implements Enum {
     switch (name) {
       case "CONTENT_MODIFIED":
         return CONTENT_MODIFIED;
+      case "DEBUG_PORT_COULD_NOT_BE_OPENED":
+        return DEBUG_PORT_COULD_NOT_BE_OPENED;
       case "FILE_NOT_ANALYZED":
         return FILE_NOT_ANALYZED;
       case "FORMAT_INVALID_FILE":
@@ -14540,38 +14814,38 @@ class SearchResultKind implements Enum {
   /**
    * The declaration of an element.
    */
-  static const DECLARATION = const SearchResultKind._("DECLARATION");
+  static const SearchResultKind DECLARATION = const SearchResultKind._("DECLARATION");
 
   /**
    * The invocation of a function or method.
    */
-  static const INVOCATION = const SearchResultKind._("INVOCATION");
+  static const SearchResultKind INVOCATION = const SearchResultKind._("INVOCATION");
 
   /**
    * A reference to a field, parameter or variable where it is being read.
    */
-  static const READ = const SearchResultKind._("READ");
+  static const SearchResultKind READ = const SearchResultKind._("READ");
 
   /**
    * A reference to a field, parameter or variable where it is being read and
    * written.
    */
-  static const READ_WRITE = const SearchResultKind._("READ_WRITE");
+  static const SearchResultKind READ_WRITE = const SearchResultKind._("READ_WRITE");
 
   /**
    * A reference to an element.
    */
-  static const REFERENCE = const SearchResultKind._("REFERENCE");
+  static const SearchResultKind REFERENCE = const SearchResultKind._("REFERENCE");
 
   /**
    * Some other kind of search result.
    */
-  static const UNKNOWN = const SearchResultKind._("UNKNOWN");
+  static const SearchResultKind UNKNOWN = const SearchResultKind._("UNKNOWN");
 
   /**
    * A reference to a field, parameter or variable where it is being written.
    */
-  static const WRITE = const SearchResultKind._("WRITE");
+  static const SearchResultKind WRITE = const SearchResultKind._("WRITE");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -14629,7 +14903,7 @@ class SearchResultKind implements Enum {
  * Clients may not extend, implement or mix-in this class.
  */
 class ServerService implements Enum {
-  static const STATUS = const ServerService._("STATUS");
+  static const ServerService STATUS = const ServerService._("STATUS");
 
   /**
    * A list containing all of the enum values that are defined.
@@ -15436,7 +15710,7 @@ class TypeHierarchyItem implements HasToJson {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class ConvertGetterToMethodFeedback {
+class ConvertGetterToMethodFeedback extends RefactoringFeedback {
   @override
   bool operator==(other) {
     if (other is ConvertGetterToMethodFeedback) {
@@ -15455,7 +15729,7 @@ class ConvertGetterToMethodFeedback {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class ConvertGetterToMethodOptions {
+class ConvertGetterToMethodOptions extends RefactoringOptions {
   @override
   bool operator==(other) {
     if (other is ConvertGetterToMethodOptions) {
@@ -15474,7 +15748,7 @@ class ConvertGetterToMethodOptions {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class ConvertMethodToGetterFeedback {
+class ConvertMethodToGetterFeedback extends RefactoringFeedback {
   @override
   bool operator==(other) {
     if (other is ConvertMethodToGetterFeedback) {
@@ -15493,7 +15767,7 @@ class ConvertMethodToGetterFeedback {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class ConvertMethodToGetterOptions {
+class ConvertMethodToGetterOptions extends RefactoringOptions {
   @override
   bool operator==(other) {
     if (other is ConvertMethodToGetterOptions) {
@@ -15521,7 +15795,7 @@ class ConvertMethodToGetterOptions {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class ExtractLocalVariableFeedback extends RefactoringFeedback implements HasToJson {
+class ExtractLocalVariableFeedback extends RefactoringFeedback {
   List<int> _coveringExpressionOffsets;
 
   List<int> _coveringExpressionLengths;
@@ -15703,7 +15977,7 @@ class ExtractLocalVariableFeedback extends RefactoringFeedback implements HasToJ
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class ExtractLocalVariableOptions extends RefactoringOptions implements HasToJson {
+class ExtractLocalVariableOptions extends RefactoringOptions {
   String _name;
 
   bool _extractAll;
@@ -15817,7 +16091,7 @@ class ExtractLocalVariableOptions extends RefactoringOptions implements HasToJso
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class ExtractMethodFeedback extends RefactoringFeedback implements HasToJson {
+class ExtractMethodFeedback extends RefactoringFeedback {
   int _offset;
 
   int _length;
@@ -16081,7 +16355,7 @@ class ExtractMethodFeedback extends RefactoringFeedback implements HasToJson {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class ExtractMethodOptions extends RefactoringOptions implements HasToJson {
+class ExtractMethodOptions extends RefactoringOptions {
   String _returnType;
 
   bool _createGetter;
@@ -16282,7 +16556,7 @@ class ExtractMethodOptions extends RefactoringOptions implements HasToJson {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class InlineLocalVariableFeedback extends RefactoringFeedback implements HasToJson {
+class InlineLocalVariableFeedback extends RefactoringFeedback {
   String _name;
 
   int _occurrences;
@@ -16373,7 +16647,7 @@ class InlineLocalVariableFeedback extends RefactoringFeedback implements HasToJs
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class InlineLocalVariableOptions {
+class InlineLocalVariableOptions extends RefactoringOptions {
   @override
   bool operator==(other) {
     if (other is InlineLocalVariableOptions) {
@@ -16399,7 +16673,7 @@ class InlineLocalVariableOptions {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class InlineMethodFeedback extends RefactoringFeedback implements HasToJson {
+class InlineMethodFeedback extends RefactoringFeedback {
   String _className;
 
   String _methodName;
@@ -16524,7 +16798,7 @@ class InlineMethodFeedback extends RefactoringFeedback implements HasToJson {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class InlineMethodOptions extends RefactoringOptions implements HasToJson {
+class InlineMethodOptions extends RefactoringOptions {
   bool _deleteSource;
 
   bool _inlineAll;
@@ -16624,7 +16898,7 @@ class InlineMethodOptions extends RefactoringOptions implements HasToJson {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class MoveFileFeedback {
+class MoveFileFeedback extends RefactoringFeedback {
   @override
   bool operator==(other) {
     if (other is MoveFileFeedback) {
@@ -16648,7 +16922,7 @@ class MoveFileFeedback {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class MoveFileOptions extends RefactoringOptions implements HasToJson {
+class MoveFileOptions extends RefactoringOptions {
   String _newFile;
 
   /**
@@ -16727,7 +17001,7 @@ class MoveFileOptions extends RefactoringOptions implements HasToJson {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class RenameFeedback extends RefactoringFeedback implements HasToJson {
+class RenameFeedback extends RefactoringFeedback {
   int _offset;
 
   int _length;
@@ -16764,13 +17038,13 @@ class RenameFeedback extends RefactoringFeedback implements HasToJson {
 
   /**
    * The human-readable description of the kind of element being renamed (such
-   * as “class” or “function type alias”).
+   * as "class" or "function type alias").
    */
   String get elementKindName => _elementKindName;
 
   /**
    * The human-readable description of the kind of element being renamed (such
-   * as “class” or “function type alias”).
+   * as "class" or "function type alias").
    */
   void set elementKindName(String value) {
     assert(value != null);
@@ -16875,7 +17149,7 @@ class RenameFeedback extends RefactoringFeedback implements HasToJson {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class RenameOptions extends RefactoringOptions implements HasToJson {
+class RenameOptions extends RefactoringOptions {
   String _newName;
 
   /**

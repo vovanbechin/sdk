@@ -14,8 +14,6 @@
 
 namespace dart {
 
-DECLARE_FLAG(bool, trace_isolates);
-
 Mutex* PortMap::mutex_ = NULL;
 PortMap::Entry* PortMap::map_ = NULL;
 MessageHandler* PortMap::deleted_entry_ = reinterpret_cast<MessageHandler*>(1);
@@ -114,11 +112,12 @@ void PortMap::SetPortState(Dart_Port port, PortState state) {
     map_[index].handler->increment_live_ports();
   }
   if (FLAG_trace_isolates) {
-    OS::Print("[^] Port (%s) -> (%s): \n"
-              "\thandler:    %s\n"
-              "\tport:       %" Pd64 "\n",
-              PortStateString(old_state), PortStateString(state),
-              map_[index].handler->name(), port);
+    OS::Print(
+        "[^] Port (%s) -> (%s): \n"
+        "\thandler:    %s\n"
+        "\tport:       %" Pd64 "\n",
+        PortStateString(old_state), PortStateString(state),
+        map_[index].handler->name(), port);
   }
 }
 
@@ -176,10 +175,11 @@ Dart_Port PortMap::CreatePort(MessageHandler* handler) {
   MaintainInvariants();
 
   if (FLAG_trace_isolates) {
-    OS::Print("[+] Opening port: \n"
-              "\thandler:    %s\n"
-              "\tport:       %" Pd64 "\n",
-              handler->name(), entry.port);
+    OS::Print(
+        "[+] Opening port: \n"
+        "\thandler:    %s\n"
+        "\tport:       %" Pd64 "\n",
+        handler->name(), entry.port);
   }
 
   return entry.port;
@@ -218,7 +218,8 @@ bool PortMap::ClosePort(Dart_Port port) {
   }
   handler->ClosePort(port);
   if (!handler->HasLivePorts() && handler->OwnedByPortMap()) {
-    delete handler;
+    // Delete handler as soon as it isn't busy with a task.
+    handler->RequestDeletion();
   }
   return true;
 }
@@ -305,6 +306,7 @@ void PortMap::InitOnce() {
 
 void PortMap::PrintPortsForMessageHandler(MessageHandler* handler,
                                           JSONStream* stream) {
+#ifndef PRODUCT
   if (!FLAG_support_service) {
     return;
   }
@@ -326,6 +328,23 @@ void PortMap::PrintPortsForMessageHandler(MessageHandler* handler,
       }
     }
   }
+#endif
 }
+
+
+void PortMap::DebugDumpForMessageHandler(MessageHandler* handler) {
+  SafepointMutexLocker ml(mutex_);
+  Object& msg_handler = Object::Handle();
+  for (intptr_t i = 0; i < capacity_; i++) {
+    if (map_[i].handler == handler) {
+      if (map_[i].state == kLivePort) {
+        OS::Print("Live Port = %" Pd64 "\n", map_[i].port);
+        msg_handler = DartLibraryCalls::LookupHandler(map_[i].port);
+        OS::Print("Handler = %s\n", msg_handler.ToCString());
+      }
+    }
+  }
+}
+
 
 }  // namespace dart

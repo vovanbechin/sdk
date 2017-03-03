@@ -10,10 +10,13 @@
 
 namespace dart {
 
+
+typedef ZoneGrowableArray<Scanner::TokenDescriptor> GrowableTokenStream;
+
+
 static void LogTokenDesc(Scanner::TokenDescriptor token) {
-  OS::Print("pos %2d:%d-%d token %s  ",
-            token.position.line, token.position.column,
-            token.position.column,
+  OS::Print("pos %2d:%d-%d token %s  ", token.position.line,
+            token.position.column, token.position.column,
             Token::Name(token.kind));
   if (token.literal != NULL) {
     OS::Print("%s", token.literal->ToCString());
@@ -22,7 +25,7 @@ static void LogTokenDesc(Scanner::TokenDescriptor token) {
 }
 
 
-static void LogTokenStream(const Scanner::GrowableTokenStream& token_stream) {
+static void LogTokenStream(const GrowableTokenStream& token_stream) {
   int token_index = 0;
   EXPECT_GT(token_stream.length(), 0);
   while (token_index < token_stream.length()) {
@@ -35,78 +38,94 @@ static void LogTokenStream(const Scanner::GrowableTokenStream& token_stream) {
 }
 
 
-static void CheckKind(const Scanner::GrowableTokenStream &token_stream,
-               int index,
-               Token::Kind kind) {
+static void CheckKind(const GrowableTokenStream& token_stream,
+                      int index,
+                      Token::Kind kind) {
   if (token_stream[index].kind != kind) {
     OS::PrintErr("Token %d: expected kind %s but got %s\n", index,
-        Token::Name(kind), Token::Name(token_stream[index].kind));
+                 Token::Name(kind), Token::Name(token_stream[index].kind));
   }
   EXPECT_EQ(kind, token_stream[index].kind);
 }
 
 
-static void CheckLiteral(const Scanner::GrowableTokenStream& token_stream,
-                 int index,
-                 const char* literal) {
+static void CheckLiteral(const GrowableTokenStream& token_stream,
+                         int index,
+                         const char* literal) {
   if (token_stream[index].literal == NULL) {
-    OS::PrintErr("Token %d: expected literal \"%s\" but got nothing\n",
-                 index, literal);
+    OS::PrintErr("Token %d: expected literal \"%s\" but got nothing\n", index,
+                 literal);
   } else if (strcmp(literal, token_stream[index].literal->ToCString())) {
-    OS::PrintErr("Token %d: expected literal \"%s\" but got \"%s\"\n",
-                 index, literal, token_stream[index].literal->ToCString());
+    OS::PrintErr("Token %d: expected literal \"%s\" but got \"%s\"\n", index,
+                 literal, token_stream[index].literal->ToCString());
   }
 }
 
 
-static void CheckIdent(const Scanner::GrowableTokenStream& token_stream,
-               int index,
-               const char* literal) {
+static void CheckIdent(const GrowableTokenStream& token_stream,
+                       int index,
+                       const char* literal) {
   CheckKind(token_stream, index, Token::kIDENT);
   CheckLiteral(token_stream, index, literal);
 }
 
 
-static void CheckInteger(const Scanner::GrowableTokenStream& token_stream,
-                 int index,
-                 const char* literal) {
+static void CheckInteger(const GrowableTokenStream& token_stream,
+                         int index,
+                         const char* literal) {
   CheckKind(token_stream, index, Token::kINTEGER);
   CheckLiteral(token_stream, index, literal);
 }
 
 
-static void CheckLineNumber(const Scanner::GrowableTokenStream& token_stream,
-                     int index,
-                     int line_number) {
+static void CheckLineNumber(const GrowableTokenStream& token_stream,
+                            int index,
+                            int line_number) {
   if (token_stream[index].position.line != line_number) {
-    OS::PrintErr("Token %d: expected line number %d but got %d\n",
-        index, line_number, token_stream[index].position.line);
+    OS::PrintErr("Token %d: expected line number %d but got %d\n", index,
+                 line_number, token_stream[index].position.line);
   }
 }
 
 
-static void CheckNumTokens(const Scanner::GrowableTokenStream& token_stream,
-                    int index) {
+static void CheckNumTokens(const GrowableTokenStream& token_stream, int index) {
   if (token_stream.length() != index) {
-    OS::PrintErr("Expected %d tokens but got only %" Pd ".\n",
-        index, token_stream.length());
+    OS::PrintErr("Expected %d tokens but got only %" Pd ".\n", index,
+                 token_stream.length());
   }
 }
 
 
-static const Scanner::GrowableTokenStream& Scan(const char* source) {
+class Collector : public Scanner::TokenCollector {
+ public:
+  explicit Collector(GrowableTokenStream* ts) : ts_(ts) {}
+  virtual ~Collector() {}
+
+  virtual void AddToken(const Scanner::TokenDescriptor& token) {
+    ts_->Add(token);
+  }
+
+ private:
+  GrowableTokenStream* ts_;
+};
+
+
+static const GrowableTokenStream& Scan(const char* source) {
+  OS::Print("\nScanning: <%s>\n", source);
+
   Scanner scanner(String::Handle(String::New(source)),
                   String::Handle(String::New("")));
+  GrowableTokenStream* tokens = new GrowableTokenStream(128);
+  Collector collector(tokens);
 
-  OS::Print("\nScanning: <%s>\n", source);
-  const Scanner::GrowableTokenStream& tokens = scanner.GetStream();
-  LogTokenStream(tokens);
-  return tokens;
+  scanner.ScanAll(&collector);
+  LogTokenStream(*tokens);
+  return *tokens;
 }
 
 
 static void BoringTest() {
-  const Scanner::GrowableTokenStream& tokens = Scan("x = iffy++;");
+  const GrowableTokenStream& tokens = Scan("x = iffy++;");
 
   CheckNumTokens(tokens, 6);
   CheckIdent(tokens, 0, "x");
@@ -118,9 +137,9 @@ static void BoringTest() {
 
 
 static void CommentTest() {
-  const Scanner::GrowableTokenStream& tokens =
-      Scan("Foo( /*block \n"
-           "comment*/ 0xff) // line comment;");
+  const GrowableTokenStream& tokens = Scan(
+      "Foo( /*block \n"
+      "comment*/ 0xff) // line comment;");
 
   CheckNumTokens(tokens, 6);
   CheckIdent(tokens, 0, "Foo");
@@ -135,7 +154,7 @@ static void CommentTest() {
 
 static void GreedIsGood() {
   // means i++ + j
-  const Scanner::GrowableTokenStream& tokens = Scan("x=i+++j");
+  const GrowableTokenStream& tokens = Scan("x=i+++j");
 
   CheckNumTokens(tokens, 7);
   CheckIdent(tokens, 0, "x");
@@ -149,7 +168,7 @@ static void GreedIsGood() {
 
 static void StringEscapes() {
   // sss = "\" \\ \n\r\t \'"
-  const Scanner::GrowableTokenStream& tokens =
+  const GrowableTokenStream& tokens =
       Scan("sss = \"\\\" \\\\ \\n\\r\\t \\\'\"");
 
   EXPECT_EQ(4, tokens.length());
@@ -172,71 +191,13 @@ static void StringEscapes() {
 
 
 static void InvalidStringEscapes() {
-  const Scanner::GrowableTokenStream& high_start_4 =
-      Scan("\"\\uD800\"");
-  EXPECT_EQ(2, high_start_4.length());
-  CheckKind(high_start_4, 0, Token::kERROR);
-  EXPECT(high_start_4[0].literal->Equals("invalid code point"));
-  CheckKind(high_start_4, 1, Token::kEOS);
-
-  const Scanner::GrowableTokenStream& high_start_seq =
-      Scan("\"\\u{D800}\"");
-  EXPECT_EQ(2, high_start_seq.length());
-  CheckKind(high_start_seq, 0, Token::kERROR);
-  EXPECT(high_start_seq[0].literal->Equals("invalid code point"));
-  CheckKind(high_start_seq, 1, Token::kEOS);
-
-  const Scanner::GrowableTokenStream& high_end_4 =
-      Scan("\"\\uDBFF\"");
-  EXPECT_EQ(2, high_end_4.length());
-  CheckKind(high_end_4, 0, Token::kERROR);
-  EXPECT(high_end_4[0].literal->Equals("invalid code point"));
-  CheckKind(high_end_4, 1, Token::kEOS);
-
-  const Scanner::GrowableTokenStream& high_end_seq =
-      Scan("\"\\u{DBFF}\"");
-  EXPECT_EQ(2, high_end_seq.length());
-  CheckKind(high_end_seq, 0, Token::kERROR);
-  EXPECT(high_end_seq[0].literal->Equals("invalid code point"));
-  CheckKind(high_end_seq, 1, Token::kEOS);
-
-  const Scanner::GrowableTokenStream& low_start_4 =
-      Scan("\"\\uDC00\"");
-  EXPECT_EQ(2, low_start_4.length());
-  CheckKind(low_start_4, 0, Token::kERROR);
-  EXPECT(low_start_4[0].literal->Equals("invalid code point"));
-  CheckKind(low_start_4, 1, Token::kEOS);
-
-  const Scanner::GrowableTokenStream& low_start_seq =
-      Scan("\"\\u{DC00}\"");
-  EXPECT_EQ(2, low_start_seq.length());
-  CheckKind(low_start_seq, 0, Token::kERROR);
-  EXPECT(low_start_seq[0].literal->Equals("invalid code point"));
-  CheckKind(low_start_seq, 1, Token::kEOS);
-
-  const Scanner::GrowableTokenStream& low_end_4 =
-      Scan("\"\\uDFFF\"");
-  EXPECT_EQ(2, low_end_4.length());
-  CheckKind(low_end_4, 0, Token::kERROR);
-  EXPECT(low_end_4[0].literal->Equals("invalid code point"));
-  CheckKind(low_end_4, 1, Token::kEOS);
-
-  const Scanner::GrowableTokenStream& low_end_seq =
-      Scan("\"\\u{DFFF}\"");
-  EXPECT_EQ(2, low_end_seq.length());
-  CheckKind(low_end_seq, 0, Token::kERROR);
-  EXPECT(low_end_seq[0].literal->Equals("invalid code point"));
-  CheckKind(low_end_seq, 1, Token::kEOS);
-
-  const Scanner::GrowableTokenStream& out_of_range_low =
-      Scan("\"\\u{110000}\"");
+  const GrowableTokenStream& out_of_range_low = Scan("\"\\u{110000}\"");
   EXPECT_EQ(2, out_of_range_low.length());
   CheckKind(out_of_range_low, 0, Token::kERROR);
   EXPECT(out_of_range_low[0].literal->Equals("invalid code point"));
   CheckKind(out_of_range_low, 1, Token::kEOS);
 
-  const Scanner::GrowableTokenStream& out_of_range_high =
-      Scan("\"\\u{FFFFFF}\"");
+  const GrowableTokenStream& out_of_range_high = Scan("\"\\u{FFFFFF}\"");
   EXPECT_EQ(2, out_of_range_high.length());
   CheckKind(out_of_range_high, 0, Token::kERROR);
   EXPECT(out_of_range_high[0].literal->Equals("invalid code point"));
@@ -246,7 +207,7 @@ static void InvalidStringEscapes() {
 
 static void RawString() {
   // rs = @"\' \\"
-  const Scanner::GrowableTokenStream& tokens = Scan("rs = r\"\\\' \\\\\"");
+  const GrowableTokenStream& tokens = Scan("rs = r\"\\\' \\\\\"");
 
   EXPECT_EQ(4, tokens.length());
   CheckIdent(tokens, 0, "rs");
@@ -259,7 +220,7 @@ static void RawString() {
 
   EXPECT_EQ('\\', litchars[0]);
   EXPECT_EQ('\'', litchars[1]);
-  EXPECT_EQ(' ',  litchars[2]);
+  EXPECT_EQ(' ', litchars[2]);
   EXPECT_EQ('\\', litchars[3]);
   EXPECT_EQ('\\', litchars[4]);
 }
@@ -269,7 +230,7 @@ static void MultilineString() {
   // |mls = '''
   // |1' x
   // |2''';
-  const Scanner::GrowableTokenStream& tokens = Scan("mls = '''\n1' x\n2''';");
+  const GrowableTokenStream& tokens = Scan("mls = '''\n1' x\n2''';");
 
   EXPECT_EQ(7, tokens.length());
   CheckIdent(tokens, 0, "mls");
@@ -284,18 +245,18 @@ static void MultilineString() {
   const char* litchars = (tokens)[2].literal->ToCString();
   EXPECT_EQ(6, (tokens)[2].literal->Length());
 
-  EXPECT_EQ('1',  litchars[0]);  // First newline is dropped.
+  EXPECT_EQ('1', litchars[0]);  // First newline is dropped.
   EXPECT_EQ('\'', litchars[1]);
-  EXPECT_EQ(' ',  litchars[2]);
-  EXPECT_EQ('x',  litchars[3]);
+  EXPECT_EQ(' ', litchars[2]);
+  EXPECT_EQ('x', litchars[3]);
   EXPECT_EQ('\n', litchars[4]);
-  EXPECT_EQ('2',  litchars[5]);
+  EXPECT_EQ('2', litchars[5]);
 }
 
 
 static void EmptyString() {
   // es = "";
-  const Scanner::GrowableTokenStream& tokens = Scan("es = \"\";");
+  const GrowableTokenStream& tokens = Scan("es = \"\";");
 
   EXPECT_EQ(5, tokens.length());
   CheckIdent(tokens, 0, "es");
@@ -308,7 +269,7 @@ static void EmptyString() {
 
 static void EmptyMultilineString() {
   // es = """""";
-  const Scanner::GrowableTokenStream& tokens = Scan("es = \"\"\"\"\"\";");
+  const GrowableTokenStream& tokens = Scan("es = \"\"\"\"\"\";");
 
   EXPECT_EQ(5, tokens.length());
   CheckIdent(tokens, 0, "es");
@@ -321,8 +282,7 @@ static void EmptyMultilineString() {
 
 
 static void NumberLiteral() {
-  const Scanner::GrowableTokenStream& tokens =
-      Scan("5 0x5d 0.3 0.33 1E+12 .42 +5");
+  const GrowableTokenStream& tokens = Scan("5 0x5d 0.3 0.33 1E+12 .42 +5");
 
   CheckKind(tokens, 0, Token::kINTEGER);
   CheckKind(tokens, 1, Token::kINTEGER);
@@ -401,8 +361,7 @@ static void ScanLargeText() {
 
 
 void InvalidText() {
-  const Scanner::GrowableTokenStream& tokens =
-      Scan("\\");
+  const GrowableTokenStream& tokens = Scan("\\");
 
   EXPECT_EQ(2, tokens.length());
   CheckKind(tokens, 0, Token::kERROR);
@@ -419,7 +378,7 @@ void NewlinesTest() {
       "d\n"
       "\"\"\";";
 
-  const Scanner::GrowableTokenStream& tokens = Scan(source);
+  const GrowableTokenStream& tokens = Scan(source);
 
   EXPECT_EQ(11, tokens.length());
   CheckKind(tokens, 0, Token::kVAR);
@@ -436,9 +395,9 @@ void NewlinesTest() {
 
   EXPECT_EQ(4, (tokens)[5].literal->Length());
   const char* litchars = (tokens)[5].literal->ToCString();
-  EXPECT_EQ('c',  litchars[0]);  // First newline is dropped.
+  EXPECT_EQ('c', litchars[0]);  // First newline is dropped.
   EXPECT_EQ('\n', litchars[1]);
-  EXPECT_EQ('d',  litchars[2]);
+  EXPECT_EQ('d', litchars[2]);
   EXPECT_EQ('\n', litchars[3]);
 }
 

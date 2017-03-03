@@ -7,6 +7,10 @@
  * independent workers that are similar to threads
  * but don't share memory,
  * communicating only via messages.
+ *
+ * To use this library in your code:
+ *
+ *     import 'dart:isolate';
  */
 library dart.isolate;
 
@@ -46,13 +50,16 @@ class IsolateSpawnException implements Exception {
  * for example by pausing the isolate or by getting events when the isolate
  * has an uncaught error.
  *
- * The [controlPort] gives access to controlling the isolate, and the
- * [pauseCapability] and [terminateCapability] guard access to some control
- * operations.
+ * The [controlPort] identifies and gives access to controlling the isolate,
+ * and the [pauseCapability] and [terminateCapability] guard access
+ * to some control operations.
+ * For example, calling [pause] on an `Isolate` object created without a
+ * [pauseCapability], has no effect.
+ *
  * The `Isolate` object provided by a spawn operation will have the
  * control port and capabilities needed to control the isolate.
- * New isolates objects can be created without some of these capabilities
- * if necessary.
+ * New isolate objects can be created without some of these capabilities
+ * if necessary, using the [Isolate.Isolate] constructor.
  *
  * An `Isolate` object cannot be sent over a `SendPort`, but the control port
  * and capabilities can be sent, and can be used to create a new functioning
@@ -67,33 +74,37 @@ class Isolate {
   /**
    * Control port used to send control messages to the isolate.
    *
-   * This class provides helper functions that sends control messages
-   * to the control port.
-   *
    * The control port identifies the isolate.
+   *
+   * An `Isolate` object allows sending control messages
+   * through the control port.
+   *
+   * Some control messages require a specific capability to be passed along
+   * with the message (see [pauseCapability] and [terminateCapability]),
+   * otherwise the message is ignored by the isolate.
    */
   final SendPort controlPort;
 
   /**
    * Capability granting the ability to pause the isolate.
    *
-   * This capability is used by [pause].
-   * If the capability is not the correct pause capability of the isolate,
-   * including if the capability is `null`, then calls to `pause` will have no
-   * effect.
+   * This capability is required by [pause].
+   * If the capability is `null`, or if it is not the correct pause capability
+   * of the isolate identified by [controlPort],
+   * then calls to [pause] will have no effect.
    *
-   * If the isolate is started in a paused state, use this capability as
-   * argument to [resume] to resume the isolate.
+   * If the isolate is spawned in a paused state, use this capability as
+   * argument to the [resume] method in order to resume the paused isolate.
    */
   final Capability pauseCapability;
 
   /**
    * Capability granting the ability to terminate the isolate.
    *
-   * This capability is used by [kill] and [setErrorsFatal].
-   * If the capability is not the correct termination capability of the isolate,
-   * including if the capability is `null`, then calls to those methods will
-   * have no effect.
+   * This capability is required by [kill] and [setErrorsFatal].
+   * If the capability is `null`, or if it is not the correct termination
+   * capability of the isolate identified by [controlPort],
+   * then calls to those methods will have no effect.
    */
   final Capability terminateCapability;
 
@@ -109,20 +120,35 @@ class Isolate {
    * anywhere else, so the capabilities should come from the same isolate as
    * the control port.
    *
-   * If all the available capabilities are included,
-   * there is no reason to create a new object,
-   * since the behavior is defined entirely
-   * by the control port and capabilities.
+   * Can also be used to create an [Isolate] object from a control port, and
+   * any available capabilities, that have been sent through a [SendPort].
+   *
+   * Example:
+   * ```dart
+   * Isolate isolate = findSomeIsolate();
+   * Isolate restrictedIsolate = new Isolate(isolate.controlPort);
+   * untrustedCode(restrictedIsolate);
+   * ```
+   * This example creates a new `Isolate` object that cannot be used to
+   * pause or terminate the isolate. All the untrusted code can do is to
+   * inspect the isolate and see uncaught errors or when it terminates.
    */
   Isolate(this.controlPort, {this.pauseCapability,
                              this.terminateCapability});
 
   /**
-   * Return the current [Isolate].
+   * Return an [Isolate] object representing the current isolate.
    *
-   * The isolate gives access to the capabilities needed to inspect,
+   * The current isolate for code using [current]
+   * is the isolate running the code.
+   *
+   * The isolate object provides the capabilities required to inspect,
    * pause or kill the isolate, and allows granting these capabilities
    * to others.
+   *
+   * It is possible to pause the current isolate, but doing so *without*
+   * first passing the ability to resume it again to another isolate,
+   * is a sure way to hang your program.
    */
   external static Isolate get current;
 
@@ -158,19 +184,27 @@ class Isolate {
    * Creates and spawns an isolate that shares the same code as the current
    * isolate.
    *
-   * The argument [entryPoint] specifies the entry point of the spawned
-   * isolate. It must be a top-level function or a static method that
-   * takes one argument - that is, one-parameter functions that can be
-   * compile-time constant function values.
-   * It is not allowed to pass the value of function expressions or an instance
-   * method extracted from an object.
+   * The argument [entryPoint] specifies the initial function to call
+   * in the spawned isolate.
+   * The entry-point function is invoked in the new isolate with [message]
+   * as the only argument.
    *
-   * The entry-point function is invoked with the initial [message].
+   * The function must be a top-level function or a static method
+   * that can be called with a single argument,
+   * that is, a compile-time constant function value
+   * which accepts at least one positional parameter
+   * and has at most one required positional parameter.
+   * The function may accept any number of optional parameters,
+   * as long as it *can* be called with just a single argument.
+   * The function must not be the value of a function expression
+   * or an instance method tear-off.
+   *
    * Usually the initial [message] contains a [SendPort] so
    * that the spawner and spawnee can communicate with each other.
    *
    * If the [paused] parameter is set to `true`,
    * the isolate will start up in a paused state,
+   * just before calling the [entryPoint] function with the [message],
    * as if by an initial call of `isolate.pause(isolate.pauseCapability)`.
    * To resume the isolate, call `isolate.resume(isolate.pauseCapability)`.
    *
@@ -180,19 +214,22 @@ class Isolate {
    * corresponding parameter and was processed before the isolate starts
    * running.
    *
+   * If [errorsAreFatal] is omitted, the platform may choose a default behavior
+   * or inherit the current isolate's behavior.
+   *
    * You can also call the [setErrorsFatal], [addOnExitListener] and
    * [addErrorListener] methods on the returned isolate, but unless the
    * isolate was started as [paused], it may already have terminated
    * before those methods can complete.
    *
-   * Returns a future that will complete with an [Isolate] instance if the
+   * Returns a future which will complete with an [Isolate] instance if the
    * spawning succeeded. It will complete with an error otherwise.
    */
   external static Future<Isolate> spawn(void entryPoint(message), var message,
-                                        { bool paused: false,
-                                          bool errorsAreFatal,
-                                          SendPort onExit,
-                                          SendPort onError });
+                                        {bool paused: false,
+                                         bool errorsAreFatal,
+                                         SendPort onExit,
+                                         SendPort onError});
 
   /**
    * Creates and spawns an isolate that runs the code from the library with
@@ -287,28 +324,38 @@ class Isolate {
   /**
    * Requests the isolate to pause.
    *
-   * The isolate should stop handling events by pausing its event queue.
-   * The request will eventually make the isolate stop doing anything.
-   * It will be handled before any other messages that are later sent to the
-   * isolate from the current isolate, but no other guarantees are provided.
+   * When the isolate receives the pause command, it stops
+   * processing events from the event loop queue.
+   * It may still add new events to the queue in response to, e.g., timers
+   * or receive-port messages. When the isolate is resumed,
+   * it starts handling the already enqueued events.
    *
-   * The event loop may be paused before previously sent, but not yet exeuted,
-   * messages have been reached.
+   * The pause request is sent through the isolate's command port,
+   * which bypasses the receiving isolate's event loop.
+   * The pause takes effect when it is received, pausing the event loop
+   * as it is at that time.
    *
-   * If [resumeCapability] is provided, it is used to identity the pause,
+   * The [resumeCapability] is used to identity the pause,
    * and must be used again to end the pause using [resume].
-   * Otherwise a new resume capability is created and returned.
+   * If [resumeCapability] is omitted, a new capability object is created
+   * and used instead.
    *
    * If an isolate is paused more than once using the same capability,
    * only one resume with that capability is needed to end the pause.
    *
    * If an isolate is paused using more than one capability,
-   * they must all be individully ended before the isolate resumes.
+   * each pause must be individually ended before the isolate resumes.
    *
-   * Returns the capability that must be used to resume end the pause.
+   * Returns the capability that must be used to end the pause.
+   * This is either [resumeCapability], or a new capability when
+   * [resumeCapability] is omitted.
+   *
+   * If [pauseCapability] is `null`, or it's not the pause capability
+   * of the isolate identified by [controlPort],
+   * the pause request is ignored by the receiving isolate.
    */
   Capability pause([Capability resumeCapability]) {
-    if (resumeCapability == null) resumeCapability = new Capability();
+    resumeCapability ??= new Capability();
     _pause(resumeCapability);
     return resumeCapability;
   }
@@ -320,28 +367,33 @@ class Isolate {
    * Resumes a paused isolate.
    *
    * Sends a message to an isolate requesting that it ends a pause
-   * that was requested using the [resumeCapability].
+   * that was previously requested.
    *
    * When all active pause requests have been cancelled, the isolate
-   * will continue handling normal messages.
+   * will continue processing events and handling normal messages.
    *
-   * The capability must be one returned by a call to [pause] on this
-   * isolate, otherwise the resume call does nothing.
+   * If the [resumeCapability] is not one that has previously been used
+   * to pause the isolate, or it has already been used to resume from
+   * that pause, the resume call has no effect.
    */
   external void resume(Capability resumeCapability);
 
   /**
-   * Asks the isolate to send [response] on [responsePort] when it terminates.
+   * Requests an exist message on [responsePort] when the isolate terminates.
    *
-   * The isolate will send a `response` message on `responsePort` as the last
+   * The isolate will send [response] as a message on [responsePort] as the last
    * thing before it terminates. It will run no further code after the message
    * has been sent.
    *
-   * Adding the same port more than once will only cause it to receive one
-   * message, using the last response value that was added.
+   * Adding the same port more than once will only cause it to receive one exit
+   * message, using the last response value that was added,
+   * and it only needs to be removed once using [removeOnExitListener].
    *
-   * If the isolate is already dead, no message will be sent.
-   * If `response` cannot be sent to the isolate, then the request is ignored.
+   * If the isolate has terminated before it can receive this request,
+   * no exit message will be sent.
+   *
+   * The [response] object must follow the same restrictions as enforced by
+   * [SendPort.send].
    * It is recommended to only use simple values that can be sent to all
    * isolates, like `null`, booleans, numbers or strings.
    *
@@ -358,13 +410,22 @@ class Isolate {
   external void addOnExitListener(SendPort responsePort, {Object response});
 
   /**
-   * Stop listening on exit messages from the isolate.
+   * Stop listening for exit messages from the isolate.
    *
-   * If a call has previously been made to [addOnExitListener] with the same
-   * send-port, this will unregister the port, and it will no longer receive
-   * a message when the isolate terminates.
-   * A response may still be sent until this operation is fully processed by
-   * the isolate.
+   * Requests for the isolate to not send exit messages on [responsePort].
+   * If the isolate isn't expecting to send exit messages on [responsePort],
+   * because the port hasn't been added using [addOnExitListener],
+   * or because it has already been removed, the request is ignored.
+   *
+   * If the same port has been passed via [addOnExitListener] more than once,
+   * only one call to `removeOnExitListener` is needed to stop it from receiving
+   * exit messagees.
+   *
+   * Closing the receive port at the end of the send port will not stop the
+   * isolate from sending exit messages, they are just going to be lost.
+   *
+   * An exit message may still be sent if the isolate terminates
+   * before this request is received and processed.
    */
   external void removeOnExitListener(SendPort responsePort);
 
@@ -375,7 +436,7 @@ class Isolate {
    * event loop and shut down the isolate.
    *
    * This call requires the [terminateCapability] for the isolate.
-   * If the capability is not correct, no change is made.
+   * If the capability is absent or incorrect, no change is made.
    *
    * Since isolates run concurrently, it's possible for it to exit due to an
    * error before errors are set non-fatal.
@@ -391,10 +452,11 @@ class Isolate {
    * The isolate is requested to terminate itself.
    * The [priority] argument specifies when this must happen.
    *
-   * The [priority] must be one of [IMMEDIATE] or [BEFORE_NEXT_EVENT].
+   * The [priority], when provided, must be one of [IMMEDIATE] or
+   * [BEFORE_NEXT_EVENT] (the default).
    * The shutdown is performed at different times depending on the priority:
    *
-   * * `IMMEDIATE`: The the isolate shuts down as soon as possible.
+   * * `IMMEDIATE`: The isolate shuts down as soon as possible.
    *     Control messages are handled in order, so all previously sent control
    *     events from this isolate will all have been processed.
    *     The shutdown should happen no later than if sent with
@@ -405,11 +467,20 @@ class Isolate {
    *     control returns to the event loop of the receiving isolate,
    *     after the current event, and any already scheduled control events,
    *     are completed.
+   *
+   * If [terminateCapability] is `null`, or it's not the terminate capability
+   * of the isolate identified by [controlPort],
+   * the kill request is ignored by the receiving isolate.
    */
   external void kill({int priority: BEFORE_NEXT_EVENT});
 
   /**
    * Request that the isolate send [response] on the [responsePort].
+   *
+   * The [response] object must follow the same restrictions as enforced by
+   * [SendPort.send].
+   * It is recommended to only use simple values that can be sent to all
+   * isolates, like `null`, booleans, numbers or strings.
    *
    * If the isolate is alive, it will eventually send `response`
    * (defaulting to `null`) on the response port.
@@ -417,18 +488,14 @@ class Isolate {
    * The [priority] must be one of [IMMEDIATE] or [BEFORE_NEXT_EVENT].
    * The response is sent at different times depending on the ping type:
    *
-   * * `IMMEDIATE`: The the isolate responds as soon as it receives the
+   * * `IMMEDIATE`: The isolate responds as soon as it receives the
    *     control message. This is after any previous control message
-   *     from the same isolate has been received, but may be during
-   *     execution of another event.
+   *     from the same isolate has been received and processed,
+   *     but may be during execution of another event.
    * * `BEFORE_NEXT_EVENT`: The response is scheduled for the next time
    *     control returns to the event loop of the receiving isolate,
    *     after the current event, and any already scheduled control events,
    *     are completed.
-   *
-   * If `response` cannot be sent to the isolate, then the request is ignored.
-   * It is recommended to only use simple values that can be sent to all
-   * isolates, like `null`, booleans, numbers or strings.
    */
   external void ping(SendPort responsePort, {Object response,
                                              int priority: IMMEDIATE});
@@ -443,8 +510,9 @@ class Isolate {
    * stack trace, or `null` if no stack trace was provided.
    * To convert this back to a [StackTrace] object, use [StackTrace.fromString].
    *
-   * Listening using the same port more than once does nothing. It will only
-   * get each error once.
+   * Listening using the same port more than once does nothing.
+   * A port will only receive each error once,
+   * and will only need to be removed once using [removeErrorListener].
    *
    * Since isolates run concurrently, it's possible for it to exit before the
    * error listener is established. To avoid this, start the isolate paused,
@@ -453,18 +521,22 @@ class Isolate {
   external void addErrorListener(SendPort port);
 
   /**
-   * Stop listening for uncaught errors through [port].
+   * Stop listening for uncaught errors from the isolate.
    *
-   * The `port` should be a port that is listening for errors through
-   * [addErrorListener]. This call requests that the isolate stops sending
-   * errors on the port.
+   * Requests for the isolate to not send uncaught errors on [responsePort].
+   * If the isolate isn't expecting to send uncaught errors on [responsePort],
+   * because the port hasn't been added using [addErrorListener],
+   * or because it has already been removed, the request is ignored.
    *
-   * If the same port has been passed via `addErrorListener` more than once,
+   * If the same port has been passed via [addErrorListener] more than once,
    * only one call to `removeErrorListener` is needed to stop it from receiving
-   * errors.
+   * unaught errors.
    *
    * Closing the receive port at the end of the send port will not stop the
-   * isolate from sending errors, they are just going to be lost.
+   * isolate from sending uncaught errors, they are just going to be lost.
+   *
+   * Uncaught errors message may still be sent by the isolate
+   * until this request is received and processed.
    */
   external void removeErrorListener(SendPort port);
 

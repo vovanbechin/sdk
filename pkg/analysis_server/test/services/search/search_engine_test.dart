@@ -10,18 +10,19 @@ import 'package:analysis_server/src/services/index/index.dart';
 import 'package:analysis_server/src/services/search/search_engine.dart';
 import 'package:analysis_server/src/services/search/search_engine_internal.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/src/dart/analysis/ast_provider_context.dart';
 import 'package:analyzer/src/dart/element/element.dart';
 import 'package:analyzer/src/dart/element/member.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
 import '../../abstract_single_unit.dart';
-import '../../utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(SearchEngineImplTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(SearchEngineImplTest);
+  });
 }
 
 class ExpectedMatch {
@@ -36,8 +37,9 @@ class ExpectedMatch {
     this.range = new SourceRange(offset, length);
   }
 
-  bool operator ==(SearchMatch match) {
-    return match.element == this.element &&
+  bool operator ==(Object match) {
+    return match is SearchMatch &&
+        match.element == this.element &&
         match.kind == this.kind &&
         match.isResolved == this.isResolved &&
         match.isQualified == this.isQualified &&
@@ -70,38 +72,35 @@ class SearchEngineImplTest extends AbstractSingleUnitTest {
   void setUp() {
     super.setUp();
     index = createMemoryIndex();
-    searchEngine = new SearchEngineImpl(index);
+    searchEngine =
+        new SearchEngineImpl(index, (_) => new AstProviderForContext(context));
   }
 
   test_searchAllSubtypes() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class T {}
 class A extends T {}
 class B extends A {}
 class C implements B {}
 ''');
     ClassElement element = findElement('T');
-    ClassElement elementA = findElement('A');
-    ClassElement elementB = findElement('B');
-    ClassElement elementC = findElement('C');
-    var expected = [
-      _expectId(elementA, MatchKind.DECLARATION, 'A extends T'),
-      _expectId(elementB, MatchKind.DECLARATION, 'B extends A'),
-      _expectId(elementC, MatchKind.DECLARATION, 'C implements B')
-    ];
-    List<SearchMatch> matches = await searchEngine.searchAllSubtypes(element);
-    _assertMatches(matches, expected);
+    Set<ClassElement> subtypes = await searchEngine.searchAllSubtypes(element);
+    expect(subtypes, hasLength(3));
+    expect(subtypes, contains(predicate((ClassElement e) => e.name == 'A')));
+    expect(subtypes, contains(predicate((ClassElement e) => e.name == 'B')));
+    expect(subtypes, contains(predicate((ClassElement e) => e.name == 'C')));
   }
 
   test_searchMemberDeclarations() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A {
   test() {}
 }
 class B {
   int test = 1;
+  int testTwo = 2;
   main() {
-    int test = 2;
+    int test = 3;
   }
 }
 ''');
@@ -117,7 +116,7 @@ class B {
   }
 
   test_searchMemberReferences_qualified_resolved() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class C {
   var test;
 }
@@ -134,7 +133,7 @@ main(C c) {
   }
 
   test_searchMemberReferences_qualified_unresolved() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 main(p) {
   print(p.test);
   p.test = 1;
@@ -155,7 +154,7 @@ main(p) {
   }
 
   test_searchMemberReferences_unqualified_resolved() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class C {
   var test;
   main() {
@@ -173,7 +172,7 @@ class C {
 
   test_searchMemberReferences_unqualified_unresolved() async {
     verifyNoTestUnitErrors = false;
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class C {
   main() {
     print(test);
@@ -196,7 +195,7 @@ class C {
   }
 
   test_searchReferences_ClassElement() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A {}
 main(A p) {
   A v;
@@ -218,7 +217,7 @@ main(A p) {
         '''
 part of lib;
 ''');
-    _indexTestUnit('''
+    await _indexTestUnit('''
 library lib;
 part 'my_part.dart';
 ''');
@@ -231,7 +230,7 @@ part 'my_part.dart';
   }
 
   test_searchReferences_ConstructorElement() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A {
   A.named() {}
 }
@@ -248,7 +247,7 @@ main() {
   }
 
   test_searchReferences_ConstructorElement_synthetic() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A {
 }
 main() {
@@ -269,7 +268,7 @@ main() {
   }
 
   test_searchReferences_FieldElement() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A {
   var field;
   A({this.field});
@@ -286,7 +285,7 @@ class A {
   }
 }
 ''');
-    FieldElement element = findElement('field');
+    FieldElement element = findElement('field', ElementKind.FIELD);
     Element main = findElement('main');
     Element fieldParameter = findElement('field', ElementKind.PARAMETER);
     var expected = [
@@ -303,7 +302,7 @@ class A {
   }
 
   test_searchReferences_FieldElement_ofEnum() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 enum MyEnum {
   A, B, C
 }
@@ -329,7 +328,7 @@ main() {
   }
 
   test_searchReferences_FieldElement_synthetic() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A {
   get field => null;
   set field(x) {}
@@ -359,7 +358,7 @@ class A {
   }
 
   test_searchReferences_FunctionElement() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 test() {}
 main() {
   test();
@@ -376,7 +375,7 @@ main() {
   }
 
   test_searchReferences_FunctionElement_local() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 main() {
   test() {}
   test();
@@ -393,7 +392,7 @@ main() {
   }
 
   test_searchReferences_FunctionTypeAliasElement() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 typedef Test();
 main() {
   Test a;
@@ -411,7 +410,7 @@ main() {
   }
 
   test_searchReferences_ImportElement_noPrefix() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 import 'dart:math' show max, PI, Random hide min;
 export 'dart:math' show max, PI, Random hide min;
 main() {
@@ -435,7 +434,7 @@ Random bar() => null;
   }
 
   test_searchReferences_ImportElement_withPrefix() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 import 'dart:math' as math show max, PI, Random hide min;
 export 'dart:math' show max, PI, Random hide min;
 main() {
@@ -459,8 +458,36 @@ math.Random bar() => null;
     await _verifyReferences(element, expected);
   }
 
+  test_searchReferences_ImportElement_withPrefix_forMultipleImports() async {
+    await _indexTestUnit('''
+import 'dart:async' as p;
+import 'dart:math' as p;
+main() {
+  p.Random;
+  p.Future;
+}
+''');
+    Element mainElement = findElement('main');
+    var kind = MatchKind.REFERENCE;
+    var length = 'p.'.length;
+    {
+      ImportElement element = testLibraryElement.imports[0];
+      var expected = [
+        _expectId(mainElement, kind, 'p.Future;', length: length),
+      ];
+      await _verifyReferences(element, expected);
+    }
+    {
+      ImportElement element = testLibraryElement.imports[1];
+      var expected = [
+        _expectId(mainElement, kind, 'p.Random', length: length),
+      ];
+      await _verifyReferences(element, expected);
+    }
+  }
+
   test_searchReferences_LabelElement() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 main() {
 label:
   while (true) {
@@ -483,9 +510,9 @@ label:
   test_searchReferences_LibraryElement() async {
     var codeA = 'part of lib; // A';
     var codeB = 'part of lib; // B';
-    addSource('/unitA.dart', codeA);
-    addSource('/unitB.dart', codeB);
-    _indexTestUnit('''
+    var sourceA = addSource('/unitA.dart', codeA);
+    var sourceB = addSource('/unitB.dart', codeB);
+    await _indexTestUnit('''
 library lib;
 part 'unitA.dart';
 part 'unitB.dart';
@@ -493,8 +520,10 @@ part 'unitB.dart';
     LibraryElement element = testLibraryElement;
     CompilationUnitElement unitElementA = element.parts[0];
     CompilationUnitElement unitElementB = element.parts[1];
-    index.indexUnit(unitElementA.computeNode());
-    index.indexUnit(unitElementB.computeNode());
+    index.indexUnit(
+        context.resolveCompilationUnit2(sourceA, testLibraryElement.source));
+    index.indexUnit(
+        context.resolveCompilationUnit2(sourceB, testLibraryElement.source));
     var expected = [
       new ExpectedMatch(unitElementA, MatchKind.REFERENCE,
           codeA.indexOf('lib; // A'), 'lib'.length),
@@ -505,7 +534,7 @@ part 'unitB.dart';
   }
 
   test_searchReferences_LocalVariableElement() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 main() {
   var v;
   v = 1;
@@ -525,8 +554,30 @@ main() {
     await _verifyReferences(element, expected);
   }
 
+  test_searchReferences_LocalVariableElement_inForEachLoop() async {
+    await _indexTestUnit('''
+main() {
+  for (var v in []) {
+    v = 1;
+    v += 2;
+    print(v);
+    v();
+  }
+}
+''');
+    LocalVariableElement element = findElement('v');
+    Element mainElement = findElement('main');
+    var expected = [
+      _expectId(mainElement, MatchKind.WRITE, 'v = 1;'),
+      _expectId(mainElement, MatchKind.READ_WRITE, 'v += 2;'),
+      _expectId(mainElement, MatchKind.READ, 'v);'),
+      _expectId(mainElement, MatchKind.INVOCATION, 'v();')
+    ];
+    await _verifyReferences(element, expected);
+  }
+
   test_searchReferences_MethodElement() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A {
   m() {}
   main() {
@@ -549,7 +600,7 @@ class A {
   }
 
   test_searchReferences_MethodMember() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A<T> {
   T m() => null;
 }
@@ -565,8 +616,25 @@ main(A<int> a) {
     await _verifyReferences(method, expected);
   }
 
+  test_searchReferences_null_noUnitElement() async {
+    await _indexTestUnit('''
+class A {
+  m() {}
+}
+main(A a) {
+  a.m();
+}
+''');
+    MethodElement method = findElement('m');
+    List<SearchMatch> matches = await searchEngine.searchReferences(method);
+    expect(matches, hasLength(1));
+    // Set the source contents, so the element is invalidated.
+    context.setContents(testSource, '');
+    expect(matches.single.element, isNull);
+  }
+
   test_searchReferences_ParameterElement_ofConstructor() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class C {
   var f;
   C({p}) : f = p + 1 {
@@ -596,7 +664,7 @@ main() {
   }
 
   test_searchReferences_ParameterElement_ofLocalFunction() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 main() {
   foo({p}) {
     p = 1;
@@ -621,7 +689,7 @@ main() {
   }
 
   test_searchReferences_ParameterElement_ofMethod() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class C {
   foo({p}) {
     p = 1;
@@ -648,7 +716,7 @@ main(C c) {
   }
 
   test_searchReferences_ParameterElement_ofTopLevelFunction() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 foo({p}) {
   p = 1;
   p += 2;
@@ -673,7 +741,7 @@ main() {
   }
 
   test_searchReferences_PrefixElement() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 import 'dart:async' as ppp;
 main() {
   ppp.Future a;
@@ -691,7 +759,7 @@ main() {
   }
 
   test_searchReferences_PropertyAccessorElement_getter() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A {
   get ggg => null;
   main() {
@@ -714,7 +782,7 @@ class A {
   }
 
   test_searchReferences_PropertyAccessorElement_setter() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A {
   set s(x) {}
   main() {
@@ -739,7 +807,7 @@ class A {
 library lib;
 var V;
 ''');
-    _indexTestUnit('''
+    await _indexTestUnit('''
 import 'lib.dart' show V; // imp
 import 'lib.dart' as pref;
 main() {
@@ -769,7 +837,7 @@ main() {
   }
 
   test_searchReferences_TypeParameterElement() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A<T> {
   main(T a, T b) {}
 }
@@ -785,7 +853,7 @@ class A<T> {
   }
 
   test_searchSubtypes() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class T {}
 class A extends T {} // A
 class B = Object with T; // B
@@ -805,7 +873,7 @@ class C implements T {} // C
   }
 
   test_searchTopLevelDeclarations() async {
-    _indexTestUnit('''
+    await _indexTestUnit('''
 class A {} // A
 class B = Object with A;
 typedef C();
@@ -866,8 +934,8 @@ class NoMatchABCDE {}
         isQualified: false, isResolved: false, length: length);
   }
 
-  void _indexTestUnit(String code) {
-    resolveTestUnit(code);
+  Future<Null> _indexTestUnit(String code) async {
+    await resolveTestUnit(code);
     index.indexUnit(testUnit);
   }
 

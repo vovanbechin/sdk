@@ -24,18 +24,18 @@ def BuildOptions():
   result.add_option("--executable",
       action="store", type="string",
       help="path to snapshot generator executable")
+  result.add_option("--snapshot_kind",
+      action="store", type="string",
+      help="kind of snapshot to generate",
+      default="core")
   result.add_option("--vm_output_bin",
       action="store", type="string",
       help="output file name into which vm isolate snapshot in binary form " +
            "is generated")
-  result.add_option("--output_bin",
+  result.add_option("--isolate_output_bin",
       action="store", type="string",
       help="output file name into which isolate snapshot in binary form " +
            "is generated")
-  result.add_option("--instructions_bin",
-      action="store", type="string",
-      help="output file name into which instructions snapshot in assembly " +
-           "form is generated")
   result.add_option("--embedder_entry_points_manifest",
       action="store", type="string",
       help="input manifest with the vm entry points in a precompiled snapshot")
@@ -45,6 +45,9 @@ def BuildOptions():
   result.add_option("--package_root",
       action="store", type="string",
       help="path used to resolve package: imports.")
+  result.add_option("--packages",
+      action="store", type="string",
+      help="package config file used to reasolve package: imports.")
   result.add_option("--url_mapping",
       default=[],
       action="append",
@@ -70,11 +73,14 @@ def ProcessOptions(options):
   if not options.executable:
     sys.stderr.write('--executable not specified\n')
     return False
+  if not options.snapshot_kind:
+    sys.stderr.write('--snapshot_kind not specified\n')
+    return False
   if not options.vm_output_bin:
     sys.stderr.write('--vm_output_bin not specified\n')
     return False
-  if not options.output_bin:
-    sys.stderr.write('--output_bin not specified\n')
+  if not options.isolate_output_bin:
+    sys.stderr.write('--isolate_output_bin not specified\n')
     return False
   if options.abi and not options.target_os == 'android':
     sys.stderr.write('--abi requires --target_os android\n')
@@ -112,15 +118,14 @@ def Main():
   if options.package_root:
     script_args.append(''.join([ "--package_root=", options.package_root]))
 
-  # First setup the vm isolate and regular isolate snapshot output filename.
-  script_args.append(''.join([ "--vm_isolate_snapshot=",
-                               options.vm_output_bin ]))
-  script_args.append(''.join([ "--isolate_snapshot=", options.output_bin ]))
+  # Pass along the packages if there is one.
+  if options.packages:
+    script_args.append(''.join([ "--packages=", options.packages]))
 
-  # Setup the instuctions snapshot output filename
-  if options.instructions_bin:
-    script_args.append(''.join([ "--instructions_snapshot=",
-                                 options.instructions_bin ]))
+  # First setup the vm isolate and regular isolate snapshot output filename.
+  script_args.append(''.join([ "--snapshot_kind=", options.snapshot_kind ]))
+  script_args.append(''.join([ "--vm_snapshot_data=", options.vm_output_bin ]))
+  script_args.append(''.join([ "--isolate_snapshot_data=", options.isolate_output_bin ]))
 
   # Specify the embedder entry points snapshot
   if options.embedder_entry_points_manifest:

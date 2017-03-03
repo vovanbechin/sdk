@@ -304,10 +304,14 @@ class Collector extends DiagnosticReporter {
     throw this;
   }
 
-  void reportError(
-      DiagnosticMessage message,
+  void reportError(DiagnosticMessage message,
       [List<DiagnosticMessage> infos = const <DiagnosticMessage>[]]) {
-    reportFatalError(message.spannable);
+    assert(token != -1);
+    throw this;
+  }
+
+  spanFromToken(Token token) {
+    this.token = token.kind;
   }
 
   void log(message) {
@@ -319,23 +323,25 @@ class Collector extends DiagnosticReporter {
   }
 
   @override
-  DiagnosticMessage createMessage(spannable, messageKind, [arguments]) {
+  DiagnosticMessage createMessage(spannable, messageKind,
+      [arguments = const {}]) {
     return new DiagnosticMessage(null, spannable, null);
   }
 }
 
 void testMissingCloseParen() {
-  final String source =
-'''foo(x {  // <= missing closing ")"
+  final String source = '''foo(x {  // <= missing closing ")"
   return x;
 }''';
   parse() {
     parseMember(source, reporter: new Collector());
   }
+
   check(Collector c) {
     Expect.equals(OPEN_CURLY_BRACKET_TOKEN, c.token);
     return true;
   }
+
   Expect.throws(parse, check);
 }
 
@@ -344,10 +350,12 @@ void testMissingCloseBraceInClass() {
   parse() {
     fullParseUnit(source, reporter: new Collector());
   }
+
   check(Collector c) {
     Expect.equals(BAD_INPUT_TOKEN, c.token);
     return true;
   }
+
   Expect.throws(parse, check);
 }
 
@@ -356,10 +364,12 @@ void testUnmatchedAngleBracket() {
   parse() {
     fullParseUnit(source, reporter: new Collector());
   }
+
   check(Collector c) {
     Expect.equals(LT_TOKEN, c.token);
     return true;
   }
+
   Expect.throws(parse, check);
 }
 

@@ -8,22 +8,20 @@
  *
  * See dartbug.com/21448.
  */
-library test.integration.analysis.reanalyze_concurrent;
-
 import 'dart:async';
 
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import '../../utils.dart';
 import '../integration_tests.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(Test);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(ReanalyzeTest);
+    defineReflectiveTests(ReanalyzeTest_Driver);
+  });
 }
 
-@reflectiveTest
-class Test extends AbstractAnalysisServerIntegrationTest {
+class AbstractReanalyzeTest extends AbstractAnalysisServerIntegrationTest {
   test_reanalyze_concurrent() {
     String pathname = sourcePath('test.dart');
     String text = '''
@@ -48,4 +46,13 @@ main() {}''';
       });
     });
   }
+}
+
+@reflectiveTest
+class ReanalyzeTest extends AbstractReanalyzeTest {}
+
+@reflectiveTest
+class ReanalyzeTest_Driver extends AbstractReanalyzeTest {
+  @override
+  bool get enableNewAnalysisDriver => true;
 }

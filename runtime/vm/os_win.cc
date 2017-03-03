@@ -7,9 +7,10 @@
 
 #include "vm/os.h"
 
-#include <malloc.h>  // NOLINT
+#include <malloc.h>   // NOLINT
 #include <process.h>  // NOLINT
-#include <time.h>  // NOLINT
+#include <psapi.h>    // NOLINT
+#include <time.h>     // NOLINT
 
 #include "platform/utils.h"
 #include "platform/assert.h"
@@ -34,7 +35,9 @@ intptr_t OS::ProcessId() {
 // As a side-effect sets the globals _timezone, _daylight and _tzname.
 static bool LocalTime(int64_t seconds_since_epoch, tm* tm_result) {
   time_t seconds = static_cast<time_t>(seconds_since_epoch);
-  if (seconds != seconds_since_epoch) return false;
+  if (seconds != seconds_since_epoch) {
+    return false;
+  }
   // localtime_s implicitly sets _timezone, _daylight and _tzname.
   errno_t error_code = localtime_s(tm_result, &seconds);
   return error_code == 0;
@@ -54,17 +57,36 @@ static int GetDaylightSavingBiasInSeconds() {
 
 
 const char* OS::GetTimeZoneName(int64_t seconds_since_epoch) {
-  tm decomposed;
-  // LocalTime will set _tzname.
-  bool succeeded = LocalTime(seconds_since_epoch, &decomposed);
-  if (succeeded) {
-    int inDaylightSavingsTime = decomposed.tm_isdst;
-    ASSERT(inDaylightSavingsTime == 0 || inDaylightSavingsTime == 1);
-    return _tzname[inDaylightSavingsTime];
-  } else {
-    // Return an empty string like V8 does.
+  TIME_ZONE_INFORMATION zone_information;
+  memset(&zone_information, 0, sizeof(zone_information));
+
+  // Initialize and grab the time zone data.
+  _tzset();
+  DWORD status = GetTimeZoneInformation(&zone_information);
+  if (GetTimeZoneInformation(&zone_information) == TIME_ZONE_ID_INVALID) {
+    // If we can't get the time zone data, the Windows docs indicate that we
+    // are probably out of memory. Return an empty string.
     return "";
   }
+
+  // Figure out whether we're in standard or daylight.
+  bool daylight_savings = (status == TIME_ZONE_ID_DAYLIGHT);
+  if (status == TIME_ZONE_ID_UNKNOWN) {
+    tm local_time;
+    if (LocalTime(seconds_since_epoch, &local_time)) {
+      daylight_savings = (local_time.tm_isdst == 1);
+    }
+  }
+
+  // Convert the wchar string to a null-terminated utf8 string.
+  wchar_t* wchar_name = daylight_savings ? zone_information.DaylightName
+                                         : zone_information.StandardName;
+  intptr_t utf8_len =
+      WideCharToMultiByte(CP_UTF8, 0, wchar_name, -1, NULL, 0, NULL, NULL);
+  char* name = Thread::Current()->zone()->Alloc<char>(utf8_len + 1);
+  WideCharToMultiByte(CP_UTF8, 0, wchar_name, -1, name, utf8_len, NULL, NULL);
+  name[utf8_len] = '\0';
+  return name;
 }
 
 
@@ -160,25 +182,18 @@ int64_t OS::GetCurrentMonotonicMicros() {
 }
 
 
-void* OS::AlignedAllocate(intptr_t size, intptr_t alignment) {
-  const int kMinimumAlignment = 16;
-  ASSERT(Utils::IsPowerOfTwo(alignment));
-  ASSERT(alignment >= kMinimumAlignment);
-  void* p = _aligned_malloc(size, alignment);
-  if (p == NULL) {
-    UNREACHABLE();
-  }
-  return p;
-}
-
-
-void OS::AlignedFree(void* ptr) {
-  _aligned_free(ptr);
+int64_t OS::GetCurrentThreadCPUMicros() {
+  // TODO(johnmccutchan): Implement. See base/time_win.cc for details.
+  return -1;
 }
 
 
 intptr_t OS::ActivationFrameAlignment() {
-#ifdef _WIN64
+#if defined(TARGET_ARCH_ARM64)
+  return 16;
+#elif defined(TARGET_ARCH_ARM) || defined(TARGET_ARCH_MIPS)
+  return 8;
+#elif defined(_WIN64)
   // Windows 64-bit ABI requires the stack to be 16-byte aligned.
   return 16;
 #else
@@ -190,7 +205,14 @@ intptr_t OS::ActivationFrameAlignment() {
 
 intptr_t OS::PreferredCodeAlignment() {
   ASSERT(32 <= OS::kMaxPreferredCodeAlignment);
+#if defined(TARGET_ARCH_IA32) || defined(TARGET_ARCH_X64) ||                   \
+    defined(TARGET_ARCH_ARM64) || defined(TARGET_ARCH_DBC)
   return 32;
+#elif defined(TARGET_ARCH_ARM) || defined(TARGET_ARCH_MIPS)
+  return 16;
+#else
+#error Unsupported architecture.
+#endif
 }
 
 
@@ -203,6 +225,13 @@ int OS::NumberOfAvailableProcessors() {
   SYSTEM_INFO info;
   GetSystemInfo(&info);
   return info.dwNumberOfProcessors;
+}
+
+
+uintptr_t OS::MaxRSS() {
+  PROCESS_MEMORY_COUNTERS pmc;
+  GetProcessMemoryInfo(GetCurrentProcess(), &pmc, sizeof(pmc));
+  return pmc.PeakWorkingSetSize;
 }
 
 
@@ -236,6 +265,11 @@ void OS::DebugBreak() {
 }
 
 
+DART_NOINLINE uintptr_t OS::GetProgramCounter() {
+  return reinterpret_cast<uintptr_t>(_ReturnAddress());
+}
+
+
 char* OS::StrNDup(const char* s, intptr_t n) {
   intptr_t len = strlen(s);
   if ((n < 0) || (len < 0)) {
@@ -250,6 +284,11 @@ char* OS::StrNDup(const char* s, intptr_t n) {
   }
   result[len] = '\0';
   return reinterpret_cast<char*>(memmove(result, s, len));
+}
+
+
+intptr_t OS::StrNLen(const char* s, intptr_t n) {
+  return strnlen(s, n);
 }
 
 
@@ -352,8 +391,7 @@ bool OS::StringToInt64(const char* str, int64_t* value) {
   if (str[0] == '-') {
     i = 1;
   }
-  if ((str[i] == '0') &&
-      (str[i + 1] == 'x' || str[i + 1] == 'X') &&
+  if ((str[i] == '0') && (str[i + 1] == 'x' || str[i + 1] == 'X') &&
       (str[i + 2] != '\0')) {
     base = 16;
   }
@@ -363,8 +401,7 @@ bool OS::StringToInt64(const char* str, int64_t* value) {
 }
 
 
-void OS::RegisterCodeObservers() {
-}
+void OS::RegisterCodeObservers() {}
 
 
 void OS::PrintErr(const char* format, ...) {

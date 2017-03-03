@@ -8,8 +8,8 @@
  */
 library sha1;
 
-import 'dart:math' show pow;
 import 'dart:convert';
+import 'dart:math' show pow;
 
 import '../io/code_output.dart' show CodeOutputListener;
 
@@ -54,14 +54,10 @@ class Hasher implements CodeOutputListener {
    *
    */
   String _bytesToBase64(List<int> bytes,
-                              {bool urlSafe : false,
-                               bool addLineSeparator : false}) {
-    return _CryptoUtils.bytesToBase64(bytes,
-                                      urlSafe,
-                                      addLineSeparator);
+      {bool urlSafe: false, bool addLineSeparator: false}) {
+    return _CryptoUtils.bytesToBase64(bytes, urlSafe, addLineSeparator);
   }
 }
-
 
 // Constants.
 const _MASK_8 = 0xff;
@@ -73,16 +69,15 @@ const _BYTES_PER_WORD = 4;
 
 // Rotate left limiting to unsigned 32-bit values.
 int _rotl32(int val, int shift) {
-var mod_shift = shift & 31;
-return ((val << mod_shift) & _MASK_32) |
-   ((val & _MASK_32) >> (32 - mod_shift));
+  var mod_shift = shift & 31;
+  return ((val << mod_shift) & _MASK_32) |
+      ((val & _MASK_32) >> (32 - mod_shift));
 }
 
 // Base class encapsulating common behavior for cryptographic hash
 // functions.
 abstract class _HashBase implements Hash {
   final int _chunkSizeInWords;
-  final int _digestSizeInWords;
   final bool _bigEndianWords;
   final List<int> _currentChunk;
   final List<int> _h;
@@ -90,24 +85,22 @@ abstract class _HashBase implements Hash {
   List<int> _pendingData;
   bool _digestCalled = false;
 
-  _HashBase(int chunkSizeInWords,
-            int digestSizeInWords,
-            bool this._bigEndianWords)
+  _HashBase(
+      int chunkSizeInWords, int digestSizeInWords, bool this._bigEndianWords)
       : _pendingData = [],
         _currentChunk = new List(chunkSizeInWords),
         _h = new List(digestSizeInWords),
-        _chunkSizeInWords = chunkSizeInWords,
-        _digestSizeInWords = digestSizeInWords;
+        _chunkSizeInWords = chunkSizeInWords;
 
   // Update the hasher with more data.
   void add(List<int> data) {
-     if (_digestCalled) {
-       throw new StateError(
-           'Hash update method called after digest was retrieved');
-     }
-     _lengthInBytes += data.length;
-     _pendingData.addAll(data);
-     _iterate();
+    if (_digestCalled) {
+      throw new StateError(
+          'Hash update method called after digest was retrieved');
+    }
+    _lengthInBytes += data.length;
+    _pendingData.addAll(data);
+    _iterate();
   }
 
   // Finish the hash computation and return the digest string.
@@ -124,7 +117,7 @@ abstract class _HashBase implements Hash {
 
   // Returns the block size of the hash in bytes.
   int get blockSize {
-   return _chunkSizeInWords * _BYTES_PER_WORD;
+    return _chunkSizeInWords * _BYTES_PER_WORD;
   }
 
   // One round of the hash computation.
@@ -209,7 +202,6 @@ abstract class _HashBase implements Hash {
   }
 }
 
-
 /**
  * Interface for cryptographic hash functions.
  *
@@ -252,7 +244,9 @@ class SHA1 extends _HashBase {
   final List<int> _w;
 
   // Construct a SHA1 hasher object.
-  SHA1() : _w = new List(80), super(16, 5, true) {
+  SHA1()
+      : _w = new List(80),
+        super(16, 5, true) {
     _h[0] = 0x67452301;
     _h[1] = 0xEFCDAB89;
     _h[2] = 0x98BADCFE;
@@ -305,10 +299,9 @@ class SHA1 extends _HashBase {
 }
 
 abstract class _CryptoUtils {
-
   static const int PAD = 61; // '='
-  static const int CR = 13;  // '\r'
-  static const int LF = 10;  // '\n'
+  static const int CR = 13; // '\r'
+  static const int LF = 10; // '\n'
   static const int LINE_LENGTH = 76;
 
   static const String _encodeTable =
@@ -318,8 +311,7 @@ abstract class _CryptoUtils {
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
 
   static String bytesToBase64(List<int> bytes,
-                              [bool urlSafe = false,
-                               bool addLineSeparator = false]) {
+      [bool urlSafe = false, bool addLineSeparator = false]) {
     int len = bytes.length;
     if (len == 0) {
       return "";
@@ -340,11 +332,11 @@ abstract class _CryptoUtils {
     int j = 0, i = 0, c = 0;
     while (i < chunkLength) {
       int x = ((bytes[i++] << 16) & 0xFFFFFF) |
-              ((bytes[i++] << 8) & 0xFFFFFF) |
-                bytes[i++];
+          ((bytes[i++] << 8) & 0xFFFFFF) |
+          bytes[i++];
       out[j++] = lookup.codeUnitAt(x >> 18);
       out[j++] = lookup.codeUnitAt((x >> 12) & 0x3F);
-      out[j++] = lookup.codeUnitAt((x >> 6)  & 0x3F);
+      out[j++] = lookup.codeUnitAt((x >> 6) & 0x3F);
       out[j++] = lookup.codeUnitAt(x & 0x3f);
       // Add optional line separator for each 76 char output.
       if (addLineSeparator && ++c == 19 && j < outputLen - 2) {

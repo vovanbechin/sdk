@@ -37,10 +37,10 @@
 library analyzer.dart.element.element;
 
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/resolution_base_classes.dart';
+import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/type.dart';
-import 'package:analyzer/src/generated/constant.dart' show DartObject;
 import 'package:analyzer/src/generated/engine.dart' show AnalysisContext;
-import 'package:analyzer/src/generated/java_core.dart';
 import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/resolver.dart';
 import 'package:analyzer/src/generated/source.dart';
@@ -453,6 +453,11 @@ abstract class CompilationUnitElement implements Element, UriReferencedElement {
   bool get hasLoadLibraryFunction;
 
   /**
+   * Return the [LineInfo] for the [source], or `null` if not computed yet.
+   */
+  LineInfo get lineInfo;
+
+  /**
    * Return a list containing all of the top-level variables contained in this
    * compilation unit.
    */
@@ -564,7 +569,7 @@ abstract class ConstructorElement
  *
  * Clients may not extend, implement or mix-in this class.
  */
-abstract class Element implements AnalysisTarget {
+abstract class Element implements AnalysisTarget, ResolutionTarget {
   /**
    * A comparator that can be used to sort elements by their name offset.
    * Elements with a smaller offset will be sorted to be before elements with a
@@ -588,15 +593,6 @@ abstract class Element implements AnalysisTarget {
    * is `f=`, instead of `f`.
    */
   String get displayName;
-
-  /**
-   * Return the source range of the documentation comment for this element,
-   * or `null` if this element does not or cannot have a documentation.
-   *
-   * Deprecated.  Use [documentationComment] instead.
-   */
-  @deprecated
-  SourceRange get docRange;
 
   /**
    * Return the content of the documentation comment (including delimiters) for
@@ -624,6 +620,16 @@ abstract class Element implements AnalysisTarget {
   bool get isDeprecated;
 
   /**
+   * Return `true` if this element has an annotation of the form '@factory'.
+   */
+  bool get isFactory;
+
+  /**
+   * Return `true` if this element has an annotation of the form '@JS(..)'.
+   */
+  bool get isJS;
+
+  /**
    * Return `true` if this element has an annotation of the form '@override'.
    */
   bool get isOverride;
@@ -644,6 +650,11 @@ abstract class Element implements AnalysisTarget {
    * any library that imports the library in which they are declared.
    */
   bool get isPublic;
+
+  /**
+   * Return `true` if this element has an annotation of the form '@required'.
+   */
+  bool get isRequired;
 
   /**
    * Return `true` if this element is synthetic. A synthetic element is an
@@ -713,7 +724,7 @@ abstract class Element implements AnalysisTarget {
    * Use the given [visitor] to visit this element. Return the value returned by
    * the visitor as a result of visiting this element.
    */
-  accept(ElementVisitor visitor);
+  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor);
 
   /**
    * Return the documentation comment for this element as it appears in the
@@ -747,12 +758,13 @@ abstract class Element implements AnalysisTarget {
    * [predicate] returns `true`, or `null` if there is no such ancestor. Note
    * that this element will never be returned.
    */
-  Element getAncestor(Predicate<Element> predicate);
+  Element/*=E*/ getAncestor/*<E extends Element >*/(
+      Predicate<Element> predicate);
 
   /**
    * Return a display name for the given element that includes the path to the
    * compilation unit in which the type is defined. If [shortName] is `null`
-   * then [getDisplayName] will be used as the name of this element. Otherwise
+   * then [displayName] will be used as the name of this element. Otherwise
    * the provided name will be used.
    */
   // TODO(brianwilkerson) Make the parameter optional.
@@ -781,7 +793,8 @@ abstract class Element implements AnalysisTarget {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-abstract class ElementAnnotation implements ConstantEvaluationTarget {
+abstract class ElementAnnotation
+    implements ConstantEvaluationTarget, ResolutionTarget {
   /**
    * An empty list of annotations.
    */
@@ -808,16 +821,27 @@ abstract class ElementAnnotation implements ConstantEvaluationTarget {
   bool get isDeprecated;
 
   /**
-   * Return `true` if this annotation marks the associated method as being
-   * expected to override an inherited method.
+   * Return `true` if this annotation marks the associated member as a factory.
    */
-  bool get isOverride;
+  bool get isFactory;
+
+  /**
+   * Return `true` if this annotation marks the associated element with the `JS`
+   * annotation.
+   */
+  bool get isJS;
 
   /**
    * Return `true` if this annotation marks the associated member as requiring
    * overriding methods to call super.
    */
   bool get isMustCallSuper;
+
+  /**
+   * Return `true` if this annotation marks the associated method as being
+   * expected to override an inherited method.
+   */
+  bool get isOverride;
 
   /**
    * Return `true` if this annotation marks the associated member as being
@@ -830,15 +854,34 @@ abstract class ElementAnnotation implements ConstantEvaluationTarget {
    * a proxy object.
    */
   bool get isProxy;
+
+  /**
+   * Return `true` if this annotation marks the associated member as being
+   * required.
+   */
+  bool get isRequired;
+
+  /**
+   * Return a representation of the value of this annotation, forcing the value
+   * to be computed if it had not previously been computed, or `null` if the
+   * value of this annotation could not be computed because of errors.
+   */
+  DartObject computeConstantValue();
+
+  /**
+   * Return a textual description of this annotation in a form approximating
+   * valid source. The returned string will not be valid source primarily in the
+   * case where the annotation itself is not well-formed.
+   */
+  String toSource();
 }
 
 /**
- * The enumeration `ElementKind` defines the various kinds of elements in the
- * element model.
+ * The kind of elements in the element model.
  *
  * Clients may not extend, implement or mix-in this class.
  */
-class ElementKind extends Enum<ElementKind> {
+class ElementKind implements Comparable<ElementKind> {
   static const ElementKind CLASS = const ElementKind('CLASS', 0, "class");
 
   static const ElementKind COMPILATION_UNIT =
@@ -923,6 +966,16 @@ class ElementKind extends Enum<ElementKind> {
   ];
 
   /**
+   * The name of this element kind.
+   */
+  final String name;
+
+  /**
+   * The ordinal value of the element kind.
+   */
+  final int ordinal;
+
+  /**
    * The name displayed in the UI for this kind of element.
    */
   final String displayName;
@@ -930,8 +983,16 @@ class ElementKind extends Enum<ElementKind> {
   /**
    * Initialize a newly created element kind to have the given [displayName].
    */
-  const ElementKind(String name, int ordinal, this.displayName)
-      : super(name, ordinal);
+  const ElementKind(this.name, this.ordinal, this.displayName);
+
+  @override
+  int get hashCode => ordinal;
+
+  @override
+  int compareTo(ElementKind other) => ordinal - other.ordinal;
+
+  @override
+  String toString() => name;
 
   /**
    * Return the kind of the given [element], or [ERROR] if the element is
@@ -968,7 +1029,14 @@ abstract class ElementLocation {
 /**
  * An object that can be used to visit an element structure.
  *
- * Clients may implement this class.
+ * Clients may not extend, implement or mix-in this class. There are classes
+ * that implement this interface that provide useful default behaviors in
+ * `package:analyzer/dart/ast/visitor.dart`. A couple of the most useful include
+ * * SimpleElementVisitor which implements every visit method by doing nothing,
+ * * RecursiveElementVisitor which will cause every node in a structure to be
+ *   visited, and
+ * * ThrowingElementVisitor which implements every visit method by throwing an
+ *   exception.
  */
 abstract class ElementVisitor<R> {
   R visitClassElement(ClassElement element);
@@ -1134,6 +1202,11 @@ abstract class FieldElement
    * Return {@code true} if this element is an enum constant.
    */
   bool get isEnumConstant;
+
+  /**
+   * Returns `true` if this field can be overridden in strong mode.
+   */
+  bool get isVirtual;
 
   @override
   AstNode computeNode();
@@ -1330,12 +1403,6 @@ abstract class LibraryElement implements Element {
   static const List<LibraryElement> EMPTY_LIST = const <LibraryElement>[];
 
   /**
-   * Return a list containing the strongly connected component in the
-   * import/export graph in which the current library resides.
-   */
-  List<LibraryElement> get libraryCycle;
-
-  /**
    * Return the compilation unit that defines this library.
    */
   CompilationUnitElement get definingCompilationUnit;
@@ -1417,6 +1484,12 @@ abstract class LibraryElement implements Element {
   bool get isInSdk;
 
   /**
+   * Return a list containing the strongly connected component in the
+   * import/export graph in which the current library resides.
+   */
+  List<LibraryElement> get libraryCycle;
+
+  /**
    * Return the element representing the synthetic function `loadLibrary` that
    * is implicitly defined for this library if the library is imported using a
    * deferred import.
@@ -1451,11 +1524,6 @@ abstract class LibraryElement implements Element {
   List<CompilationUnitElement> get units;
 
   /**
-   * Return a list containing all directly and indirectly imported libraries.
-   */
-  List<LibraryElement> get visibleLibraries;
-
-  /**
    * Return a list containing all of the imports that share the given [prefix],
    * or an empty array if there are no such imports.
    */
@@ -1466,13 +1534,6 @@ abstract class LibraryElement implements Element {
    * `null` if this library does not define a class with the given name.
    */
   ClassElement getType(String className);
-
-  /**
-   * Return `true` if this library is up to date with respect to the given
-   * [timeStamp]. If any transitively referenced Source is newer than the time
-   * stamp, this method returns false.
-   */
-  bool isUpToDate(int timeStamp);
 }
 
 /**
@@ -1525,6 +1586,15 @@ abstract class MethodElement implements ClassMemberElement, ExecutableElement {
 
   @override
   MethodDeclaration computeNode();
+
+  /**
+   * Gets the reified type of a tear-off of this method.
+   *
+   * If any of the parameters in the method are covariant, they are replaced
+   * with Object in the returned type. If no covariant parameters are present,
+   * returns `this`.
+   */
+  FunctionType getReifiedType(DartType objectType);
 }
 
 /**
@@ -1592,6 +1662,12 @@ abstract class ParameterElement
    * Return the Dart code of the default value, or `null` if no default value.
    */
   String get defaultValueCode;
+
+  /**
+   * Return `true` if this parameter is covariant, meaning it is allowed to have
+   * a narrower type in an override.
+   */
+  bool get isCovariant;
 
   /**
    * Return `true` if this parameter is an initializing formal parameter.
@@ -1840,6 +1916,11 @@ abstract class TypeParameterElement implements TypeDefiningElement {
  */
 abstract class TypeParameterizedElement implements Element {
   /**
+   * The type of this element, which will be a parameterized type.
+   */
+  ParameterizedType get type;
+
+  /**
    * Return a list containing all of the type parameters declared by this
    * element directly. This does not include type parameters that are declared
    * by any enclosing elements.
@@ -1974,4 +2055,12 @@ abstract class VariableElement implements Element, ConstantEvaluationTarget {
    * 'var').
    */
   DartType get type;
+
+  /**
+   * Return a representation of the value of this variable, forcing the value
+   * to be computed if it had not previously been computed, or `null` if either
+   * this variable was not declared with the 'const' modifier or if the value of
+   * this variable could not be computed because of errors.
+   */
+  DartObject computeConstantValue();
 }

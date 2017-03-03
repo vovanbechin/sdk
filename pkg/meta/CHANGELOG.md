@@ -1,3 +1,62 @@
+## 1.0.4
+* Introduce `@virtual` to allow field overrides in strong mode
+    (SDK issue [27384](https://github.com/dart-lang/sdk/issues/27384)).
+
+    ```dart
+    import 'package:meta/meta.dart' show virtual;
+    class Base {
+      @virtual int x;
+    }
+    class Derived extends Base {
+      int x;
+
+      // Expose the hidden storage slot:
+      int get superX => super.x;
+      set superX(int v) { super.x = v; }
+    }
+    ```
+
+## 1.0.3
+* Introduce `@checked` to override a method and tighten a parameter
+    type (SDK issue [25578](https://github.com/dart-lang/sdk/issues/25578)).
+
+    ```dart
+    import 'package:meta/meta.dart' show checked;
+    class View {
+      addChild(View v) {}
+    }
+    class MyView extends View {
+      // this override is legal, it will check at runtime if we actually
+      // got a MyView.
+      addChild(@checked MyView v) {}
+    }
+    main() {
+      dynamic mv = new MyView();
+      mv.addChild(new View()); // runtime error
+    }
+    ```
+
+## 1.0.2
+* Introduce `@visibleForTesting` annotation for declarations that may be referenced only in the library or in a test.
+
+## 1.0.1
+* Updated `@factory` to allow statics and methods returning `null`.
+
+## 1.0.0
+* First stable API release.
+
+## 0.12.2
+* Updated `@protected` to include implemented interfaces (linter#252).
+
+## 0.12.1
+* Fixed markdown in dartdocs.
+
+## 0.12.0
+* Introduce `@optionalTypeArgs` annotation for classes whose type arguments are to be treated as optional.
+
+## 0.11.0
+* Added new `Required` constructor with a means to specify a reason to explain why a parameter is required.
+
 ## 0.10.0
 * Introduce `@factory` annotation for methods that must either be abstract or
 must return a newly allocated object.

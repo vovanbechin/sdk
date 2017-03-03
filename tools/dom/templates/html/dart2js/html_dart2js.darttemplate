@@ -116,7 +116,8 @@ Window get window => JS('Window', 'window');
 /**
  * Root node for all content in a web page.
  */
-HtmlDocument get document => JS('HtmlDocument', 'document');
+HtmlDocument get document =>
+    JS('returns:HtmlDocument;depends:none;effects:none;gvn:true', 'document');
 
 // Workaround for tags like <cite> that lack their own Element subclass --
 // Dart issue 1990.
@@ -132,12 +133,6 @@ class HtmlElement extends Element {
   HtmlElement.created() : super.created();
 }
 
-// EntryArray type was removed, so explicitly adding it to allow support for
-// older Chrome versions.
-// Issue #12573.
-@Native("EntryArray")
-abstract class _EntryArray implements List<Entry> {}
-
 /**
  * Spawn a DOM isolate using the given URI in the same window.
  * This isolate is not concurrent.  It runs on the browser thread
@@ -150,7 +145,4 @@ Future<Isolate> spawnDomUri(Uri uri, List<String> args, message) {
   throw new UnimplementedError();
 }
 
-/// Dartium functions that are a NOOP in dart2js.
-unwrap_jso(dartClass_instance) => dartClass_instance;
-wrap_jso(jsObject) => jsObject;
 createCustomUpgrader(Type customElementClass, $this) => $this;

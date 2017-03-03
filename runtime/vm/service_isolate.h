@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_SERVICE_ISOLATE_H_
-#define VM_SERVICE_ISOLATE_H_
+#ifndef RUNTIME_VM_SERVICE_ISOLATE_H_
+#define RUNTIME_VM_SERVICE_ISOLATE_H_
 
 #include "include/dart_api.h"
 
@@ -12,6 +12,9 @@
 
 namespace dart {
 
+class ObjectPointerVisitor;
+class SendPort;
+
 class ServiceIsolate : public AllStatic {
  public:
   static const char* kName;
@@ -19,8 +22,8 @@ class ServiceIsolate : public AllStatic {
 
   static bool Exists();
   static bool IsRunning();
-  static bool IsServiceIsolate(Isolate* isolate);
-  static bool IsServiceIsolateDescendant(Isolate* isolate);
+  static bool IsServiceIsolate(const Isolate* isolate);
+  static bool IsServiceIsolateDescendant(const Isolate* isolate);
   static Dart_Port Port();
 
   static Dart_Port WaitForLoadPort();
@@ -34,12 +37,15 @@ class ServiceIsolate : public AllStatic {
 
   static void BootVmServiceLibrary();
 
+  static void RequestServerInfo(const SendPort& sp);
+  static void ControlWebServer(const SendPort& sp, bool enable);
+
   static void SetServerAddress(const char* address);
 
   // Returns the server's web address or NULL if none is running.
-  static const char* server_address() {
-    return server_address_;
-  }
+  static const char* server_address() { return server_address_; }
+
+  static void VisitObjectPointers(ObjectPointerVisitor* visitor);
 
  private:
   static void KillServiceIsolate();
@@ -75,4 +81,4 @@ class ServiceIsolate : public AllStatic {
 
 }  // namespace dart
 
-#endif  // VM_SERVICE_ISOLATE_H_
+#endif  // RUNTIME_VM_SERVICE_ISOLATE_H_

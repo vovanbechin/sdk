@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_VERSION_H_
-#define VM_VERSION_H_
+#ifndef RUNTIME_VM_VERSION_H_
+#define RUNTIME_VM_VERSION_H_
 
 #include "vm/allocation.h"
 
@@ -13,12 +13,14 @@ class Version : public AllStatic {
  public:
   static const char* String();
   static const char* SnapshotString();
+  static const char* CommitString();
 
  private:
   static const char* str_;
   static const char* snapshot_hash_;
+  static const char* commit_;
 };
 
 }  // namespace dart
 
-#endif  // VM_VERSION_H_
+#endif  // RUNTIME_VM_VERSION_H_

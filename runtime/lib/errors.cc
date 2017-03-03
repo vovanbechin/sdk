@@ -7,14 +7,64 @@
 #include "vm/object_store.h"
 #include "vm/runtime_entry.h"
 #include "vm/stack_frame.h"
+#include "vm/symbols.h"
 
 namespace dart {
+
+// Scan the stack until we hit the first function in the _AssertionError
+// class. We then return the next frame's script taking inlining into account.
+static RawScript* FindScript(DartFrameIterator* iterator) {
+  if (FLAG_precompiled_runtime) {
+    // The precompiled runtime faces two issues in recovering the correct
+    // assertion text. First, the precompiled runtime does not include
+    // the inlining meta-data so we cannot walk the inline-aware stack trace.
+    // Second, the script text itself is missing so whatever script is returned
+    // from here will be missing the assertion expression text.
+    iterator->NextFrame();  // Skip _AssertionError._evaluateAssertion frame
+    return Exceptions::GetCallerScript(iterator);
+  }
+  StackFrame* stack_frame = iterator->NextFrame();
+  Code& code = Code::Handle();
+  Function& func = Function::Handle();
+  const Class& assert_error_class =
+      Class::Handle(Library::LookupCoreClass(Symbols::AssertionError()));
+  ASSERT(!assert_error_class.IsNull());
+  bool hit_assertion_error = false;
+  while (stack_frame != NULL) {
+    code ^= stack_frame->LookupDartCode();
+    if (code.is_optimized()) {
+      InlinedFunctionsIterator inlined_iterator(code, stack_frame->pc());
+      while (!inlined_iterator.Done()) {
+        func ^= inlined_iterator.function();
+        if (hit_assertion_error) {
+          return func.script();
+        }
+        ASSERT(!hit_assertion_error);
+        hit_assertion_error = (func.Owner() == assert_error_class.raw());
+        inlined_iterator.Advance();
+      }
+    } else {
+      func ^= code.function();
+      ASSERT(!func.IsNull());
+      if (hit_assertion_error) {
+        return func.script();
+      }
+      ASSERT(!hit_assertion_error);
+      hit_assertion_error = (func.Owner() == assert_error_class.raw());
+    }
+    stack_frame = iterator->NextFrame();
+  }
+  UNREACHABLE();
+  return Script::null();
+}
+
 
 // Allocate and throw a new AssertionError.
 // Arg0: index of the first token of the failed assertion.
 // Arg1: index of the first token after the failed assertion.
+// Arg2: Message object or null.
 // Return value: none, throws an exception.
-DEFINE_NATIVE_ENTRY(AssertionError_throwNew, 2) {
+DEFINE_NATIVE_ENTRY(AssertionError_throwNew, 3) {
   // No need to type check the arguments. This function can only be called
   // internally from the VM.
   const TokenPosition assertion_start =
@@ -22,11 +72,12 @@ DEFINE_NATIVE_ENTRY(AssertionError_throwNew, 2) {
   const TokenPosition assertion_end =
       TokenPosition(Smi::CheckedHandle(arguments->NativeArgAt(1)).Value());
 
-  const Array& args = Array::Handle(Array::New(4));
+  const Instance& message = Instance::CheckedHandle(arguments->NativeArgAt(2));
+  const Array& args = Array::Handle(Array::New(5));
 
   DartFrameIterator iterator;
   iterator.NextFrame();  // Skip native call.
-  const Script& script = Script::Handle(Exceptions::GetCallerScript(&iterator));
+  const Script& script = Script::Handle(FindScript(&iterator));
 
   // Initialize argument 'failed_assertion' with source snippet.
   intptr_t from_line, from_column;
@@ -35,14 +86,15 @@ DEFINE_NATIVE_ENTRY(AssertionError_throwNew, 2) {
   script.GetTokenLocation(assertion_end, &to_line, &to_column);
   // The snippet will extract the correct assertion code even if the source
   // is generated.
-  args.SetAt(0, String::Handle(
-      script.GetSnippet(from_line, from_column, to_line, to_column)));
+  args.SetAt(0, String::Handle(script.GetSnippet(from_line, from_column,
+                                                 to_line, to_column)));
 
   // Initialize location arguments starting at position 1.
   // Do not set a column if the source has been generated as it will be wrong.
   args.SetAt(1, String::Handle(script.url()));
   args.SetAt(2, Smi::Handle(Smi::New(from_line)));
   args.SetAt(3, Smi::Handle(Smi::New(script.HasSource() ? from_column : -1)));
+  args.SetAt(4, message);
 
   Exceptions::ThrowByType(Exceptions::kAssertion, args);
   UNREACHABLE();
@@ -68,9 +120,10 @@ DEFINE_NATIVE_ENTRY(TypeError_throwNew, 5) {
       AbstractType::CheckedHandle(arguments->NativeArgAt(2));
   const String& dst_name = String::CheckedHandle(arguments->NativeArgAt(3));
   const String& error_msg = String::CheckedHandle(arguments->NativeArgAt(4));
-  const AbstractType& src_type = AbstractType::Handle(src_value.GetType());
-  Exceptions::CreateAndThrowTypeError(
-      location, src_type, dst_type, dst_name, error_msg);
+  const AbstractType& src_type =
+      AbstractType::Handle(src_value.GetType(Heap::kNew));
+  Exceptions::CreateAndThrowTypeError(location, src_type, dst_type, dst_name,
+                                      error_msg);
   UNREACHABLE();
   return Object::null();
 }

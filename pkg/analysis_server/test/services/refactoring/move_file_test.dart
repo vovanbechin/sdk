@@ -13,13 +13,12 @@ import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
-import '../../abstract_context.dart';
-import '../../utils.dart';
 import 'abstract_refactoring.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(MoveFileTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(MoveFileTest);
+  });
 }
 
 @reflectiveTest
@@ -111,10 +110,10 @@ import '22/new_name.dart';
     testFile = '/packages/my_pkg/lib/aaa/test.dart';
     provider.newFile(testFile, '');
     Map<String, List<Folder>> packageMap = {
-      'my_pkg': [provider.getResource('/packages/my_pkg/lib')]
+      'my_pkg': <Folder>[provider.getResource('/packages/my_pkg/lib')]
     };
     context.sourceFactory = new SourceFactory([
-      AbstractContextTest.SDK_RESOLVER,
+      new DartUriResolver(sdk),
       new PackageMapUriResolver(provider, packageMap),
       resourceResolver
     ]);
@@ -241,9 +240,9 @@ export 'package:testName/myLib.dart';
 ''');
     // configure Uri resolves
     context.sourceFactory = new SourceFactory([
-      AbstractContextTest.SDK_RESOLVER,
+      new DartUriResolver(sdk),
       new PackageMapUriResolver(provider, <String, List<Folder>>{
-        'testName': [provider.getResource('/testName/lib')]
+        'testName': <Folder>[provider.getResource('/testName/lib')]
       }),
       resourceResolver,
     ]);

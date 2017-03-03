@@ -237,6 +237,9 @@ abstract class Map<K, V> {
    *
    * The order of iteration is defined by the individual `Map` implementation,
    * but must be consistent between changes to the map.
+   *
+   * Modifying the map while iterating the keys
+   * may break the iteration.
    */
   Iterable<K> get keys;
 
@@ -244,12 +247,15 @@ abstract class Map<K, V> {
    * The values of [this].
    *
    * The values are iterated in the order of their corresponding keys.
-   * This means that iterating [keys] and [values] in parrallel will
+   * This means that iterating [keys] and [values] in parallel will
    * provided matching pairs of keys and values.
    *
    * The returned iterable has an efficient `length` method based on the
    * [length] of the map. Its [Iterable.contains] method is based on
    * `==` comparison.
+   *
+   * Modifying the map while iterating the
+   * values may break the iteration.
    */
   Iterable<V> get values;
 

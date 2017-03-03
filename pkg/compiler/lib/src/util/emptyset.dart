@@ -15,7 +15,7 @@ class ImmutableEmptySet<E> extends IterableBase<E> implements Set<E> {
 
   get _immutableError => throw new UnsupportedError("EmptySet is immutable");
 
-  bool add (E element) => _immutableError;
+  bool add(E element) => _immutableError;
   void addAll(Iterable<E> elements) => _immutableError;
 
   E lookup(E element) => null;
@@ -32,7 +32,7 @@ class ImmutableEmptySet<E> extends IterableBase<E> implements Set<E> {
 
   Set<E> union(Set<E> other) => new Set.from(other);
   Set<E> intersection(Set<E> other) => this;
-  Set<E> difference(Set<E> other) => this;
+  Set<E> difference(Set<Object> other) => this;
   Set<E> toSet() => new Set();
 }
 

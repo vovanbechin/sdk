@@ -4,6 +4,12 @@
 //
 // Dart test program for testing file I/O.
 
+// OtherResources=empty_file
+// OtherResources=file_test.txt
+// OtherResources=fixed_length_file
+// OtherResources=read_as_text.dat
+// OtherResources=readline_test1.dat
+
 import 'dart:async';
 import 'dart:convert';
 import 'dart:collection';
@@ -59,7 +65,7 @@ class FileTest {
   // Test for file read functionality.
   static void testReadStream() {
     // Read a file and check part of it's contents.
-    String filename = getFilename("bin/file_test.cc");
+    String filename = getFilename("file_test.txt");
     File file = new File(filename);
     Expect.isTrue('$file'.contains(file.path));
     var subscription;
@@ -90,7 +96,7 @@ class FileTest {
     asyncTestStarted();
 
     // Read a file.
-    String inFilename = getFilename("tests/vm/data/fixed_length_file");
+    String inFilename = getFilename("fixed_length_file");
     File file;
     int bytesRead;
 
@@ -226,7 +232,7 @@ class FileTest {
   static void testRead() {
     asyncStart();
     // Read a file and check part of it's contents.
-    String filename = getFilename("bin/file_test.cc");
+    String filename = getFilename("file_test.txt");
     File file = new File(filename);
     file.open(mode: READ).then((RandomAccessFile file) {
       List<int> buffer = new List<int>(10);
@@ -252,7 +258,7 @@ class FileTest {
 
   static void testReadSync() {
     // Read a file and check part of it's contents.
-    String filename = getFilename("bin/file_test.cc");
+    String filename = getFilename("file_test.txt");
     RandomAccessFile raf = (new File(filename)).openSync();
     List<int> buffer = new List<int>(42);
     int bytes_read = 0;
@@ -274,7 +280,7 @@ class FileTest {
     Expect.equals(116, buffer[11]);  // represents 't' in the file.
     raf.closeSync();
 
-    filename = getFilename("tests/vm/data/fixed_length_file");
+    filename = getFilename("fixed_length_file");
     File file = new File(filename);
     int len = file.lengthSync();
     int read(int length) {
@@ -296,7 +302,7 @@ class FileTest {
   static void testReadWrite() {
     asyncTestStarted();
     // Read a file.
-    String inFilename = getFilename("tests/vm/data/fixed_length_file");
+    String inFilename = getFilename("fixed_length_file");
     final File file = new File(inFilename);
     file.open(mode: READ).then((openedFile) {
       List<int> buffer1 = new List<int>(42);
@@ -437,7 +443,7 @@ class FileTest {
 
   static void testReadWriteSync() {
     // Read a file.
-    String inFilename = getFilename("tests/vm/data/fixed_length_file");
+    String inFilename = getFilename("fixed_length_file");
     RandomAccessFile file = (new File(inFilename)).openSync();
     List<int> buffer1 = new List<int>(42);
     int bytes_read = 0;
@@ -475,7 +481,7 @@ class FileTest {
 
   static void testReadWriteNoArgsSync() {
     // Read a file.
-    String inFilename = getFilename("tests/vm/data/fixed_length_file");
+    String inFilename = getFilename("fixed_length_file");
     RandomAccessFile file = (new File(inFilename)).openSync();
     List<int> buffer1 = new List<int>(42);
     int bytes_read = 0;
@@ -578,6 +584,28 @@ class FileTest {
     });
   }
 
+  static void testWriteFromOffset() {
+    Directory tmp;
+    RandomAccessFile raf;
+    try {
+      tmp = tempDirectory.createTempSync('write_from_offset_test_');
+      File f = new File('${tmp.path}/file')..createSync();
+      f.writeAsStringSync('pre-existing content\n', flush: true);
+      raf = f.openSync(mode: FileMode.APPEND);
+      String truth = "Hello world";
+      raf.writeFromSync(UTF8.encode('Hello world'), 2, 5);
+      raf.flushSync();
+      Expect.equals(f.readAsStringSync(), 'pre-existing content\nllo');
+    } finally {
+      if (raf != null) {
+        raf.closeSync();
+      }
+      if (tmp != null) {
+        tmp.deleteSync(recursive: true);
+      }
+    }
+  }
+
   static void testDirectory() {
     asyncTestStarted();
     var tempDir = tempDirectory.path;
@@ -615,7 +643,7 @@ class FileTest {
   // Test for file length functionality.
   static void testLength() {
     asyncTestStarted();
-    String filename = getFilename("tests/vm/data/fixed_length_file");
+    String filename = getFilename("fixed_length_file");
     File file = new File(filename);
     RandomAccessFile openedFile = file.openSync();
     openedFile.length().then((length) {
@@ -628,7 +656,7 @@ class FileTest {
   }
 
   static void testLengthSync() {
-    String filename = getFilename("tests/vm/data/fixed_length_file");
+    String filename = getFilename("fixed_length_file");
     File file = new File(filename);
     RandomAccessFile openedFile = file.openSync();
     Expect.equals(42, file.lengthSync());
@@ -636,10 +664,27 @@ class FileTest {
     openedFile.closeSync();
   }
 
+  static void testLengthSyncDirectory() {
+    Directory tmp = tempDirectory.createTempSync('file_length_test_');
+    String dirPath = '${tmp.path}/dir';
+    new Directory(dirPath).createSync();
+    try {
+      new File(dirPath).lengthSync();
+      Expect.fail('Expected operation to throw');
+    } catch (e) {
+      if (e is! FileSystemException) {
+        print(e);
+      }
+      Expect.isTrue(e is FileSystemException);
+    } finally {
+      tmp.deleteSync(recursive: true);
+    }
+  }
+
   // Test for file position functionality.
   static void testPosition() {
     asyncTestStarted();
-    String filename = getFilename("tests/vm/data/fixed_length_file");
+    String filename = getFilename("fixed_length_file");
     RandomAccessFile input = (new File(filename)).openSync();
     input.position().then((position) {
       Expect.equals(0, position);
@@ -664,7 +709,7 @@ class FileTest {
   }
 
   static void testPositionSync() {
-    String filename = getFilename("tests/vm/data/fixed_length_file");
+    String filename = getFilename("fixed_length_file");
     RandomAccessFile input = (new File(filename)).openSync();
     Expect.equals(0, input.positionSync());
     List<int> buffer = new List<int>(100);
@@ -711,6 +756,17 @@ class FileTest {
     Expect.equals(10, openedFile.lengthSync());
     openedFile.truncateSync(5);
     Expect.equals(5, openedFile.lengthSync());
+    bool exceptionCaught = false;
+    bool wrongExceptionCaught = false;
+    try {
+      openedFile.truncateSync(-5);
+    } on FileSystemException catch (ex) {
+      exceptionCaught = true;
+    } on Exception catch (ex) {
+      wrongExceptionCaught = true;
+    }
+    Expect.equals(true, exceptionCaught);
+    Expect.equals(true, !wrongExceptionCaught);
     openedFile.closeSync();
     file.deleteSync();
     Expect.isFalse(file.existsSync());
@@ -1056,7 +1112,7 @@ class FileTest {
 
   static void testReadAsBytes() {
     asyncTestStarted();
-    var name = getFilename("tests/vm/data/fixed_length_file");
+    var name = getFilename("fixed_length_file");
     var f = new File(name);
     f.readAsBytes().then((bytes) {
       Expect.isTrue(new String.fromCharCodes(bytes).endsWith("42 bytes."));
@@ -1067,7 +1123,7 @@ class FileTest {
 
   static void testReadAsBytesEmptyFile() {
     asyncTestStarted();
-    var name = getFilename("tests/vm/data/empty_file");
+    var name = getFilename("empty_file");
     var f = new File(name);
     f.readAsBytes().then((bytes) {
       Expect.equals(0, bytes.length);
@@ -1076,26 +1132,26 @@ class FileTest {
   }
 
   static void testReadAsBytesSync() {
-    var name = getFilename("tests/vm/data/fixed_length_file");
+    var name = getFilename("fixed_length_file");
     var bytes = new File(name).readAsBytesSync();
     Expect.isTrue(new String.fromCharCodes(bytes).endsWith("42 bytes."));
     Expect.equals(bytes.length, 42);
   }
 
   static void testReadAsBytesSyncEmptyFile() {
-    var name = getFilename("tests/vm/data/empty_file");
+    var name = getFilename("empty_file");
     var bytes = new File(name).readAsBytesSync();
     Expect.equals(bytes.length, 0);
   }
 
   static void testReadAsText() {
     asyncTestStarted();
-    var name = getFilename("tests/vm/data/fixed_length_file");
+    var name = getFilename("fixed_length_file");
     var f = new File(name);
     f.readAsString(encoding: UTF8).then((text) {
       Expect.isTrue(text.endsWith("42 bytes."));
       Expect.equals(42, text.length);
-      var name = getFilename("tests/standalone/io/read_as_text.dat");
+      var name = getFilename("read_as_text.dat");
       var f = new File(name);
       f.readAsString(encoding: UTF8).then((text) {
         Expect.equals(6, text.length);
@@ -1118,7 +1174,7 @@ class FileTest {
 
   static void testReadAsTextEmptyFile() {
     asyncTestStarted();
-    var name = getFilename("tests/vm/data/empty_file");
+    var name = getFilename("empty_file");
     var f = new File(name);
     f.readAsString(encoding: UTF8).then((text) {
       Expect.equals(0, text.length);
@@ -1128,11 +1184,11 @@ class FileTest {
   }
 
   static void testReadAsTextSync() {
-    var name = getFilename("tests/vm/data/fixed_length_file");
+    var name = getFilename("fixed_length_file");
     var text = new File(name).readAsStringSync();
     Expect.isTrue(text.endsWith("42 bytes."));
     Expect.equals(42, text.length);
-    name = getFilename("tests/standalone/io/read_as_text.dat");
+    name = getFilename("read_as_text.dat");
     text = new File(name).readAsStringSync();
     Expect.equals(6, text.length);
     var expected = [955, 120, 46, 32, 120, 10];
@@ -1155,14 +1211,14 @@ class FileTest {
   }
 
   static void testReadAsTextSyncEmptyFile() {
-    var name = getFilename("tests/vm/data/empty_file");
+    var name = getFilename("empty_file");
     var text = new File(name).readAsStringSync();
     Expect.equals(0, text.length);
   }
 
   static void testReadAsLines() {
     asyncTestStarted();
-    var name = getFilename("tests/vm/data/fixed_length_file");
+    var name = getFilename("fixed_length_file");
     var f = new File(name);
     f.readAsLines(encoding: UTF8).then((lines) {
       Expect.equals(1, lines.length);
@@ -1174,13 +1230,13 @@ class FileTest {
   }
 
   static void testReadAsLinesSync() {
-    var name = getFilename("tests/vm/data/fixed_length_file");
+    var name = getFilename("fixed_length_file");
     var lines = new File(name).readAsLinesSync();
     Expect.equals(1, lines.length);
     var line = lines[0];
     Expect.isTrue(line.endsWith("42 bytes."));
     Expect.equals(42, line.length);
-    name = getFilename("tests/standalone/io/readline_test1.dat");
+    name = getFilename("readline_test1.dat");
     lines = new File(name).readAsLinesSync();
     Expect.equals(10, lines.length);
   }
@@ -1216,6 +1272,15 @@ class FileTest {
     });
   }
 
+  static void testLastAccessed() {
+    asyncTestStarted();
+    new File(Platform.executable).lastAccessed().then((accessed) {
+      Expect.isTrue(accessed is DateTime);
+      Expect.isTrue(accessed.isBefore(new DateTime.now()));
+      asyncTestDone("testLastAccessed");
+    });
+  }
+
   static void testDoubleAsyncOperation() {
     asyncTestStarted();
     var file = new File(Platform.executable).openSync();
@@ -1243,6 +1308,138 @@ class FileTest {
     var modified = new File(Platform.executable).lastModifiedSync();
     Expect.isTrue(modified is DateTime);
     Expect.isTrue(modified.isBefore(new DateTime.now()));
+  }
+
+  static void testLastAccessedSync() {
+    var accessed = new File(Platform.executable).lastAccessedSync();
+    Expect.isTrue(accessed is DateTime);
+    Expect.isTrue(accessed.isBefore(new DateTime.now()));
+  }
+
+  static void testLastModifiedSyncDirectory() {
+    Directory tmp = tempDirectory.createTempSync('file_last_modified_test_');
+    String dirPath = '${tmp.path}/dir';
+    new Directory(dirPath).createSync();
+    try {
+      new File(dirPath).lastModifiedSync();
+      Expect.fail('Expected operation to throw');
+    } catch (e) {
+      if (e is! FileSystemException) {
+        print(e);
+      }
+      Expect.isTrue(e is FileSystemException);
+    } finally {
+      tmp.deleteSync(recursive: true);
+    }
+  }
+
+  static void testLastAccessedSyncDirectory() {
+    Directory tmp = tempDirectory.createTempSync('file_last_accessed_test_');
+    String dirPath = '${tmp.path}/dir';
+    new Directory(dirPath).createSync();
+    try {
+      new File(dirPath).lastAccessedSync();
+      Expect.fail('Expected operation to throw');
+    } catch (e) {
+      if (e is! FileSystemException) {
+        print(e);
+      }
+      Expect.isTrue(e is FileSystemException);
+    } finally {
+      tmp.deleteSync(recursive: true);
+    }
+  }
+
+  static void testSetLastModifiedSync() {
+    String newFilePath = '${tempDirectory.path}/set_last_modified_sync_test';
+    File file = new File(newFilePath);
+    file.createSync();
+    DateTime modifiedTime = new DateTime(2016, 1, 1);
+    file.setLastModifiedSync(modifiedTime);
+    FileStat stat = file.statSync();
+    Expect.equals(2016, stat.modified.year);
+    Expect.equals(1, stat.modified.month);
+    Expect.equals(1, stat.modified.day);
+  }
+
+
+  static testSetLastModified() async {
+    asyncTestStarted();
+    String newFilePath = '${tempDirectory.path}/set_last_modified_test';
+    File file = new File(newFilePath);
+    file.createSync();
+    DateTime modifiedTime = new DateTime(2016, 1, 1);
+    await file.setLastModified(modifiedTime);
+    FileStat stat = await file.stat();
+    Expect.equals(2016, stat.modified.year);
+    Expect.equals(1, stat.modified.month);
+    Expect.equals(1, stat.modified.day);
+    asyncTestDone("testSetLastModified");
+  }
+
+
+  static void testSetLastModifiedSyncDirectory() {
+    Directory tmp = tempDirectory.createTempSync('file_last_modified_test_');
+    String dirPath = '${tmp.path}/dir';
+    new Directory(dirPath).createSync();
+    try {
+      DateTime modifiedTime = new DateTime(2016, 1, 1);
+      new File(dirPath).setLastModifiedSync(modifiedTime);
+      Expect.fail('Expected operation to throw');
+    } catch (e) {
+      if (e is! FileSystemException) {
+        print(e);
+      }
+      Expect.isTrue(e is FileSystemException);
+    } finally {
+      tmp.deleteSync(recursive: true);
+    }
+  }
+
+  static void testSetLastAccessedSync() {
+    String newFilePath = '${tempDirectory.path}/set_last_accessed_sync_test';
+    File file = new File(newFilePath);
+    file.createSync();
+    DateTime accessedTime = new DateTime(2016, 1, 1);
+    file.setLastAccessedSync(accessedTime);
+    FileStat stat = file.statSync();
+    Expect.equals(2016, stat.accessed.year);
+    Expect.equals(1, stat.accessed.month);
+    Expect.equals(1, stat.accessed.day);
+  }
+
+
+  static testSetLastAccessed() async {
+    asyncTestStarted();
+    String newFilePath = '${tempDirectory.path}/set_last_accessed_test';
+    File file = new File(newFilePath);
+    file.createSync();
+    DateTime accessedTime = new DateTime(2016, 1, 1);
+    await file.setLastAccessed(accessedTime);
+    FileStat stat = await file.stat();
+    Expect.equals(2016, stat.accessed.year);
+    Expect.equals(1, stat.accessed.month);
+    Expect.equals(1, stat.accessed.day);
+    asyncTestDone("testSetLastAccessed");
+  }
+
+
+  static void testSetLastAccessedSyncDirectory() {
+    Directory tmp = tempDirectory.createTempSync('file_last_accessed_test_');
+    String dirPath = '${tmp.path}/dir';
+    new Directory(dirPath).createSync();
+    try {
+      DateTime accessedTime = new DateTime(2016, 1, 1);
+      new File(dirPath).setLastAccessedSync(accessedTime);
+      Expect.fail('Expected operation to throw');
+    } catch (e) {
+      if (e is! FileSystemException) {
+        print(e);
+      }
+      Expect.isTrue(e is FileSystemException);
+    } finally {
+      tmp.deleteSync(recursive: true);
+    }
   }
 
   // Test that opens the same file for writing then for appending to test
@@ -1398,13 +1595,8 @@ class FileTest {
     }
   }
 
-  // Helper method to be able to run the test from the runtime
-  // directory, or the top directory.
   static String getFilename(String path) {
-    var testPath = Platform.script.resolve('../../../$path');
-    return new File.fromUri(testPath).existsSync()
-        ? testPath.toFilePath()
-        : Platform.script.resolve('../../../runtime/$path').toFilePath();
+    return Platform.script.resolve(path).toFilePath();
   }
 
   // Main test entrypoint.
@@ -1424,9 +1616,11 @@ class FileTest {
     testReadAsTextSyncEmptyFile();
     testReadAsLinesSync();
     testLastModifiedSync();
+    testLastAccessedSync();
 
     createTempDirectory(() {
       testLength();
+      testLengthSyncDirectory();
       testReadWrite();
       testReadWriteSync();
       testReadWriteNoArgsSync();
@@ -1456,6 +1650,7 @@ class FileTest {
       testOutputStreamWriteAppend();
       testOutputStreamWriteString();
       testWriteVariousLists();
+      testWriteFromOffset();
       testDirectory();
       testDirectorySync();
       testWriteStringUtf8();
@@ -1465,6 +1660,15 @@ class FileTest {
       testRename(targetExists: true);
       testRenameSync(targetExists: true);
       testLastModified();
+      testLastAccessed();
+      testLastModifiedSyncDirectory();
+      testLastAccessedSyncDirectory();
+      testSetLastModified();
+      testSetLastModifiedSync();
+      testSetLastModifiedSyncDirectory();
+      testSetLastAccessed();
+      testSetLastAccessedSync();
+      testSetLastAccessedSyncDirectory();
       testDoubleAsyncOperation();
       asyncEnd();
     });

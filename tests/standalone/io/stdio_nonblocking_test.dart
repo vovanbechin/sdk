@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+// OtherResources=stdio_nonblocking_script.dart
+
 import "dart:convert";
 import "dart:io";
 
@@ -11,7 +13,7 @@ void main() {
   var script =
       Platform.script.resolve("stdio_nonblocking_script.dart").toFilePath();
   Process.run(Platform.executable,
-              ['--checked', script],
+              [script],
               stdoutEncoding: ASCII,
               stderrEncoding: ASCII).then((result) {
                   print(result.stdout);

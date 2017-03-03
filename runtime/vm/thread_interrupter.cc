@@ -47,8 +47,7 @@ namespace dart {
 // effect: if the thread is interrupted by a signal handler during a ThreadState
 // update the signal handler will immediately return.
 
-DEFINE_FLAG(bool, trace_thread_interrupter, false,
-            "Trace thread interrupter");
+DEFINE_FLAG(bool, trace_thread_interrupter, false, "Trace thread interrupter");
 
 bool ThreadInterrupter::initialized_ = false;
 bool ThreadInterrupter::shutdown_ = false;
@@ -71,8 +70,17 @@ void ThreadInterrupter::InitOnce() {
 
 void ThreadInterrupter::Startup() {
   ASSERT(initialized_);
+  if (IsDebuggerAttached()) {
+    MonitorLocker shutdown_ml(monitor_);
+    shutdown_ = true;
+    if (FLAG_trace_thread_interrupter) {
+      OS::PrintErr(
+          "ThreadInterrupter disabled because a debugger is attached.\n");
+    }
+    return;
+  }
   if (FLAG_trace_thread_interrupter) {
-    OS::Print("ThreadInterrupter starting up.\n");
+    OS::PrintErr("ThreadInterrupter starting up.\n");
   }
   ASSERT(interrupter_thread_id_ == OSThread::kInvalidThreadJoinId);
   {
@@ -84,7 +92,7 @@ void ThreadInterrupter::Startup() {
   }
   ASSERT(interrupter_thread_id_ != OSThread::kInvalidThreadJoinId);
   if (FLAG_trace_thread_interrupter) {
-    OS::Print("ThreadInterrupter running.\n");
+    OS::PrintErr("ThreadInterrupter running.\n");
   }
 }
 
@@ -101,7 +109,7 @@ void ThreadInterrupter::Shutdown() {
     shutdown_ml.Notify();
     ASSERT(initialized_);
     if (FLAG_trace_thread_interrupter) {
-      OS::Print("ThreadInterrupter shutting down.\n");
+      OS::PrintErr("ThreadInterrupter shutting down.\n");
     }
   }
 
@@ -111,7 +119,7 @@ void ThreadInterrupter::Shutdown() {
   interrupter_thread_id_ = OSThread::kInvalidThreadJoinId;
 
   if (FLAG_trace_thread_interrupter) {
-    OS::Print("ThreadInterrupter shut down.\n");
+    OS::PrintErr("ThreadInterrupter shut down.\n");
   }
 }
 
@@ -150,14 +158,14 @@ void ThreadInterrupter::ThreadMain(uword parameters) {
   ASSERT(initialized_);
   InstallSignalHandler();
   if (FLAG_trace_thread_interrupter) {
-    OS::Print("ThreadInterrupter thread running.\n");
+    OS::PrintErr("ThreadInterrupter thread running.\n");
   }
   {
     // Signal to main thread we are ready.
     MonitorLocker startup_ml(monitor_);
     OSThread* os_thread = OSThread::Current();
     ASSERT(os_thread != NULL);
-    interrupter_thread_id_ = os_thread->join_id();
+    interrupter_thread_id_ = OSThread::GetCurrentThreadJoinId(os_thread);
     thread_running_ = true;
     startup_ml.Notify();
   }
@@ -216,7 +224,7 @@ void ThreadInterrupter::ThreadMain(uword parameters) {
   }
   RemoveSignalHandler();
   if (FLAG_trace_thread_interrupter) {
-    OS::Print("ThreadInterrupter thread exiting.\n");
+    OS::PrintErr("ThreadInterrupter thread exiting.\n");
   }
   {
     // Signal to main thread we are exiting.

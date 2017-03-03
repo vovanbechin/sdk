@@ -3,8 +3,8 @@
 // BSD-style license that can be found in the LICENSE file.
 // Class for intrinsifying functions.
 
-#ifndef VM_INTRINSIFIER_H_
-#define VM_INTRINSIFIER_H_
+#ifndef RUNTIME_VM_INTRINSIFIER_H_
+#define RUNTIME_VM_INTRINSIFIER_H_
 
 #include "vm/allocation.h"
 #include "vm/method_recognizer.h"
@@ -21,9 +21,9 @@ class FlowGraph;
 
 class Intrinsifier : public AllStatic {
  public:
-  static void Intrinsify(const ParsedFunction& parsed_function,
+  static bool Intrinsify(const ParsedFunction& parsed_function,
                          FlowGraphCompiler* compiler);
-#if defined(DART_NO_SNAPSHOT)
+#if !defined(DART_PRECOMPILED_RUNTIME)
   static void InitializeState();
 #endif
 
@@ -32,24 +32,35 @@ class Intrinsifier : public AllStatic {
 
   static intptr_t ParameterSlotFromSp();
 
+  static void IntrinsicCallPrologue(Assembler* assembler);
+  static void IntrinsicCallEpilogue(Assembler* assembler);
+
  private:
   static bool CanIntrinsify(const Function& function);
 
-#define DECLARE_FUNCTION(test_class_name, test_function_name, enum_name, fp)   \
+#define DECLARE_FUNCTION(class_name, function_name, enum_name, type, fp)       \
   static void enum_name(Assembler* assembler);
 
   ALL_INTRINSICS_LIST(DECLARE_FUNCTION)
+#if defined(TARGET_ARCH_DBC)
+  // On DBC graph intrinsics are handled in the same way as non-graph ones.
+  GRAPH_INTRINSICS_LIST(DECLARE_FUNCTION)
+#endif
 
 #undef DECLARE_FUNCTION
 
-#define DECLARE_FUNCTION(test_class_name, test_function_name, enum_name, fp)   \
+#if !defined(TARGET_ARCH_DBC)
+#define DECLARE_FUNCTION(class_name, function_name, enum_name, type, fp)       \
   static bool Build_##enum_name(FlowGraph* flow_graph);
 
   GRAPH_INTRINSICS_LIST(DECLARE_FUNCTION)
 
 #undef DECLARE_FUNCTION
+
+  static void IntrinsifyRegExpExecuteMatch(Assembler* assembler, bool sticky);
+#endif
 };
 
 }  // namespace dart
 
-#endif  // VM_INTRINSIFIER_H_
+#endif  // RUNTIME_VM_INTRINSIFIER_H_

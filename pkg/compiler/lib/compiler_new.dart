@@ -8,8 +8,11 @@
 library compiler_new;
 
 import 'dart:async';
+
+import 'compiler.dart' show Diagnostic;
 import 'src/apiimpl.dart';
-import 'compiler.dart' show Diagnostic, PackagesDiscoveryProvider;
+import 'src/options.dart' show CompilerOptions;
+
 export 'compiler.dart' show Diagnostic, PackagesDiscoveryProvider;
 
 // Unless explicitly allowed, passing `null` for any argument to the
@@ -33,28 +36,49 @@ abstract class CompilerInput {
   Future/*<String | List<int>>*/ readFromUri(Uri uri);
 }
 
+/// Output types used in `CompilerOutput.createOutputSink`.
+enum OutputType {
+  /// The main JavaScript output.
+  js,
+
+  /// A deferred JavaScript output part.
+  jsPart,
+
+  /// A source map for a JavaScript output.
+  sourceMap,
+
+  /// Serialization data output.
+  serializationData,
+
+  /// Additional information requested by the user, such dump info or a deferred
+  /// map.
+  info,
+
+  /// Implementation specific output used for debugging the compiler.
+  debug,
+}
+
+/// Sink interface used for generating output from the compiler.
+abstract class OutputSink {
+  /// Adds [text] to the sink.
+  void add(String text);
+
+  /// Closes the sink.
+  void close();
+}
+
 /// Interface for producing output from the compiler. That is, JavaScript target
 /// files, source map files, dump info files, etc.
 abstract class CompilerOutput {
-  /// Returns an [EventSink] that will serve as compiler output for the given
-  ///  component.
+  /// Returns an [OutputSink] that will serve as compiler output for the given
+  /// component.
   ///
-  ///  Components are identified by [name] and [extension]. By convention,
-  /// the empty string [:"":] will represent the main script
-  /// (corresponding to the script parameter of [compile]) even if the
-  /// main script is a library. For libraries that are compiled
-  /// separately, the library name is used.
-  ///
-  /// At least the following extensions can be expected:
-  ///
-  /// * "js" for JavaScript output.
-  /// * "js.map" for source maps.
-  /// * "dart" for Dart output.
-  /// * "dart.map" for source maps.
-  ///
-  /// As more features are added to the compiler, new names and
-  /// extensions may be introduced.
-  EventSink<String> createEventSink(String name, String extension);
+  /// Components are identified by [name], [extension], and [type]. By
+  /// convention, the empty string `""` will represent the main output of the
+  /// provided [type]. [name] and [extension] are otherwise suggestive.
+  // TODO(johnniwinther): Replace [name] and [extension] with something like
+  // [id] and [uri].
+  OutputSink createOutputSink(String name, String extension, OutputType type);
 }
 
 /// Interface for receiving diagnostic message from the compiler. That is,
@@ -71,8 +95,8 @@ abstract class CompilerDiagnostics {
   /// Experimental: [code] gives access to an id for the messages. Currently it
   /// is the [Message] used to create the diagnostic, if available, from which
   /// the [MessageKind] is accessible.
-  void report(var code,
-              Uri uri, int begin, int end, String text, Diagnostic kind);
+  void report(
+      var code, Uri uri, int begin, int end, String text, Diagnostic kind);
 }
 
 /// Information resulting from the compilation.
@@ -90,56 +114,6 @@ class CompilationResult {
   CompilationResult(this.compiler, {this.isSuccess: true});
 }
 
-/// Object for passing options to the compiler.
-class CompilerOptions {
-  final Uri entryPoint;
-  final Uri libraryRoot;
-  final Uri packageRoot;
-  final Uri packageConfig;
-  final PackagesDiscoveryProvider packagesDiscoveryProvider;
-  final List<String> options;
-  final Map<String, dynamic> environment;
-
-  /// Creates an option object for the compiler.
-  // TODO(johnniwinther): Expand comment when [options] are explicit as named
-  // arguments.
-  factory CompilerOptions(
-      {Uri entryPoint,
-       Uri libraryRoot,
-       Uri packageRoot,
-       Uri packageConfig,
-       PackagesDiscoveryProvider packagesDiscoveryProvider,
-       List<String> options: const <String>[],
-       Map<String, dynamic> environment: const <String, dynamic>{}}) {
-    if (entryPoint == null) {
-      throw new ArgumentError("entryPoint must be non-null");
-    }
-    if (!libraryRoot.path.endsWith("/")) {
-      throw new ArgumentError("libraryRoot must end with a /");
-    }
-    if (packageRoot != null && !packageRoot.path.endsWith("/")) {
-      throw new ArgumentError("packageRoot must end with a /");
-    }
-    return new CompilerOptions._(
-        entryPoint,
-        libraryRoot,
-        packageRoot,
-        packageConfig,
-        packagesDiscoveryProvider,
-        options,
-        environment);
-  }
-
-  CompilerOptions._(
-      this.entryPoint,
-      this.libraryRoot,
-      this.packageRoot,
-      this.packageConfig,
-      this.packagesDiscoveryProvider,
-      this.options,
-      this.environment);
-}
-
 /// Returns a future that completes to a [CompilationResult] when the Dart
 /// sources in [options] have been compiled.
 ///
@@ -154,7 +128,6 @@ Future<CompilationResult> compile(
     CompilerInput compilerInput,
     CompilerDiagnostics compilerDiagnostics,
     CompilerOutput compilerOutput) {
-
   if (compilerOptions == null) {
     throw new ArgumentError("compilerOptions must be non-null");
   }
@@ -169,15 +142,7 @@ Future<CompilationResult> compile(
   }
 
   CompilerImpl compiler = new CompilerImpl(
-      compilerInput,
-      compilerOutput,
-      compilerDiagnostics,
-      compilerOptions.libraryRoot,
-      compilerOptions.packageRoot,
-      compilerOptions.options,
-      compilerOptions.environment,
-      compilerOptions.packageConfig,
-      compilerOptions.packagesDiscoveryProvider);
+      compilerInput, compilerOutput, compilerDiagnostics, compilerOptions);
   return compiler.run(compilerOptions.entryPoint).then((bool success) {
     return new CompilationResult(compiler, isSuccess: success);
   });

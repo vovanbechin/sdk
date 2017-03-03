@@ -2,6 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
+#if !defined(DART_IO_DISABLED)
+
 #include "platform/globals.h"
 #if defined(TARGET_OS_WINDOWS)
 
@@ -38,16 +40,11 @@ intptr_t FileSystemWatcher::WatchPath(intptr_t id,
                                       int events,
                                       bool recursive) {
   USE(id);
-  const wchar_t* name = StringUtilsWin::Utf8ToWide(path);
-  HANDLE dir = CreateFileW(name,
-                           FILE_LIST_DIRECTORY,
-                           FILE_SHARE_READ |
-                               FILE_SHARE_WRITE |
-                               FILE_SHARE_DELETE,
-                           NULL,
-                           OPEN_EXISTING,
-                           FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED,
-                           NULL);
+  Utf8ToWideScope name(path);
+  HANDLE dir = CreateFileW(
+      name.wide(), FILE_LIST_DIRECTORY,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, NULL,
+      OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, NULL);
 
   if (dir == INVALID_HANDLE_VALUE) {
     return -1;
@@ -55,8 +52,7 @@ intptr_t FileSystemWatcher::WatchPath(intptr_t id,
 
   int list_events = 0;
   if ((events & (kCreate | kMove | kDelete)) != 0) {
-    list_events |= FILE_NOTIFY_CHANGE_FILE_NAME |
-                   FILE_NOTIFY_CHANGE_DIR_NAME;
+    list_events |= FILE_NOTIFY_CHANGE_FILE_NAME | FILE_NOTIFY_CHANGE_DIR_NAME;
   }
   if ((events & kModifyContent) != 0) {
     list_events |= FILE_NOTIFY_CHANGE_LAST_WRITE;
@@ -122,7 +118,8 @@ Dart_Handle FileSystemWatcher::ReadEvents(intptr_t id, intptr_t path_id) {
     // Move events come in pairs. Just 'enable' by default.
     Dart_ListSetAt(event, 1, Dart_NewInteger(1));
     Dart_ListSetAt(event, 2, Dart_NewStringFromUTF16(
-        reinterpret_cast<uint16_t*>(e->FileName), e->FileNameLength / 2));
+                                 reinterpret_cast<uint16_t*>(e->FileName),
+                                 e->FileNameLength / 2));
     Dart_ListSetAt(event, 3, Dart_NewBoolean(true));
     Dart_ListSetAt(event, 4, Dart_NewInteger(path_id));
     Dart_ListSetAt(events, i, event);
@@ -139,3 +136,5 @@ Dart_Handle FileSystemWatcher::ReadEvents(intptr_t id, intptr_t path_id) {
 }  // namespace dart
 
 #endif  // defined(TARGET_OS_WINDOWS)
+
+#endif  // !defined(DART_IO_DISABLED)

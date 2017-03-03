@@ -26,13 +26,13 @@ bool LongJumpScope::IsSafeToJump() {
   // We do not want to jump past Dart frames.  Note that this code
   // assumes the stack grows from high to low.
   Thread* thread = Thread::Current();
-  uword jumpbuf_addr = Isolate::GetCurrentStackPointer();
+  uword jumpbuf_addr = Thread::GetCurrentStackPointer();
 #if defined(USING_SIMULATOR)
   Simulator* sim = Simulator::Current();
   // When using simulator, only mutator thread should refer to Simulator
   // since there can be only one per isolate.
-  uword top_exit_frame_info = thread->IsMutatorThread() ?
-      sim->top_exit_frame_info() : 0;
+  uword top_exit_frame_info =
+      thread->IsMutatorThread() ? sim->top_exit_frame_info() : 0;
 #else
   uword top_exit_frame_info = thread->top_exit_frame_info();
 #endif
@@ -56,7 +56,7 @@ void LongJumpScope::Jump(int value, const Error& error) {
 #if defined(DEBUG)
 #define CHECK_REUSABLE_HANDLE(name)                                            \
   ASSERT(!thread->reusable_##name##_handle_scope_active());
-REUSABLE_HANDLE_LIST(CHECK_REUSABLE_HANDLE)
+  REUSABLE_HANDLE_LIST(CHECK_REUSABLE_HANDLE)
 #undef CHECK_REUSABLE_HANDLE
 #endif  // defined(DEBUG)
 

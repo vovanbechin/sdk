@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_OS_THREAD_H_
-#define VM_OS_THREAD_H_
+#ifndef RUNTIME_VM_OS_THREAD_H_
+#define RUNTIME_VM_OS_THREAD_H_
 
 #include "platform/globals.h"
 #include "vm/allocation.h"
@@ -12,6 +12,8 @@
 // Declare the OS-specific types ahead of defining the generic classes.
 #if defined(TARGET_OS_ANDROID)
 #include "vm/os_thread_android.h"
+#elif defined(TARGET_OS_FUCHSIA)
+#include "vm/os_thread_fuchsia.h"
 #elif defined(TARGET_OS_LINUX)
 #include "vm/os_thread_linux.h"
 #elif defined(TARGET_OS_MACOS)
@@ -61,19 +63,16 @@ class OSThread : public BaseThread {
     return id_;
   }
 
-  ThreadJoinId join_id() const {
-    ASSERT(join_id_ != OSThread::kInvalidThreadJoinId);
-    return join_id_;
-  }
-
+#ifndef PRODUCT
   ThreadId trace_id() const {
-    ASSERT(trace_id_ != OSThread::kInvalidThreadJoinId);
+    ASSERT(trace_id_ != OSThread::kInvalidThreadId);
     return trace_id_;
   }
+#endif
 
-  const char* name() const {
-    return name_;
-  }
+  const char* name() const { return name_; }
+
+  void SetName(const char* name);
 
   void set_name(const char* name) {
     ASSERT(OSThread::Current() == this);
@@ -82,14 +81,10 @@ class OSThread : public BaseThread {
     name_ = strdup(name);
   }
 
-  Mutex* timeline_block_lock() const {
-    return timeline_block_lock_;
-  }
+  Mutex* timeline_block_lock() const { return timeline_block_lock_; }
 
   // Only safe to access when holding |timeline_block_lock_|.
-  TimelineEventBlock* timeline_block() const {
-    return timeline_block_;
-  }
+  TimelineEventBlock* timeline_block() const { return timeline_block_; }
 
   // Only safe to access when holding |timeline_block_lock_|.
   void set_timeline_block(TimelineEventBlock* block) {
@@ -113,13 +108,15 @@ class OSThread : public BaseThread {
     return true;
   }
 
+  static bool GetCurrentStackBounds(uword* lower, uword* upper);
+
   // Used to temporarily disable or enable thread interrupts.
   void DisableThreadInterrupts();
   void EnableThreadInterrupts();
   bool ThreadInterruptsEnabled();
 
   // The currently executing thread, or NULL if not yet initialized.
-  static OSThread* Current() {
+  static OSThread* TryCurrent() {
     BaseThread* thread = GetCurrentTLS();
     OSThread* os_thread = NULL;
     if (thread != NULL) {
@@ -129,7 +126,15 @@ class OSThread : public BaseThread {
         Thread* vm_thread = reinterpret_cast<Thread*>(thread);
         os_thread = GetOSThreadFromThread(vm_thread);
       }
-    } else {
+    }
+    return os_thread;
+  }
+
+  // The currently executing thread. If there is no currently executing thread,
+  // a new OSThread is created and returned.
+  static OSThread* Current() {
+    OSThread* os_thread = TryCurrent();
+    if (os_thread == NULL) {
       os_thread = CreateAndSetUnknownThread();
     }
     return os_thread;
@@ -146,18 +151,17 @@ class OSThread : public BaseThread {
   static BaseThread* GetCurrentTLS() {
     return reinterpret_cast<BaseThread*>(OSThread::GetThreadLocal(thread_key_));
   }
-  static void SetCurrentTLS(uword value) {
-    SetThreadLocal(thread_key_, value);
-  }
+  static void SetCurrentTLS(uword value) { SetThreadLocal(thread_key_, value); }
 
-  typedef void (*ThreadStartFunction) (uword parameter);
-  typedef void (*ThreadDestructor) (void* parameter);
+  typedef void (*ThreadStartFunction)(uword parameter);
+  typedef void (*ThreadDestructor)(void* parameter);
 
   // Start a thread running the specified function. Returns 0 if the
   // thread started successfuly and a system specific error code if
   // the thread failed to start.
-  static int Start(
-      const char* name, ThreadStartFunction function, uword parameter);
+  static int Start(const char* name,
+                   ThreadStartFunction function,
+                   uword parameter);
 
   static ThreadLocalKey CreateThreadLocal(ThreadDestructor destructor = NULL);
   static void DeleteThreadLocal(ThreadLocalKey key);
@@ -171,12 +175,15 @@ class OSThread : public BaseThread {
   static intptr_t ThreadIdToIntPtr(ThreadId id);
   static ThreadId ThreadIdFromIntPtr(intptr_t id);
   static bool Compare(ThreadId a, ThreadId b);
-  static void GetThreadCpuUsage(ThreadId thread_id, int64_t* cpu_usage);
+
+  // This function can be called only once per OSThread, and should only be
+  // called when the retunred id will eventually be passed to OSThread::Join().
+  static ThreadJoinId GetCurrentThreadJoinId(OSThread* thread);
 
   // Called at VM startup and shutdown.
   static void InitOnce();
 
-  static bool IsThreadInList(ThreadJoinId join_id);
+  static bool IsThreadInList(ThreadId id);
 
   static void DisableOSThreadCreation();
   static void EnableOSThreadCreation();
@@ -198,13 +205,12 @@ class OSThread : public BaseThread {
   // We could eliminate this requirement if the windows thread interrupter
   // is implemented differently.
   Thread* thread() const { return thread_; }
-  void set_thread(Thread* value) {
-    thread_ = value;
-  }
+  void set_thread(Thread* value) { thread_ = value; }
 
   static void Cleanup();
+#ifndef PRODUCT
   static ThreadId GetCurrentThreadTraceId();
-  static ThreadJoinId GetCurrentThreadJoinId();
+#endif  // PRODUCT
   static OSThread* GetOSThreadFromThread(Thread* thread);
   static void AddThreadToListLocked(OSThread* thread);
   static void RemoveThreadFromList(OSThread* thread);
@@ -213,8 +219,14 @@ class OSThread : public BaseThread {
   static ThreadLocalKey thread_key_;
 
   const ThreadId id_;
-  const ThreadJoinId join_id_;
+#if defined(DEBUG)
+  // In DEBUG mode we use this field to ensure that GetCurrentThreadJoinId is
+  // only called once per OSThread.
+  ThreadJoinId join_id_;
+#endif
+#ifndef PRODUCT
   const ThreadId trace_id_;  // Used to interface with tracing tools.
+#endif
   char* name_;  // A name for this thread.
 
   Mutex* timeline_block_lock_;
@@ -287,6 +299,7 @@ class Mutex {
   ThreadId owner_;
 #endif  // defined(DEBUG)
 
+  friend class MallocLocker;
   friend class MutexLocker;
   friend class SafepointMutexLocker;
   friend class OSThreadIterator;
@@ -300,10 +313,7 @@ class Mutex {
 
 class Monitor {
  public:
-  enum WaitResult {
-    kNotified,
-    kTimedOut
-  };
+  enum WaitResult { kNotified, kTimedOut };
 
   static const int64_t kNoTimeout = 0;
 
@@ -349,4 +359,4 @@ class Monitor {
 }  // namespace dart
 
 
-#endif  // VM_OS_THREAD_H_
+#endif  // RUNTIME_VM_OS_THREAD_H_

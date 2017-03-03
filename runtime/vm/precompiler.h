@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_PRECOMPILER_H_
-#define VM_PRECOMPILER_H_
+#ifndef RUNTIME_VM_PRECOMPILER_H_
+#define RUNTIME_VM_PRECOMPILER_H_
 
 #include "vm/allocation.h"
 #include "vm/hash_map.h"
@@ -21,6 +21,30 @@ class GrowableObjectArray;
 class RawError;
 class SequenceNode;
 class String;
+class ParsedJSONObject;
+class ParsedJSONArray;
+class Precompiler;
+class FlowGraph;
+
+class TypeRangeCache : public ValueObject {
+ public:
+  TypeRangeCache(Precompiler* precompiler, Thread* thread, intptr_t num_cids);
+  ~TypeRangeCache();
+
+  bool InstanceOfHasClassRange(const AbstractType& type,
+                               intptr_t* lower_limit,
+                               intptr_t* upper_limit);
+
+ private:
+  static const intptr_t kNotComputed = -1;
+  static const intptr_t kNotContiguous = -2;
+
+  Precompiler* precompiler_;
+  Thread* thread_;
+  intptr_t* lower_limits_;
+  intptr_t* upper_limits_;
+};
+
 
 class SymbolKeyValueTrait {
  public:
@@ -33,9 +57,7 @@ class SymbolKeyValueTrait {
 
   static Value ValueOf(Pair kv) { return kv; }
 
-  static inline intptr_t Hashcode(Key key) {
-    return key->Hash();
-  }
+  static inline intptr_t Hashcode(Key key) { return key->Hash(); }
 
   static inline bool IsKeyEqual(Pair pair, Key key) {
     return pair->raw() == key->raw();
@@ -44,27 +66,46 @@ class SymbolKeyValueTrait {
 
 typedef DirectChainedHashMap<SymbolKeyValueTrait> SymbolSet;
 
-class StackmapKeyValueTrait {
+class StackMapKeyValueTrait {
  public:
   // Typedefs needed for the DirectChainedHashMap template.
-  typedef const Stackmap* Key;
-  typedef const Stackmap* Value;
-  typedef const Stackmap* Pair;
+  typedef const StackMap* Key;
+  typedef const StackMap* Value;
+  typedef const StackMap* Pair;
 
   static Key KeyOf(Pair kv) { return kv; }
 
   static Value ValueOf(Pair kv) { return kv; }
 
-  static inline intptr_t Hashcode(Key key) {
-    return key->PcOffset();
-  }
+  static inline intptr_t Hashcode(Key key) { return key->PcOffset(); }
 
   static inline bool IsKeyEqual(Pair pair, Key key) {
     return pair->Equals(*key);
   }
 };
 
-typedef DirectChainedHashMap<StackmapKeyValueTrait> StackmapSet;
+typedef DirectChainedHashMap<StackMapKeyValueTrait> StackMapSet;
+
+
+class CodeSourceMapKeyValueTrait {
+ public:
+  // Typedefs needed for the DirectChainedHashMap template.
+  typedef const CodeSourceMap* Key;
+  typedef const CodeSourceMap* Value;
+  typedef const CodeSourceMap* Pair;
+
+  static Key KeyOf(Pair kv) { return kv; }
+
+  static Value ValueOf(Pair kv) { return kv; }
+
+  static inline intptr_t Hashcode(Key key) { return key->Length(); }
+
+  static inline bool IsKeyEqual(Pair pair, Key key) {
+    return pair->Equals(*key);
+  }
+};
+
+typedef DirectChainedHashMap<CodeSourceMapKeyValueTrait> CodeSourceMapSet;
 
 
 class ArrayKeyValueTrait {
@@ -78,9 +119,7 @@ class ArrayKeyValueTrait {
 
   static Value ValueOf(Pair kv) { return kv; }
 
-  static inline intptr_t Hashcode(Key key) {
-    return key->Length();
-  }
+  static inline intptr_t Hashcode(Key key) { return key->Length(); }
 
   static inline bool IsKeyEqual(Pair pair, Key key) {
     if (pair->Length() != key->Length()) {
@@ -109,9 +148,7 @@ class InstructionsKeyValueTrait {
 
   static Value ValueOf(Pair kv) { return kv; }
 
-  static inline intptr_t Hashcode(Key key) {
-    return key->size();
-  }
+  static inline intptr_t Hashcode(Key key) { return key->Size(); }
 
   static inline bool IsKeyEqual(Pair pair, Key key) {
     return pair->Equals(*key);
@@ -119,6 +156,30 @@ class InstructionsKeyValueTrait {
 };
 
 typedef DirectChainedHashMap<InstructionsKeyValueTrait> InstructionsSet;
+
+
+class UnlinkedCallKeyValueTrait {
+ public:
+  // Typedefs needed for the DirectChainedHashMap template.
+  typedef const UnlinkedCall* Key;
+  typedef const UnlinkedCall* Value;
+  typedef const UnlinkedCall* Pair;
+
+  static Key KeyOf(Pair kv) { return kv; }
+
+  static Value ValueOf(Pair kv) { return kv; }
+
+  static inline intptr_t Hashcode(Key key) {
+    return String::Handle(key->target_name()).Hash();
+  }
+
+  static inline bool IsKeyEqual(Pair pair, Key key) {
+    return (pair->target_name() == key->target_name()) &&
+           (pair->args_descriptor() == key->args_descriptor());
+  }
+};
+
+typedef DirectChainedHashMap<UnlinkedCallKeyValueTrait> UnlinkedCallSet;
 
 
 class FunctionKeyValueTrait {
@@ -132,9 +193,7 @@ class FunctionKeyValueTrait {
 
   static Value ValueOf(Pair kv) { return kv; }
 
-  static inline intptr_t Hashcode(Key key) {
-    return key->token_pos().value();
-  }
+  static inline intptr_t Hashcode(Key key) { return key->token_pos().value(); }
 
   static inline bool IsKeyEqual(Pair pair, Key key) {
     return pair->raw() == key->raw();
@@ -155,9 +214,7 @@ class FieldKeyValueTrait {
 
   static Value ValueOf(Pair kv) { return kv; }
 
-  static inline intptr_t Hashcode(Key key) {
-    return key->token_pos().value();
-  }
+  static inline intptr_t Hashcode(Key key) { return key->token_pos().value(); }
 
   static inline bool IsKeyEqual(Pair pair, Key key) {
     return pair->raw() == key->raw();
@@ -178,9 +235,7 @@ class ClassKeyValueTrait {
 
   static Value ValueOf(Pair kv) { return kv; }
 
-  static inline intptr_t Hashcode(Key key) {
-    return key->token_pos().value();
-  }
+  static inline intptr_t Hashcode(Key key) { return key->token_pos().value(); }
 
   static inline bool IsKeyEqual(Pair pair, Key key) {
     return pair->raw() == key->raw();
@@ -201,9 +256,7 @@ class AbstractTypeKeyValueTrait {
 
   static Value ValueOf(Pair kv) { return kv; }
 
-  static inline intptr_t Hashcode(Key key) {
-    return key->Hash();
-  }
+  static inline intptr_t Hashcode(Key key) { return key->Hash(); }
 
   static inline bool IsKeyEqual(Pair pair, Key key) {
     return pair->raw() == key->raw();
@@ -224,9 +277,7 @@ class TypeArgumentsKeyValueTrait {
 
   static Value ValueOf(Pair kv) { return kv; }
 
-  static inline intptr_t Hashcode(Key key) {
-    return key->Hash();
-  }
+  static inline intptr_t Hashcode(Key key) { return key->Hash(); }
 
   static inline bool IsKeyEqual(Pair pair, Key key) {
     return pair->raw() == key->raw();
@@ -247,9 +298,7 @@ class InstanceKeyValueTrait {
 
   static Value ValueOf(Pair kv) { return kv; }
 
-  static inline intptr_t Hashcode(Key key) {
-    return key->GetClassId();
-  }
+  static inline intptr_t Hashcode(Key key) { return key->GetClassId(); }
 
   static inline bool IsKeyEqual(Pair pair, Key key) {
     return pair->raw() == key->raw();
@@ -259,35 +308,143 @@ class InstanceKeyValueTrait {
 typedef DirectChainedHashMap<InstanceKeyValueTrait> InstanceSet;
 
 
+struct FieldTypePair {
+  // Typedefs needed for the DirectChainedHashMap template.
+  typedef const Field* Key;
+  typedef intptr_t Value;
+  typedef FieldTypePair Pair;
+
+  static Key KeyOf(Pair kv) { return kv.field_; }
+
+  static Value ValueOf(Pair kv) { return kv.cid_; }
+
+  static inline intptr_t Hashcode(Key key) { return key->token_pos().value(); }
+
+  static inline bool IsKeyEqual(Pair pair, Key key) {
+    return pair.field_->raw() == key->raw();
+  }
+
+  FieldTypePair(const Field* f, intptr_t cid) : field_(f), cid_(cid) {}
+
+  FieldTypePair() : field_(NULL), cid_(-1) {}
+
+  void Print() const;
+
+  const Field* field_;
+  intptr_t cid_;
+};
+
+typedef DirectChainedHashMap<FieldTypePair> FieldTypeMap;
+
+
+struct IntptrPair {
+  // Typedefs needed for the DirectChainedHashMap template.
+  typedef intptr_t Key;
+  typedef intptr_t Value;
+  typedef IntptrPair Pair;
+
+  static Key KeyOf(Pair kv) { return kv.key_; }
+
+  static Value ValueOf(Pair kv) { return kv.value_; }
+
+  static inline intptr_t Hashcode(Key key) { return key; }
+
+  static inline bool IsKeyEqual(Pair pair, Key key) { return pair.key_ == key; }
+
+  IntptrPair(intptr_t key, intptr_t value) : key_(key), value_(value) {}
+
+  IntptrPair() : key_(kIllegalCid), value_(kIllegalCid) {}
+
+  Key key_;
+  Value value_;
+};
+
+typedef DirectChainedHashMap<IntptrPair> CidMap;
+
+
+struct FunctionFeedbackKey {
+  FunctionFeedbackKey() : owner_cid_(kIllegalCid), token_(0), kind_(0) {}
+  FunctionFeedbackKey(intptr_t owner_cid, intptr_t token, intptr_t kind)
+      : owner_cid_(owner_cid), token_(token), kind_(kind) {}
+
+  intptr_t owner_cid_;
+  intptr_t token_;
+  intptr_t kind_;
+};
+
+
+struct FunctionFeedbackPair {
+  // Typedefs needed for the DirectChainedHashMap template.
+  typedef FunctionFeedbackKey Key;
+  typedef ParsedJSONObject* Value;
+  typedef FunctionFeedbackPair Pair;
+
+  static Key KeyOf(Pair kv) { return kv.key_; }
+
+  static Value ValueOf(Pair kv) { return kv.value_; }
+
+  static inline intptr_t Hashcode(Key key) {
+    return key.token_ ^ key.owner_cid_ ^ key.kind_;
+  }
+
+  static inline bool IsKeyEqual(Pair pair, Key key) {
+    return (pair.key_.owner_cid_ == key.owner_cid_) &&
+           (pair.key_.token_ == key.token_) && (pair.key_.kind_ == key.kind_);
+  }
+
+  FunctionFeedbackPair(Key key, Value value) : key_(key), value_(value) {}
+
+  FunctionFeedbackPair() : key_(), value_(NULL) {}
+
+  Key key_;
+  Value value_;
+};
+
+typedef DirectChainedHashMap<FunctionFeedbackPair> FunctionFeedbackMap;
+
+
 class Precompiler : public ValueObject {
  public:
   static RawError* CompileAll(
       Dart_QualifiedFunctionName embedder_entry_points[],
-      bool reset_fields);
+      uint8_t* jit_feedback,
+      intptr_t jit_feedback_length);
 
-  // Returns named function that is a unique dynamic target, i.e.,
-  // - the target is identified by its name alone, since it occurs only once.
-  // - target's class has no subclasses, and neither is subclassed, i.e.,
-  //   the receiver type can be only the function's class.
-  // Returns Function::null() if there is no unique dynamic target for
-  // given 'fname'. 'fname' must be a symbol.
-  static void GetUniqueDynamicTarget(Isolate* isolate,
-                                     const String& fname,
-                                     Object* function);
-
-  static RawError* CompileFunction(Thread* thread, const Function& function);
+  static RawError* CompileFunction(Precompiler* precompiler,
+                                   Thread* thread,
+                                   Zone* zone,
+                                   const Function& function,
+                                   FieldTypeMap* field_type_map = NULL);
 
   static RawObject* EvaluateStaticInitializer(const Field& field);
   static RawObject* ExecuteOnce(SequenceNode* fragment);
 
+  static RawFunction* CompileStaticInitializer(const Field& field,
+                                               bool compute_type);
+
+  // Returns true if get:runtimeType is not overloaded by any class.
+  bool get_runtime_type_is_unique() const {
+    return get_runtime_type_is_unique_;
+  }
+
+  FieldTypeMap* field_type_map() { return &field_type_map_; }
+  TypeRangeCache* type_range_cache() { return type_range_cache_; }
+  void set_type_range_cache(TypeRangeCache* value) {
+    type_range_cache_ = value;
+  }
+
+  bool HasFeedback() const { return jit_feedback_ != NULL; }
+  static void PopulateWithICData(const Function& func, FlowGraph* graph);
+  void TryApplyFeedback(const Function& func, FlowGraph* graph);
+  void TryApplyFeedback(ParsedJSONArray* js_icdatas, const ICData& ic);
+
  private:
-  Precompiler(Thread* thread, bool reset_fields);
+  explicit Precompiler(Thread* thread);
 
-
-  static RawFunction* CompileStaticInitializer(const Field& field);
+  void LoadFeedback(uint8_t* jit_feedback, intptr_t jit_feedback_length);
+  ParsedJSONObject* LookupFeedback(const Function& function);
 
   void DoCompileAll(Dart_QualifiedFunctionName embedder_entry_points[]);
-  void ClearAllCode();
   void AddRoots(Dart_QualifiedFunctionName embedder_entry_points[]);
   void AddEntryPoints(Dart_QualifiedFunctionName entry_points[]);
   void Iterate();
@@ -298,7 +455,7 @@ class Precompiler : public ValueObject {
   void AddTypeArguments(const TypeArguments& args);
   void AddCalleesOf(const Function& function);
   void AddConstObject(const Instance& instance);
-  void AddClosureCall(const ICData& call_site);
+  void AddClosureCall(const Array& arguments_descriptor);
   void AddField(const Field& field);
   void AddFunction(const Function& function);
   void AddInstantiatedClass(const Class& cls);
@@ -308,32 +465,36 @@ class Precompiler : public ValueObject {
   void ProcessFunction(const Function& function);
   void CheckForNewDynamicFunctions();
   void TraceConstFunctions();
+  void CollectCallbackFields();
 
+  void TraceForRetainedFunctions();
   void DropFunctions();
   void DropFields();
   void TraceTypesFromRetainedClasses();
   void DropTypes();
   void DropTypeArguments();
+  void DropScriptData();
   void DropClasses();
   void DropLibraries();
 
   void BindStaticCalls();
-  void DedupStackmaps();
-  void DedupStackmapLists();
+  void SwitchICCalls();
+  void ShareMegamorphicBuckets();
+  void DedupStackMaps();
+  void DedupCodeSourceMaps();
+  void DedupLists();
   void DedupInstructions();
   void ResetPrecompilerState();
 
   void CollectDynamicFunctionNames();
 
-  class FunctionVisitor : public ValueObject {
-   public:
-    virtual ~FunctionVisitor() {}
-    virtual void VisitFunction(const Function& function) = 0;
-  };
-
-  void VisitFunctions(FunctionVisitor* visitor);
+  void PrecompileStaticInitializers();
+  void PrecompileConstructors();
 
   void FinalizeAllClasses();
+  void VerifyJITFeedback();
+  RawScript* LookupScript(const char* uri);
+  intptr_t MapCid(intptr_t feedback_cid);
 
   Thread* thread() const { return thread_; }
   Zone* zone() const { return zone_; }
@@ -343,7 +504,7 @@ class Precompiler : public ValueObject {
   Zone* zone_;
   Isolate* isolate_;
 
-  const bool reset_fields_;
+  ParsedJSONObject* jit_feedback_;
 
   bool changed_;
   intptr_t function_count_;
@@ -361,16 +522,26 @@ class Precompiler : public ValueObject {
   SymbolSet sent_selectors_;
   FunctionSet enqueued_functions_;
   FieldSet fields_to_retain_;
+  FunctionSet functions_to_retain_;
   ClassSet classes_to_retain_;
   TypeArgumentsSet typeargs_to_retain_;
   AbstractTypeSet types_to_retain_;
   InstanceSet consts_to_retain_;
+  FieldTypeMap field_type_map_;
+  TypeRangeCache* type_range_cache_;
+  CidMap feedback_cid_map_;
+  FunctionFeedbackMap function_feedback_map_;
   Error& error_;
+
+  bool get_runtime_type_is_unique_;
 };
 
 
 class FunctionsTraits {
  public:
+  static const char* Name() { return "FunctionsTraits"; }
+  static bool ReportStats() { return false; }
+
   static bool IsMatch(const Object& a, const Object& b) {
     Zone* zone = Thread::Current()->zone();
     String& a_s = String::Handle(zone);
@@ -388,9 +559,7 @@ class FunctionsTraits {
       return String::Cast(obj).Hash();
     }
   }
-  static RawObject* NewKey(const Function& function) {
-    return function.raw();
-  }
+  static RawObject* NewKey(const Function& function) { return function.raw(); }
 };
 
 typedef UnorderedHashSet<FunctionsTraits> UniqueFunctionsSet;
@@ -398,4 +567,4 @@ typedef UnorderedHashSet<FunctionsTraits> UniqueFunctionsSet;
 
 }  // namespace dart
 
-#endif  // VM_PRECOMPILER_H_
+#endif  // RUNTIME_VM_PRECOMPILER_H_

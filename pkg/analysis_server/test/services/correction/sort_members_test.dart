@@ -6,15 +6,15 @@ library test.services.refactoring.sort_members;
 
 import 'package:analysis_server/plugin/protocol/protocol.dart';
 import 'package:analysis_server/src/services/correction/sort_members.dart';
+import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
-import 'package:unittest/unittest.dart';
 
 import '../../abstract_single_unit.dart';
-import '../../utils.dart';
 
 main() {
-  initializeTestEnvironment();
-  defineReflectiveTests(SortMembersTest);
+  defineReflectiveSuite(() {
+    defineReflectiveTests(SortMembersTest);
+  });
 }
 
 @reflectiveTest
@@ -79,6 +79,22 @@ class A {
   A.a() { }
   A.b();
   A.c() {   }
+}
+''');
+  }
+
+  void test_classMembers_external_constructorMethod() {
+    _parseTestUnit(r'''
+class Chart {
+  external Pie();
+  external Chart();
+}
+''');
+    // validate change
+    _assertSort(r'''
+class Chart {
+  external Chart();
+  external Pie();
 }
 ''');
   }
@@ -355,34 +371,119 @@ main() {
 ''');
   }
 
-  void test_directives_comments() {
+  void test_directives_docComment_hasLibrary_lines() {
     _parseTestUnit(r'''
-// header
-library lib;
+/// Library documentation comment A.
+/// Library documentation comment B.
+library foo.bar;
 
-import 'c.dart';// c
-import 'a.dart';// aa
-import 'b.dart';// bbb
-
-/** doc */
-main() {
-}
+/// bbb1
+/// bbb2
+/// bbb3
+import 'b.dart';
+/// aaa1
+/// aaa2
+import 'a.dart';
 ''');
     // validate change
     _assertSort(r'''
-// header
-library lib;
+/// Library documentation comment A.
+/// Library documentation comment B.
+library foo.bar;
 
+/// aaa1
+/// aaa2
+import 'a.dart';
+/// bbb1
+/// bbb2
+/// bbb3
+import 'b.dart';
+''');
+  }
+
+  void test_directives_docComment_hasLibrary_stars() {
+    _parseTestUnit(r'''
+/**
+ * Library documentation comment A.
+ * Library documentation comment B.
+ */
+library foo.bar;
+
+/**
+ * bbb
+ */
+import 'b.dart';
+/**
+ * aaa
+ * aaa
+ */
+import 'a.dart';
+''');
+    // validate change
+    _assertSort(r'''
+/**
+ * Library documentation comment A.
+ * Library documentation comment B.
+ */
+library foo.bar;
+
+/**
+ * aaa
+ * aaa
+ */
+import 'a.dart';
+/**
+ * bbb
+ */
+import 'b.dart';
+''');
+  }
+
+  void test_directives_docComment_noLibrary_lines() {
+    _parseTestUnit(r'''
+/// Library documentation comment A
+/// Library documentation comment B
+import 'b.dart';
+/// aaa1
+/// aaa2
+import 'a.dart';
+''');
+    // validate change
+    _assertSort(r'''
+/// aaa1
+/// aaa2
+/// Library documentation comment A
+/// Library documentation comment B
 import 'a.dart';
 import 'b.dart';
-import 'c.dart';
-// c
-// aa
-// bbb
+''');
+  }
 
-/** doc */
-main() {
-}
+  void test_directives_docComment_noLibrary_stars() {
+    _parseTestUnit(r'''
+/**
+ * Library documentation comment A.
+ * Library documentation comment B.
+ */
+import 'b.dart';
+/**
+ * aaa
+ * aaa
+ */
+import 'a.dart';
+''');
+    // validate change
+    _assertSort(r'''
+/**
+ * aaa
+ * aaa
+ */
+/**
+ * Library documentation comment A.
+ * Library documentation comment B.
+ */
+import 'a.dart';
+import 'b.dart';
 ''');
   }
 

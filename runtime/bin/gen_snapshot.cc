@@ -15,34 +15,83 @@
 #include "bin/dartutils.h"
 #include "bin/eventhandler.h"
 #include "bin/file.h"
+#include "bin/loader.h"
 #include "bin/log.h"
 #include "bin/thread.h"
 #include "bin/utils.h"
 #include "bin/vmservice_impl.h"
 
 #include "include/dart_api.h"
+#include "include/dart_tools_api.h"
 
+#include "platform/hashmap.h"
 #include "platform/globals.h"
+#include "platform/growable_array.h"
 
 namespace dart {
 namespace bin {
 
+// Exit code indicating an API error.
+static const int kApiErrorExitCode = 253;
+// Exit code indicating a compilation error.
+static const int kCompilationErrorExitCode = 254;
+// Exit code indicating an unhandled error that is not a compilation error.
+static const int kErrorExitCode = 255;
+// Exit code indicating a vm restart request.  Never returned to the user.
+static const int kRestartRequestExitCode = 1000;
+
 #define CHECK_RESULT(result)                                                   \
   if (Dart_IsError(result)) {                                                  \
-    Log::PrintErr("Error: %s", Dart_GetError(result));                         \
+    intptr_t exit_code = 0;                                                    \
+    Log::PrintErr("Error: %s\n", Dart_GetError(result));                       \
+    if (Dart_IsCompilationError(result)) {                                     \
+      exit_code = kCompilationErrorExitCode;                                   \
+    } else if (Dart_IsApiError(result)) {                                      \
+      exit_code = kApiErrorExitCode;                                           \
+    } else if (Dart_IsVMRestartRequest(result)) {                              \
+      exit_code = kRestartRequestExitCode;                                     \
+    } else {                                                                   \
+      exit_code = kErrorExitCode;                                              \
+    }                                                                          \
     Dart_ExitScope();                                                          \
     Dart_ShutdownIsolate();                                                    \
-    exit(255);                                                                 \
-  }                                                                            \
+    exit(exit_code);                                                           \
+  }
+
+
+// The core snapshot to use when creating isolates. Normally NULL, but loaded
+// from a file when creating script snapshots.
+const uint8_t* isolate_snapshot_data = NULL;
 
 
 // Global state that indicates whether a snapshot is to be created and
 // if so which file to write the snapshot into.
-static const char* vm_isolate_snapshot_filename = NULL;
-static const char* isolate_snapshot_filename = NULL;
-static const char* instructions_snapshot_filename = NULL;
-static const char* embedder_entry_points_manifest = NULL;
-static const char* package_root = NULL;
+enum SnapshotKind {
+  kCore,
+  kScript,
+  kAppAOTBlobs,
+  kAppAOTAssembly,
+};
+static SnapshotKind snapshot_kind = kCore;
+static const char* vm_snapshot_data_filename = NULL;
+static const char* vm_snapshot_instructions_filename = NULL;
+static const char* isolate_snapshot_data_filename = NULL;
+static const char* isolate_snapshot_instructions_filename = NULL;
+static const char* assembly_filename = NULL;
+static const char* script_snapshot_filename = NULL;
+static bool dependencies_only = false;
+static const char* dependencies_filename = NULL;
+
+
+// Value of the --package-root flag.
+// (This pointer points into an argv buffer and does not need to be
+// free'd.)
+static const char* commandline_package_root = NULL;
+
+// Value of the --packages flag.
+// (This pointer points into an argv buffer and does not need to be
+// free'd.)
+static const char* commandline_packages_file = NULL;
 
 
 // Global state which contains a pointer to the script name for which
@@ -50,9 +99,9 @@ static const char* package_root = NULL;
 // of a generic snapshot that contains only the corelibs).
 static char* app_script_name = NULL;
 
-
-// Global state that captures the URL mappings specified on the command line.
-static CommandLineOptions* url_mapping = NULL;
+// Global state that captures the entry point manifest files specified on the
+// command line.
+static CommandLineOptions* entry_points_files = NULL;
 
 static bool IsValidFlag(const char* name,
                         const char* prefix,
@@ -60,6 +109,90 @@ static bool IsValidFlag(const char* name,
   intptr_t name_length = strlen(name);
   return ((name_length > prefix_length) &&
           (strncmp(name, prefix, prefix_length) == 0));
+}
+
+
+// The environment provided through the command line using -D options.
+static dart::HashMap* environment = NULL;
+
+static void* GetHashmapKeyFromString(char* key) {
+  return reinterpret_cast<void*>(key);
+}
+
+static bool ProcessEnvironmentOption(const char* arg) {
+  ASSERT(arg != NULL);
+  if (*arg == '\0') {
+    return false;
+  }
+  if (*arg != '-') {
+    return false;
+  }
+  if (*(arg + 1) != 'D') {
+    return false;
+  }
+  arg = arg + 2;
+  if (*arg == '\0') {
+    return true;
+  }
+  if (environment == NULL) {
+    environment = new HashMap(&HashMap::SameStringValue, 4);
+  }
+  // Split the name=value part of the -Dname=value argument.
+  char* name;
+  char* value = NULL;
+  const char* equals_pos = strchr(arg, '=');
+  if (equals_pos == NULL) {
+    // No equal sign (name without value) currently not supported.
+    Log::PrintErr("No value given to -D option\n");
+    return false;
+  } else {
+    int name_len = equals_pos - arg;
+    if (name_len == 0) {
+      Log::PrintErr("No name given to -D option\n");
+      return false;
+    }
+    // Split name=value into name and value.
+    name = reinterpret_cast<char*>(malloc(name_len + 1));
+    strncpy(name, arg, name_len);
+    name[name_len] = '\0';
+    value = strdup(equals_pos + 1);
+  }
+  HashMap::Entry* entry = environment->Lookup(GetHashmapKeyFromString(name),
+                                              HashMap::StringHash(name), true);
+  ASSERT(entry != NULL);  // Lookup adds an entry if key not found.
+  entry->value = value;
+  return true;
+}
+
+
+static Dart_Handle EnvironmentCallback(Dart_Handle name) {
+  uint8_t* utf8_array;
+  intptr_t utf8_len;
+  Dart_Handle result = Dart_Null();
+  Dart_Handle handle = Dart_StringToUTF8(name, &utf8_array, &utf8_len);
+  if (Dart_IsError(handle)) {
+    handle = Dart_ThrowException(
+        DartUtils::NewDartArgumentError(Dart_GetError(handle)));
+  } else {
+    char* name_chars = reinterpret_cast<char*>(malloc(utf8_len + 1));
+    memmove(name_chars, utf8_array, utf8_len);
+    name_chars[utf8_len] = '\0';
+    const char* value = NULL;
+    if (environment != NULL) {
+      HashMap::Entry* entry =
+          environment->Lookup(GetHashmapKeyFromString(name_chars),
+                              HashMap::StringHash(name_chars), false);
+      if (entry != NULL) {
+        value = reinterpret_cast<char*>(entry->value);
+      }
+    }
+    if (value != NULL) {
+      result = Dart_NewStringFromUTF8(reinterpret_cast<const uint8_t*>(value),
+                                      strlen(value));
+    }
+    free(name_chars);
+  }
+  return result;
 }
 
 
@@ -72,30 +205,127 @@ static const char* ProcessOption(const char* option, const char* name) {
 }
 
 
-static bool ProcessVmIsolateSnapshotOption(const char* option) {
-  const char* name = ProcessOption(option, "--vm_isolate_snapshot=");
+static bool ProcessSnapshotKindOption(const char* option) {
+  const char* kind = ProcessOption(option, "--snapshot_kind=");
+  if (kind == NULL) {
+    kind = ProcessOption(option, "--snapshot-kind=");
+  }
+  if (kind == NULL) {
+    return false;
+  }
+  if (strcmp(kind, "core") == 0) {
+    snapshot_kind = kCore;
+    return true;
+  } else if (strcmp(kind, "script") == 0) {
+    snapshot_kind = kScript;
+    return true;
+  } else if (strcmp(kind, "app-aot-blobs") == 0) {
+    snapshot_kind = kAppAOTBlobs;
+    return true;
+  } else if (strcmp(kind, "app-aot-assembly") == 0) {
+    snapshot_kind = kAppAOTAssembly;
+    return true;
+  }
+  Log::PrintErr(
+      "Unrecognized snapshot kind: '%s'\nValid kinds are: "
+      "core, script, app-aot-blobs, app-aot-assembly\n",
+      kind);
+  return false;
+}
+
+
+static bool ProcessVmSnapshotDataOption(const char* option) {
+  const char* name = ProcessOption(option, "--vm_snapshot_data=");
+  if (name == NULL) {
+    name = ProcessOption(option, "--vm-snapshot-data=");
+  }
   if (name != NULL) {
-    vm_isolate_snapshot_filename = name;
+    vm_snapshot_data_filename = name;
     return true;
   }
   return false;
 }
 
 
-static bool ProcessIsolateSnapshotOption(const char* option) {
-  const char* name = ProcessOption(option, "--isolate_snapshot=");
+static bool ProcessVmSnapshotInstructionsOption(const char* option) {
+  const char* name = ProcessOption(option, "--vm_snapshot_instructions=");
+  if (name == NULL) {
+    name = ProcessOption(option, "--vm-snapshot-instructions=");
+  }
   if (name != NULL) {
-    isolate_snapshot_filename = name;
+    vm_snapshot_instructions_filename = name;
     return true;
   }
   return false;
 }
 
 
-static bool ProcessInstructionsSnapshotOption(const char* option) {
-  const char* name = ProcessOption(option, "--instructions_snapshot=");
+static bool ProcessIsolateSnapshotDataOption(const char* option) {
+  const char* name = ProcessOption(option, "--isolate_snapshot_data=");
+  if (name == NULL) {
+    name = ProcessOption(option, "--isolate-snapshot-data=");
+  }
   if (name != NULL) {
-    instructions_snapshot_filename = name;
+    isolate_snapshot_data_filename = name;
+    return true;
+  }
+  return false;
+}
+
+
+static bool ProcessIsolateSnapshotInstructionsOption(const char* option) {
+  const char* name = ProcessOption(option, "--isolate_snapshot_instructions=");
+  if (name == NULL) {
+    name = ProcessOption(option, "--isolate-snapshot-instructions=");
+  }
+  if (name != NULL) {
+    isolate_snapshot_instructions_filename = name;
+    return true;
+  }
+  return false;
+}
+
+
+static bool ProcessAssemblyOption(const char* option) {
+  const char* name = ProcessOption(option, "--assembly=");
+  if (name != NULL) {
+    assembly_filename = name;
+    return true;
+  }
+  return false;
+}
+
+
+static bool ProcessScriptSnapshotOption(const char* option) {
+  const char* name = ProcessOption(option, "--script_snapshot=");
+  if (name == NULL) {
+    name = ProcessOption(option, "--script-snapshot=");
+  }
+  if (name != NULL) {
+    script_snapshot_filename = name;
+    return true;
+  }
+  return false;
+}
+
+
+static bool ProcessDependenciesOption(const char* option) {
+  const char* name = ProcessOption(option, "--dependencies=");
+  if (name != NULL) {
+    dependencies_filename = name;
+    return true;
+  }
+  return false;
+}
+
+
+static bool ProcessDependenciesOnlyOption(const char* option) {
+  const char* name = ProcessOption(option, "--dependencies_only");
+  if (name == NULL) {
+    name = ProcessOption(option, "--dependencies-only");
+  }
+  if (name != NULL) {
+    dependencies_only = true;
     return true;
   }
   return false;
@@ -105,7 +335,7 @@ static bool ProcessInstructionsSnapshotOption(const char* option) {
 static bool ProcessEmbedderEntryPointsManifestOption(const char* option) {
   const char* name = ProcessOption(option, "--embedder_entry_points_manifest=");
   if (name != NULL) {
-    embedder_entry_points_manifest = name;
+    entry_points_files->AddArgument(name);
     return true;
   }
   return false;
@@ -114,8 +344,21 @@ static bool ProcessEmbedderEntryPointsManifestOption(const char* option) {
 
 static bool ProcessPackageRootOption(const char* option) {
   const char* name = ProcessOption(option, "--package_root=");
+  if (name == NULL) {
+    name = ProcessOption(option, "--package-root=");
+  }
   if (name != NULL) {
-    package_root = name;
+    commandline_package_root = name;
+    return true;
+  }
+  return false;
+}
+
+
+static bool ProcessPackagesOption(const char* option) {
+  const char* name = ProcessOption(option, "--packages=");
+  if (name != NULL) {
+    commandline_packages_file = name;
     return true;
   }
   return false;
@@ -128,10 +371,15 @@ static bool ProcessURLmappingOption(const char* option) {
     mapping = ProcessOption(option, "--url-mapping=");
   }
   if (mapping != NULL) {
-    url_mapping->AddArgument(mapping);
+    DartUtils::url_mapping->AddArgument(mapping);
     return true;
   }
   return false;
+}
+
+
+static bool IsSnapshottingForPrecompilation() {
+  return (snapshot_kind == kAppAOTBlobs) || (snapshot_kind == kAppAOTAssembly);
 }
 
 
@@ -141,7 +389,7 @@ static int ParseArguments(int argc,
                           char** argv,
                           CommandLineOptions* vm_options,
                           char** script_name) {
-  const char* kPrefix = "--";
+  const char* kPrefix = "-";
   const intptr_t kPrefixLen = strlen(kPrefix);
 
   // Skip the binary name.
@@ -149,12 +397,18 @@ static int ParseArguments(int argc,
 
   // Parse out the vm options.
   while ((i < argc) && IsValidFlag(argv[i], kPrefix, kPrefixLen)) {
-    if (ProcessVmIsolateSnapshotOption(argv[i]) ||
-        ProcessIsolateSnapshotOption(argv[i]) ||
-        ProcessInstructionsSnapshotOption(argv[i]) ||
+    if (ProcessSnapshotKindOption(argv[i]) ||
+        ProcessVmSnapshotDataOption(argv[i]) ||
+        ProcessVmSnapshotInstructionsOption(argv[i]) ||
+        ProcessIsolateSnapshotDataOption(argv[i]) ||
+        ProcessIsolateSnapshotInstructionsOption(argv[i]) ||
+        ProcessAssemblyOption(argv[i]) ||
+        ProcessScriptSnapshotOption(argv[i]) ||
+        ProcessDependenciesOption(argv[i]) ||
+        ProcessDependenciesOnlyOption(argv[i]) ||
         ProcessEmbedderEntryPointsManifestOption(argv[i]) ||
-        ProcessURLmappingOption(argv[i]) ||
-        ProcessPackageRootOption(argv[i])) {
+        ProcessURLmappingOption(argv[i]) || ProcessPackageRootOption(argv[i]) ||
+        ProcessPackagesOption(argv[i]) || ProcessEnvironmentOption(argv[i])) {
       i += 1;
       continue;
     }
@@ -170,29 +424,68 @@ static int ParseArguments(int argc,
     *script_name = NULL;
   }
 
-  if (vm_isolate_snapshot_filename == NULL) {
-    Log::PrintErr("No vm isolate snapshot output file specified.\n\n");
-    return -1;
-  }
-
-  if (isolate_snapshot_filename == NULL) {
-    Log::PrintErr("No isolate snapshot output file specified.\n\n");
-    return -1;
-  }
-
-  if ((instructions_snapshot_filename != NULL) &&
-      (embedder_entry_points_manifest == NULL)) {
+  // Verify consistency of arguments.
+  if ((commandline_package_root != NULL) &&
+      (commandline_packages_file != NULL)) {
     Log::PrintErr(
-        "Specifying an instructions snapshot filename indicates precompilation"
-        ". But no embedder entry points manifest was specified.\n\n");
+        "Specifying both a packages directory and a packages "
+        "file is invalid.\n\n");
     return -1;
   }
 
-  if ((embedder_entry_points_manifest != NULL) &&
-      (instructions_snapshot_filename == NULL)) {
+  switch (snapshot_kind) {
+    case kCore: {
+      if ((vm_snapshot_data_filename == NULL) ||
+          (isolate_snapshot_data_filename == NULL)) {
+        Log::PrintErr(
+            "Building a core snapshot requires specifying output files for "
+            "--vm_snapshot_data and --isolate_snapshot_data.\n\n");
+        return -1;
+      }
+      break;
+    }
+    case kScript: {
+      if ((vm_snapshot_data_filename == NULL) ||
+          (isolate_snapshot_data_filename == NULL) ||
+          (script_snapshot_filename == NULL) || (*script_name == NULL)) {
+        Log::PrintErr(
+            "Building a script snapshot requires specifying input files for "
+            "--vm_snapshot_data and --isolate_snapshot_data, an output file "
+            "for --script_snapshot, and a Dart script.\n\n");
+        return -1;
+      }
+      break;
+    }
+    case kAppAOTBlobs: {
+      if ((vm_snapshot_data_filename == NULL) ||
+          (vm_snapshot_instructions_filename == NULL) ||
+          (isolate_snapshot_data_filename == NULL) ||
+          (isolate_snapshot_instructions_filename == NULL) ||
+          (*script_name == NULL)) {
+        Log::PrintErr(
+            "Building an AOT snapshot as blobs requires specifying output "
+            "files for --vm_snapshot_data, --vm_snapshot_instructions, "
+            "--isolate_snapshot_data and --isolate_snapshot_instructions and a "
+            "Dart script.\n\n");
+        return -1;
+      }
+      break;
+    }
+    case kAppAOTAssembly: {
+      if ((assembly_filename == NULL) || (*script_name == NULL)) {
+        Log::PrintErr(
+            "Building an AOT snapshot as assembly requires specifying "
+            "an output file for --assembly and a Dart script.\n\n");
+        return -1;
+      }
+      break;
+    }
+  }
+
+  if (IsSnapshottingForPrecompilation() && (entry_points_files->count() == 0)) {
     Log::PrintErr(
-        "Specifying the embedder entry points manifest indicates "
-        "precompilation. But no instuctions snapshot was specified.\n\n");
+        "Building an AOT snapshot requires at least one embedder "
+        "entry points manifest.\n\n");
     return -1;
   }
 
@@ -200,21 +493,28 @@ static int ParseArguments(int argc,
 }
 
 
-static bool IsSnapshottingForPrecompilation(void) {
-  return embedder_entry_points_manifest != NULL &&
-         instructions_snapshot_filename != NULL;
-}
-
-
 static void WriteSnapshotFile(const char* filename,
                               const uint8_t* buffer,
-                              const intptr_t size) {
+                              const intptr_t size,
+                              bool write_magic_number = false) {
   File* file = File::Open(filename, File::kWriteTruncate);
-  ASSERT(file != NULL);
-  if (!file->WriteFully(buffer, size)) {
-    Log::PrintErr("Error: Failed to write snapshot file.\n\n");
+  if (file == NULL) {
+    Log::PrintErr("Error: Unable to write snapshot file: %s\n\n", filename);
+    Dart_ExitScope();
+    Dart_ShutdownIsolate();
+    exit(kErrorExitCode);
   }
-  delete file;
+  if (write_magic_number) {
+    // Write the magic number to indicate file is a script snapshot.
+    DartUtils::WriteMagicNumber(file);
+  }
+  if (!file->WriteFully(buffer, size)) {
+    Log::PrintErr("Error: Unable to write snapshot file: %s\n\n", filename);
+    Dart_ExitScope();
+    Dart_ShutdownIsolate();
+    exit(kErrorExitCode);
+  }
+  file->Release();
 }
 
 
@@ -243,7 +543,67 @@ class UriResolverIsolateScope {
   DISALLOW_COPY_AND_ASSIGN(UriResolverIsolateScope);
 };
 
+
 Dart_Isolate UriResolverIsolateScope::isolate = NULL;
+
+
+static char* ResolveAsFilePath(const char* uri_string) {
+  UriResolverIsolateScope scope;
+  uint8_t* scoped_file_path = NULL;
+  intptr_t scoped_file_path_length = -1;
+  Dart_Handle uri = Dart_NewStringFromCString(uri_string);
+  ASSERT(!Dart_IsError(uri));
+  Dart_Handle result = Loader::ResolveAsFilePath(uri, &scoped_file_path,
+                                                 &scoped_file_path_length);
+  if (Dart_IsError(result)) {
+    Log::Print("Error resolving dependency: %s\n", Dart_GetError(result));
+    exit(kErrorExitCode);
+  }
+  return StringUtils::StrNDup(reinterpret_cast<const char*>(scoped_file_path),
+                              scoped_file_path_length);
+}
+
+
+static void AddDependency(const char* uri_string) {
+  IsolateData* isolate_data =
+      reinterpret_cast<IsolateData*>(Dart_CurrentIsolateData());
+  MallocGrowableArray<char*>* dependencies = isolate_data->dependencies();
+  if (dependencies != NULL) {
+    dependencies->Add(ResolveAsFilePath(uri_string));
+  }
+}
+
+
+static Dart_Handle LoadUrlContents(const char* uri_string) {
+  bool failed = false;
+  char* error_string = NULL;
+  uint8_t* payload = NULL;
+  intptr_t payload_length = 0;
+  // Switch to the UriResolver Isolate and load the script.
+  {
+    UriResolverIsolateScope scope;
+
+    Dart_Handle resolved_uri = Dart_NewStringFromCString(uri_string);
+    Dart_Handle result =
+        Loader::LoadUrlContents(resolved_uri, &payload, &payload_length);
+    if (Dart_IsError(result)) {
+      failed = true;
+      error_string = strdup(Dart_GetError(result));
+    }
+  }
+  AddDependency(uri_string);
+  // Switch back to the isolate from which we generate the snapshot and
+  // create the source string for the specified uri.
+  Dart_Handle result;
+  if (!failed) {
+    result = Dart_NewStringFromUTF8(payload, payload_length);
+    free(payload);
+  } else {
+    result = Dart_NewApiError(error_string);
+    free(error_string);
+  }
+  return result;
+}
 
 
 static Dart_Handle ResolveUriInWorkingDirectory(const char* script_uri) {
@@ -265,60 +625,32 @@ static Dart_Handle ResolveUriInWorkingDirectory(const char* script_uri) {
     }
   }
 
-  Dart_Handle result = failed ? Dart_NewApiError(result_string) :
-                                DartUtils::NewString(result_string);
+  Dart_Handle result = failed ? Dart_NewApiError(result_string)
+                              : DartUtils::NewString(result_string);
   free(result_string);
   return result;
 }
 
 
-static Dart_Handle FilePathFromUri(const char* script_uri) {
-  bool failed = false;
-  char* result_string = NULL;
-
-  {
-    UriResolverIsolateScope scope;
-
-    // Run DartUtils::FilePathFromUri in context of uri resolver isolate.
-    Dart_Handle result = DartUtils::FilePathFromUri(
-        DartUtils::NewString(script_uri));
-    if (Dart_IsError(result)) {
-      failed = true;
-      result_string = strdup(Dart_GetError(result));
-    } else {
-      result_string = strdup(DartUtils::GetStringValue(result));
-    }
+static Dart_Handle LoadSnapshotCreationScript(const char* script_name) {
+  // First resolve the specified script uri with respect to the original
+  // working directory.
+  Dart_Handle resolved_uri = ResolveUriInWorkingDirectory(script_name);
+  if (Dart_IsError(resolved_uri)) {
+    return resolved_uri;
   }
+  // Now load the contents of the specified uri.
+  const char* resolved_uri_string = DartUtils::GetStringValue(resolved_uri);
+  Dart_Handle source = LoadUrlContents(resolved_uri_string);
 
-  Dart_Handle result = failed ? Dart_NewApiError(result_string) :
-                                DartUtils::NewString(result_string);
-  free(result_string);
-  return result;
-}
-
-
-static Dart_Handle ResolveUri(const char* library_uri, const char* uri) {
-  bool failed = false;
-  char* result_string = NULL;
-
-  {
-    UriResolverIsolateScope scope;
-
-    // Run DartUtils::ResolveUri in context of uri resolver isolate.
-    Dart_Handle result = DartUtils::ResolveUri(
-        DartUtils::NewString(library_uri), DartUtils::NewString(uri));
-    if (Dart_IsError(result)) {
-      failed = true;
-      result_string = strdup(Dart_GetError(result));
-    } else {
-      result_string = strdup(DartUtils::GetStringValue(result));
-    }
+  if (Dart_IsError(source)) {
+    return source;
   }
-
-  Dart_Handle result = failed ? Dart_NewApiError(result_string) :
-                                DartUtils::NewString(result_string);
-  free(result_string);
-  return result;
+  if (snapshot_kind == kCore) {
+    return Dart_LoadLibrary(resolved_uri, Dart_Null(), source, 0, 0);
+  } else {
+    return Dart_LoadScript(resolved_uri, Dart_Null(), source, 0, 0);
+  }
 }
 
 
@@ -333,6 +665,68 @@ static Builtin::BuiltinLibraryId BuiltinId(const char* url) {
 }
 
 
+static void CreateAndWriteDependenciesFile() {
+  IsolateData* isolate_data =
+      reinterpret_cast<IsolateData*>(Dart_CurrentIsolateData());
+  MallocGrowableArray<char*>* dependencies = isolate_data->dependencies();
+  if (dependencies == NULL) {
+    return;
+  }
+
+  ASSERT(dependencies_filename != NULL);
+  File* file = File::Open(dependencies_filename, File::kWriteTruncate);
+  if (file == NULL) {
+    Log::PrintErr("Error: Unable to open dependencies file: %s\n\n",
+                  dependencies_filename);
+    exit(kErrorExitCode);
+  }
+  bool success = true;
+
+  // Targets:
+  switch (snapshot_kind) {
+    case kCore:
+      success &= file->Print("%s ", vm_snapshot_data_filename);
+      success &= file->Print("%s ", isolate_snapshot_data_filename);
+      break;
+    case kScript:
+      success &= file->Print("%s ", script_snapshot_filename);
+      break;
+    case kAppAOTAssembly:
+      success &= file->Print("%s ", assembly_filename);
+      break;
+    case kAppAOTBlobs:
+      success &= file->Print("%s ", vm_snapshot_data_filename);
+      success &= file->Print("%s ", vm_snapshot_instructions_filename);
+      success &= file->Print("%s ", isolate_snapshot_data_filename);
+      success &= file->Print("%s ", isolate_snapshot_instructions_filename);
+      break;
+  }
+
+  success &= file->Print(": ");
+
+  // Sources:
+  if (snapshot_kind == kScript) {
+    success &= file->Print("%s ", vm_snapshot_data_filename);
+    success &= file->Print("%s ", isolate_snapshot_data_filename);
+  }
+  for (intptr_t i = 0; i < dependencies->length(); i++) {
+    char* dep = dependencies->At(i);
+    success &= file->Print("%s ", dep);
+    free(dep);
+  }
+  success &= file->Print("\n");
+
+  if (!success) {
+    Log::PrintErr("Error: Unable to write dependencies file: %s\n\n",
+                  dependencies_filename);
+    exit(kErrorExitCode);
+  }
+  file->Release();
+  delete dependencies;
+  isolate_data->set_dependencies(NULL);
+}
+
+
 static Dart_Handle CreateSnapshotLibraryTagHandler(Dart_LibraryTag tag,
                                                    Dart_Handle library,
                                                    Dart_Handle url) {
@@ -344,8 +738,8 @@ static Dart_Handle CreateSnapshotLibraryTagHandler(Dart_LibraryTag tag,
     return Dart_NewApiError("accessing library url failed");
   }
   const char* library_url_string = DartUtils::GetStringValue(library_url);
-  const char* mapped_library_url_string = DartUtils::MapLibraryUrl(
-      url_mapping, library_url_string);
+  const char* mapped_library_url_string =
+      DartUtils::MapLibraryUrl(library_url_string);
   if (mapped_library_url_string != NULL) {
     library_url = ResolveUriInWorkingDirectory(mapped_library_url_string);
     library_url_string = DartUtils::GetStringValue(library_url);
@@ -355,8 +749,7 @@ static Dart_Handle CreateSnapshotLibraryTagHandler(Dart_LibraryTag tag,
     return Dart_NewApiError("url is not a string");
   }
   const char* url_string = DartUtils::GetStringValue(url);
-  const char* mapped_url_string = DartUtils::MapLibraryUrl(url_mapping,
-                                                           url_string);
+  const char* mapped_url_string = DartUtils::MapLibraryUrl(url_string);
 
   Builtin::BuiltinLibraryId libraryBuiltinId = BuiltinId(library_url_string);
   if (tag == Dart_kCanonicalizeUrl) {
@@ -367,7 +760,7 @@ static Dart_Handle CreateSnapshotLibraryTagHandler(Dart_LibraryTag tag,
     if (libraryBuiltinId != Builtin::kInvalidLibrary) {
       return url;
     }
-    return ResolveUri(library_url_string, url_string);
+    return Dart_DefaultCanonicalizeUrl(library_url, url);
   }
 
   Builtin::BuiltinLibraryId builtinId = BuiltinId(url_string);
@@ -383,8 +776,9 @@ static Dart_Handle CreateSnapshotLibraryTagHandler(Dart_LibraryTag tag,
   if (libraryBuiltinId != Builtin::kInvalidLibrary) {
     // Special case for parting sources of a builtin library.
     if (tag == Dart_kSourceTag) {
-      return Dart_LoadSource(library, url,
-          Builtin::PartSource(libraryBuiltinId, url_string), 0, 0);
+      return Dart_LoadSource(library, url, Dart_Null(),
+                             Builtin::PartSource(libraryBuiltinId, url_string),
+                             0, 0);
     }
     ASSERT(tag == Dart_kImportTag);
     return DartUtils::NewError("Unable to import '%s' ", url_string);
@@ -398,46 +792,16 @@ static Dart_Handle CreateSnapshotLibraryTagHandler(Dart_LibraryTag tag,
       return resolved_url;
     }
   }
-
-  // Get the file path out of the url.
-  Dart_Handle file_path = FilePathFromUri(
-      DartUtils::GetStringValue(resolved_url));
-  if (Dart_IsError(file_path)) {
-    return file_path;
-  }
-  const char* raw_path = DartUtils::GetStringValue(file_path);
-  Dart_Handle source = DartUtils::ReadStringFromFile(raw_path);
+  const char* resolved_uri_string = DartUtils::GetStringValue(resolved_url);
+  Dart_Handle source = LoadUrlContents(resolved_uri_string);
   if (Dart_IsError(source)) {
     return source;
   }
   if (tag == Dart_kImportTag) {
-    return Dart_LoadLibrary(url, source, 0, 0);
+    return Dart_LoadLibrary(url, Dart_Null(), source, 0, 0);
   } else {
     ASSERT(tag == Dart_kSourceTag);
-    return Dart_LoadSource(library, url, source, 0, 0);
-  }
-}
-
-
-static Dart_Handle LoadSnapshotCreationScript(const char* script_name) {
-  Dart_Handle resolved_script_uri = ResolveUriInWorkingDirectory(script_name);
-  if (Dart_IsError(resolved_script_uri)) {
-    return resolved_script_uri;
-  }
-  Dart_Handle script_path = FilePathFromUri(
-      DartUtils::GetStringValue(resolved_script_uri));
-  if (Dart_IsError(script_path)) {
-    return script_path;
-  }
-  Dart_Handle source = DartUtils::ReadStringFromFile(
-      DartUtils::GetStringValue(script_path));
-  if (Dart_IsError(source)) {
-    return source;
-  }
-  if (IsSnapshottingForPrecompilation()) {
-    return Dart_LoadScript(resolved_script_uri, source, 0, 0);
-  } else {
-    return Dart_LoadLibrary(resolved_script_uri, source, 0, 0);
+    return Dart_LoadSource(library, url, Dart_Null(), source, 0, 0);
   }
 }
 
@@ -457,65 +821,78 @@ static Dart_Handle LoadGenericSnapshotCreationScript(
 }
 
 
+// clang-format off
 static void PrintUsage() {
   Log::PrintErr(
 "Usage:                                                                      \n"
 " gen_snapshot [<vm-flags>] [<options>] [<dart-script-file>]                 \n"
 "                                                                            \n"
+" Global options:                                                            \n"
+"   --package_root=<path>         Where to find packages, that is,           \n"
+"                                 package:...  imports.                      \n"
+"                                                                            \n"
+"   --packages=<packages_file>    Where to find a package spec file          \n"
+"                                                                            \n"
+"   --url_mapping=<mapping>       Uses the URL mapping(s) specified on       \n"
+"                                 the command line to load the               \n"
+"                                 libraries.                                 \n"
+"   --dependencies=<output-file>  Generates a Makefile with snapshot output  \n"
+"                                 files as targets and all transitive imports\n"
+"                                 as sources.                                \n"
+"   --dependencies_only           Don't create and output the snapshot.      \n"
+"                                                                            \n"
+" To create a core snapshot:                                                 \n"
+"   --snapshot_kind=core                                                     \n"
+"   --vm_snapshot_data=<output-file>                                         \n"
+"   --isolate_snapshot_data=<output-file>                                    \n"
+"   [<dart-script-file>]                                                     \n"
+"                                                                            \n"
+" Writes a snapshot of <dart-script-file> to the specified snapshot files.   \n"
+" If no <dart-script-file> is passed, a generic snapshot of all the corelibs \n"
+" is created.                                                                \n"
+"                                                                            \n"
+" To create a script snapshot with respect to a given core snapshot:         \n"
+"   --snapshot_kind=script                                                   \n"
+"   --vm_snapshot_data=<intput-file>                                         \n"
+"   --isolate_snapshot_data=<intput-file>                                    \n"
+"   --script_snapshot=<output-file>                                          \n"
+"   <dart-script-file>                                                       \n"
+"                                                                            \n"
 "  Writes a snapshot of <dart-script-file> to the specified snapshot files.  \n"
 "  If no <dart-script-file> is passed, a generic snapshot of all the corelibs\n"
-"  is created. It is required to specify the VM isolate snapshot and the     \n"
-"  isolate snapshot. The other flags are related to precompilation and are   \n"
-"  optional.                                                                 \n"
+"  is created.                                                               \n"
 "                                                                            \n"
-"  Precompilation:                                                           \n"
-"  In order to configure the snapshotter for precompilation, both the        \n"
-"  instructions snapshot and embedder entry points manifest must be          \n"
-"  specified. Assembly for the target architecture will be dumped into the   \n"
-"  instructions snapshot. This must be linked into the target binary in a    \n"
-"  separate step. The embedder entry points manifest lists the standalone    \n"
-"  entry points into the VM. Not specifying these will cause the tree shaker \n"
-"  to disregard the same as being used. The format of this manifest is as    \n"
-"  follows. Each line in the manifest is a comma separated list of three     \n"
-"  elements. The first entry is the library URI, the second entry is the     \n"
-"  class name and the final entry the function name. The file must be        \n"
-"  terminated with a newline charater.                                       \n"
+" To create an AOT application snapshot as blobs suitable for loading with   \n"
+" mmap:                                                                      \n"
+"   --snapshot_kind=app-aot-blobs                                            \n"
+"   --vm_snapshot_data=<output-file>                                         \n"
+"   --vm_snapshot_instructions=<output-file>                                 \n"
+"   --isolate_snapshot_data=<output-file>                                    \n"
+"   --isolate_snapshot_instructions=<output-file>                            \n"
+"   {--embedder_entry_points_manifest=<input-file>}                          \n"
+"   <dart-script-file>                                                       \n"
 "                                                                            \n"
-"    Example:                                                                \n"
-"      dart:something,SomeClass,doSomething                                  \n"
+" To create an AOT application snapshot as assembly suitable for compilation \n"
+" as a static or dynamic library:                                            \n"
+" mmap:                                                                      \n"
+"   --snapshot_kind=app-aot-blobs                                            \n"
+"   --assembly=<output-file>                                                 \n"
+"   {--embedder_entry_points_manifest=<input-file>}                          \n"
+"   <dart-script-file>                                                       \n"
 "                                                                            \n"
-"  Supported options:                                                        \n"
-"    --vm_isolate_snapshot=<file>      A full snapshot is a compact          \n"
-"    --isolate_snapshot=<file>         representation of the dart vm isolate \n"
-"                                      heap and dart isolate heap states.    \n"
-"                                      Both these options are required       \n"
+" AOT snapshots require entry points manifest files, which list the places   \n"
+" in the Dart program the embedder calls from the C API (Dart_Invoke, etc).  \n"
+" Not specifying these may cause the tree shaker to remove them from the     \n"
+" program. The format of this manifest is as follows. Each line in the       \n"
+" manifest is a comma separated list of three elements. The first entry is   \n"
+" the library URI, the second entry is the class name and the final entry    \n"
+" the function name. The file must be terminated with a newline charater.    \n"
 "                                                                            \n"
-"    --package_root=<path>             Where to find packages, that is,      \n"
-"                                      package:...  imports.                 \n"
-"                                                                            \n"
-"    --url_mapping=<mapping>           Uses the URL mapping(s) specified on  \n"
-"                                      the command line to load the          \n"
-"                                      libraries.                            \n"
-"                                                                            \n"
-"    --instructions_snapshot=<file>    (Precompilation only) Contains the    \n"
-"                                      assembly that must be linked into     \n"
-"                                      the target binary                     \n"
-"                                                                            \n"
-"    --embedder_entry_points_manifest=<file> (Precompilation only) Contains  \n"
-"                                      the stanalone embedder entry points\n");
+"   Example:                                                                 \n"
+"     dart:something,SomeClass,doSomething                                   \n"
+"\n");
 }
-
-
-static void VerifyLoaded(Dart_Handle library) {
-  if (Dart_IsError(library)) {
-    const char* err_msg = Dart_GetError(library);
-    Log::PrintErr("Errors encountered while loading: %s\n", err_msg);
-    Dart_ExitScope();
-    Dart_ShutdownIsolate();
-    exit(255);
-  }
-  ASSERT(Dart_IsLibrary(library));
-}
+// clang-format on
 
 
 static const char StubNativeFunctionName[] = "StubNativeFunction";
@@ -523,7 +900,8 @@ static const char StubNativeFunctionName[] = "StubNativeFunction";
 
 void StubNativeFunction(Dart_NativeArguments arguments) {
   // This is a stub function for the resolver
-  UNREACHABLE();
+  Dart_SetReturnValue(
+      arguments, Dart_NewApiError("<EMBEDDER DID NOT SETUP NATIVE RESOLVER>"));
 }
 
 
@@ -535,7 +913,7 @@ static Dart_NativeFunction StubNativeLookup(Dart_Handle name,
 
 
 static const uint8_t* StubNativeSymbol(Dart_NativeFunction nf) {
-  return reinterpret_cast<const uint8_t *>(StubNativeFunctionName);
+  return reinterpret_cast<const uint8_t*>(StubNativeFunctionName);
 }
 
 
@@ -552,19 +930,15 @@ static void SetupStubNativeResolver(size_t lib_index,
     static const uint32_t kLoadBufferMaxSize = 128;
     char* load_buffer =
         reinterpret_cast<char*>(calloc(kLoadBufferMaxSize, sizeof(char)));
-    snprintf(load_buffer,
-             kLoadBufferMaxSize,
-             "import '%s';",
+    snprintf(load_buffer, kLoadBufferMaxSize, "import '%s';",
              DartUtils::GetStringValue(library_string));
     Dart_Handle script_handle = Dart_NewStringFromCString(load_buffer);
     memset(load_buffer, 0, kLoadBufferMaxSize);
-    snprintf(load_buffer,
-             kLoadBufferMaxSize,
-             "dart:_snapshot_%zu",
-             lib_index);
+    snprintf(load_buffer, kLoadBufferMaxSize, "dart:_snapshot_%zu", lib_index);
     Dart_Handle script_url = Dart_NewStringFromCString(load_buffer);
     free(load_buffer);
-    Dart_Handle loaded = Dart_LoadLibrary(script_url, script_handle, 0, 0);
+    Dart_Handle loaded =
+        Dart_LoadLibrary(script_url, Dart_Null(), script_handle, 0, 0);
     DART_CHECK_VALID(loaded);
 
     // Do a fresh lookup
@@ -572,10 +946,30 @@ static void SetupStubNativeResolver(size_t lib_index,
   }
 
   DART_CHECK_VALID(library);
-  Dart_Handle result =  Dart_SetNativeResolver(library,
-                                               &StubNativeLookup,
-                                               &StubNativeSymbol);
+  Dart_Handle result =
+      Dart_SetNativeResolver(library, &StubNativeLookup, &StubNativeSymbol);
   DART_CHECK_VALID(result);
+}
+
+
+// Iterate over all libraries and setup the stub native lookup. This must be
+// run after |SetupStubNativeResolversForPrecompilation| because the former
+// loads some libraries.
+static void SetupStubNativeResolvers() {
+  Dart_Handle libraries = Dart_GetLoadedLibraries();
+  intptr_t libraries_length;
+  Dart_ListLength(libraries, &libraries_length);
+  for (intptr_t i = 0; i < libraries_length; i++) {
+    Dart_Handle library = Dart_ListGetAt(libraries, i);
+    DART_CHECK_VALID(library);
+    Dart_NativeEntryResolver old_resolver = NULL;
+    Dart_GetNativeResolver(library, &old_resolver);
+    if (old_resolver == NULL) {
+      Dart_Handle result =
+          Dart_SetNativeResolver(library, &StubNativeLookup, &StubNativeSymbol);
+      DART_CHECK_VALID(result);
+    }
+  }
 }
 
 
@@ -604,7 +998,6 @@ static void ImportNativeEntryPointLibrariesIntoRoot(
 
 static void SetupStubNativeResolversForPrecompilation(
     const Dart_QualifiedFunctionName* entries) {
-
   if (entries == NULL) {
     return;
   }
@@ -623,7 +1016,7 @@ static void SetupStubNativeResolversForPrecompilation(
 }
 
 
-static void CleanupEntryPointItem(const Dart_QualifiedFunctionName *entry) {
+static void CleanupEntryPointItem(const Dart_QualifiedFunctionName* entry) {
   if (entry == NULL) {
     return;
   }
@@ -684,7 +1077,9 @@ const char* ParseEntryNameForIndex(uint8_t index) {
 
 
 static bool ParseEntryPointsManifestSingleLine(
-    const char* line, Dart_QualifiedFunctionName* entry, char** error) {
+    const char* line,
+    Dart_QualifiedFunctionName* entry,
+    char** error) {
   bool success = true;
   size_t offset = 0;
   for (uint8_t i = 0; i < 3; i++) {
@@ -781,31 +1176,34 @@ int64_t ParseEntryPointsManifestLines(FILE* file,
 }
 
 
-static Dart_QualifiedFunctionName* ParseEntryPointsManifestFile(
-    const char* path) {
-  if (path == NULL) {
-    return NULL;
-  }
+static Dart_QualifiedFunctionName* ParseEntryPointsManifestFiles() {
+  // Total number of entries across all manifest files.
+  int64_t entry_count = 0;
 
-  FILE* file = fopen(path, "r");
-
-  if (file == NULL) {
-    Log::PrintErr("Could not open entry points manifest file\n");
-    return NULL;
-  }
-
-  // Parse the file once but don't store the results. This is done to first
+  // Parse the files once but don't store the results. This is done to first
   // determine the number of entries in the manifest
-  int64_t entry_count = ParseEntryPointsManifestLines(file, NULL);
+  for (intptr_t i = 0; i < entry_points_files->count(); i++) {
+    const char* path = entry_points_files->GetArgument(i);
 
-  if (entry_count <= 0) {
-    Log::PrintErr(
-        "Manifest file specified is invalid or contained no entries\n");
+    FILE* file = fopen(path, "r");
+
+    if (file == NULL) {
+      Log::PrintErr("Could not open entry points manifest file `%s`\n", path);
+      return NULL;
+    }
+
+    int64_t entries = ParseEntryPointsManifestLines(file, NULL);
     fclose(file);
-    return NULL;
-  }
 
-  rewind(file);
+    if (entries <= 0) {
+      Log::PrintErr(
+          "Manifest file `%s` specified is invalid or contained no entries\n",
+          path);
+      return NULL;
+    }
+
+    entry_count += entries;
+  }
 
   // Allocate enough storage for the entries in the file plus a termination
   // sentinel and parse it again to populate the allocation
@@ -813,10 +1211,16 @@ static Dart_QualifiedFunctionName* ParseEntryPointsManifestFile(
       reinterpret_cast<Dart_QualifiedFunctionName*>(
           calloc(entry_count + 1, sizeof(Dart_QualifiedFunctionName)));
 
-  int64_t parsed_entry_count = ParseEntryPointsManifestLines(file, entries);
-  ASSERT(parsed_entry_count == entry_count);
+  int64_t parsed_entry_count = 0;
+  for (intptr_t i = 0; i < entry_points_files->count(); i++) {
+    const char* path = entry_points_files->GetArgument(i);
+    FILE* file = fopen(path, "r");
+    parsed_entry_count +=
+        ParseEntryPointsManifestLines(file, &entries[parsed_entry_count]);
+    fclose(file);
+  }
 
-  fclose(file);
+  ASSERT(parsed_entry_count == entry_count);
 
   // The entries allocation must be explicitly cleaned up via
   // |CleanupEntryPointsCollection|
@@ -825,44 +1229,54 @@ static Dart_QualifiedFunctionName* ParseEntryPointsManifestFile(
 
 
 static Dart_QualifiedFunctionName* ParseEntryPointsManifestIfPresent() {
-  Dart_QualifiedFunctionName* entries =
-      ParseEntryPointsManifestFile(embedder_entry_points_manifest);
+  Dart_QualifiedFunctionName* entries = ParseEntryPointsManifestFiles();
   if ((entries == NULL) && IsSnapshottingForPrecompilation()) {
     Log::PrintErr(
         "Could not find native embedder entry points during precompilation\n");
-    exit(255);
+    exit(kErrorExitCode);
   }
   return entries;
 }
 
 
-static void CreateAndWriteSnapshot() {
-  ASSERT(!IsSnapshottingForPrecompilation());
+static void CreateAndWriteCoreSnapshot() {
+  ASSERT(snapshot_kind == kCore);
+  ASSERT(vm_snapshot_data_filename != NULL);
+  ASSERT(isolate_snapshot_data_filename != NULL);
+
   Dart_Handle result;
-  uint8_t* vm_isolate_buffer = NULL;
-  intptr_t vm_isolate_size = 0;
-  uint8_t* isolate_buffer = NULL;
-  intptr_t isolate_size = 0;
+  uint8_t* vm_snapshot_data_buffer = NULL;
+  intptr_t vm_snapshot_data_size = 0;
+  uint8_t* isolate_snapshot_data_buffer = NULL;
+  intptr_t isolate_snapshot_data_size = 0;
 
   // First create a snapshot.
-  result = Dart_CreateSnapshot(&vm_isolate_buffer,
-                               &vm_isolate_size,
-                               &isolate_buffer,
-                               &isolate_size);
+  result = Dart_CreateSnapshot(&vm_snapshot_data_buffer, &vm_snapshot_data_size,
+                               &isolate_snapshot_data_buffer,
+                               &isolate_snapshot_data_size);
   CHECK_RESULT(result);
 
   // Now write the vm isolate and isolate snapshots out to the
   // specified file and exit.
-  WriteSnapshotFile(vm_isolate_snapshot_filename,
-                    vm_isolate_buffer,
-                    vm_isolate_size);
-  WriteSnapshotFile(isolate_snapshot_filename,
-                    isolate_buffer,
-                    isolate_size);
-  Dart_ExitScope();
+  WriteSnapshotFile(vm_snapshot_data_filename, vm_snapshot_data_buffer,
+                    vm_snapshot_data_size);
+  WriteSnapshotFile(isolate_snapshot_data_filename,
+                    isolate_snapshot_data_buffer, isolate_snapshot_data_size);
+}
 
-  // Shutdown the isolate.
-  Dart_ShutdownIsolate();
+
+static void CreateAndWriteScriptSnapshot() {
+  ASSERT(snapshot_kind == kScript);
+  ASSERT(script_snapshot_filename != NULL);
+
+  // First create a snapshot.
+  uint8_t* buffer = NULL;
+  intptr_t size = 0;
+  Dart_Handle result = Dart_CreateScriptSnapshot(&buffer, &size);
+  CHECK_RESULT(result);
+
+  // Now write it out to the specified file.
+  WriteSnapshotFile(script_snapshot_filename, buffer, size, false);
 }
 
 
@@ -870,58 +1284,69 @@ static void CreateAndWritePrecompiledSnapshot(
     Dart_QualifiedFunctionName* standalone_entry_points) {
   ASSERT(IsSnapshottingForPrecompilation());
   Dart_Handle result;
-  uint8_t* vm_isolate_buffer = NULL;
-  intptr_t vm_isolate_size = 0;
-  uint8_t* isolate_buffer = NULL;
-  intptr_t isolate_size = 0;
-  uint8_t* instructions_buffer = NULL;
-  intptr_t instructions_size = 0;
 
   // Precompile with specified embedder entry points
-  result = Dart_Precompile(standalone_entry_points, true);
+  result = Dart_Precompile(standalone_entry_points, NULL, 0);
   CHECK_RESULT(result);
 
-  // Create a precompiled snapshot. This gives us an instruction buffer with
-  // machine code
-  result = Dart_CreatePrecompiledSnapshot(&vm_isolate_buffer,
-                                          &vm_isolate_size,
-                                          &isolate_buffer,
-                                          &isolate_size,
-                                          &instructions_buffer,
-                                          &instructions_size);
-  CHECK_RESULT(result);
+  // Create a precompiled snapshot.
+  bool as_assembly = assembly_filename != NULL;
+  if (as_assembly) {
+    ASSERT(snapshot_kind == kAppAOTAssembly);
 
-  // Now write the vm isolate, isolate and instructions snapshots out to the
-  // specified files and exit.
-  WriteSnapshotFile(vm_isolate_snapshot_filename,
-                    vm_isolate_buffer,
-                    vm_isolate_size);
-  WriteSnapshotFile(isolate_snapshot_filename,
-                    isolate_buffer,
-                    isolate_size);
-  WriteSnapshotFile(instructions_snapshot_filename,
-                    instructions_buffer,
-                    instructions_size);
-  Dart_ExitScope();
+    uint8_t* assembly_buffer = NULL;
+    intptr_t assembly_size = 0;
+    result =
+        Dart_CreateAppAOTSnapshotAsAssembly(&assembly_buffer, &assembly_size);
+    CHECK_RESULT(result);
 
-  // Shutdown the isolate.
-  Dart_ShutdownIsolate();
+    WriteSnapshotFile(assembly_filename, assembly_buffer, assembly_size);
+  } else {
+    ASSERT(snapshot_kind == kAppAOTBlobs);
+
+    uint8_t* vm_snapshot_data_buffer = NULL;
+    intptr_t vm_snapshot_data_size = 0;
+    uint8_t* vm_snapshot_instructions_buffer = NULL;
+    intptr_t vm_snapshot_instructions_size = 0;
+    uint8_t* isolate_snapshot_data_buffer = NULL;
+    intptr_t isolate_snapshot_data_size = 0;
+    uint8_t* isolate_snapshot_instructions_buffer = NULL;
+    intptr_t isolate_snapshot_instructions_size = 0;
+    result = Dart_CreateAppAOTSnapshotAsBlobs(
+        &vm_snapshot_data_buffer, &vm_snapshot_data_size,
+        &vm_snapshot_instructions_buffer, &vm_snapshot_instructions_size,
+        &isolate_snapshot_data_buffer, &isolate_snapshot_data_size,
+        &isolate_snapshot_instructions_buffer,
+        &isolate_snapshot_instructions_size);
+    CHECK_RESULT(result);
+
+    WriteSnapshotFile(vm_snapshot_data_filename, vm_snapshot_data_buffer,
+                      vm_snapshot_data_size);
+    WriteSnapshotFile(vm_snapshot_instructions_filename,
+                      vm_snapshot_instructions_buffer,
+                      vm_snapshot_instructions_size);
+    WriteSnapshotFile(isolate_snapshot_data_filename,
+                      isolate_snapshot_data_buffer, isolate_snapshot_data_size);
+    WriteSnapshotFile(isolate_snapshot_instructions_filename,
+                      isolate_snapshot_instructions_buffer,
+                      isolate_snapshot_instructions_size);
+  }
 }
 
 
 static void SetupForUriResolution() {
   // Set up the library tag handler for this isolate.
-  Dart_Handle result = Dart_SetLibraryTagHandler(DartUtils::LibraryTagHandler);
+  Dart_Handle result = Dart_SetLibraryTagHandler(Loader::LibraryTagHandler);
   if (Dart_IsError(result)) {
-    Log::PrintErr("%s", Dart_GetError(result));
+    Log::PrintErr("%s\n", Dart_GetError(result));
     Dart_ExitScope();
     Dart_ShutdownIsolate();
-    exit(255);
+    exit(kErrorExitCode);
   }
   // This is a generic dart snapshot which needs builtin library setup.
   Dart_Handle library =
       LoadGenericSnapshotCreationScript(Builtin::kBuiltinLibrary);
-  VerifyLoaded(library);
+  CHECK_RESULT(library);
 }
 
 
@@ -929,14 +1354,14 @@ static void SetupForGenericSnapshotCreation() {
   SetupForUriResolution();
 
   Dart_Handle library = LoadGenericSnapshotCreationScript(Builtin::kIOLibrary);
-  VerifyLoaded(library);
+  CHECK_RESULT(library);
   Dart_Handle result = Dart_FinalizeLoading(false);
   if (Dart_IsError(result)) {
     const char* err_msg = Dart_GetError(library);
     Log::PrintErr("Errors encountered while loading: %s\n", err_msg);
     Dart_ExitScope();
     Dart_ShutdownIsolate();
-    exit(255);
+    exit(kErrorExitCode);
   }
 }
 
@@ -948,39 +1373,35 @@ static Dart_Isolate CreateServiceIsolate(const char* script_uri,
                                          Dart_IsolateFlags* flags,
                                          void* data,
                                          char** error) {
-  IsolateData* isolate_data = new IsolateData(script_uri,
-                                              package_root,
-                                              package_config);
+  IsolateData* isolate_data =
+      new IsolateData(script_uri, package_root, package_config, NULL);
   Dart_Isolate isolate = NULL;
-  isolate = Dart_CreateIsolate(script_uri,
-                               main,
-                               NULL,
-                               NULL,
-                               isolate_data,
-                               error);
+  isolate = Dart_CreateIsolate(script_uri, main, isolate_snapshot_data, NULL,
+                               NULL, isolate_data, error);
 
   if (isolate == NULL) {
-    Log::PrintErr("Error: Could not create service isolate");
+    Log::PrintErr("Error: Could not create service isolate\n");
     return NULL;
   }
 
   Dart_EnterScope();
   if (!Dart_IsServiceIsolate(isolate)) {
-    Log::PrintErr("Error: We only expect to create the service isolate");
+    Log::PrintErr("Error: We only expect to create the service isolate\n");
     return NULL;
   }
-  Dart_Handle result = Dart_SetLibraryTagHandler(DartUtils::LibraryTagHandler);
+  Dart_Handle result = Dart_SetLibraryTagHandler(Loader::LibraryTagHandler);
+  if (Dart_IsError(result)) {
+    Log::PrintErr("Error: Could not set tag handler for service isolate\n");
+    return NULL;
+  }
   // Setup the native resolver.
   Builtin::LoadAndCheckLibrary(Builtin::kBuiltinLibrary);
   Builtin::LoadAndCheckLibrary(Builtin::kIOLibrary);
-  if (Dart_IsError(result)) {
-    Log::PrintErr("Error: Could not set tag handler for service isolate");
-    return NULL;
-  }
-  CHECK_RESULT(result);
+
   ASSERT(Dart_IsServiceIsolate(isolate));
   // Load embedder specific bits and return. Will not start http server.
-  if (!VmService::Setup("127.0.0.1", -1, false /* running_precompiled */)) {
+  if (!VmService::Setup("127.0.0.1", -1, false /* running_precompiled */,
+                        false /* server dev mode */)) {
     *error = strdup(VmService::GetErrorMessage());
     return NULL;
   }
@@ -995,19 +1416,21 @@ int main(int argc, char** argv) {
   CommandLineOptions vm_options(argc + EXTRA_VM_ARGUMENTS);
 
   // Initialize the URL mapping array.
-  CommandLineOptions url_mapping_array(argc);
-  url_mapping = &url_mapping_array;
+  CommandLineOptions cmdline_url_mapping(argc);
+  DartUtils::url_mapping = &cmdline_url_mapping;
+
+  // Initialize the entrypoints array.
+  CommandLineOptions entry_points_files_array(argc);
+  entry_points_files = &entry_points_files_array;
 
   // Parse command line arguments.
-  if (ParseArguments(argc,
-                     argv,
-                     &vm_options,
-                     &app_script_name) < 0) {
+  if (ParseArguments(argc, argv, &vm_options, &app_script_name) < 0) {
     PrintUsage();
-    return 255;
+    return kErrorExitCode;
   }
 
   Thread::InitOnce();
+  Loader::InitOnce();
   DartUtils::SetOriginalWorkingDirectory();
   // Start event handler.
   TimerUtils::InitOnce();
@@ -1020,6 +1443,7 @@ int main(int argc, char** argv) {
 
   if (IsSnapshottingForPrecompilation()) {
     vm_options.AddArgument("--precompilation");
+    vm_options.AddArgument("--print_snapshot_sizes");
 #if TARGET_ARCH_ARM
     // This is for the iPod Touch 5th Generation (and maybe other older devices)
     vm_options.AddArgument("--no-use_integer_division");
@@ -1033,48 +1457,84 @@ int main(int argc, char** argv) {
   // core library snapshot generation. However for the case when a full
   // snasphot is generated from a script (app_script_name != NULL) we will
   // need the service isolate to resolve URI and load code.
-  char* error = Dart_Initialize(
-      NULL,
-      NULL,
-      NULL,
-      (app_script_name != NULL) ? CreateServiceIsolate : NULL,
-      NULL,
-      NULL,
-      NULL,
-      DartUtils::OpenFile,
-      DartUtils::ReadFile,
-      DartUtils::WriteFile,
-      DartUtils::CloseFile,
-      DartUtils::EntropySource,
-      NULL);
+
+  Dart_InitializeParams init_params;
+  memset(&init_params, 0, sizeof(init_params));
+  init_params.version = DART_INITIALIZE_PARAMS_CURRENT_VERSION;
+  if (app_script_name != NULL) {
+    init_params.create = CreateServiceIsolate;
+  }
+  init_params.file_open = DartUtils::OpenFile;
+  init_params.file_read = DartUtils::ReadFile;
+  init_params.file_write = DartUtils::WriteFile;
+  init_params.file_close = DartUtils::CloseFile;
+  init_params.entropy_source = DartUtils::EntropySource;
+
+  MappedMemory* mapped_vm_snapshot_data = NULL;
+  MappedMemory* mapped_isolate_snapshot_data = NULL;
+  if (snapshot_kind == kScript) {
+    File* file = File::Open(vm_snapshot_data_filename, File::kRead);
+    if (file == NULL) {
+      Log::PrintErr("Failed to open: %s\n", vm_snapshot_data_filename);
+      return kErrorExitCode;
+    }
+    mapped_vm_snapshot_data = file->Map(File::kReadOnly, 0, file->Length());
+    if (mapped_vm_snapshot_data == NULL) {
+      Log::PrintErr("Failed to read: %s\n", vm_snapshot_data_filename);
+      return kErrorExitCode;
+    }
+    file->Release();
+    init_params.vm_snapshot_data =
+        reinterpret_cast<const uint8_t*>(mapped_vm_snapshot_data->address());
+
+    file = File::Open(isolate_snapshot_data_filename, File::kRead);
+    if (file == NULL) {
+      Log::PrintErr("Failed to open: %s\n", isolate_snapshot_data_filename);
+      return kErrorExitCode;
+    }
+    mapped_isolate_snapshot_data =
+        file->Map(File::kReadOnly, 0, file->Length());
+    if (mapped_isolate_snapshot_data == NULL) {
+      Log::PrintErr("Failed to read: %s\n", isolate_snapshot_data_filename);
+      return kErrorExitCode;
+    }
+    file->Release();
+    isolate_snapshot_data = reinterpret_cast<const uint8_t*>(
+        mapped_isolate_snapshot_data->address());
+  }
+
+  char* error = Dart_Initialize(&init_params);
   if (error != NULL) {
     Log::PrintErr("VM initialization failed: %s\n", error);
     free(error);
-    return 255;
+    return kErrorExitCode;
   }
 
-  IsolateData* isolate_data = new IsolateData(NULL, NULL, NULL);
-  Dart_Isolate isolate = Dart_CreateIsolate(
-      NULL, NULL, NULL, NULL, isolate_data, &error);
+  IsolateData* isolate_data = new IsolateData(NULL, commandline_package_root,
+                                              commandline_packages_file, NULL);
+  Dart_Isolate isolate = Dart_CreateIsolate(NULL, NULL, isolate_snapshot_data,
+                                            NULL, NULL, isolate_data, &error);
   if (isolate == NULL) {
-    Log::PrintErr("Error: %s", error);
+    Log::PrintErr("Error: %s\n", error);
     free(error);
-    exit(255);
+    exit(kErrorExitCode);
   }
 
   Dart_Handle result;
   Dart_Handle library;
   Dart_EnterScope();
 
-  ASSERT(vm_isolate_snapshot_filename != NULL);
-  ASSERT(isolate_snapshot_filename != NULL);
+  result = Dart_SetEnvironmentCallback(EnvironmentCallback);
+  CHECK_RESULT(result);
+
+  ASSERT(vm_snapshot_data_filename != NULL);
+  ASSERT(isolate_snapshot_data_filename != NULL);
   // Load up the script before a snapshot is created.
   if (app_script_name != NULL) {
     // This is the case of a custom embedder (e.g: dartium) trying to
     // create a full snapshot. The current isolate is set up so that we can
     // invoke the dart uri resolution code like _resolveURI. App script is
     // loaded into a separate isolate.
-
     SetupForUriResolution();
 
     // Prepare builtin and its dependent libraries for use to resolve URIs.
@@ -1089,51 +1549,106 @@ int main(int argc, char** argv) {
     CHECK_RESULT(result);
 
     // Setup package root if specified.
-    result = DartUtils::SetupPackageRoot(package_root, NULL);
+    result = DartUtils::SetupPackageRoot(commandline_package_root,
+                                         commandline_packages_file);
     CHECK_RESULT(result);
 
+    UriResolverIsolateScope::isolate = isolate;
     Dart_ExitScope();
     Dart_ExitIsolate();
 
-    UriResolverIsolateScope::isolate = isolate;
-
     // Now we create an isolate into which we load all the code that needs to
     // be in the snapshot.
-    isolate_data = new IsolateData(NULL, NULL, NULL);
-    if (Dart_CreateIsolate(
-            NULL, NULL, NULL, NULL, isolate_data, &error) == NULL) {
-      fprintf(stderr, "%s", error);
+    isolate_data = new IsolateData(NULL, NULL, NULL, NULL);
+    const uint8_t* kernel = NULL;
+    intptr_t kernel_length = 0;
+    const bool is_kernel_file =
+        TryReadKernel(app_script_name, &kernel, &kernel_length);
+
+    if (dependencies_filename != NULL) {
+      isolate_data->set_dependencies(new MallocGrowableArray<char*>());
+    }
+
+    void* kernel_program = NULL;
+    if (is_kernel_file) {
+      kernel_program = Dart_ReadKernelBinary(kernel, kernel_length);
+      free(const_cast<uint8_t*>(kernel));
+    }
+
+    Dart_Isolate isolate =
+        is_kernel_file
+            ? Dart_CreateIsolateFromKernel(NULL, NULL, kernel_program, NULL,
+                                           isolate_data, &error)
+            : Dart_CreateIsolate(NULL, NULL, isolate_snapshot_data, NULL, NULL,
+                                 isolate_data, &error);
+    if (isolate == NULL) {
+      Log::PrintErr("%s\n", error);
       free(error);
-      exit(255);
+      exit(kErrorExitCode);
     }
     Dart_EnterScope();
+    result = Dart_SetEnvironmentCallback(EnvironmentCallback);
+    CHECK_RESULT(result);
 
     // Set up the library tag handler in such a manner that it will use the
     // URL mapping specified on the command line to load the libraries.
     result = Dart_SetLibraryTagHandler(CreateSnapshotLibraryTagHandler);
     CHECK_RESULT(result);
 
+    if (commandline_packages_file != NULL) {
+      AddDependency(commandline_packages_file);
+    }
+
     Dart_QualifiedFunctionName* entry_points =
         ParseEntryPointsManifestIfPresent();
 
+    if (is_kernel_file) {
+      Dart_Handle library = Dart_LoadKernel(kernel_program);
+      if (Dart_IsError(library)) FATAL("Failed to load app from Kernel IR");
+    } else {
+      // Set up the library tag handler in such a manner that it will use the
+      // URL mapping specified on the command line to load the libraries.
+      result = Dart_SetLibraryTagHandler(CreateSnapshotLibraryTagHandler);
+      CHECK_RESULT(result);
+    }
+
     SetupStubNativeResolversForPrecompilation(entry_points);
 
-    // Load the specified script.
-    library = LoadSnapshotCreationScript(app_script_name);
-    VerifyLoaded(library);
+    SetupStubNativeResolvers();
 
-    ImportNativeEntryPointLibrariesIntoRoot(entry_points);
+    if (!is_kernel_file) {
+      // Load the specified script.
+      library = LoadSnapshotCreationScript(app_script_name);
+      CHECK_RESULT(library);
+
+      ImportNativeEntryPointLibrariesIntoRoot(entry_points);
+    }
 
     // Ensure that we mark all libraries as loaded.
     result = Dart_FinalizeLoading(false);
     CHECK_RESULT(result);
 
-    if (entry_points == NULL) {
-      ASSERT(!IsSnapshottingForPrecompilation());
-      CreateAndWriteSnapshot();
-    } else {
-      CreateAndWritePrecompiledSnapshot(entry_points);
+    if (!dependencies_only) {
+      switch (snapshot_kind) {
+        case kCore:
+          CreateAndWriteCoreSnapshot();
+          break;
+        case kScript:
+          CreateAndWriteScriptSnapshot();
+          break;
+        case kAppAOTBlobs:
+        case kAppAOTAssembly:
+          CreateAndWritePrecompiledSnapshot(entry_points);
+          break;
+        default:
+          UNREACHABLE();
+      }
     }
+
+    CreateAndWriteDependenciesFile();
+
+    Dart_ExitScope();
+    Dart_ShutdownIsolate();
 
     CleanupEntryPointsCollection(entry_points);
 
@@ -1141,7 +1656,10 @@ int main(int argc, char** argv) {
     Dart_ShutdownIsolate();
   } else {
     SetupForGenericSnapshotCreation();
-    CreateAndWriteSnapshot();
+    CreateAndWriteCoreSnapshot();
+
+    Dart_ExitScope();
+    Dart_ShutdownIsolate();
   }
   error = Dart_Cleanup();
   if (error != NULL) {
@@ -1149,6 +1667,8 @@ int main(int argc, char** argv) {
     free(error);
   }
   EventHandler::Stop();
+  delete mapped_vm_snapshot_data;
+  delete mapped_isolate_snapshot_data;
   return 0;
 }
 

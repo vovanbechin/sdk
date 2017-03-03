@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef INCLUDE_DART_TOOLS_API_H_
-#define INCLUDE_DART_TOOLS_API_H_
+#ifndef RUNTIME_INCLUDE_DART_TOOLS_API_H_
+#define RUNTIME_INCLUDE_DART_TOOLS_API_H_
 
 #include "include/dart_api.h"
 
@@ -18,7 +18,7 @@
  */
 
 
- /*
+/*
   * ========
   * Debugger
   * ========
@@ -155,9 +155,8 @@ DART_EXPORT Dart_Handle Dart_GetScriptURLs(Dart_Handle library_url);
  * \return A handle to string containing the source text if no error
  * occurs.
  */
-DART_EXPORT Dart_Handle Dart_ScriptGetSource(
-                            intptr_t library_id,
-                            Dart_Handle script_url_in);
+DART_EXPORT Dart_Handle Dart_ScriptGetSource(intptr_t library_id,
+                                             Dart_Handle script_url_in);
 
 
 /**
@@ -177,9 +176,8 @@ DART_EXPORT Dart_Handle Dart_ScriptGetSource(
  *
  * \return A handle to an array or an error object.
  */
-DART_EXPORT Dart_Handle Dart_ScriptGetTokenInfo(
-                            intptr_t library_id,
-                            Dart_Handle script_url_in);
+DART_EXPORT Dart_Handle Dart_ScriptGetTokenInfo(intptr_t library_id,
+                                                Dart_Handle script_url_in);
 
 
 /**
@@ -205,9 +203,8 @@ DART_EXPORT Dart_Handle Dart_GenerateScriptSource(Dart_Handle library_url_in,
  * \return A handle containing the breakpoint id, which is an integer
  * value, or an error object if a breakpoint could not be set.
  */
-DART_EXPORT Dart_Handle Dart_SetBreakpoint(
-                            Dart_Handle script_url,
-                            intptr_t line_number);
+DART_EXPORT Dart_Handle Dart_SetBreakpoint(Dart_Handle script_url,
+                                           intptr_t line_number);
 
 /**
  * Deletes the breakpoint with the given id \pb_id.
@@ -251,10 +248,9 @@ DART_EXPORT Dart_Handle Dart_GetBreakpointLine(intptr_t bp_id);
  * \return A handle containing the breakpoint id, which is an integer
  * value, or an error object if a breakpoint could not be set.
  */
-DART_EXPORT Dart_Handle Dart_SetBreakpointAtEntry(
-                            Dart_Handle library,
-                            Dart_Handle class_name,
-                            Dart_Handle function_name);
+DART_EXPORT Dart_Handle Dart_SetBreakpointAtEntry(Dart_Handle library,
+                                                  Dart_Handle class_name,
+                                                  Dart_Handle function_name);
 
 
 /**
@@ -266,10 +262,9 @@ DART_EXPORT Dart_Handle Dart_SetBreakpointAtEntry(
  *
  * \return A handle to the True object if no error occurs.
  */
-DART_EXPORT Dart_Handle Dart_OneTimeBreakAtEntry(
-                            Dart_Handle library,
-                            Dart_Handle class_name,
-                            Dart_Handle function_name);
+DART_EXPORT Dart_Handle Dart_OneTimeBreakAtEntry(Dart_Handle library,
+                                                 Dart_Handle class_name,
+                                                 Dart_Handle function_name);
 
 
 /**
@@ -305,8 +300,7 @@ DART_EXPORT Dart_Handle Dart_SetStepOut();
  *
  * Requires there to be a current isolate.
  */
-DART_EXPORT void Dart_SetPausedEventHandler(
-                            Dart_PausedEventHandler handler);
+DART_EXPORT void Dart_SetPausedEventHandler(Dart_PausedEventHandler handler);
 
 
 /**
@@ -316,7 +310,7 @@ DART_EXPORT void Dart_SetPausedEventHandler(
  * Requires there to be a current isolate.
  */
 DART_EXPORT void Dart_SetBreakpointResolvedHandler(
-                            Dart_BreakpointResolvedHandler handler);
+    Dart_BreakpointResolvedHandler handler);
 
 /**
  * Installs a callback function that gets called by the VM when
@@ -325,7 +319,7 @@ DART_EXPORT void Dart_SetBreakpointResolvedHandler(
  * Requires there to be a current isolate.
  */
 DART_EXPORT void Dart_SetExceptionThrownHandler(
-                            Dart_ExceptionThrownHandler handler);
+    Dart_ExceptionThrownHandler handler);
 
 /**
  * Installs a callback function that gets called by the VM when
@@ -349,8 +343,8 @@ typedef enum {
  *
  * Requires there to be a current isolate.
  */
-DART_EXPORT Dart_Handle Dart_SetExceptionPauseInfo(
-                            Dart_ExceptionPauseInfo pause_info);
+DART_EXPORT Dart_Handle
+Dart_SetExceptionPauseInfo(Dart_ExceptionPauseInfo pause_info);
 
 
 /**
@@ -390,9 +384,8 @@ DART_EXPORT Dart_Handle Dart_GetStackTraceFromError(Dart_Handle error,
  *
  * \return A handle to the True object if no error occurs.
  */
-DART_EXPORT Dart_Handle Dart_StackTraceLength(
-                            Dart_StackTrace trace,
-                            intptr_t* length);
+DART_EXPORT Dart_Handle Dart_StackTraceLength(Dart_StackTrace trace,
+                                              intptr_t* length);
 
 
 /**
@@ -403,10 +396,9 @@ DART_EXPORT Dart_Handle Dart_StackTraceLength(
  *
  * \return A handle to the True object if no error occurs.
  */
-DART_EXPORT Dart_Handle Dart_GetActivationFrame(
-                            Dart_StackTrace trace,
-                            int frame_index,
-                            Dart_ActivationFrame* frame);
+DART_EXPORT Dart_Handle Dart_GetActivationFrame(Dart_StackTrace trace,
+                                                int frame_index,
+                                                Dart_ActivationFrame* frame);
 
 
 /**
@@ -425,12 +417,12 @@ DART_EXPORT Dart_Handle Dart_GetActivationFrame(
  *
  * \return A valid handle if no error occurs during the operation.
  */
-DART_EXPORT Dart_Handle Dart_ActivationFrameInfo(
-                            Dart_ActivationFrame activation_frame,
-                            Dart_Handle* function_name,
-                            Dart_Handle* script_url,
-                            intptr_t* line_number,
-                            intptr_t* column_number);
+DART_EXPORT Dart_Handle
+Dart_ActivationFrameInfo(Dart_ActivationFrame activation_frame,
+                         Dart_Handle* function_name,
+                         Dart_Handle* script_url,
+                         intptr_t* line_number,
+                         intptr_t* column_number);
 
 
 /**
@@ -456,11 +448,11 @@ DART_EXPORT Dart_Handle Dart_ActivationFrameInfo(
  *         A handle to the False object if there is no text
  *         position for the frame.
  */
-DART_EXPORT Dart_Handle Dart_ActivationFrameGetLocation(
-                            Dart_ActivationFrame activation_frame,
-                            Dart_Handle* function_name,
-                            Dart_Handle* function,
-                            Dart_CodeLocation* location);
+DART_EXPORT Dart_Handle
+Dart_ActivationFrameGetLocation(Dart_ActivationFrame activation_frame,
+                                Dart_Handle* function_name,
+                                Dart_Handle* function,
+                                Dart_CodeLocation* location);
 
 /**
  * Returns frame pointer of the given activation frame.
@@ -471,9 +463,9 @@ DART_EXPORT Dart_Handle Dart_ActivationFrameGetLocation(
  *
  * \return A handle to the True object if no error occurs.
  */
-DART_EXPORT Dart_Handle Dart_ActivationFrameGetFramePointer(
-                            Dart_ActivationFrame activation_frame,
-                            uintptr_t* frame_pointer);
+DART_EXPORT Dart_Handle
+Dart_ActivationFrameGetFramePointer(Dart_ActivationFrame activation_frame,
+                                    uintptr_t* frame_pointer);
 
 /**
  * Returns an array containing all the local variable names and values of
@@ -486,8 +478,8 @@ DART_EXPORT Dart_Handle Dart_ActivationFrameGetFramePointer(
  * no variables. If non-empty, variable names are at array offsets 2*n,
  * values at offset 2*n+1.
  */
-DART_EXPORT Dart_Handle Dart_GetLocalVariables(
-                            Dart_ActivationFrame activation_frame);
+DART_EXPORT Dart_Handle
+Dart_GetLocalVariables(Dart_ActivationFrame activation_frame);
 
 
 /**
@@ -519,9 +511,9 @@ DART_EXPORT Dart_Handle Dart_GetGlobalVariables(intptr_t library_id);
  * Execute the expression given in string \expr in the context
  * of stack frame \activation_frame.
  */
-DART_EXPORT Dart_Handle Dart_ActivationFrameEvaluate(
-                            Dart_ActivationFrame activation_frame,
-                            Dart_Handle expr_in);
+DART_EXPORT Dart_Handle
+Dart_ActivationFrameEvaluate(Dart_ActivationFrame activation_frame,
+                             Dart_Handle expr_in);
 
 
 /**
@@ -542,8 +534,7 @@ DART_EXPORT Dart_Handle Dart_ActivationFrameEvaluate(
  * the compilation of the expression fails, or if the evaluation throws
  * an error.
  */
-DART_EXPORT Dart_Handle Dart_EvaluateExpr(Dart_Handle target,
-                                          Dart_Handle expr);
+DART_EXPORT Dart_Handle Dart_EvaluateExpr(Dart_Handle target, Dart_Handle expr);
 
 
 /**
@@ -752,22 +743,43 @@ DART_EXPORT Dart_IsolateId Dart_GetIsolateId(Dart_Isolate isolate);
  * a service request it can't handle and the service request command name
  * matches one of the embedder registered handlers.
  *
+ * The return value of the callback indicates whether the response
+ * should be used as a regular result or an error result.
+ * Specifically, if the callback returns true, a regular JSON-RPC
+ * response is built in the following way:
+ *
+ * {
+ *   "jsonrpc": "2.0",
+ *   "result": <json_object>,
+ *   "id": <some sequence id>,
+ * }
+ *
+ * If the callback returns false, a JSON-RPC error is built like this:
+ *
+ * {
+ *   "jsonrpc": "2.0",
+ *   "error": <json_object>,
+ *   "id": <some sequence id>,
+ * }
+ *
  * \param method The rpc method name.
  * \param param_keys Service requests can have key-value pair parameters. The
  *   keys and values are flattened and stored in arrays.
  * \param param_values The values associated with the keys.
  * \param num_params The length of the param_keys and param_values arrays.
  * \param user_data The user_data pointer registered with this handler.
+ * \param result A C string containing a valid JSON object. The returned
+ *   pointer will be freed by the VM by calling free.
  *
- * \return Returns a C string containing a valid JSON object. The returned
- * pointer will be freed by the VM by calling free.
+ * \return True if the result is a regular JSON-RPC response, false if the
+ *   result is a JSON-RPC error.
  */
-typedef const char* (*Dart_ServiceRequestCallback)(
-    const char* method,
-    const char** param_keys,
-    const char** param_values,
-    intptr_t num_params,
-    void* user_data);
+typedef bool (*Dart_ServiceRequestCallback)(const char* method,
+                                            const char** param_keys,
+                                            const char** param_values,
+                                            intptr_t num_params,
+                                            void* user_data,
+                                            const char** json_object);
 
 
 /**
@@ -876,6 +888,26 @@ DART_EXPORT Dart_Handle Dart_ServiceSendDataEvent(const char* stream_id,
 
 /*
  * ========
+ * Reload support
+ * ========
+ *
+ * These functions are used to implement reloading in the Dart VM.
+ * This is an experimental feature, so embedders should be prepared
+ * for these functions to change.
+ */
+
+/**
+ * A callback which determines whether the file at some url has been
+ * modified since some time.  If the file cannot be found, true should
+ * be returned.
+ */
+typedef bool (*Dart_FileModifiedCallback)(const char* url, int64_t since);
+
+DART_EXPORT Dart_Handle
+Dart_SetFileModifiedCallback(Dart_FileModifiedCallback file_modified_callback);
+
+/*
+ * ========
  * Timeline
  * ========
  */
@@ -902,36 +934,22 @@ DART_EXPORT int64_t Dart_TimelineGetMicros();
 #define DART_TIMELINE_STREAM_GC (1 << 5)
 /** Timeline stream for isolate events */
 #define DART_TIMELINE_STREAM_ISOLATE (1 << 6)
-
 /** Timeline stream for VM events */
 #define DART_TIMELINE_STREAM_VM (1 << 7)
 
-/** Enable all timeline stream recording for an isolate */
-#define DART_TIMELINE_STREAM_ALL (DART_TIMELINE_STREAM_API |                   \
-                                  DART_TIMELINE_STREAM_COMPILER |              \
-                                  DART_TIMELINE_STREAM_DART |                  \
-                                  DART_TIMELINE_STREAM_DEBUGGER |              \
-                                  DART_TIMELINE_STREAM_EMBEDDER |              \
-                                  DART_TIMELINE_STREAM_GC |                    \
-                                  DART_TIMELINE_STREAM_ISOLATE)
+/** All timeline streams */
+#define DART_TIMELINE_STREAM_ALL                                               \
+  (DART_TIMELINE_STREAM_API | DART_TIMELINE_STREAM_COMPILER |                  \
+   DART_TIMELINE_STREAM_DART | DART_TIMELINE_STREAM_DEBUGGER |                 \
+   DART_TIMELINE_STREAM_EMBEDDER | DART_TIMELINE_STREAM_GC |                   \
+   DART_TIMELINE_STREAM_ISOLATE | DART_TIMELINE_STREAM_VM)
 
 /** Disable all timeline stream recording */
 #define DART_TIMELINE_STREAM_DISABLE 0
 
-/**
- * Start recording timeline events for the current isolate.
- *
- * \param stream_mask A bitmask of streams that should be recorded.
- *
- * NOTE: Calling with 0 disables recording of all streams.
- */
-DART_EXPORT void Dart_TimelineSetRecordedStreams(int64_t stream_mask);
-
 
 /**
  * Start recording timeline events for the entire VM (including all isolates).
- *
- * NOTE: When enabled, the global flag, will override the per-isolate flag.
  *
  * \param stream_mask A bitmask of streams that should be recorded.
  *
@@ -970,26 +988,11 @@ typedef enum {
  * At the end of each stream state will be DART_STREAM_CONSUMER_STATE_FINISH
  * and buffer will be NULL.
  */
-typedef void (*Dart_StreamConsumer)(
-    Dart_StreamConsumer_State state,
-    const char* stream_name,
-    const uint8_t* buffer,
-    intptr_t buffer_length,
-    void* stream_callback_data);
-
-
-/**
- * Get the timeline for the current isolate in trace-event format
- *
- * \param consumer A Dart_StreamConsumer.
- * \param user_data User data passed into consumer.
- *
- * NOTE: The trace-event format is documented here: https://goo.gl/hDZw5M
- *
- * \return True if a stream was output.
- */
-DART_EXPORT bool Dart_TimelineGetTrace(Dart_StreamConsumer consumer,
-                                       void* user_data);
+typedef void (*Dart_StreamConsumer)(Dart_StreamConsumer_State state,
+                                    const char* stream_name,
+                                    const uint8_t* buffer,
+                                    intptr_t buffer_length,
+                                    void* stream_callback_data);
 
 /**
  * Get the timeline for entire VM (including all isolates).
@@ -1007,121 +1010,67 @@ DART_EXPORT bool Dart_TimelineGetTrace(Dart_StreamConsumer consumer,
 DART_EXPORT bool Dart_GlobalTimelineGetTrace(Dart_StreamConsumer consumer,
                                              void* user_data);
 
+typedef enum {
+  Dart_Timeline_Event_Begin,          // Phase = 'B'.
+  Dart_Timeline_Event_End,            // Phase = 'E'.
+  Dart_Timeline_Event_Instant,        // Phase = 'i'.
+  Dart_Timeline_Event_Duration,       // Phase = 'X'.
+  Dart_Timeline_Event_Async_Begin,    // Phase = 'b'.
+  Dart_Timeline_Event_Async_End,      // Phase = 'e'.
+  Dart_Timeline_Event_Async_Instant,  // Phase = 'n'.
+  Dart_Timeline_Event_Counter,        // Phase = 'C'.
+} Dart_Timeline_Event_Type;
+
 /**
- * Add a duration timeline event to the embedder stream for the current isolate.
+ * Add a timeline event to the embedder stream.
  *
- * \param label The name of the event.
- * \param start_micros The start of the duration (in microseconds)
- * \param end_micros The end of the duration (in microseconds)
- *
- * NOTE: All timestamps should be acquired from Dart_TimelineGetMicros.
+ * \param label The name of the evnet.
+ * \param timestamp0 The first timestamp of the event.
+ * \param timestamp1_or_async_id The second timestamp of the event or
+ *     the async id.
+ * \param argument_count The number of argument names and values.
+ * \param argument_names An array of names of the arguments.
+ * \param argument_values An array of values of the arguments.
  */
-DART_EXPORT Dart_Handle Dart_TimelineDuration(const char* label,
-                                              int64_t start_micros,
-                                              int64_t end_micros);
-
+DART_EXPORT void Dart_TimelineEvent(const char* label,
+                                    int64_t timestamp0,
+                                    int64_t timestamp1_or_async_id,
+                                    Dart_Timeline_Event_Type type,
+                                    intptr_t argument_count,
+                                    const char** argument_names,
+                                    const char** argument_values);
 
 /**
- * Add an instant timeline event to the embedder stream for the current isolate.
+ * Associates a name with the current thread. This name will be used to name
+ * threads in the timeline. Can only be called after a call to Dart_Initialize.
  *
- * \param label The name of event.
- *
- * NOTE: All timestamps should be acquired from Dart_TimelineGetMicros.
+ * \param name The name of the thread.
  */
-DART_EXPORT Dart_Handle Dart_TimelineInstant(const char* label);
-
-
-/**
- * Adds an asynchronous begin timeline event to the embedder stream for the
- * current isolate.
- *
- * \param label The name of event.
- *
- * \return Returns an asynchronous id that must be passed to
- * Dart_TimelineAsyncInstant and Dart_TimelineAsyncEnd. If the asynchronous
- * id is less than 0 the event was not added to the timeline and subsequent
- * calls to Dart_TimelineAsyncInstant and Dart_TimelineAsyncEnd will become
- * no-ops.
- *
- * NOTE: All timestamps should be acquired from Dart_TimelineGetMicros.
- */
-DART_EXPORT Dart_Handle Dart_TimelineAsyncBegin(const char* label,
-                                                int64_t* async_id);
-
+DART_EXPORT void Dart_SetThreadName(const char* name);
 
 /**
- * Adds an asynchronous instant timeline event to the embedder stream for the
- * current isolate.
- *
- * \param label The name of event.
- *
- * \return Returns an asynchronous id that must be passed to
- * Dart_TimelineAsyncInstant and Dart_TimelineAsyncEnd.
- *
- * NOTE: All timestamps should be acquired from Dart_TimelineGetMicros.
- */
-DART_EXPORT Dart_Handle Dart_TimelineAsyncInstant(const char* label,
-                                                  int64_t async_id);
-
-
-/**
- * Adds an asynchronous end timeline event to the embedder stream for the
- * current isolate.
- *
- * \param label The name of event.
- *
- * \return Returns an asynchronous id that must be passed to
- * Dart_TimelineAsyncInstant and Dart_TimelineAsyncEnd.
- *
- * NOTE: All timestamps should be acquired from Dart_TimelineGetMicros.
- */
-DART_EXPORT Dart_Handle Dart_TimelineAsyncEnd(const char* label,
-                                              int64_t async_id);
-
-
-/**
- * Called by the VM to let the embedder know when to start recording into their
- * own timeline implementation. Can be called from any thread.
+ * Called by the VM to let the embedder know when to start recording into the
+ * timeline. Can be called from any thread.
  */
 typedef void (*Dart_EmbedderTimelineStartRecording)();
 
 /**
- * Called by the VM to let the embedder know when to stop recording into their
- * own timeline implementation. Can be called from any thread.
+ * Called by the VM to let the embedder know when to stop recording into the
+ * timeline. Can be called from any thread.
  */
 typedef void (*Dart_EmbedderTimelineStopRecording)();
 
 /**
- * Called by the VM to request data from the embedder's private timeline
- * implementation. Can be called from any thread and must complete
- * synchronously.
- *
- * \param stream_consumer The embedder must only call the stream_consumer with
- *    the Dart_StreamConsumer_kData state. See Dart_StreamConsumer above.
- * \param user_data
- *
- * \return Returns true on success.
- *
- */
-typedef bool (*Dart_EmbedderTimelineGetTimeline)(
-      Dart_StreamConsumer stream_consumer,
-      void* user_data);
-
-
-/**
  * Sets the embedder timeline callbacks. These callbacks are used by the VM
- * to notify the embedder of timeline recording state changes and to request
- * data from the embedder.
+ * to notify the embedder of timeline recording state changes.
  *
  * \param start_recording See Dart_EmbedderTimelineStartRecording.
  * \param stop_recording See Dart_EmbedderTimelineStopRecording.
- * \param get_timeline See Dart_EmbedderTimelineGetTimeline.
  *
  * NOTE: To avoid races, this should be called before Dart_Initialize.
  */
 DART_EXPORT void Dart_SetEmbedderTimelineCallbacks(
     Dart_EmbedderTimelineStartRecording start_recording,
-    Dart_EmbedderTimelineStopRecording stop_recording,
-    Dart_EmbedderTimelineGetTimeline get_timeline);
+    Dart_EmbedderTimelineStopRecording stop_recording);
 
-#endif  // INCLUDE_DART_TOOLS_API_H_
+#endif  // RUNTIME_INCLUDE_DART_TOOLS_API_H_

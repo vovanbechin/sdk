@@ -5,10 +5,10 @@
 library analyzer.src.generated.element_handle;
 
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/src/dart/element/element.dart';
-import 'package:analyzer/src/generated/constant.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/resolver.dart';
@@ -62,6 +62,9 @@ class ClassElementHandle extends ElementHandle implements ClassElement {
   bool get isEnum => actualElement.isEnum;
 
   @override
+  bool get isJS => actualElement.isJS;
+
+  @override
   bool get isMixinApplication => actualElement.isMixinApplication;
 
   @override
@@ -69,6 +72,9 @@ class ClassElementHandle extends ElementHandle implements ClassElement {
 
   @override
   bool get isProxy => actualElement.isProxy;
+
+  @override
+  bool get isRequired => actualElement.isRequired;
 
   @override
   bool get isValidMixin => actualElement.isValidMixin;
@@ -93,6 +99,9 @@ class ClassElementHandle extends ElementHandle implements ClassElement {
 
   @override
   ConstructorElement get unnamedConstructor => actualElement.unnamedConstructor;
+
+  @override
+  NamedCompilationUnitMember computeNode() => super.computeNode();
 
   @override
   FieldElement getField(String fieldName) => actualElement.getField(fieldName);
@@ -144,8 +153,9 @@ class ClassElementHandle extends ElementHandle implements ClassElement {
 
   @override
   MethodElement lookUpInheritedMethod(
-          String methodName, LibraryElement library) =>
-      actualElement.lookUpInheritedMethod(methodName, library);
+      String methodName, LibraryElement library) {
+    return actualElement.lookUpInheritedMethod(methodName, library);
+  }
 
   @override
   MethodElement lookUpMethod(String methodName, LibraryElement library) =>
@@ -197,6 +207,9 @@ class CompilationUnitElementHandle extends ElementHandle
 
   @override
   ElementKind get kind => ElementKind.COMPILATION_UNIT;
+
+  @override
+  LineInfo get lineInfo => actualElement.lineInfo;
 
   @override
   Source get source => actualElement.source;
@@ -330,10 +343,6 @@ abstract class ElementHandle implements Element {
   @override
   String get displayName => actualElement.displayName;
 
-  @deprecated
-  @override
-  SourceRange get docRange => actualElement.docRange;
-
   @override
   String get documentationComment => actualElement.documentationComment;
 
@@ -345,6 +354,12 @@ abstract class ElementHandle implements Element {
 
   @override
   bool get isDeprecated => actualElement.isDeprecated;
+
+  @override
+  bool get isFactory => actualElement.isFactory;
+
+  @override
+  bool get isJS => actualElement.isJS;
 
   @override
   bool get isOverride => actualElement.isOverride;
@@ -359,11 +374,17 @@ abstract class ElementHandle implements Element {
   bool get isPublic => actualElement.isPublic;
 
   @override
+  bool get isRequired => actualElement.isRequired;
+
+  @override
   bool get isSynthetic => actualElement.isSynthetic;
 
   @override
   LibraryElement get library =>
       getAncestor((element) => element is LibraryElement);
+
+  @override
+  Source get librarySource => actualElement.librarySource;
 
   @override
   ElementLocation get location => _location;
@@ -391,7 +412,8 @@ abstract class ElementHandle implements Element {
       object is Element && object.location == _location;
 
   @override
-  accept(ElementVisitor visitor) => actualElement.accept(visitor);
+  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+      actualElement.accept(visitor);
 
   @override
   String computeDocumentationComment() => documentationComment;
@@ -400,7 +422,8 @@ abstract class ElementHandle implements Element {
   AstNode computeNode() => actualElement.computeNode();
 
   @override
-  Element getAncestor(Predicate<Element> predicate) =>
+  Element/*=E*/ getAncestor/*<E extends Element >*/(
+          Predicate<Element> predicate) =>
       actualElement.getAncestor(predicate);
 
   @override
@@ -410,6 +433,9 @@ abstract class ElementHandle implements Element {
   @override
   bool isAccessibleIn(LibraryElement library) =>
       actualElement.isAccessibleIn(library);
+
+  @override
+  String toString() => actualElement.toString();
 
   @override
   void visitChildren(ElementVisitor visitor) {
@@ -561,6 +587,9 @@ class FieldElementHandle extends PropertyInducingElementHandle
 
   @override
   bool get isEnumConstant => actualElement.isEnumConstant;
+
+  @override
+  bool get isVirtual => actualElement.isVirtual;
 
   @override
   ElementKind get kind => ElementKind.FIELD;
@@ -786,17 +815,11 @@ class LibraryElementHandle extends ElementHandle implements LibraryElement {
   List<CompilationUnitElement> get units => actualElement.units;
 
   @override
-  List<LibraryElement> get visibleLibraries => actualElement.visibleLibraries;
-
-  @override
   List<ImportElement> getImportsWithPrefix(PrefixElement prefixElement) =>
       actualElement.getImportsWithPrefix(prefixElement);
 
   @override
   ClassElement getType(String className) => actualElement.getType(className);
-
-  @override
-  bool isUpToDate(int timeStamp) => actualElement.isUpToDate(timeStamp);
 }
 
 /**
@@ -855,6 +878,10 @@ class MethodElementHandle extends ExecutableElementHandle
 
   @override
   MethodDeclaration computeNode() => actualElement.computeNode();
+
+  @override
+  FunctionType getReifiedType(DartType objectType) =>
+      actualElement.getReifiedType(objectType);
 }
 
 /**
@@ -879,6 +906,9 @@ class ParameterElementHandle extends VariableElementHandle
   String get defaultValueCode => actualElement.defaultValueCode;
 
   @override
+  bool get isCovariant => actualElement.isCovariant;
+
+  @override
   bool get isInitializingFormal => actualElement.isInitializingFormal;
 
   @override
@@ -895,6 +925,9 @@ class ParameterElementHandle extends VariableElementHandle
 
   @override
   SourceRange get visibleRange => actualElement.visibleRange;
+
+  @override
+  FormalParameter computeNode() => super.computeNode();
 }
 
 /**
@@ -951,10 +984,10 @@ class PropertyAccessorElementHandle extends ExecutableElementHandle
       actualElement.correspondingSetter;
 
   @override
-  bool get isGetter => actualElement.isGetter;
+  bool get isGetter => !isSetter;
 
   @override
-  bool get isSetter => actualElement.isSetter;
+  bool get isSetter => location.components.last.endsWith('=');
 
   @override
   ElementKind get kind {
@@ -1013,6 +1046,9 @@ class TopLevelVariableElementHandle extends PropertyInducingElementHandle
 
   @override
   ElementKind get kind => ElementKind.TOP_LEVEL_VARIABLE;
+
+  @override
+  VariableDeclaration computeNode() => super.computeNode();
 }
 
 /**
@@ -1075,10 +1111,12 @@ abstract class VariableElementHandle extends ElementHandle
   @override
   bool get isFinal => actualElement.isFinal;
 
+  @deprecated
   @override
   bool get isPotentiallyMutatedInClosure =>
       actualElement.isPotentiallyMutatedInClosure;
 
+  @deprecated
   @override
   bool get isPotentiallyMutatedInScope =>
       actualElement.isPotentiallyMutatedInScope;
@@ -1088,4 +1126,7 @@ abstract class VariableElementHandle extends ElementHandle
 
   @override
   DartType get type => actualElement.type;
+
+  @override
+  DartObject computeConstantValue() => actualElement.computeConstantValue();
 }

@@ -5,7 +5,6 @@
 #include "platform/globals.h"
 #if defined(TARGET_OS_ANDROID)
 
-#include "bin/file.h"
 #include "bin/platform.h"
 
 #include <signal.h>  // NOLINT
@@ -13,9 +12,15 @@
 #include <unistd.h>  // NOLINT
 
 #include "bin/fdutils.h"
+#include "bin/file.h"
 
 namespace dart {
 namespace bin {
+
+const char* Platform::executable_name_ = NULL;
+char* Platform::resolved_executable_name_ = NULL;
+int Platform::script_index_ = 1;
+char** Platform::argv_ = NULL;
 
 bool Platform::Initialize() {
   // Turn off the signal handler for SIGPIPE as it causes the process
@@ -42,12 +47,17 @@ const char* Platform::OperatingSystem() {
 }
 
 
+const char* Platform::LibraryPrefix() {
+  return "lib";
+}
+
+
 const char* Platform::LibraryExtension() {
   return "so";
 }
 
 
-bool Platform::LocalHostname(char *buffer, intptr_t buffer_length) {
+bool Platform::LocalHostname(char* buffer, intptr_t buffer_length) {
   return gethostname(buffer, buffer_length) == 0;
 }
 
@@ -71,7 +81,7 @@ char** Platform::Environment(intptr_t* count) {
 
 
 const char* Platform::ResolveExecutablePath() {
-  return File::LinkTarget("/proc/self/exe");
+  return NULL;
 }
 
 

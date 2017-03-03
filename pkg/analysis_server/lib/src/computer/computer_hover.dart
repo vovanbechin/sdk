@@ -10,6 +10,7 @@ import 'package:analysis_server/src/computer/computer_overrides.dart';
 import 'package:analysis_server/src/utilities/documentation.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/element/element.dart';
+import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
 
 /**
@@ -55,6 +56,7 @@ class DartUnitHoverComputer {
         // description
         hover.elementDescription = element.toString();
         hover.elementKind = element.kind.displayName;
+        hover.isDeprecated = element.isDeprecated;
         // not local element
         if (element.enclosingElement is! ExecutableElement) {
           // containing class
@@ -76,10 +78,28 @@ class DartUnitHoverComputer {
       // parameter
       hover.parameter = _safeToString(expression.bestParameterElement);
       // types
-      if (element == null || element is VariableElement) {
-        hover.staticType = _safeToString(expression.staticType);
+      {
+        AstNode parent = expression.parent;
+        DartType staticType = null;
+        DartType propagatedType = expression.propagatedType;
+        if (element is ParameterElement) {
+          staticType = element.type;
+        } else if (element == null || element is VariableElement) {
+          staticType = expression.staticType;
+        }
+        if (parent is MethodInvocation && parent.methodName == expression) {
+          staticType = parent.staticInvokeType;
+          propagatedType = parent.propagatedInvokeType;
+          if (staticType != null && staticType.isDynamic) {
+            staticType = null;
+          }
+          if (propagatedType != null && propagatedType.isDynamic) {
+            propagatedType = null;
+          }
+        }
+        hover.staticType = _safeToString(staticType);
+        hover.propagatedType = _safeToString(propagatedType);
       }
-      hover.propagatedType = _safeToString(expression.propagatedType);
       // done
       return hover;
     }
@@ -88,8 +108,16 @@ class DartUnitHoverComputer {
   }
 
   String _computeDocumentation(Element element) {
+    if (element is FieldFormalParameterElement) {
+      element = (element as FieldFormalParameterElement).field;
+    }
     if (element is ParameterElement) {
       element = element.enclosingElement;
+    }
+    if (element == null) {
+      // This can happen when the code is invalid, such as having a field formal
+      // parameter for a field that does not exist.
+      return null;
     }
     // The documentation of the element itself.
     if (element.documentationComment != null) {
@@ -110,5 +138,5 @@ class DartUnitHoverComputer {
     return null;
   }
 
-  static _safeToString(obj) => obj != null ? obj.toString() : null;
+  static _safeToString(obj) => obj?.toString();
 }

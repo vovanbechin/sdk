@@ -1,7 +1,9 @@
 // Copyright (c) 2015, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
-//
+
+// OtherResources=process_detached_script.dart
+
 // Process test program to test detached processes.
 
 import 'dart:async';
@@ -45,7 +47,7 @@ void testWithStdio() {
     Expect.isNull(process.exitCode);
     var message = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
     process.stdin.add(message);
-    process.stdin.close();
+    process.stdin.flush().then((_) => process.stdin.close());
     var f1 = process.stdout.fold([], (p, e) => p..addAll(e));
     var f2 = process.stderr.fold([], (p, e) => p..addAll(e));
     Future.wait([f1, f2])

@@ -2,11 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-#ifndef VM_TIMER_H_
-#define VM_TIMER_H_
+#ifndef RUNTIME_VM_TIMER_H_
+#define RUNTIME_VM_TIMER_H_
 
 #include "platform/utils.h"
 #include "vm/allocation.h"
+#include "vm/atomic.h"
 #include "vm/flags.h"
 #include "vm/os.h"
 
@@ -15,15 +16,14 @@ namespace dart {
 // Timer class allows timing of specific operations in the VM.
 class Timer : public ValueObject {
  public:
-  Timer(bool report, const char* message)
-      : report_(report), message_(message) {
+  Timer(bool report, const char* message) : report_(report), message_(message) {
     Reset();
   }
   ~Timer() {}
 
   // Start timer.
   void Start() {
-    start_ = OS::GetCurrentTimeMicros();
+    start_ = OS::GetCurrentMonotonicMicros();
     running_ = true;
   }
 
@@ -31,10 +31,11 @@ class Timer : public ValueObject {
   void Stop() {
     ASSERT(start_ != 0);
     ASSERT(running());
-    stop_ = OS::GetCurrentTimeMicros();
+    stop_ = OS::GetCurrentMonotonicMicros();
     int64_t elapsed = ElapsedMicros();
     max_contiguous_ = Utils::Maximum(max_contiguous_, elapsed);
-    total_ += elapsed;
+    // Make increment atomic in case it occurs in parallel with aggregation.
+    AtomicOperations::IncrementInt64By(&total_, elapsed);
     running_ = false;
   }
 
@@ -42,7 +43,7 @@ class Timer : public ValueObject {
   int64_t TotalElapsedTime() const {
     int64_t result = total_;
     if (running_) {
-      int64_t now = OS::GetCurrentTimeMicros();
+      int64_t now = OS::GetCurrentMonotonicMicros();
       result += (now - start_);
     }
     return result;
@@ -51,7 +52,7 @@ class Timer : public ValueObject {
   int64_t MaxContiguous() const {
     int64_t result = max_contiguous_;
     if (running_) {
-      int64_t now = OS::GetCurrentTimeMicros();
+      int64_t now = OS::GetCurrentMonotonicMicros();
       result = Utils::Maximum(result, now - start_);
     }
     return result;
@@ -63,6 +64,15 @@ class Timer : public ValueObject {
     total_ = 0;
     max_contiguous_ = 0;
     running_ = false;
+  }
+
+  bool IsReset() const {
+    return (start_ == 0) && (stop_ == 0) && (total_ == 0) &&
+           (max_contiguous_ == 0) && !running_;
+  }
+
+  void AddTotal(const Timer& other) {
+    AtomicOperations::IncrementInt64By(&total_, other.total_);
   }
 
   // Accessors.
@@ -100,9 +110,7 @@ class Timer : public ValueObject {
 class TimerScope : public StackResource {
  public:
   TimerScope(bool flag, Timer* timer, Thread* thread = NULL)
-      : StackResource(thread),
-        nested_(false),
-        timer_(flag ? timer : NULL) {
+      : StackResource(thread), nested_(false), timer_(flag ? timer : NULL) {
     Init();
   }
 
@@ -135,9 +143,7 @@ class TimerScope : public StackResource {
 class PauseTimerScope : public StackResource {
  public:
   PauseTimerScope(bool flag, Timer* timer, Thread* thread = NULL)
-      : StackResource(thread),
-        nested_(false),
-        timer_(flag ? timer : NULL) {
+      : StackResource(thread), nested_(false), timer_(flag ? timer : NULL) {
     if (timer_) {
       if (timer_->running()) {
         timer_->Stop();
@@ -163,7 +169,6 @@ class PauseTimerScope : public StackResource {
 };
 
 
-
 }  // namespace dart
 
-#endif  // VM_TIMER_H_
+#endif  // RUNTIME_VM_TIMER_H_

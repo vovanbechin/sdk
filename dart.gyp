@@ -12,7 +12,7 @@
         'create_sdk',
         'dart2js',
         'dartanalyzer',
-        'packages',
+        'dartdevc',
         'runtime',
         'samples',
       ],
@@ -25,17 +25,28 @@
       'type': 'none',
       'dependencies': [
         'runtime/dart-runtime.gyp:dart',
-        'runtime/dart-runtime.gyp:dart_noopt',
-        'runtime/dart-runtime.gyp:dart_precompiled_runtime',
-        'runtime/dart-runtime.gyp:dart_product',
         'runtime/dart-runtime.gyp:dart_bootstrap#host',
         'runtime/dart-runtime.gyp:run_vm_tests',
         'runtime/dart-runtime.gyp:process_test',
-        'packages',
         'runtime/dart-runtime.gyp:test_extension',
         'runtime/dart-runtime.gyp:sample_extension',
+        'runtime/dart-runtime.gyp:generate_patched_sdk#host',
       ],
     },
+    {
+      # This is the target that is built on the VM build bots.  It
+      # must depend on anything that is required by the VM test
+      # suites.
+      'target_name': 'runtime_precompiled',
+      'type': 'none',
+      'dependencies': [
+        'runtime/dart-runtime.gyp:dart_precompiled_runtime',
+        'runtime/dart-runtime.gyp:dart_bootstrap#host',
+        'runtime/dart-runtime.gyp:process_test',
+        'runtime/dart-runtime.gyp:generate_patched_sdk#host',
+      ],
+    },
+
     {
       'target_name': 'create_sdk',
       'type': 'none',
@@ -55,6 +66,13 @@
       'type': 'none',
       'dependencies': [
         'utils/dartanalyzer/dartanalyzer.gyp:dartanalyzer',
+      ],
+    },
+    {
+      'target_name': 'dartdevc',
+      'type': 'none',
+      'dependencies': [
+        'utils/dartdevc/dartdevc.gyp:dartdevc',
       ],
     },
     {
@@ -79,21 +97,6 @@
       'type': 'none',
       'dependencies': [
         'create_sdk',
-        'packages',
-        'try',
-      ],
-    },
-    {
-      # This is the target that is built on the dart2js debug build bots.
-      # It must depend on anything that is required by the dart2js
-      # test suites.
-      # We have this additional target because the try target takes to long
-      # to build in debug mode and will make the build step time out.
-      'target_name': 'dart2js_bot_debug',
-      'type': 'none',
-      'dependencies': [
-        'create_sdk',
-        'packages',
       ],
     },
     {
@@ -108,20 +111,6 @@
           },
         ],
       ]
-    },
-    {
-      'target_name': 'packages',
-      'type': 'none',
-      'dependencies': [
-        'pkg/pkg.gyp:pkg_packages',
-      ],
-    },
-    {
-      'target_name': 'try',
-      'type': 'none',
-      'dependencies': [
-        'site/try/build_try.gyp:try_site',
-      ],
     },
   ],
 }
