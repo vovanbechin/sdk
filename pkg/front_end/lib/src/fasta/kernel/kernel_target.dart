@@ -68,8 +68,6 @@ import '../util/relativize.dart' show relativizeUri;
 
 import '../compiler_context.dart' show CompilerContext;
 
-import '../util/relativize.dart' show relativizeUri;
-
 import 'kernel_builder.dart'
     show
         Builder,
@@ -134,9 +132,6 @@ class KernelTarget extends TargetImplementation {
       Builder builder = type.builder;
       if (builder is ClassBuilder) {
         set.add(builder);
-      } else if (builder is! InvalidTypeBuilder &&
-          builder is! DynamicTypeBuilder) {
-        internalError("Unhandled: ${builder.runtimeType}");
       }
     }
 
@@ -249,7 +244,7 @@ class KernelTarget extends TargetImplementation {
       loader.buildProgram();
       loader.checkSemantics();
       List<SourceClassBuilder> sourceClasses = collectAllSourceClasses();
-      installDefaultSupertypes(sourceClasses);
+      installDefaultSupertypes();
       installDefaultConstructors(sourceClasses);
       loader.resolveConstructors();
       loader.finishTypeVariables(objectClassBuilder);
@@ -310,12 +305,8 @@ class KernelTarget extends TargetImplementation {
   /// Creates a program by combining [libraries] with the libraries of
   /// `dillTarget.loader.program`.
   Program link(List<Library> libraries) {
-    Map<String, Source> uriToSource = <String, Source>{};
-
-    // for (Library library in libraries) {
-    //   // TODO(ahe): Compute line starts instead.
-    //   uriToLineStarts[library.fileUri] = <int>[0];
-    // }
+    Map<String, Source> uriToSource =
+        new Map<String, Source>.from(this.uriToSource);
 
     final Program binary = dillTarget.loader.program;
     if (binary != null) {
@@ -359,17 +350,21 @@ class KernelTarget extends TargetImplementation {
     return null;
   }
 
-  void installDefaultSupertypes(List<SourceClassBuilder> builders) {
+  void installDefaultSupertypes() {
     Class objectClass = this.objectClass;
-    for (SourceClassBuilder builder in builders) {
-      Class cls = builder.target;
-      if (cls != objectClass) {
-        cls.supertype ??= objectClass.asRawSupertype;
-      }
-      if (builder.isMixinApplication) {
-        cls.mixedInType = builder.mixedInType.buildSupertype();
-      }
-    }
+    loader.builders.forEach((Uri uri, LibraryBuilder library) {
+      library.members.forEach((String name, Builder builder) {
+        if (builder is SourceClassBuilder) {
+          Class cls = builder.target;
+          if (cls != objectClass) {
+            cls.supertype ??= objectClass.asRawSupertype;
+          }
+          if (builder.isMixinApplication) {
+            cls.mixedInType = builder.mixedInType.buildSupertype(library);
+          }
+        }
+      });
+    });
     ticker.logMs("Installed Object as implicit superclass");
   }
 

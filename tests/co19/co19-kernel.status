@@ -29,12 +29,6 @@ Language/Classes/Constructors/Generative_Constructors/formal_parameter_t02: Miss
 Language/Classes/Constructors/Generative_Constructors/formal_parameter_t08: MissingCompileTimeError
 Language/Classes/Constructors/Generative_Constructors/initializers_t12: MissingCompileTimeError
 Language/Classes/Constructors/Generative_Constructors/initializing_formals_execution_t02: RuntimeError # Dartk Issue 28566
-Language/Classes/Constructors/Generative_Constructors/initializing_other_function_t01: DartkCrash
-Language/Classes/Constructors/Generative_Constructors/initializing_other_function_t02: DartkCrash
-Language/Classes/Constructors/Generative_Constructors/initializing_other_function_t03: DartkCrash
-Language/Classes/Constructors/Generative_Constructors/initializing_other_function_t04: DartkCrash
-Language/Classes/Constructors/Generative_Constructors/initializing_other_function_t05: DartkCrash
-Language/Classes/Constructors/Generative_Constructors/initializing_other_function_t06: DartkCrash
 Language/Classes/Constructors/Generative_Constructors/redirection_t02: MissingCompileTimeError
 Language/Classes/Constructors/Generative_Constructors/redirection_t03: MissingCompileTimeError
 Language/Classes/Constructors/Generative_Constructors/redirection_t07: MissingCompileTimeError
@@ -107,19 +101,11 @@ Language/Classes/Static_Methods/same_name_method_and_setter_t01: CompileTimeErro
 Language/Classes/Superclasses/Inheritance_and_Overriding/inheritance_t03: RuntimeError
 Language/Classes/Superclasses/superclass_of_itself_t01: MissingCompileTimeError
 Language/Classes/Superclasses/superclass_of_itself_t02: MissingCompileTimeError
-Language/Classes/Superclasses/wrong_superclass_t01: MissingCompileTimeError
-Language/Classes/Superclasses/wrong_superclass_t02: DartkCrash
-Language/Classes/Superclasses/wrong_superclass_t03: MissingCompileTimeError
-Language/Classes/Superclasses/wrong_superclass_t05: DartkCrash
 Language/Classes/Superclasses/wrong_superclass_t07: Crash
 Language/Classes/Superclasses/wrong_superclass_t08: MissingCompileTimeError
 Language/Classes/Superinterfaces/dynamic_type_t01: MissingCompileTimeError
 Language/Classes/Superinterfaces/dynamic_type_t02: MissingCompileTimeError
 Language/Classes/Superinterfaces/itself_t01: MissingCompileTimeError
-Language/Classes/Superinterfaces/type_variable_as_superinterface_t01: DartkCrash
-Language/Classes/Superinterfaces/wrong_type_t01: MissingCompileTimeError
-Language/Classes/Superinterfaces/wrong_type_t02: DartkCrash
-Language/Classes/Superinterfaces/wrong_type_t03: MissingCompileTimeError
 Language/Classes/Superinterfaces/wrong_type_t04: MissingCompileTimeError
 Language/Classes/Superinterfaces/wrong_type_t05: MissingCompileTimeError
 Language/Classes/declarations_t02: MissingCompileTimeError
@@ -284,7 +270,6 @@ Language/Expressions/Instance_Creation/New/evaluation_t06: RuntimeError
 Language/Expressions/Instance_Creation/New/evaluation_t12: RuntimeError # Dartk Issue 28564
 Language/Expressions/Instance_Creation/New/evaluation_t19: RuntimeError # Kernel Issue 28335 (deferred libraries)
 Language/Expressions/Instance_Creation/New/evaluation_t20: RuntimeError # Kernel Issue 28335 (deferred libraries)
-Language/Expressions/Instance_Creation/New/syntax_t02: DartkCrash
 Language/Expressions/Instance_Creation/New/type_t03: DartkCrash
 Language/Expressions/Instance_Creation/New/type_t05: DartkCrash
 Language/Expressions/Instance_Creation/malformed_or_malbounded_t02: MissingCompileTimeError
@@ -315,7 +300,6 @@ Language/Expressions/Method_Invocation/Super_Invocation/invocation_t02: MissingC
 Language/Expressions/Method_Invocation/Super_Invocation/invocation_t03: MissingCompileTimeError
 Language/Expressions/Method_Invocation/Super_Invocation/syntax_t02: DartkCrash
 Language/Expressions/Method_Invocation/Super_Invocation/syntax_t03: DartkCrash
-Language/Expressions/Numbers/extend_or_implement_double_t06: MissingCompileTimeError
 Language/Expressions/Numbers/syntax_t21: MissingCompileTimeError
 Language/Expressions/Numbers/syntax_t25: MissingCompileTimeError
 Language/Expressions/Numbers/syntax_t26: MissingCompileTimeError
@@ -356,16 +340,12 @@ Language/Functions/Formal_Parameters/Required_Formals/syntax_t06: MissingCompile
 Language/Functions/Formal_Parameters/Required_Formals/syntax_t07: MissingCompileTimeError
 Language/Functions/Formal_Parameters/Required_Formals/syntax_t08: MissingCompileTimeError
 Language/Functions/Formal_Parameters/Required_Formals/syntax_t09: MissingCompileTimeError
-Language/Functions/Formal_Parameters/Required_Formals/syntax_t10: DartkCrash
-Language/Functions/Formal_Parameters/Required_Formals/syntax_t11: DartkCrash
 Language/Functions/Formal_Parameters/declare_as_constant_t01: MissingCompileTimeError
 Language/Functions/Formal_Parameters/declare_as_constant_t02: MissingCompileTimeError
 Language/Functions/Formal_Parameters/declare_as_constant_t03: MissingCompileTimeError
 Language/Functions/Formal_Parameters/declare_as_constant_t04: MissingCompileTimeError
 Language/Functions/Formal_Parameters/declare_as_constant_t05: MissingCompileTimeError
 Language/Functions/Formal_Parameters/declare_as_constant_t06: MissingCompileTimeError
-Language/Functions/Formal_Parameters/syntax_t06: DartkCrash
-Language/Functions/Formal_Parameters/syntax_t13: DartkCrash
 Language/Functions/Function_Declarations/external_function_t01: MissingCompileTimeError
 Language/Functions/Function_Declarations/external_function_t02: MissingCompileTimeError
 Language/Functions/ctor_modifier_t03: MissingCompileTimeError
@@ -399,28 +379,16 @@ Language/Libraries_and_Scripts/Imports/deferred_import_t02: RuntimeError # Kerne
 Language/Libraries_and_Scripts/Imports/invalid_uri_deferred_t02: CompileTimeError
 Language/Libraries_and_Scripts/Imports/invalid_uri_t01: MissingCompileTimeError
 Language/Libraries_and_Scripts/Imports/invalid_uri_t02: Pass # OK
-Language/Libraries_and_Scripts/Imports/namespace_changes_t07: DartkCrash
-Language/Libraries_and_Scripts/Imports/namespace_changes_t08: DartkCrash
 Language/Libraries_and_Scripts/Imports/namespace_changes_t16: RuntimeError
 Language/Libraries_and_Scripts/Imports/namespace_changes_t17: RuntimeError
 Language/Libraries_and_Scripts/Imports/namespace_changes_t27: CompileTimeError
 Language/Libraries_and_Scripts/Imports/same_name_t02/01: MissingRuntimeError
 Language/Libraries_and_Scripts/Imports/same_name_t05: RuntimeError
-Language/Libraries_and_Scripts/Imports/same_name_t07: MissingCompileTimeError
 Language/Libraries_and_Scripts/Imports/same_name_t10: RuntimeError
 Language/Libraries_and_Scripts/Imports/same_name_t12/01: MissingRuntimeError
 Language/Libraries_and_Scripts/Imports/same_name_t15/01: MissingRuntimeError
-Language/Libraries_and_Scripts/Imports/same_name_t17: MissingCompileTimeError
 Language/Libraries_and_Scripts/Imports/same_name_t19: RuntimeError
 Language/Libraries_and_Scripts/Imports/static_type_t01: Skip # No support for deferred libraries.
-Language/Libraries_and_Scripts/Imports/syntax_t02: DartkCrash
-Language/Libraries_and_Scripts/Imports/syntax_t03: DartkCrash
-Language/Libraries_and_Scripts/Imports/syntax_t04: DartkCrash
-Language/Libraries_and_Scripts/Imports/syntax_t11: DartkCrash
-Language/Libraries_and_Scripts/Imports/syntax_t13: DartkCrash
-Language/Libraries_and_Scripts/Imports/syntax_t18: DartkCrash
-Language/Libraries_and_Scripts/Imports/syntax_t20: DartkCrash
-Language/Libraries_and_Scripts/Imports/syntax_t21: DartkCrash
 Language/Libraries_and_Scripts/Imports/syntax_t32: MissingCompileTimeError
 Language/Libraries_and_Scripts/Imports/syntax_t41: MissingCompileTimeError
 Language/Libraries_and_Scripts/Parts/compilation_t02: Timeout
@@ -431,10 +399,7 @@ Language/Libraries_and_Scripts/Parts/compilation_t10: DartkCrash
 Language/Libraries_and_Scripts/Parts/compilation_t11: MissingCompileTimeError
 Language/Libraries_and_Scripts/Parts/static_warning_t01: RuntimeError
 Language/Libraries_and_Scripts/Parts/syntax_t01: MissingCompileTimeError
-Language/Libraries_and_Scripts/Parts/syntax_t05: DartkCrash
 Language/Libraries_and_Scripts/Parts/syntax_t06: Pass # OK
-Language/Libraries_and_Scripts/Parts/syntax_t07: DartkCrash
-Language/Libraries_and_Scripts/Parts/syntax_t08: DartkCrash
 Language/Libraries_and_Scripts/Scripts/syntax_t05: MissingCompileTimeError
 Language/Libraries_and_Scripts/Scripts/syntax_t06: MissingCompileTimeError
 Language/Libraries_and_Scripts/Scripts/syntax_t07: MissingCompileTimeError
@@ -473,15 +438,11 @@ Language/Mixins/Mixin_Application/deferred_t01: MissingCompileTimeError
 Language/Mixins/Mixin_Application/syntax_t15: MissingCompileTimeError
 Language/Mixins/Mixin_Application/wrong_mixin_type_t01: MissingCompileTimeError
 Language/Mixins/Mixin_Application/wrong_mixin_type_t02: MissingCompileTimeError
-Language/Mixins/Mixin_Application/wrong_mixin_type_t03: MissingCompileTimeError
-Language/Mixins/Mixin_Application/wrong_mixin_type_t04: MissingCompileTimeError
 Language/Mixins/Mixin_Application/wrong_mixin_type_t05: DartkCrash
 Language/Mixins/Mixin_Application/wrong_mixin_type_t06: DartkCrash
 Language/Mixins/Mixin_Application/wrong_mixin_type_t07: MissingCompileTimeError
-Language/Mixins/Mixin_Application/wrong_mixin_type_t08: Crash
 Language/Mixins/Mixin_Application/wrong_type_t01: MissingCompileTimeError
 Language/Mixins/Mixin_Application/wrong_type_t02: DartkCrash
-Language/Mixins/Mixin_Application/wrong_type_t03: MissingCompileTimeError
 Language/Mixins/Mixin_Application/wrong_type_t04: Crash
 Language/Mixins/Mixin_Application/wrong_type_t05: MissingCompileTimeError
 Language/Mixins/Mixin_Application/wrong_type_t06: Crash
@@ -528,42 +489,9 @@ Language/Reference/Lexical_Rules/Comments/multi_line_t03: Crash
 Language/Reference/Lexical_Rules/Comments/multi_line_t04: Crash
 Language/Reference/Lexical_Rules/Comments/multi_line_t05: Crash
 Language/Reference/Lexical_Rules/Comments/multi_line_t06: Crash
-Language/Reference/Lexical_Rules/Reserved_Words/assert_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/break_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/case_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/catch_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/class_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/const_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/continue_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/default_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/do_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/else_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/enum_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/extends_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/false_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/final_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/finally_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/for_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/if_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/in_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/is_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/new_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/null_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/rethrow_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/return_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/super_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/switch_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/this_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/throw_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/true_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/try_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/var_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/void_t12: DartkCrash
-Language/Reference/Lexical_Rules/Reserved_Words/while_t12: DartkCrash
 Language/Reference/Lexical_Rules/Reserved_Words/whitespace_t02: MissingCompileTimeError
 Language/Reference/Lexical_Rules/Reserved_Words/whitespace_t03: MissingCompileTimeError
 Language/Reference/Lexical_Rules/Reserved_Words/whitespace_t04: MissingCompileTimeError
-Language/Reference/Lexical_Rules/Reserved_Words/with_t12: DartkCrash
 Language/Reference/Lexical_Rules/whitespace_t01: MissingCompileTimeError
 Language/Reference/Lexical_Rules/whitespace_t02: MissingCompileTimeError
 Language/Reference/Lexical_Rules/whitespace_t03: MissingCompileTimeError
@@ -763,6 +691,7 @@ Language/Statements/Local_Variable_Declaration/syntax_t19: CompileTimeError
 Language/Overview/Scoping/conflicting_names_t43: Crash
 Language/Overview/Scoping/hiding_declaration_t11: Crash
 Language/Overview/Scoping/hiding_declaration_t12: Crash
+LibTest/isolate/Isolate/spawnUri_A01_t04: Pass, Slow, Timeout
 
 # dartk: precompilation failures
 [ $compiler == dartkp ]
@@ -806,6 +735,7 @@ Language/Expressions/Equality/syntax_t02: MissingCompileTimeError
 Language/Expressions/Function_Invocation/Unqualified_Invocation/prefix_object_invocation_t01: MissingCompileTimeError
 Language/Expressions/Identifier_Reference/evaluation_prefix_t01: MissingCompileTimeError
 Language/Expressions/Identifier_Reference/evaluation_type_parameter_t02: MissingCompileTimeError
+Language/Expressions/Instance_Creation/New/syntax_t02: MissingCompileTimeError
 Language/Expressions/Logical_Boolean_Expressions/syntax_t02: MissingCompileTimeError
 Language/Expressions/Logical_Boolean_Expressions/syntax_t03: MissingCompileTimeError
 Language/Expressions/Method_Invocation/Super_Invocation/invocation_t01: MissingCompileTimeError
@@ -823,6 +753,8 @@ Language/Expressions/This/placement_t05: MissingCompileTimeError
 Language/Expressions/This/placement_t06: MissingCompileTimeError
 Language/Expressions/This/placement_t07: MissingCompileTimeError
 Language/Expressions/This/placement_t08: MissingCompileTimeError
+Language/Libraries_and_Scripts/Imports/namespace_changes_t07: MissingCompileTimeError
+Language/Libraries_and_Scripts/Imports/namespace_changes_t08: MissingCompileTimeError
 Language/Overview/Privacy/private_and_public_t04: RuntimeError
 Language/Overview/Scoping/conflicting_names_t43: Crash
 Language/Overview/Scoping/hiding_declaration_t11: Crash
