@@ -8,9 +8,9 @@ execfile(os.path.join(path, 'src', 'dart', 'tools', 'deps', 'dartium.deps', 'DEP
 # Now we need to override some settings and add some new ones.
 
 vars.update({
-  "dartium_chromium_commit": "7558afb6379171d7f96b2db68ae9d2b64b2c5544",
-  "dartium_webkit_commit": "56e20cfbfa7e1a680add908ed9c316c067454ff0",
-  "chromium_base_revision": "338390",
+  "dartium_chromium_commit": "c903d5215a8bebdf25222cd73a422629b02fda11",
+#  "dartium_webkit_commit": "522da5fa29843cb44afdc20328be356f693685d6",
+  "chromium_base_revision": "378081",
 
   # We use mirrors of all github repos to guarantee reproducibility and
   # consistency between what users see and what the bots see.
@@ -77,9 +77,9 @@ deps.update({
     Var("chromium_git") + "/dart/dartium/src.git" + "@" +
         Var("dartium_chromium_commit"),
 
-  "src/third_party/WebKit":
-    Var("chromium_git") + "/dart/dartium/blink.git" + "@" +
-        Var("dartium_webkit_commit"),
+#  "src/third_party/WebKit":
+#    Var("chromium_git") + "/dart/dartium/blink.git" + "@" +
+#        Var("dartium_webkit_commit"),
 
   "src/dart/third_party/pkg/args":
       (Var("github_mirror") % "args") + Var("args_tag"),
@@ -205,16 +205,16 @@ hooks.append({
              'src/dart/tools/bots/set_reference_build_revision.py',
              Var('chromium_base_revision')],
 })
-hooks.append({
+#hooks.append({
   # Peg the blink version number in LASTCHANGE.blink to be the upstream
   # webkit_revision number so that chrome remote devtools pulls assets from
   # the right place.
-  "name": "lastchange",
-  "pattern": ".",
-  "action": ["python", "-c",
-      "f=open('src/build/util/LASTCHANGE.blink','w'); f.write('LASTCHANGE=" +
-      Var('webkit_revision') + "\\n')" ],
-})
+#  "name": "lastchange",
+#  "pattern": ".",
+#  "action": ["python", "-c",
+#      "f=open('src/build/util/LASTCHANGE.blink','w'); f.write('LASTCHANGE=" +
+#      Var('webkit_revision') + "\\n')" ],
+#})
 hooks.append({
   "name": "checked_in_dart_sdks",
   "pattern": ".",

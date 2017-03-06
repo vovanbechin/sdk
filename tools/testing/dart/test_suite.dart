@@ -1282,7 +1282,9 @@ class StandardTestSuite extends TestSuite {
         var contentShellOptions = [];
 
         contentShellOptions.add('--no-timeout');
-        contentShellOptions.add('--dump-render-tree');
+
+        // TODO(terry): Roll 50 dump-render-tree replaced with run-layout-test
+        contentShellOptions.add('--run-layout-test');
 
         // Disable the GPU under Linux and Dartium. If the GPU is enabled,
         // Chrome may send a termination signal to a test.  The test will be
@@ -1291,6 +1293,9 @@ class StandardTestSuite extends TestSuite {
         if (configuration['system'] == 'linux' &&
             configuration['runtime'] == 'drt') {
           contentShellOptions.add('--disable-gpu');
+
+          // TODO(terry): Roll 50 need this in conjection with disable-gpu.
+          contentShellOptions.add('--disable-gpu-early-init'); 
         }
         if (compiler == 'none') {
           dartFlags.add('--ignore-unrecognized-flags');

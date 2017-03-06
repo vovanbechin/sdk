@@ -13938,6 +13938,12 @@ class Element extends Node implements NonDocumentTypeChildNode, GlobalEventHandl
       base.href = document.baseUri;
       _parseDocument.head.append(base);
     }
+
+    // TODO(terry): Fixes Chromium 50 change no body after createHtmlDocument()
+    if (_parseDocument.body == null) {
+      _parseDocument.body = _parseDocument.createElement("body");
+    }
+
     var contextElement;
     if (this is BodyElement) {
       contextElement = _parseDocument.body;

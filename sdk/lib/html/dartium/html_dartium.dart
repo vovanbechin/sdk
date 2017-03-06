@@ -5679,7 +5679,7 @@ class CssStyleDeclaration  extends DartHtmlDomObject with
   }
 
   bool _hasProperty(String propertyName) =>
-      _blink.BlinkCSSStyleDeclaration.instance.$__propertyQuery___Callback_1_(this, propertyName);
+      _blink.BlinkCSSStyleDeclaration.instance.$__propertyQuery___Callback_1_(this, propertyName) != null;
 
   @DomName('CSSStyleDeclaration.setProperty')
   void setProperty(String propertyName, String value, [String priority]) {
@@ -14523,6 +14523,12 @@ class Element extends Node implements NonDocumentTypeChildNode, GlobalEventHandl
       base.href = document.baseUri;
       _parseDocument.head.append(base);
     }
+
+    // TODO(terry): Fixes Chromium 50 change no body after createHtmlDocument()
+    if (_parseDocument.body == null) {
+      _parseDocument.body = _parseDocument.createElement("body");
+    }
+
     var contextElement;
     if (this is BodyElement) {
       contextElement = _parseDocument.body;
@@ -37672,10 +37678,10 @@ class Url extends DartHtmlDomObject implements UrlUtils {
     if ((blob_OR_source_OR_stream is Blob || blob_OR_source_OR_stream == null)) {
       return _blink.BlinkURL.instance.createObjectURL_Callback_1_(blob_OR_source_OR_stream);
     }
-    if ((blob_OR_source_OR_stream is MediaSource)) {
+    if ((blob_OR_source_OR_stream is MediaStream)) {
       return _blink.BlinkURL.instance.createObjectURL_Callback_1_(blob_OR_source_OR_stream);
     }
-    if ((blob_OR_source_OR_stream is MediaStream)) {
+    if ((blob_OR_source_OR_stream is MediaSource)) {
       return _blink.BlinkURL.instance.createObjectURL_Callback_1_(blob_OR_source_OR_stream);
     }
     throw new ArgumentError("Incorrect number or type of arguments");
