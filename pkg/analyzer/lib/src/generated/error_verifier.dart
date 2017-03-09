@@ -486,7 +486,9 @@ class ErrorVerifier extends RecursiveAstVisitor<Object> {
           _checkImplementsSuperClass(node);
           _checkImplementsFunctionWithoutCall(node);
           _checkForMixinHasNoConstructors(node);
-          _checkForMixinWithConflictingPrivateMember(node);
+          if (_options.strongMode) {
+            _checkForMixinWithConflictingPrivateMember(node);
+          }
         }
       }
       visitClassDeclarationIncrementally(node);

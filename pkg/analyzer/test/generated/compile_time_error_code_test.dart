@@ -5264,6 +5264,7 @@ f() {
   }
 
   test_privateCollisionInMixinApplication_mixinAndMixin() async {
+    resetWith(options: new AnalysisOptionsImpl()..strongMode = true);
     addNamedSource(
         '/lib1.dart',
         '''
@@ -5280,12 +5281,15 @@ import 'lib1.dart';
 class C extends Object with A, B {}
 ''');
     await computeAnalysisResult(source);
-    assertErrors(
-        source, [CompileTimeErrorCode.PRIVATE_COLLISION_IN_MIXIN_APPLICATION]);
+    assertErrors(source, [
+      CompileTimeErrorCode.PRIVATE_COLLISION_IN_MIXIN_APPLICATION,
+      StrongModeCode.INVALID_FIELD_OVERRIDE
+    ]);
     verify([source]);
   }
 
   test_privateCollisionInMixinApplication_mixinAndMixin_indirect() async {
+    resetWith(options: new AnalysisOptionsImpl()..strongMode = true);
     addNamedSource(
         '/lib1.dart',
         '''
@@ -5309,6 +5313,7 @@ class D extends C with B {}
   }
 
   test_privateCollisionInMixinApplication_superclassAndMixin() async {
+    resetWith(options: new AnalysisOptionsImpl()..strongMode = true);
     addNamedSource(
         '/lib1.dart',
         '''
@@ -5325,12 +5330,15 @@ import 'lib1.dart';
 class C extends A with B {}
 ''');
     await computeAnalysisResult(source);
-    assertErrors(
-        source, [CompileTimeErrorCode.PRIVATE_COLLISION_IN_MIXIN_APPLICATION]);
+    assertErrors(source, [
+      CompileTimeErrorCode.PRIVATE_COLLISION_IN_MIXIN_APPLICATION,
+      StrongModeCode.INVALID_FIELD_OVERRIDE
+    ]);
     verify([source]);
   }
 
   test_privateCollisionInMixinApplication_superclassAndMixin_same() async {
+    resetWith(options: new AnalysisOptionsImpl()..strongMode = true);
     addNamedSource(
         '/lib1.dart',
         '''
@@ -5347,8 +5355,10 @@ import 'lib1.dart';
 class C extends A with A {}
 ''');
     await computeAnalysisResult(source);
-    assertErrors(
-        source, [CompileTimeErrorCode.PRIVATE_COLLISION_IN_MIXIN_APPLICATION]);
+    assertErrors(source, [
+      CompileTimeErrorCode.PRIVATE_COLLISION_IN_MIXIN_APPLICATION,
+      StrongModeCode.INVALID_FIELD_OVERRIDE
+    ]);
     verify([source]);
   }
 
