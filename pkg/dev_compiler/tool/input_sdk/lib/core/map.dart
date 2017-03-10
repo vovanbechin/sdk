@@ -164,11 +164,28 @@ abstract class Map<K, V> {
    * Methods like [containsKey] or [putIfAbsent] can be use if the distinction
    * is important.
    */
-  // TODO(nnbd-api-todo): This is not right if V is a non-nullable type. We
-  // should either change this to "V?", or have it throw on an absent key. In
-  // either case, we will likely want to add another method to expose the other
-  // behavior.
-  V operator [](Object key);
+  // TODO(nnbd-api): This is hard. Making it return "V?" preserves the current
+  // behavior but forces users to deal with the potential null result.
+  //
+  // Reasons to use "V" instead:
+  //
+  // - It means callers don't have to handle null in cases where they expect
+  //   the key to be present.
+  // - It lines up with the general "default to non-null".
+  // - It keeps the type here consistent with the subscript setter. We don't
+  //   let you *set* a null value, so it's weird to return one.
+  // - It's consistent with List.[] which returns the "T", not "T?" where null
+  //   is returned on out of bounds.
+  //
+  // For now, though, I'm going to use "V?" because that will generate errors
+  // at use sites that don't handle the null, so it should give data about how
+  // many cases are affected by nullability.
+  // TODO(nnbd-map)
+  V? operator [](Object key);
+
+  // TODO(nnbd-api): This is a new method for when you expect the key to be
+  // present.
+  V find(Object key);
 
   /**
    * Associates the [key] with the given [value].
@@ -217,7 +234,7 @@ abstract class Map<K, V> {
    * Note that values can be `null` and a returned `null` value doesn't
    * always mean that the key was absent.
    */
-  V remove(Object key);
+  V? remove(Object key);
 
   /**
    * Removes all pairs from the map.

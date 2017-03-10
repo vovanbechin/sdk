@@ -131,7 +131,7 @@ abstract class Set<E> extends Iterable<E> implements EfficientLength {
    * Checks if there is an object in the set that is equal to [object].
    * If so, that object is returned, otherwise returns null.
    */
-  E lookup(Object object);
+  E? lookup(Object object);
 
   /**
    * Removes each element of [elements] from this set.

@@ -83,9 +83,9 @@ abstract class HashMap<K, V> implements Map<K, V> {
    * If you supply one of [equals] and [hashCode],
    * you should generally also to supply the other.
    */
-  external factory HashMap({bool equals(K key1, K key2),
-                            int hashCode(K key),
-                            bool isValidKey(potentialKey)});
+  external factory HashMap({bool equals(K key1, K key2)?,
+                            int hashCode(K key)?,
+                            bool isValidKey(potentialKey)?});
 
   /**
    * Creates an unordered identity-based map.
@@ -120,7 +120,7 @@ abstract class HashMap<K, V> implements Map<K, V> {
    * identity function.
    */
   factory HashMap.fromIterable(Iterable iterable,
-      {K key(element), V value(element)}) {
+      {K key(element)?, V value(element)?}) {
     HashMap<K, V> map = new HashMap<K, V>();
     Maps._fillMapWithMappedIterable(map, iterable, key, value);
     return map;

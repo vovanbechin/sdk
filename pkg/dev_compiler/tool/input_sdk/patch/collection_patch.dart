@@ -14,9 +14,9 @@ const _USE_ES6_MAPS = true;
 @patch
 class HashMap<K, V> {
   @patch
-  factory HashMap({ bool equals(K key1, K key2),
-                    int hashCode(K key),
-                    bool isValidKey(Object potentialKey) }) {
+  factory HashMap({ bool equals(K key1, K key2)?,
+                    int hashCode(K key)?,
+                    bool isValidKey(Object potentialKey)? }) {
     if (isValidKey == null) {
       if (hashCode == null) {
         if (equals == null) {
@@ -40,7 +40,12 @@ class HashMap<K, V> {
         equals = _defaultEquals;
       }
     }
-    return new _CustomHashMap<K, V>(equals, hashCode, isValidKey);
+    // TODO(nnbd-flow): The above code is convoluted, but I *think* flow
+    // analysis should be able to tell these are always initialized. If
+    // not, the code above could be re-arranged such that it is.
+    var equals_ = equals ?? _defaultEquals;
+    var hashCode_ = hashCode ?? _defaultHashCode;
+    return new _CustomHashMap<K, V>(equals_, hashCode_, isValidKey);
   }
 
   @patch
@@ -66,7 +71,7 @@ class _HashMap<K, V> implements HashMap<K, V> {
   // list of all the keys. We cache that on the instance and clear the
   // the cache whenever the key set changes. This is also used to
   // guard against concurrent modifications.
-  List/*<K>*/ _keys;
+  List<K>? _keys;
 
   _HashMap();
 
@@ -80,7 +85,7 @@ class _HashMap<K, V> implements HashMap<K, V> {
   }
 
   Iterable<V> get values {
-    return new MappedIterable<K, V>(keys, (each) => this[each]);
+    return new MappedIterable<K, V>(keys, find);
   }
 
   bool containsKey(Object key) {
@@ -112,7 +117,8 @@ class _HashMap<K, V> implements HashMap<K, V> {
     });
   }
 
-  V operator[](Object key) {
+  // TODO(nnbd-map)
+  V? operator[](Object key) {
     if (_isStringKey(key)) {
       var strings = _strings;
       return (strings == null) ? null : _getTableEntry(strings, key);
@@ -124,7 +130,9 @@ class _HashMap<K, V> implements HashMap<K, V> {
     }
   }
 
-  V _get(Object key) {
+  V find(Object key) => find(key) as V;
+
+  V? _get(Object key) {
     var rest = _rest;
     if (rest == null) return null;
     var bucket = _getBucket(rest, key);
@@ -168,13 +176,13 @@ class _HashMap<K, V> implements HashMap<K, V> {
   }
 
   V putIfAbsent(K key, V ifAbsent()) {
-    if (containsKey(key)) return this[key];
+    if (containsKey(key)) return find(key);
     V value = ifAbsent();
     this[key] = value;
     return value;
   }
 
-  V remove(Object key) {
+  V? remove(Object key) {
     if (_isStringKey(key)) {
       return _removeHashTableEntry(_strings, key);
     } else if (_isNumericKey(key)) {
@@ -184,7 +192,7 @@ class _HashMap<K, V> implements HashMap<K, V> {
     }
   }
 
-  V _remove(Object key) {
+  V? _remove(Object key) {
     var rest = _rest;
     if (rest == null) return null;
     var bucket = _getBucket(rest, key);
@@ -210,7 +218,7 @@ class _HashMap<K, V> implements HashMap<K, V> {
     List/*<K>*/ keys = _computeKeys();
     for (int i = 0, length = keys.length; i < length; i++) {
       var key = JS('var', '#[#]', keys, i);
-      action(key, this[key]);
+      action(key, find(key));
       if (JS('bool', '# !== #', keys, _keys)) {
         throw new ConcurrentModificationError(this);
       }
@@ -218,7 +226,11 @@ class _HashMap<K, V> implements HashMap<K, V> {
   }
 
   List/*<K>*/ _computeKeys() {
-    if (_keys != null) return _keys;
+    // TODO(nnbd-assert): Can't promote here because it's a mutable field.
+    // This pattern is fairly common, though. Maybe some other way of binding
+    // a variable after the test, like:
+    // if (_keys is List<K> keys) return keys;
+    if (_keys != null) return _keys as List<K>;
     var result = new List/*<K>*/(_length);
     int index = 0;
 
@@ -276,7 +288,7 @@ class _HashMap<K, V> implements HashMap<K, V> {
     _setTableEntry(table, key, value);
   }
 
-  V _removeHashTableEntry(var table, Object key) {
+  V? _removeHashTableEntry(var table, Object key) {
     if (table != null && _hasTableEntry(table, key)) {
       V value = _getTableEntry(table, key);
       _deleteTableEntry(table, key);
@@ -390,13 +402,15 @@ class _CustomHashMap<K, V> extends _HashMap<K, V> {
   final _Hasher<K> _hashCode;
   final _Predicate<Object> _validKey;
   _CustomHashMap(this._equals, this._hashCode,
-                 bool validKey(Object potentialKey))
-      : _validKey = (validKey != null) ? validKey : ((v) => v is K);
+                 bool validKey(Object potentialKey)?)
+      : _validKey = validKey ?? ((v) => v is K);
 
-  V operator[](Object key) {
+  V? operator [](Object key) {
     if (!_validKey(key)) return null;
     return super._get(key);
   }
+
+  V find(Object key) => find(key) as V;
 
   void operator[]=(K key, V value) {
     super._set(key, value);
@@ -407,7 +421,7 @@ class _CustomHashMap<K, V> extends _HashMap<K, V> {
     return super._containsKey(key);
   }
 
-  V remove(Object key) {
+  V? remove(Object key) {
     if (!_validKey(key)) return null;
     return super._remove(key);
   }
@@ -461,11 +475,11 @@ class _HashMapKeyIterator<E> implements Iterator<E> {
   final _HashMap/*<E, dynamic>*/ _map;
   final List/*<E>*/ _keys;
   int _offset = 0;
-  E _current;
+  E? _current;
 
   _HashMapKeyIterator(this._map, this._keys);
 
-  E get current => _current;
+  E get current => _current as E;
 
   bool moveNext() {
     var keys = _keys;
@@ -489,9 +503,9 @@ class _HashMapKeyIterator<E> implements Iterator<E> {
 @patch
 class LinkedHashMap<K, V> {
   @patch
-  factory LinkedHashMap({ bool equals(K key1, K key2),
-                          int hashCode(K key),
-                          bool isValidKey(Object potentialKey) }) {
+  factory LinkedHashMap({ bool equals(K key1, K key2)?,
+                          int hashCode(K key)?,
+                          bool isValidKey(Object potentialKey)? }) {
     if (isValidKey == null) {
       if (hashCode == null) {
         if (equals == null) {
@@ -515,7 +529,12 @@ class LinkedHashMap<K, V> {
         equals = _defaultEquals;
       }
     }
-    return new _LinkedCustomHashMap<K, V>(equals, hashCode, isValidKey);
+    // TODO(nnbd-flow): The above code is convoluted, but I *think* flow
+    // analysis should be able to tell these are always initialized. If
+    // not, the code above could be re-arranged such that it is.
+    var equals_ = equals ?? _defaultEquals;
+    var hashCode_ = hashCode ?? _defaultHashCode;
+    return new _LinkedCustomHashMap<K, V>(equals_, hashCode_, isValidKey);
   }
 
   @patch
@@ -583,9 +602,12 @@ class _Es6LinkedIdentityHashMap<K, V>
     });
   }
 
-  V operator[](Object key) {
+  V? operator[](Object key) {
     return JS('var', '#.get(#)', _map, key);
   }
+
+  // TODO(nnbd-map)
+  V find(Object key) => find(key) as V;
 
   void operator[]=(K key, V value) {
     JS('var', '#.set(#, #)', _map, key, value);
@@ -593,14 +615,14 @@ class _Es6LinkedIdentityHashMap<K, V>
   }
 
   V putIfAbsent(K key, V ifAbsent()) {
-    if (containsKey(key)) return this[key];
+    if (containsKey(key)) return find(key);
     V value = ifAbsent();
     this[key] = value;
     return value;
   }
 
-  V remove(Object key) {
-    V value = this[key];
+  V? remove(Object key) {
+    V? value = this[key];
     JS('bool', '#.delete(#)', _map, key);
     _modified();
     return value;
@@ -681,8 +703,8 @@ class _Es6MapIterator<E> implements Iterator<E> {
   final bool _isKeys;
   var _jsIterator;
   var _next;
-  E _current;
-  bool _done;
+  E? _current;
+  bool _done = false;
 
   _Es6MapIterator(this._map, this._modifications, this._isKeys) {
     if (_isKeys) {
@@ -690,10 +712,9 @@ class _Es6MapIterator<E> implements Iterator<E> {
     } else {
       _jsIterator = JS('var', '#.values()', _map._map);
     }
-    _done = false;
   }
 
-  E get current => _current;
+  E get current => _current as E;
 
   bool moveNext() {
     if (_modifications != _map._modifications) {
@@ -719,13 +740,16 @@ class _LinkedCustomHashMap<K, V> extends JsLinkedHashMap<K, V> {
   final _Hasher<K> _hashCode;
   final _Predicate<Object> _validKey;
   _LinkedCustomHashMap(this._equals, this._hashCode,
-                       bool validKey(Object potentialKey))
-      : _validKey = (validKey != null) ? validKey : ((v) => v is K);
+                       bool validKey(Object potentialKey)?)
+      : _validKey = validKey ?? ((v) => v is K);
 
-  V operator[](Object key) {
+  // TODO(nnbd-map)
+  V? operator[](Object key) {
     if (!_validKey(key)) return null;
     return super.internalGet(key);
   }
+
+  V find(Object key) => find(key) as V;
 
   void operator[]=(K key, V value) {
     super.internalSet(key, value);
@@ -736,7 +760,7 @@ class _LinkedCustomHashMap<K, V> extends JsLinkedHashMap<K, V> {
     return super.internalContainsKey(key);
   }
 
-  V remove(Object key) {
+  V? remove(Object key) {
     if (!_validKey(key)) return null;
     return super.internalRemove(key);
   }
@@ -762,9 +786,9 @@ class _LinkedCustomHashMap<K, V> extends JsLinkedHashMap<K, V> {
 @patch
 class HashSet<E> {
   @patch
-  factory HashSet({ bool equals(E e1, E e2),
-                    int hashCode(E e),
-                    bool isValidKey(Object potentialKey) }) {
+  factory HashSet({ bool equals(E e1, E e2)?,
+                    int hashCode(E e)?,
+                    bool isValidKey(Object potentialKey)? }) {
     if (isValidKey == null) {
       if (hashCode == null) {
         if (equals == null) {
@@ -788,7 +812,12 @@ class HashSet<E> {
         equals = _defaultEquals;
       }
     }
-    return new _CustomHashSet<E>(equals, hashCode, isValidKey);
+    // TODO(nnbd-flow): The above code is convoluted, but I *think* flow
+    // analysis should be able to tell these are always initialized. If
+    // not, the code above could be re-arranged such that it is.
+    var equals_ = equals ?? _defaultEquals;
+    var hashCode_ = hashCode ?? _defaultHashCode;
+    return new _CustomHashSet<E>(equals_, hashCode_, isValidKey);
   }
 
   @patch
@@ -815,7 +844,7 @@ class _HashSet<E> extends _HashSetBase<E> implements HashSet<E> {
   // list of all the elements. We cache that on the instance and clear
   // the cache whenever the set changes. This is also used to
   // guard against concurrent modifications.
-  List/*<E>*/ _elements;
+  List<E>? _elements;
 
   _HashSet();
 
@@ -849,14 +878,14 @@ class _HashSet<E> extends _HashSetBase<E> implements HashSet<E> {
     return _findBucketIndex(bucket, object) >= 0;
   }
 
-  E lookup(Object object) {
+  E? lookup(Object object) {
     if (_isStringElement(object) || _isNumericElement(object)) {
-      return this.contains(object) ? object : null;
+      return (this.contains(object) ? object : null) as E;
     }
     return _lookup(object);
   }
 
-  E _lookup(Object object) {
+  E? _lookup(Object object) {
     var rest = _rest;
     if (rest == null) return null;
     var bucket = _getBucket(rest, object);
@@ -937,7 +966,8 @@ class _HashSet<E> extends _HashSetBase<E> implements HashSet<E> {
   }
 
   List/*<E>*/ _computeElements() {
-    if (_elements != null) return _elements;
+    // TODO(nnbd-assert)
+    if (_elements != null) return _elements as List<E>;
     var result = new List/*<E>*/(_length);
     int index = 0;
 
@@ -1095,8 +1125,8 @@ class _CustomHashSet<E> extends _HashSet<E> {
   _Hasher<E> _hasher;
   _Predicate<Object> _validKey;
   _CustomHashSet(this._equality, this._hasher,
-                 bool validKey(Object potentialKey))
-      : _validKey = (validKey != null) ? validKey : ((x) => x is E);
+                 bool validKey(Object potentialKey)?)
+      : _validKey = validKey ?? ((x) => x is E);
 
   Set<E> _newSet() => new _CustomHashSet<E>(_equality, _hasher, _validKey);
 
@@ -1124,7 +1154,7 @@ class _CustomHashSet<E> extends _HashSet<E> {
     return super._contains(object);
   }
 
-  E lookup(Object object) {
+  E? lookup(Object object) {
     if (!_validKey(object)) return null;
     return super._lookup(object);
   }
@@ -1140,11 +1170,11 @@ class _HashSetIterator<E> implements Iterator<E> {
   final _set;
   final List/*<E>*/ _elements;
   int _offset = 0;
-  E _current;
+  E? _current;
 
   _HashSetIterator(this._set, this._elements);
 
-  E get current => _current;
+  E get current => _current as E;
 
   bool moveNext() {
     var elements = _elements;
@@ -1168,9 +1198,9 @@ class _HashSetIterator<E> implements Iterator<E> {
 @patch
 class LinkedHashSet<E> {
   @patch
-  factory LinkedHashSet({ bool equals(E e1, E e2),
-                          int hashCode(E e),
-                          bool isValidKey(Object potentialKey) }) {
+  factory LinkedHashSet({ bool equals(E e1, E e2)?,
+                          int hashCode(E e)?,
+                          bool isValidKey(Object potentialKey)? }) {
     if (isValidKey == null) {
       if (hashCode == null) {
         if (equals == null) {
@@ -1194,7 +1224,12 @@ class LinkedHashSet<E> {
         equals = _defaultEquals;
       }
     }
-    return new _LinkedCustomHashSet<E>(equals, hashCode, isValidKey);
+    // TODO(nnbd-flow): The above code is convoluted, but I *think* flow
+    // analysis should be able to tell these are always initialized. If
+    // not, the code above could be re-arranged such that it is.
+    var equals_ = equals ?? _defaultEquals;
+    var hashCode_ = hashCode ?? _defaultHashCode;
+    return new _LinkedCustomHashSet<E>(equals_, hashCode_, isValidKey);
   }
 
   @patch
@@ -1219,8 +1254,8 @@ class _LinkedHashSet<E> extends _HashSetBase<E> implements LinkedHashSet<E> {
 
   // The elements are stored in cells that are linked together
   // to form a double linked list.
-  _LinkedHashSetCell/*<E>*/ _first;
-  _LinkedHashSetCell/*<E>*/ _last;
+  _LinkedHashSetCell<E>? _first;
+  _LinkedHashSetCell<E>? _last;
 
   // We track the number of modifications done to the element set to
   // be able to throw when the set is modified while being iterated
@@ -1267,15 +1302,15 @@ class _LinkedHashSet<E> extends _HashSetBase<E> implements LinkedHashSet<E> {
     return _findBucketIndex(bucket, object) >= 0;
   }
 
-  E lookup(Object object) {
+  E? lookup(Object object) {
     if (_isStringElement(object) || _isNumericElement(object)) {
-      return this.contains(object) ? object : null;
+      return (this.contains(object) ? object : null) as E;
     } else {
       return _lookup(object);
     }
   }
 
-  E _lookup(Object object) {
+  E? _lookup(Object object) {
     var rest = _rest;
     if (rest == null) return null;
     var bucket = _getBucket(rest, object);
@@ -1285,25 +1320,28 @@ class _LinkedHashSet<E> extends _HashSetBase<E> implements LinkedHashSet<E> {
   }
 
   void forEach(void action(E element)) {
-    _LinkedHashSetCell/*<E>*/ cell = _first;
+    var cell = _first;
     int modifications = _modifications;
     while (cell != null) {
-      action(cell._element);
+      // TODO(nnbd-assign): Should promote from while condition.
+      action((cell as _LinkedHashSetCell<E>)._element);
       if (modifications != _modifications) {
         throw new ConcurrentModificationError(this);
       }
-      cell = cell._next;
+      cell = (cell as _LinkedHashSetCell<E>)._next;
     }
   }
 
   E get first {
     if (_first == null) throw new StateError("No elements");
-    return _first._element;
+    // TODO(nnbd-assert): Can't assume the field isn't mutated after the check.
+    return (_first as _LinkedHashSetCell<E>)._element;
   }
 
   E get last {
     if (_last == null) throw new StateError("No elements");
-    return _last._element;
+    // TODO(nnbd-assert): Can't assume the field isn't mutated after the check.
+    return (_last as _LinkedHashSetCell<E>)._element;
   }
 
   // Collection.
@@ -1370,10 +1408,12 @@ class _LinkedHashSet<E> extends _HashSetBase<E> implements LinkedHashSet<E> {
   }
 
   void _filterWhere(bool test(E element), bool removeMatching) {
-    _LinkedHashSetCell/*<E>*/ cell = _first;
+    var cell = _first;
     while (cell != null) {
-      E element = cell._element;
-      _LinkedHashSetCell/*<E>*/ next = cell._next;
+      // TODO(nnbd-assign): Should promote from while condition.
+      var cell_ = cell as _LinkedHashSetCell<E>;
+      E element = cell_._element;
+      var next = cell_._next;
       int modifications = _modifications;
       bool shouldRemove = (removeMatching == test(element));
       if (modifications != _modifications) {
@@ -1417,11 +1457,13 @@ class _LinkedHashSet<E> extends _HashSetBase<E> implements LinkedHashSet<E> {
 
   // Create a new cell and link it in as the last one in the list.
   _LinkedHashSetCell/*<E>*/ _newLinkedCell(E element) {
-    _LinkedHashSetCell/*<E>*/ cell = new _LinkedHashSetCell/*<E>*/(element);
+    var cell = new _LinkedHashSetCell/*<E>*/(element);
     if (_first == null) {
       _first = _last = cell;
     } else {
-      _LinkedHashSetCell/*<E>*/ last = _last;
+      // TODO(nnbd-assert): Inference doesn't know that _last is non-null if
+      // _first is.
+      var last = _last as _LinkedHashSetCell<E>;
       cell._previous = last;
       _last = last._next = cell;
     }
@@ -1432,19 +1474,21 @@ class _LinkedHashSet<E> extends _HashSetBase<E> implements LinkedHashSet<E> {
 
   // Unlink the given cell from the linked list of cells.
   void _unlinkCell(_LinkedHashSetCell/*<E>*/ cell) {
-    _LinkedHashSetCell/*<E>*/ previous = cell._previous;
-    _LinkedHashSetCell/*<E>*/ next = cell._next;
+    var previous = cell._previous;
+    var next = cell._next;
     if (previous == null) {
       assert(cell == _first);
       _first = next;
     } else {
-      previous._next = next;
+      // TODO(nnbd-else)
+      (previous as _LinkedHashSetCell<E>)._next = next;
     }
     if (next == null) {
       assert(cell == _last);
       _last = previous;
     } else {
-      next._previous = previous;
+      // TODO(nnbd-else)
+      (next as _LinkedHashSetCell<E>)._previous = previous;
     }
     _length--;
     _modified();
@@ -1538,8 +1582,8 @@ class _LinkedCustomHashSet<E> extends _LinkedHashSet<E> {
   _Hasher<E> _hasher;
   _Predicate<Object> _validKey;
   _LinkedCustomHashSet(this._equality, this._hasher,
-                       bool validKey(Object potentialKey))
-      : _validKey = (validKey != null) ? validKey : ((x) => x is E);
+                       bool validKey(Object potentialKey)?)
+      : _validKey = validKey ?? ((x) => x is E);
 
   Set<E> _newSet() =>
       new _LinkedCustomHashSet<E>(_equality, _hasher, _validKey);
@@ -1569,7 +1613,7 @@ class _LinkedCustomHashSet<E> extends _LinkedHashSet<E> {
     return super._contains(object);
   }
 
-  E lookup(Object object) {
+  E? lookup(Object object) {
     if (!_validKey(object)) return null;
     return super._lookup(object);
   }
@@ -1598,8 +1642,8 @@ class _LinkedCustomHashSet<E> extends _LinkedHashSet<E> {
 class _LinkedHashSetCell<E> {
   E _element;
 
-  _LinkedHashSetCell<E> _next;
-  _LinkedHashSetCell<E> _previous;
+  _LinkedHashSetCell<E>? _next;
+  _LinkedHashSetCell<E>? _previous;
 
   _LinkedHashSetCell(this._element);
 }
@@ -1608,14 +1652,14 @@ class _LinkedHashSetCell<E> {
 class _LinkedHashSetIterator<E> implements Iterator<E> {
   final _set;
   final int _modifications;
-  _LinkedHashSetCell _cell;
-  E _current;
+  _LinkedHashSetCell? _cell;
+  E? _current;
 
   _LinkedHashSetIterator(this._set, this._modifications) {
     _cell = _set._first;
   }
 
-  E get current => _current;
+  E get current => _current as E;
 
   bool moveNext() {
     if (_modifications != _set._modifications) {
@@ -1624,8 +1668,9 @@ class _LinkedHashSetIterator<E> implements Iterator<E> {
       _current = null;
       return false;
     } else {
-      _current = _cell._element;
-      _cell = _cell._next;
+      // TODO(nnbd-assert): Can't assume mutable field is unchanged.
+      _current = (_cell as _LinkedHashSetCell)._element;
+      _cell = (_cell as _LinkedHashSetCell)._next;
       return true;
     }
   }

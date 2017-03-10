@@ -70,9 +70,9 @@ abstract class LinkedHashMap<K, V> implements HashMap<K, V> {
    * If you supply one of [equals] and [hashCode],
    * you should generally also to supply the other.
    */
-  external factory LinkedHashMap({bool equals(K key1, K key2),
-                                  int hashCode(K key),
-                                  bool isValidKey(Object potentialKey)});
+  external factory LinkedHashMap({bool equals(K key1, K key2)?,
+                                  int hashCode(K key)?,
+                                  bool isValidKey(Object potentialKey)?});
 
   /**
    * Creates an insertion-ordered identity-based map.

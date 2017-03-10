@@ -236,7 +236,7 @@ class SubListIterable<E> extends ListIterable<E> {
   final Iterable<E> _iterable; // Has efficient length and elementAt.
   final int _start;
   /** If null, represents the length of the iterable. */
-  final int _endOrLength;
+  final int? _endOrLength;
 
   SubListIterable(this._iterable, this._start, this._endOrLength) {
     RangeError.checkNotNegative(_start, "start");

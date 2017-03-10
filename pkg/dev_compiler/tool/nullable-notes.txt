@@ -44,7 +44,7 @@ Here's what the various "TODO(nnbd-...)" labels mean:
   In some of these cases, we may be able to just use "??=" and do smarter
   analysis of that.
 
-- (nnbd-mutate): A care where promotion is failing because the variable is
+- (nnbd-mutate): A case where promotion is failing because the variable is
   being mutated in a way where we can tell the mutation shouldn't affect the
   result. We can probably be smarter about these instead of turning off all
   promotion on any mutation. This is similar to nnbd-assign except this relates
@@ -111,6 +111,25 @@ Here's what the various "TODO(nnbd-...)" labels mean:
 
   This would, of course, require some way of marking or detecting that a field
   cannot be overridden.
+
+- (nnbd-map): Changes related to making Map.[] non-nullable and adding .find().
+
+- (nnbd-throw): Uses of a pattern like:
+
+      return _foo ?? (throw ...)
+
+  This "promotes" "_foo" (usually a field, expression or other non-promotable
+  expression) to a non-null type and throws if it's null.
+
+- (nnbd-required-named): A named parameter, usually boolean, that is treated
+  like a required parameter. It thus doesn't have a default, but shouldn't be
+  considered nullable. Ideally, we'd support required named parameters to cover
+  this case.
+
+  Note: I think there are some cases of this that I didn't mark.
+
+- (nnbd-null-aware): Cases where a null-aware "?." can be used to avoid a null
+  safety error.
 
 - (nnbd): Everything else. Random observations, missing features, potential
   bugs in the prototype, etc.

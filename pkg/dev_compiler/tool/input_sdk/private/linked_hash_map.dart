@@ -60,7 +60,7 @@ class JsLinkedHashMap<K, V> implements LinkedHashMap<K, V>, InternalMap<K, V> {
   }
 
   Iterable<V> get values {
-    return new MappedIterable<K, V>(keys, (each) => this[each]);
+    return new MappedIterable<K, V>(keys, find);
   }
 
   bool containsKey(Object key) {
@@ -94,7 +94,8 @@ class JsLinkedHashMap<K, V> implements LinkedHashMap<K, V>, InternalMap<K, V> {
     });
   }
 
-  V operator [](Object key) {
+  // TODO(nnbd-map)
+  V? operator [](Object key) {
     if (_isStringKey(key)) {
       var strings = _strings;
       if (strings == null) return null;
@@ -109,6 +110,8 @@ class JsLinkedHashMap<K, V> implements LinkedHashMap<K, V>, InternalMap<K, V> {
       return internalGet(key);
     }
   }
+
+  V find(Object key) => this[key] as V;
 
   V internalGet(Object key) {
     var rest = _rest;
@@ -161,7 +164,7 @@ class JsLinkedHashMap<K, V> implements LinkedHashMap<K, V>, InternalMap<K, V> {
     return value;
   }
 
-  V remove(Object key) {
+  V? remove(Object key) {
     if (_isStringKey(key)) {
       return _removeHashTableEntry(_strings, key);
     } else if (_isNumericKey(key)) {

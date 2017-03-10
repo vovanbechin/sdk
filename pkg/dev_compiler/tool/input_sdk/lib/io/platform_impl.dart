@@ -99,7 +99,10 @@ class _CaseInsensitiveStringMap<V> implements Map<String, V> {
   bool containsKey(Object key) =>
       key is String && _map.containsKey(key.toUpperCase());
   bool containsValue(Object value) => _map.containsValue(value);
-  V operator [](Object key) => key is String ? _map[key.toUpperCase()] : null;
+
+  // TODO(nnbd-map)
+  V? operator [](Object key) => key is String ? _map[key.toUpperCase()] : null;
+  V find(Object key) => this[key] as V;
   void operator []=(String key, V value) {
     _map[key.toUpperCase()] = value;
   }

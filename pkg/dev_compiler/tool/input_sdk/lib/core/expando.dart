@@ -50,7 +50,7 @@ class Expando<T> {
    *
    * The object must not be a number, a string, a boolean or null.
    */
-  external T operator [](Object object);
+  external T? operator [](Object object);
 
   /**
    * Sets the value of this [Expando]'s property on the given

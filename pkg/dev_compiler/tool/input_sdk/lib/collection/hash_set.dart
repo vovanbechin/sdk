@@ -91,9 +91,9 @@ abstract class HashSet<E> implements Set<E> {
    * and the `isValidKey` defaults to accepting all keys.
    * Such a map can be created directly using [HashSet.identity].
    */
-  external factory HashSet({bool equals(E e1, E e2),
-                            int hashCode(E e),
-                            bool isValidKey(Object potentialKey)});
+  external factory HashSet({bool equals(E e1, E e2)?,
+                            int hashCode(E e)?,
+                            bool isValidKey(Object potentialKey)?});
 
   /**
    * Creates an unordered identity-based set.

@@ -276,7 +276,7 @@ class SplayTreeMap<K, V> extends _SplayTree<K, _SplayTreeMapNode<K, V>>
   Comparator<K> _comparator;
   _Predicate _validKey;
 
-  SplayTreeMap([int compare(K key1, K key2), bool isValidKey(potentialKey)])
+  SplayTreeMap([int compare(K key1, K key2)?, bool isValidKey(potentialKey)?])
       : _comparator = compare ?? Comparable.compare as Comparator<K>,
         _validKey = isValidKey ?? ((v) => v is K);
 
@@ -284,8 +284,8 @@ class SplayTreeMap<K, V> extends _SplayTree<K, _SplayTreeMapNode<K, V>>
    * Creates a [SplayTreeMap] that contains all key/value pairs of [other].
    */
   factory SplayTreeMap.from(Map other,
-                            [int compare(K key1, K key2),
-                             bool isValidKey(potentialKey)]) {
+                            [int compare(K key1, K key2)?,
+                             bool isValidKey(potentialKey)?]) {
     SplayTreeMap<K, V> result = new SplayTreeMap<K, V>(compare, isValidKey);
     other.forEach((k, v) { result[k as Object/*=K*/] = v as Object/*=V*/; });
     return result;
@@ -305,10 +305,10 @@ class SplayTreeMap<K, V> extends _SplayTree<K, _SplayTreeMapNode<K, V>>
    * use the iterable value itself.
    */
   factory SplayTreeMap.fromIterable(Iterable iterable,
-                                    {K key(element),
-                                     V value(element),
-                                     int compare(K key1, K key2),
-                                     bool isValidKey(potentialKey) }) {
+                                    {K key(element)?,
+                                     V value(element)?,
+                                     int compare(K key1, K key2)?,
+                                     bool isValidKey(potentialKey)? }) {
     SplayTreeMap<K, V> map = new SplayTreeMap<K, V>(compare, isValidKey);
     Maps._fillMapWithMappedIterable(map, iterable, key, value);
     return map;
@@ -326,7 +326,7 @@ class SplayTreeMap<K, V> extends _SplayTree<K, _SplayTreeMapNode<K, V>>
    * It is an error if the two [Iterable]s don't have the same length.
    */
   factory SplayTreeMap.fromIterables(Iterable<K> keys, Iterable<V> values,
-      [int compare(K key1, K key2), bool isValidKey(potentialKey)]) {
+      [int compare(K key1, K key2)?, bool isValidKey(potentialKey)?]) {
     SplayTreeMap<K, V> map = new SplayTreeMap<K, V>(compare, isValidKey);
     Maps._fillMapWithIterables(map, keys, values);
     return map;
@@ -336,7 +336,8 @@ class SplayTreeMap<K, V> extends _SplayTree<K, _SplayTreeMapNode<K, V>>
 
   SplayTreeMap._internal();
 
-  V operator [](Object key) {
+  // TODO(nnbd-map)
+  V? operator [](Object key) {
     if (!_validKey(key)) return null;
     if (_root != null) {
       int comp = _splay(key as dynamic/*=K*/);
@@ -347,7 +348,9 @@ class SplayTreeMap<K, V> extends _SplayTree<K, _SplayTreeMapNode<K, V>>
     return null;
   }
 
-  V remove(Object key) {
+  V find(Object key) => this[key] as V;
+
+  V? remove(Object key) {
     if (!_validKey(key)) return null;
     _SplayTreeMapNode<K, V> mapRoot = _remove(key as dynamic/*=K*/);
     if (mapRoot != null) return mapRoot.value;
@@ -705,7 +708,7 @@ class SplayTreeSet<E> extends _SplayTree<E, _SplayTreeNode<E>>
    * If omitted, the `isValidKey` function defaults to checking against the
    * type parameter: `other is E`.
    */
-  SplayTreeSet([int compare(E key1, E key2), bool isValidKey(potentialKey)])
+  SplayTreeSet([int compare(E key1, E key2)?, bool isValidKey(potentialKey)?])
       : _comparator =
             compare ?? Comparable.compare as dynamic/*=Comparator<E>*/,
         _validKey = isValidKey ?? ((v) => v is E);
@@ -718,8 +721,8 @@ class SplayTreeSet<E> extends _SplayTree<E, _SplayTreeNode<E>>
    * All the [elements] should be valid as arguments to the [compare] function.
    */
   factory SplayTreeSet.from(Iterable elements,
-                            [int compare(E key1, E key2),
-                             bool isValidKey(potentialKey)]) {
+                            [int compare(E key1, E key2)?,
+                             bool isValidKey(potentialKey)?]) {
     SplayTreeSet<E> result = new SplayTreeSet<E>(compare, isValidKey);
     for (final element in elements) {
       E e = element as Object/*=E*/;
@@ -808,7 +811,7 @@ class SplayTreeSet<E> extends _SplayTree<E, _SplayTreeNode<E>>
     }
   }
 
-  E lookup(Object object) {
+  E? lookup(Object object) {
     if (!_validKey(object)) return null;
     int comp = _splay(object as dynamic/*=E*/);
     if (comp != 0) return null;

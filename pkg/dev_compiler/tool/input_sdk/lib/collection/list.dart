@@ -148,7 +148,9 @@ abstract class ListMixin<E> implements List<E> {
 
   E singleWhere(bool test(E element)) {
     int length = this.length;
-    E match = null;
+    // TODO(nnbd): This is basically an ad-hoc option type. Consider adding an
+    // option type so we can use it here and avoid the "as E" cast below.
+    E? match = null;
     bool matchFound = false;
     for (int i = 0; i < length; i++) {
       E element = this[i];
@@ -163,7 +165,7 @@ abstract class ListMixin<E> implements List<E> {
         throw new ConcurrentModificationError(this);
       }
     }
-    if (matchFound) return match;
+    if (matchFound) return match as E;
     throw IterableElementError.noElement();
   }
 
@@ -220,12 +222,16 @@ abstract class ListMixin<E> implements List<E> {
   }
 
   List<E> toList({ bool growable: true }) {
-    List<E> result;
-    if (growable) {
-      result = new List<E>()..length = length;
-    } else {
-      result = new List<E>(length);
-    }
+    // TODO(nnbd-definite)
+    var result = growable
+        ? (new List<E>()..length = length)
+        : new List<E>(length);
+    // List<E> result;
+    // if (growable) {
+    //   result = new List<E>()..length = length;
+    // } else {
+    //   result = new List<E>(length);
+    // }
     for (int i = 0; i < length; i++) {
       result[i] = this[i];
     }
@@ -321,10 +327,12 @@ abstract class ListMixin<E> implements List<E> {
   }
 
   void shuffle([Random? random]) {
-    if (random == null) random = new Random();
+    // TODO(nnbd-mutate)
+    // if (random == null) random = new Random();
+    var random_ = random ?? new Random();
     int length = this.length;
     while (length > 1) {
-      int pos = random.nextInt(length);
+      int pos = random_.nextInt(length);
       length -= 1;
       var tmp = this[length];
       this[length] = this[pos];
@@ -338,9 +346,11 @@ abstract class ListMixin<E> implements List<E> {
 
   List<E> sublist(int start, [int? end]) {
     int listLength = this.length;
-    if (end == null) end = listLength;
-    RangeError.checkValidRange(start, end, listLength);
-    int length = end - start;
+    // TODO(nnbd-mutate)
+    // if (end == null) end = listLength;
+    var end_ = end ?? listLength;
+    RangeError.checkValidRange(start, end_, listLength);
+    int length = end_ - start;
     List<E> result = new List<E>()..length = length;
     for (int i = 0; i < length; i++) {
       result[i] = this[start + i];
@@ -374,8 +384,9 @@ abstract class ListMixin<E> implements List<E> {
     if (length == 0) return;
     RangeError.checkNotNegative(skipCount, "skipCount");
 
-    List<E> otherList;
-    int otherStart;
+    // TODO(nnbd-definite)
+    List<E>? otherList;
+    int? otherStart;
     // TODO(floitsch): Make this accept more.
     if (iterable is List/*<E>*/) {
       otherList = iterable;
@@ -384,17 +395,19 @@ abstract class ListMixin<E> implements List<E> {
       otherList = iterable.skip(skipCount).toList(growable: false);
       otherStart = 0;
     }
-    if (otherStart + length > otherList.length) {
+    var otherList_ = otherList as List<E>;
+    var otherStart_ = otherStart as int;
+    if (otherStart_ + length > otherList_.length) {
       throw IterableElementError.tooFew();
     }
-    if (otherStart < start) {
+    if (otherStart_ < start) {
       // Copy backwards to ensure correct copy if [from] is this.
       for (int i = length - 1; i >= 0; i--) {
-        this[start + i] = otherList[otherStart + i];
+        this[start + i] = otherList_[otherStart_ + i];
       }
     } else {
       for (int i = 0; i < length; i++) {
-        this[start + i] = otherList[otherStart + i];
+        this[start + i] = otherList_[otherStart_ + i];
       }
     }
   }
@@ -449,14 +462,16 @@ abstract class ListMixin<E> implements List<E> {
     if (startIndex == null) {
       startIndex = this.length - 1;
     } else {
-      if (startIndex < 0) {
+      // TODO(nnbd-else)
+      if ((startIndex as int) < 0) {
         return -1;
       }
-      if (startIndex >= this.length) {
+      if ((startIndex as int) >= this.length) {
         startIndex = this.length - 1;
       }
     }
-    for (int i = startIndex; i >= 0; i--) {
+    // TODO(nnbd-flow)
+    for (int i = (startIndex as int); i >= 0; i--) {
       if (this[i] == element) {
         return i;
       }

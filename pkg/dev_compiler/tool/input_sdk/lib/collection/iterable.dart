@@ -133,10 +133,10 @@ abstract class IterableMixin<E> implements Iterable<E> {
     if (!it.moveNext()) {
       throw IterableElementError.noElement();
     }
-    E result;
-    do {
+    E result = it.current;
+    while (it.moveNext()) {
       result = it.current;
-    } while(it.moveNext());
+    }
     return result;
   }
 
@@ -157,21 +157,17 @@ abstract class IterableMixin<E> implements Iterable<E> {
   }
 
   E lastWhere(bool test(E value), { E orElse()? }) {
-    E result = null;
-    bool foundMatching = false;
     for (E element in this) {
       if (test(element)) {
-        result = element;
-        foundMatching = true;
+        orElse = () => element;
       }
     }
-    if (foundMatching) return result;
     if (orElse != null) return orElse();
     throw IterableElementError.noElement();
   }
 
   E singleWhere(bool test(E value)) {
-    E result = null;
+    E? result = null;
     bool foundMatching = false;
     for (E element in this) {
       if (test(element)) {
@@ -182,7 +178,7 @@ abstract class IterableMixin<E> implements Iterable<E> {
         foundMatching = true;
       }
     }
-    if (foundMatching) return result;
+    if (foundMatching) return result as E;
     throw IterableElementError.noElement();
   }
 
@@ -319,8 +315,8 @@ void _iterablePartsToStrings(Iterable iterable, List parts) {
     count++;
   }
 
-  String penultimateString;
-  String ultimateString;
+  String? penultimateString;
+  String? ultimateString;
 
   // Find last two elements. One or more of them may already be in the
   // parts array. Include their length in `length`.
@@ -340,7 +336,8 @@ void _iterablePartsToStrings(Iterable iterable, List parts) {
       }
       ultimateString = "$penultimate";
       penultimateString = parts.removeLast();
-      length += ultimateString.length + OVERHEAD;
+      // TODO(nnbd-flow): Should know these are non-null here.
+      length += (ultimateString as String).length + OVERHEAD;
     } else {
       ultimate = it.current;
       count++;
@@ -369,14 +366,15 @@ void _iterablePartsToStrings(Iterable iterable, List parts) {
       }
       penultimateString = "$penultimate";
       ultimateString = "$ultimate";
+      // TODO(nnbd-flow): Should know these are non-null here.
       length +=
-          ultimateString.length + penultimateString.length + 2 * OVERHEAD;
+          (ultimateString as String).length + (penultimateString as String).length + 2 * OVERHEAD;
     }
   }
 
   // If there is a gap between the initial run and the last two,
   // prepare to add an ellipsis.
-  String elision = null;
+  String? elision = null;
   if (count > parts.length + TAIL_COUNT) {
     elision = "...";
     length += ELLIPSIS_SIZE + OVERHEAD;
@@ -395,6 +393,7 @@ void _iterablePartsToStrings(Iterable iterable, List parts) {
   if (elision != null) {
     parts.add(elision);
   }
-  parts.add(penultimateString);
-  parts.add(ultimateString);
+  // TODO(nnbd-flow): Should know these are non-null here.
+  parts.add(penultimateString as String);
+  parts.add(ultimateString as String);
 }

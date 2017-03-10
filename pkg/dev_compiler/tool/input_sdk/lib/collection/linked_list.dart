@@ -33,7 +33,7 @@ class LinkedList<E extends LinkedListEntry<E>>
 
   int _modificationCount = 0;
   int _length = 0;
-  E _first;
+  E? _first;
 
   /**
    * Construct a new empty linked list.
@@ -87,10 +87,14 @@ class LinkedList<E extends LinkedListEntry<E>>
     _modificationCount++;
     if (isEmpty) return;
 
-    E next = _first;
+    // TODO(nnbd-assert): This is implied by the above isEmpty, but the type
+    // system doesn't know that.
+    E next = _first as E;
     do {
       E entry = next;
-      next = entry._next;
+      // TODO(nnbd-assert): If the list isn't empty, all of the nodes have
+      // valid links.
+      next = entry._next as E;
       entry._next = entry._previous = entry._list = null;
     } while (!identical(next, _first));
 
@@ -99,27 +103,35 @@ class LinkedList<E extends LinkedListEntry<E>>
   }
 
   E get first {
-    if (isEmpty) {
-      throw new StateError('No such element');
-    }
-    return _first;
+    // TODO(nnbd-throw): Using a clever little pattern here. Not sure if it's a good
+    // one or not, but it works.
+    // if (isEmpty) {
+    //   throw new StateError('No such element');
+    // }
+    // return _first;
+    return _first ?? (throw new StateError('No such element'));
   }
 
   E get last {
-    if (isEmpty) {
-      throw new StateError('No such element');
-    }
-    return _first._previous;
+    // TODO(nnbd-throw): Using a clever little pattern here. Not sure if it's a good
+    // one or not, but it works.
+    // if (isEmpty) {
+    //   throw new StateError('No such element');
+    // }
+    // return _first._previous;
+    return _first?._previous ?? (throw new StateError('No such element'));
   }
 
   E get single {
-    if (isEmpty) {
-      throw new StateError('No such element');
-    }
     if (_length > 1) {
       throw new StateError('Too many elements');
     }
-    return _first;
+    // TODO(nnbd-throw): Using a clever little pattern here. Not sure if it's a good
+    // one or not, but it works.
+    // if (isEmpty) {
+    //   throw new StateError('No such element');
+    // }
+    return _first ?? (throw new StateError('No such element'));
   }
 
   /**
@@ -131,13 +143,15 @@ class LinkedList<E extends LinkedListEntry<E>>
     int modificationCount = _modificationCount;
     if (isEmpty) return;
 
-    E current = _first;
+    // TODO(nnbd-assert): Implied by about isEmpty check.
+    E current = _first as E;
     do {
       action(current);
       if (modificationCount != _modificationCount) {
         throw new ConcurrentModificationError(this);
       }
-      current = current._next;
+      // TODO(nnbd-assert)
+      current = current._next as E;
     } while (!identical(current, _first));
   }
 
@@ -147,7 +161,9 @@ class LinkedList<E extends LinkedListEntry<E>>
   ///
   /// If [updateFirst] is true and [entry] is the first entry in the list,
   /// updates the [_first] field to point to the [newEntry] as first entry.
-  void _insertBefore(E entry, E newEntry, {bool updateFirst}) {
+  // TODO(nnbd-required-named): updateFirst is treated like a required
+  // parameter and is always passed.
+  void _insertBefore(E? entry, E newEntry, {bool? updateFirst}) {
     if (newEntry.list != null) {
       throw new StateError(
           'LinkedListEntry is already in a LinkedList');
@@ -162,13 +178,15 @@ class LinkedList<E extends LinkedListEntry<E>>
       _length++;
       return;
     }
-    E predecessor = entry._previous;
-    E successor = entry;
+    // TODO(nnbd): This method is a little ugly with non-nullable types.
+    // It should probably be reorganized to be more null-safe.
+    E predecessor = (entry as E)._previous as E;
+    E successor = (entry as E);
     newEntry._previous = predecessor;
     newEntry._next = successor;
     predecessor._next = newEntry;
     successor._previous = newEntry;
-    if (updateFirst && identical(entry, _first)) {
+    if ((updateFirst as bool) && identical(entry, _first)) {
       _first = newEntry;
     }
     _length++;
@@ -176,8 +194,9 @@ class LinkedList<E extends LinkedListEntry<E>>
 
   void _unlink(E entry) {
     _modificationCount++;
-    entry._next._previous = entry._previous;
-    E next = entry._previous._next = entry._next;
+    // TODO(nnbd-assert)
+    (entry._next as E)._previous = entry._previous;
+    var next = (entry._previous as E)._next = entry._next;
     _length--;
     entry._list = entry._next = entry._previous = null;
     if (isEmpty) {
@@ -193,8 +212,8 @@ class _LinkedListIterator<E extends LinkedListEntry<E>>
     implements Iterator<E> {
   final LinkedList<E> _list;
   final int _modificationCount;
-  E _current;
-  LinkedListEntry<E> _next;
+  E? _current;
+  LinkedListEntry<E>? _next;
   bool _visitedFirst;
 
   _LinkedListIterator(LinkedList<E> list)
@@ -203,7 +222,7 @@ class _LinkedListIterator<E extends LinkedListEntry<E>>
       _next = list._first,
       _visitedFirst = false;
 
-  E get current => _current;
+  E get current => _current as E;
 
   bool moveNext() {
     if (_modificationCount != _list._modificationCount) {
@@ -216,7 +235,8 @@ class _LinkedListIterator<E extends LinkedListEntry<E>>
     }
     _visitedFirst = true;
     _current = _next;
-    _next = _next._next;
+    // TODO(nnbd-assert)
+    _next = (_next as E)._next;
     return true;
   }
 }
@@ -237,16 +257,16 @@ class _LinkedListIterator<E extends LinkedListEntry<E>>
  * When created, an entry is not in any linked list.
  */
 abstract class LinkedListEntry<E extends LinkedListEntry<E>> {
-  LinkedList<E> _list;
-  E _next;
-  E _previous;
+  LinkedList<E>? _list;
+  E? _next;
+  E? _previous;
 
   /**
    * Get the linked list containing this element.
    *
    * Returns `null` if this entry is not currently in any list.
    */
-  LinkedList<E> get list => _list;
+  LinkedList<E>? get list => _list;
 
   /**
    * Unlink the element from its linked list.
@@ -254,7 +274,8 @@ abstract class LinkedListEntry<E extends LinkedListEntry<E>> {
    * The entry must currently be in a linked list when this method is called.
    */
   void unlink() {
-    _list._unlink(this);
+    // TODO(nnbd-assert): Note doc comment.
+    (_list as LinkedList<E>)._unlink(this);
   }
 
   /**
@@ -263,7 +284,7 @@ abstract class LinkedListEntry<E extends LinkedListEntry<E>> {
    * Returns `null` if there is no successor in the linked list, or if this
    * entry is not currently in any list.
    */
-  E get next {
+  E? get next {
     if (identical(this, _next)) return null;
     return _next;
   }
@@ -274,7 +295,7 @@ abstract class LinkedListEntry<E extends LinkedListEntry<E>> {
    * Returns `null` if there is no predecessor in the linked list, or if this
    * entry is not currently in any list.
    */
-  E get previous {
+  E? get previous {
     if (identical(this, _previous)) return null;
     return _previous;
   }
@@ -286,7 +307,8 @@ abstract class LinkedListEntry<E extends LinkedListEntry<E>> {
    * The [entry] must not be in a linked list.
    */
   void insertAfter(E entry) {
-    _list._insertBefore(_next, entry, updateFirst: false);
+    // TODO(nnbd-assert): Note doc comment.
+    (_list as LinkedList<E>)._insertBefore(_next, entry, updateFirst: false);
   }
 
   /**
@@ -296,6 +318,7 @@ abstract class LinkedListEntry<E extends LinkedListEntry<E>> {
    * The [entry] must not be in a linked list.
    */
   void insertBefore(E entry) {
-    _list._insertBefore(this as dynamic/*=E*/, entry, updateFirst: true);
+    // TODO(nnbd-assert): Note doc comment.
+    (_list as LinkedList<E>)._insertBefore(this as dynamic/*=E*/, entry, updateFirst: true);
   }
 }

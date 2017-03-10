@@ -41,35 +41,36 @@ abstract class MapBase<K, V> = Object with MapMixin<K, V>;
  */
 abstract class MapMixin<K, V> implements Map<K, V> {
   Iterable<K> get keys;
-  V operator[](Object key);
+  V? operator[](Object key);
+  V find(Object key) => this[key] as V;
   operator []=(K key, V value);
-  V remove(Object key);
+  V? remove(Object key);
   // The `clear` operation should not be based on `remove`.
   // It should clear the map even if some keys are not equal to themselves.
   void clear();
 
   void forEach(void action(K key, V value)) {
     for (K key in keys) {
-      action(key, this[key]);
+      action(key, find(key));
     }
   }
 
   void addAll(Map<K, V> other) {
     for (K key in other.keys) {
-      this[key] = other[key];
+      this[key] = other.find(key);
     }
   }
 
   bool containsValue(Object value) {
     for (K key in keys) {
-      if (this[key] == value) return true;
+      if (find(key) == value) return true;
     }
     return false;
   }
 
   V putIfAbsent(K key, V ifAbsent()) {
     if (containsKey(key)) {
-      return this[key];
+      return find(key);
     }
     return this[key] = ifAbsent();
   }
@@ -119,9 +120,9 @@ class _MapBaseValueIterable<K, V> extends Iterable<V>
   int get length => _map.length;
   bool get isEmpty => _map.isEmpty;
   bool get isNotEmpty => _map.isNotEmpty;
-  V get first => _map[_map.keys.first];
-  V get single => _map[_map.keys.single];
-  V get last => _map[_map.keys.last];
+  V get first => _map.find(_map.keys.first);
+  V get single => _map.find(_map.keys.single);
+  V get last => _map.find(_map.keys.last);
 
   Iterator<V> get iterator => new _MapBaseValueIterator<K, V>(_map);
 }
@@ -135,7 +136,7 @@ class _MapBaseValueIterable<K, V> extends Iterable<V>
 class _MapBaseValueIterator<K, V> implements Iterator<V> {
   final Iterator<K> _keys;
   final Map<K, V> _map;
-  V _current = null;
+  V? _current = null;
 
   _MapBaseValueIterator(Map<K, V> map)
       : _map = map,
@@ -150,7 +151,7 @@ class _MapBaseValueIterator<K, V> implements Iterator<V> {
     return false;
   }
 
-  V get current => _current;
+  V get current => _current as V;
 }
 
 /**
@@ -186,7 +187,8 @@ class MapView<K, V> implements Map<K, V> {
   final Map<K, V> _map;
   const MapView(Map<K, V> map) : _map = map;
 
-  V operator[](Object key) => _map[key];
+  V? operator[](Object key) => _map[key];
+  V find(Object key) => _map.find(key);
   void operator[]=(K key, V value) { _map[key] = value; }
   void addAll(Map<K, V> other) { _map.addAll(other); }
   void clear() { _map.clear(); }
@@ -198,7 +200,7 @@ class MapView<K, V> implements Map<K, V> {
   bool get isNotEmpty => _map.isNotEmpty;
   int get length => _map.length;
   Iterable<K> get keys => _map.keys;
-  V remove(Object key) => _map.remove(key);
+  V? remove(Object key) => _map.remove(key);
   String toString() => _map.toString();
   Iterable<V> get values => _map.values;
 }
