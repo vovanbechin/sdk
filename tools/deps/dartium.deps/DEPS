@@ -8,8 +8,7 @@ execfile(os.path.join(path, 'src', 'dart', 'tools', 'deps', 'dartium.deps', 'DEP
 # Now we need to override some settings and add some new ones.
 
 vars.update({
-  "dartium_chromium_commit": "c39446ae30f0aeccf166413c9e9fa1aed026245f",
-#  "dartium_webkit_commit": "522da5fa29843cb44afdc20328be356f693685d6",
+  "dartium_chromium_commit": "dad53ff2c37cc4580e59731c21f6c0de939c934c",
   "chromium_base_revision": "378081",
 
   # We use mirrors of all github repos to guarantee reproducibility and
@@ -76,11 +75,6 @@ deps.update({
   "src":
     Var("chromium_git") + "/dart/dartium/src.git" + "@" +
         Var("dartium_chromium_commit"),
-
-#  "src/third_party/WebKit":
-#    Var("chromium_git") + "/dart/dartium/blink.git" + "@" +
-#        Var("dartium_webkit_commit"),
-
   "src/dart/third_party/pkg/args":
       (Var("github_mirror") % "args") + Var("args_tag"),
   "src/dart/third_party/pkg/barback":

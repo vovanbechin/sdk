@@ -40,14 +40,12 @@ vars = {
   'v8_revision':
     'ad16e6c2cbd2c6b0f2e8ff944ac245561c682ac2'
 }
-
 allowed_hosts = [
   'android.googlesource.com',
   'boringssl.googlesource.com',
   'chromium.googlesource.com',
   'pdfium.googlesource.com'
 ]
-
 deps = {
   'src/breakpad/src':
     (Var("chromium_git")) + '/breakpad/breakpad/src.git@481608d284106df9400d447e95574799670cabaf',
@@ -97,11 +95,10 @@ deps = {
     (Var("chromium_git")) + '/external/libaddressinput.git@5eeeb797e79fa01503fcdcbebdc50036fac023ef',
   'src/third_party/libexif/sources':
     (Var("chromium_git")) + '/chromium/deps/libexif/sources.git@9d467f7d21e4749ee22ee7520e561ac7b38484b9',
-#  'src/third_party/libjingle/source/talk':
+  'src/third_party/libjingle/source/talk':
+    (Var("chromium_git")) + '/external/webrtc/trunk/talk.git@a4cc90bc9bfb5cc932075aebccb734e38932b107',
+# TODO(terry): Hash different between original and git mirror above is new hash below is original hash.  Some CL though.
 #    (Var("chromium_git")) + '/external/webrtc/trunk/talk.git@04170d694b177d0e4b2c4f191daad36e88f765b2',
-# TODO(terry): Above is correct commit - below is commit we can find.
-#  'src/third_party/libjingle/source/talk':
-#    (Var("chromium_git")) + '/external/webrtc/trunk/talk.git@a4cc90bc9bfb5cc932075aebccb734e38932b107',
   'src/third_party/libjpeg_turbo':
     (Var("chromium_git")) + '/chromium/deps/libjpeg_turbo.git@e4e75037f29745f1546b6ebf5cf532e841c04c2c',
   'src/third_party/libphonenumber/src/phonenumbers':
@@ -114,8 +111,6 @@ deps = {
     (Var("chromium_git")) + '/chromium/deps/libsrtp.git@8eecac0feef4c65e2debb42718a10eab91551f35',
   'src/third_party/libvpx_new/source/libvpx':
     (Var("chromium_git")) + '/webm/libvpx.git@89cc68252846478fa7f2d570d96ff93776cefac6',
-  'src/third_party/libvpx':
-    (Var("chromium_git")) + '/chromium/deps/libvpx.git@96484d320036bbc1e30f1dea232799a3e0517b1d',
   'src/third_party/libwebm/source':
     (Var("chromium_git")) + '/webm/libwebm.git@75a6d2da8b63e0c446ec0ce1ac942c2962d959d7',
   'src/third_party/libyuv':
@@ -158,14 +153,24 @@ deps = {
     (Var("chromium_git")) + '/external/khronosgroup/webgl.git@1012e1f8baea808f3bc9fcef945d66b5f740c32b',
   'src/third_party/webpagereplay':
     (Var("chromium_git")) + '/external/github.com/chromium/web-page-replay.git@7564939bdf6482d57b9bd5e9c931679f96d8cf75',
-# TODO(terry): Can't find this commit - see work around:
-#       > git fetch origin refs/branch-heads/50
-#       > git checkout -b webrtc_roll_509 256ade59023c75dcf2135a4d99a371c09d07e0fe
-#
+# TODO(terry): below directory to enlist temporary commented out to explicitly pull in src/third_party/webrtc
+#              at SHA commit 256ade59023c75dcf2135a4d99a371c09d07e0fe (need to revert src checkin
+#              https://codereview.chromium.org/2741183002 then uncomment below 2 lines and remove rest
+#              of comments below those 2 lines.
 #  'src/third_party/webrtc':
 #    (Var("chromium_git")) + '/external/webrtc/trunk/webrtc.git@256ade59023c75dcf2135a4d99a371c09d07e0fe',
-# TODO(terry): Above is correct commit - below is commit we can find.
-#  'src/third_party/webrtc':
+# TODO(terry): Above is correct commit - below is a commit that exists on the mirrors.
+#
+#              To work around comment the above SHA and enable the below SHA
+#              do a gclient sync then after that do this:
+#
+#              > git fetch origin refs/branch-heads/50
+#              > git checkout -b webrtc_roll_50 256ade59023c75dcf2135a4d99a371c09d07e0
+#
+#              then comment the below SHA and enable the above SHA line.
+#
+#              then gclient sync again, everything will now work locally.
+#
 #    (Var("chromium_git")) + '/external/webrtc/trunk/webrtc.git@780d506ddf7bcba4a3dc04cfe2240c1ae80880f2',
   'src/third_party/yasm/source/patched-yasm':
     (Var("chromium_git")) + '/chromium/deps/yasm/patched-yasm.git@7da28c6c7c6a1387217352ce02b31754deb54d2a',
@@ -178,7 +183,6 @@ deps = {
   'src/v8':
     (Var("chromium_git")) + '/v8/v8.git@45a71919836046560ba8eb349eaf9172857ffe6f'
 }
-
 deps_os = {
   'android': {
     'src/third_party/android_protobuf/src':
@@ -327,7 +331,6 @@ deps_os = {
       (Var("chromium_git")) + '/chromium/deps/yasm/binaries.git@52f9b3f4b0aa06da24ef8b123058bb61ee468881'
   }
 }
-
 hooks = [
   {
     'action': [
@@ -710,7 +713,6 @@ hooks = [
       'gyp'
   }
 ]
-
 include_rules = [
   '+base',
   '+build',
@@ -721,7 +723,6 @@ include_rules = [
   '+third_party/icu/source/i18n/unicode',
   '+url'
 ]
-
 skip_child_includes = [
   'breakpad',
   'native_client_sdk',
