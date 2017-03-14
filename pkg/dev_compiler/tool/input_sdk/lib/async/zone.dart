@@ -49,7 +49,7 @@ typedef Zone ForkHandler(Zone self, ZoneDelegate parent, Zone zone,
 /** Pair of error and stack trace. Returned by [Zone.errorCallback]. */
 class AsyncError implements Error {
   final Object error;
-  final StackTrace stackTrace;
+  final StackTrace? stackTrace;
 
   AsyncError(this.error, this.stackTrace);
 
@@ -215,7 +215,7 @@ abstract class ZoneDelegate {
       Zone zone, /*=R*/ f(/*=T*/ arg));
   ZoneBinaryCallback/*<R, T1, T2>*/ registerBinaryCallback/*<R, T1, T2>*/(
       Zone zone, /*=R*/ f(/*=T1*/ arg1, /*=T2*/ arg2));
-  AsyncError errorCallback(Zone zone, Object error, StackTrace stackTrace);
+  AsyncError? errorCallback(Zone zone, Object error, StackTrace? stackTrace);
   void scheduleMicrotask(Zone zone, void f());
   Timer createTimer(Zone zone, Duration duration, void f());
   Timer createPeriodicTimer(Zone zone, Duration period, void f(Timer timer));
@@ -403,7 +403,7 @@ abstract class Zone {
    * the new pair of error and stack trace.
    * If the [AsyncError.error] is `null`, it is replaced by a [NullThrownError].
    */
-  AsyncError errorCallback(Object error, StackTrace stackTrace);
+  AsyncError? errorCallback(Object error, StackTrace? stackTrace);
 
   /**
    * Runs [f] asynchronously in this zone.
@@ -548,7 +548,7 @@ class _ZoneDelegate implements ZoneDelegate {
         as Object/*=ZoneBinaryCallback<R, T1, T2>*/;
   }
 
-  AsyncError errorCallback(Zone zone, Object error, StackTrace stackTrace) {
+  AsyncError? errorCallback(Zone zone, Object error, StackTrace? stackTrace) {
     var implementation = _delegationTarget._errorCallback;
     _Zone implZone = implementation.zone;
     if (identical(implZone, _ROOT_ZONE)) return null;
@@ -886,7 +886,7 @@ class _CustomZone extends _Zone {
         as Object/*=ZoneBinaryCallback<R, T1, T2>*/;
   }
 
-  AsyncError errorCallback(Object error, StackTrace stackTrace) {
+  AsyncError? errorCallback(Object error, StackTrace? stackTrace) {
     var implementation = this._errorCallback;
     assert(implementation != null);
     final Zone implementationZone = implementation.zone;
@@ -1219,7 +1219,7 @@ class _RootZone extends _Zone {
   ZoneBinaryCallback/*<R, T1, T2>*/ registerBinaryCallback/*<R, T1, T2>*/(
       /*=R*/ f(/*=T1*/ arg1, /*=T2*/ arg2)) => f;
 
-  AsyncError errorCallback(Object error, StackTrace stackTrace) => null;
+  AsyncError? errorCallback(Object error, StackTrace? stackTrace) => null;
 
   void scheduleMicrotask(void f()) {
     _rootScheduleMicrotask(null, null, this, f);

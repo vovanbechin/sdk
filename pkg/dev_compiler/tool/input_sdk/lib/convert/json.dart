@@ -168,7 +168,7 @@ class JsonEncoder extends Converter<Object, String> {
    *
    * If `null`, the output is encoded as a single line.
    */
-  final String indent;
+  final String? indent;
 
   /**
    * Function called on non-encodable objects to return a replacement
@@ -210,7 +210,7 @@ class JsonEncoder extends Converter<Object, String> {
    * If [toEncodable] is omitted, it defaults to calling `.toJson()` on
    * the object.
    */
-  const JsonEncoder.withIndent(this.indent, [toEncodable(nonSerializable)])
+  const JsonEncoder.withIndent(this.indent, [toEncodable(nonSerializable)?])
       : this._toEncodable = toEncodable;
 
   /**
@@ -471,13 +471,13 @@ class _JsonUtf8EncoderSink extends ChunkedConversionSink<Object> {
  * This class parses JSON strings and builds the corresponding objects.
  */
 class JsonDecoder extends Converter<String, Object> {
-  final _Reviver _reviver;
+  final _Reviver? _reviver;
   /**
    * Constructs a new JsonDecoder.
    *
    * The [reviver] may be `null`.
    */
-  const JsonDecoder([reviver(var key, var value)]) : this._reviver = reviver;
+  const JsonDecoder([reviver(var key, var value)?]) : this._reviver = reviver;
 
   /**
    * Converts the given JSON-string [input] to its corresponding object.

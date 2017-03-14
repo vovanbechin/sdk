@@ -87,7 +87,7 @@ class Utf8Encoder extends Converter<String, List<int>> {
    * If [start] and [end] are provided, only the substring
    * `string.substring(start, end)` is converted.
    */
-  List<int> convert(String string, [int start = 0, int end]) {
+  List<int> convert(String string, [int start = 0, int? end]) {
     int stringLength = string.length;
     RangeError.checkValidRange(start, end, stringLength);
     if (end == null) end = stringLength;
@@ -330,7 +330,7 @@ class Utf8Decoder extends Converter<List<int>, String> {
    * If the [codeUnits] start with a leading [UNICODE_BOM_CHARACTER_RUNE] this
    * character is discarded.
    */
-  String convert(List<int> codeUnits, [int start = 0, int end]) {
+  String convert(List<int> codeUnits, [int start = 0, int? end]) {
     // Allow the implementation to intercept and specialize based on the type
     // of codeUnits.
     String result = _convertIntercepted(_allowMalformed, codeUnits, start, end);

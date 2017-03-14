@@ -1494,7 +1494,7 @@ abstract class EventSink<T> implements Sink<T> {
   void add(T event);
 
   /** Send an async error to a stream. */
-  void addError(errorEvent, [StackTrace stackTrace]);
+  void addError(errorEvent, [StackTrace? stackTrace]);
 
   /** Close the sink. No further events can be added after closing. */
   void close();
@@ -1813,7 +1813,7 @@ class _ControllerEventSinkWrapper<T> implements EventSink<T> {
   _ControllerEventSinkWrapper(this._sink);
 
   void add(T data) { _sink.add(data); }
-  void addError(error, [StackTrace stackTrace]) {
+  void addError(error, [StackTrace? stackTrace]) {
     _sink.addError(error, stackTrace);
   }
   void close() { _sink.close(); }

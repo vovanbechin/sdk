@@ -16,10 +16,10 @@ abstract class _Completer<T> implements Completer<T> {
 
   void complete([value]);
 
-  void completeError(Object error, [StackTrace stackTrace]) {
+  void completeError(Object error, [StackTrace? stackTrace]) {
     error = _nonNullError(error);
     if (!future._mayComplete) throw new StateError("Future already completed");
-    AsyncError replacement = Zone.current.errorCallback(error, stackTrace);
+    AsyncError? replacement = Zone.current.errorCallback(error, stackTrace);
     if (replacement != null) {
       error = _nonNullError(replacement.error);
       stackTrace = replacement.stackTrace;
@@ -27,7 +27,7 @@ abstract class _Completer<T> implements Completer<T> {
     _completeError(error, stackTrace);
   }
 
-  void _completeError(Object error, StackTrace stackTrace);
+  void _completeError(Object error, StackTrace? stackTrace);
 
   // The future's _isComplete doesn't take into account pending completions.
   // We therefore use _mayComplete.
@@ -41,7 +41,7 @@ class _AsyncCompleter<T> extends _Completer<T> {
     future._asyncComplete(value);
   }
 
-  void _completeError(Object error, StackTrace stackTrace) {
+  void _completeError(Object error, StackTrace? stackTrace) {
     future._asyncCompleteError(error, stackTrace);
   }
 }
@@ -52,7 +52,7 @@ class _SyncCompleter<T> extends _Completer<T> {
     future._complete(value);
   }
 
-  void _completeError(Object error, StackTrace stackTrace) {
+  void _completeError(Object error, StackTrace? stackTrace) {
     future._completeError(error, stackTrace);
   }
 }
@@ -71,7 +71,7 @@ class _FutureListener<S, T> {
   static const int STATE_CATCHERROR_TEST = 6;  // MASK_ERROR | MASK_TEST_ERROR.
   static const int STATE_WHENCOMPLETE = MASK_WHENCOMPLETE;
   // Listeners on the same future are linked through this link.
-  _FutureListener _nextListener = null;
+  _FutureListener? _nextListener = null;
   // The future to complete when this listener is activated.
   final _Future<T> result;
   // Which fields means what.
@@ -79,7 +79,7 @@ class _FutureListener<S, T> {
   // Used for then/whenDone callback and error test
   final Function callback;
   // Used for error callbacks.
-  final Function errorCallback;
+  final Function? errorCallback;
 
   _FutureListener.then(this.result,
                        _FutureOnValue<S, T> onValue, Function errorCallback)
@@ -109,7 +109,7 @@ class _FutureListener<S, T> {
     assert(handlesValue);
     return callback as Object /*=_FutureOnValue<S, T>*/;
   }
-  Function get _onError => errorCallback;
+  Function? get _onError => errorCallback;
   _FutureErrorTest get _errorTest {
     assert(hasErrorTest);
     return callback as Object /*=_FutureErrorTest*/;
@@ -213,7 +213,7 @@ class _Future<T> implements Future<T> {
     _asyncComplete(value);
   }
 
-  _Future.immediateError(var error, [StackTrace stackTrace]) {
+  _Future.immediateError(var error, [StackTrace? stackTrace]) {
     _asyncCompleteError(error, stackTrace);
   }
 
@@ -468,7 +468,7 @@ class _Future<T> implements Future<T> {
     _propagateToListeners(this, listeners);
   }
 
-  void _completeError(error, [StackTrace stackTrace]) {
+  void _completeError(error, [StackTrace? stackTrace]) {
     assert(!_isComplete);
 
     _FutureListener listeners = _removeListeners();
@@ -520,7 +520,7 @@ class _Future<T> implements Future<T> {
     });
   }
 
-  void _asyncCompleteError(error, StackTrace stackTrace) {
+  void _asyncCompleteError(error, StackTrace? stackTrace) {
     assert(!_isComplete);
 
     _setPendingComplete();
@@ -650,7 +650,7 @@ class _Future<T> implements Future<T> {
           }
         }
 
- 
+
         if (listener.handlesComplete) {
           handleWhenCompleteCallback();
         } else if (!hasError) {
@@ -662,7 +662,7 @@ class _Future<T> implements Future<T> {
             handleError();
           }
         }
-        
+
         // If we changed zone, oldZone will not be null.
         if (oldZone != null) Zone._leave(oldZone);
 
@@ -701,10 +701,11 @@ class _Future<T> implements Future<T> {
     }
   }
 
-  Future<T> timeout(Duration timeLimit, {onTimeout()}) {
+  Future<T> timeout(Duration timeLimit, {onTimeout()?}) {
     if (_isComplete) return new _Future.immediate(this);
     _Future<T> result = new _Future<T>();
-    Timer timer;
+    // TODO(nnbd-definite)
+    Timer? timer;
     if (onTimeout == null) {
       timer = new Timer(timeLimit, () {
         result._completeError(new TimeoutException("Future not completed",
@@ -712,23 +713,25 @@ class _Future<T> implements Future<T> {
       });
     } else {
       Zone zone = Zone.current;
-      onTimeout = zone.registerCallback(onTimeout);
+      // TODO(nnbd-else)
+      onTimeout = zone.registerCallback(onTimeout as Function);
       timer = new Timer(timeLimit, () {
         try {
-          result._complete(zone.run(onTimeout));
+          result._complete(zone.run(onTimeout as Function));
         } catch (e, s) {
           result._completeError(e, s);
         }
       });
     }
+    Timer timer_ = timer as Timer;
     this.then((T v) {
-      if (timer.isActive) {
-        timer.cancel();
+      if (timer_.isActive) {
+        timer_.cancel();
         result._completeWithValue(v);
       }
     }, onError: (e, s) {
-      if (timer.isActive) {
-        timer.cancel();
+      if (timer_.isActive) {
+        timer_.cancel();
         result._completeError(e, s);
       }
     });

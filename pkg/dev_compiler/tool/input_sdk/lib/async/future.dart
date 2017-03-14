@@ -191,10 +191,10 @@ abstract class Future<T> {
    *
    * Use [Completer] to create a future and complete it later.
    */
-  factory Future.error(Object error, [StackTrace stackTrace]) {
+  factory Future.error(Object error, [StackTrace? stackTrace]) {
     error = _nonNullError(error);
     if (!identical(Zone.current, _ROOT_ZONE)) {
-      AsyncError replacement = Zone.current.errorCallback(error, stackTrace);
+      AsyncError? replacement = Zone.current.errorCallback(error, stackTrace);
       if (replacement != null) {
         error = _nonNullError(replacement.error);
         stackTrace = replacement.stackTrace;
@@ -221,11 +221,13 @@ abstract class Future<T> {
    * See also [Completer] for a way to create and complete a future at a
    * later time that isn't necessarily after a known fixed duration.
    */
-  factory Future.delayed(Duration duration, [computation()]) {
+  factory Future.delayed(Duration duration, [computation()?]) {
     _Future<T> result = new _Future<T>();
     new Timer(duration, () {
       try {
-        result._complete(computation == null ? null : computation());
+        // TODO(nnbd-else)
+        result._complete(computation != null ? computation() : null);
+        // result._complete(computation == null ? null : computation());
       } catch (e, s) {
         _completeWithErrorCallback(result, e, s);
       }
@@ -256,19 +258,20 @@ abstract class Future<T> {
    */
   static Future<List/*<T>*/> wait/*<T>*/(Iterable<Future/*<T>*/> futures,
                            {bool eagerError: false,
-                            void cleanUp(/*=T*/ successValue)}) {
+                            void cleanUp(/*=T*/ successValue)?}) {
     final _Future<List/*<T>*/> result = new _Future<List/*<T>*/>();
-    List/*<T>*/ values;  // Collects the values. Set to null on error.
+    List/*<T>*/? values;  // Collects the values. Set to null on error.
     int remaining = 0;  // How many futures are we waiting for.
     var error;   // The first error from a future.
-    StackTrace stackTrace;  // The stackTrace that came with the error.
+    StackTrace? stackTrace;  // The stackTrace that came with the error.
 
     // Handle an error from any of the futures.
     void handleError(theError, theStackTrace) {
       remaining--;
       if (values != null) {
         if (cleanUp != null) {
-          for (var value in values) {
+          // TODO(nnbd-mutate)
+          for (var value in (values as List/*<T>*/)) {
             if (value != null) {
               // Ensure errors from cleanUp are uncaught.
               new Future.sync(() { cleanUp(value); });
@@ -294,9 +297,10 @@ abstract class Future<T> {
       future.then((Object/*=T*/ value) {
         remaining--;
         if (values != null) {
-          values[pos] = value;
+          // TODO(nnbd-mutate)
+          (values as List/*<T>*/)[pos] = value;
           if (remaining == 0) {
-            result._completeWithValue(values);
+            result._completeWithValue(values as List/*<T>*/);
           }
         } else {
           if (cleanUp != null && value != null) {
@@ -432,7 +436,7 @@ abstract class Future<T> {
    * with a `test` parameter, instead of handling both value and error in a
    * single [then] call.
    */
-  Future/*<S>*/ then/*<S>*/(onValue(T value), { Function onError });
+  Future/*<S>*/ then/*<S>*/(onValue(T value), { Function? onError });
 
   /**
    * Handles errors emitted by this [Future].
@@ -496,7 +500,7 @@ abstract class Future<T> {
   // Note: making `catchError` return a `Future<T>` in non-strong mode could be
   // a breaking change.
   Future/*<T>*/ catchError(Function onError,
-                           {bool test(Object error)});
+                           {bool test(Object error)?});
 
   /**
    * Register a function to be called when this future completes.
@@ -560,7 +564,7 @@ abstract class Future<T> {
    * If `onTimeout` is omitted, a timeout will cause the returned future to
    * complete with a [TimeoutException].
    */
-  Future<T> timeout(Duration timeLimit, {onTimeout()});
+  Future<T> timeout(Duration timeLimit, {onTimeout()?});
 }
 
 /**
@@ -568,9 +572,9 @@ abstract class Future<T> {
  */
 class TimeoutException implements Exception {
   /** Description of the cause of the timeout. */
-  final String message;
+  final String? message;
   /** The duration that was exceeded. */
-  final Duration duration;
+  final Duration? duration;
 
   TimeoutException(this.message, [this.duration]);
 
@@ -740,7 +744,7 @@ abstract class Completer<T> {
    *     theFuture.catchError(thisCompleter.completeError);
    *
    */
-  void completeError(Object error, [StackTrace stackTrace]);
+  void completeError(Object error, [StackTrace? stackTrace]);
 
   /**
    * Whether the future has been completed.
@@ -751,7 +755,7 @@ abstract class Completer<T> {
 // Helper function completing a _Future with error, but checking the zone
 // for error replacement first.
 void _completeWithErrorCallback(_Future result, error, stackTrace) {
-  AsyncError replacement = Zone.current.errorCallback(error, stackTrace);
+  AsyncError? replacement = Zone.current.errorCallback(error, stackTrace);
   if (replacement != null) {
     error = _nonNullError(replacement.error);
     stackTrace = replacement.stackTrace;

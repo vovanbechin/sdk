@@ -20,7 +20,7 @@ abstract class _EventSink<T> {
  */
 abstract class _EventDispatch<T> {
   void _sendData(T data);
-  void _sendError(Object error, StackTrace stackTrace);
+  void _sendError(Object error, StackTrace? stackTrace);
   void _sendDone();
 }
 
@@ -262,7 +262,7 @@ class _BufferingStreamSubscription<T> implements StreamSubscription<T>,
     }
   }
 
-  void _addError(Object error, StackTrace stackTrace) {
+  void _addError(Object error, StackTrace? stackTrace) {
     if (_isCanceled) return;
     if (_canFire) {
       _sendError(error, stackTrace);  // Reports cancel after sending.
@@ -334,7 +334,7 @@ class _BufferingStreamSubscription<T> implements StreamSubscription<T>,
     _checkState(wasInputPaused);
   }
 
-  void _sendError(var error, StackTrace stackTrace) {
+  void _sendError(var error, StackTrace? stackTrace) {
     assert(!_isCanceled);
     assert(!_isPaused);
     assert(!_inCallback);
@@ -565,7 +565,7 @@ typedef void _DoneHandler();
 void _nullDataHandler(var value) {}
 
 /** Default error handler, reports the error to the current zone's handler. */
-void _nullErrorHandler(error, [StackTrace stackTrace]) {
+void _nullErrorHandler(error, [StackTrace? stackTrace]) {
   Zone.current.handleUncaughtError(error, stackTrace);
 }
 
@@ -593,7 +593,7 @@ class _DelayedData<T> extends _DelayedEvent<T> {
 /** A delayed error event. */
 class _DelayedError extends _DelayedEvent {
   final error;
-  final StackTrace stackTrace;
+  final StackTrace? stackTrace;
 
   _DelayedError(this.error, this.stackTrace);
   void perform(_EventDispatch dispatch) {
@@ -1056,7 +1056,7 @@ class _StreamIteratorImpl<T> implements StreamIterator<T> {
     _state = _STATE_EXTRA_DATA;
   }
 
-  void _onError(Object error, [StackTrace stackTrace]) {
+  void _onError(Object error, [StackTrace? stackTrace]) {
     if (_state == _STATE_MOVING) {
       _Future<bool> hasNext = _futureOrPrefetch as Object /*=_Future<bool>*/;
       // We have cancelOnError: true, so the subscription is canceled.

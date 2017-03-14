@@ -35,10 +35,10 @@ Function _registerErrorHandler/*<R>*/(Function errorHandler, Zone zone) {
 }
 
 class _UncaughtAsyncError extends AsyncError {
-  _UncaughtAsyncError(error, StackTrace stackTrace)
+  _UncaughtAsyncError(error, StackTrace? stackTrace)
       : super(error, _getBestStackTrace(error, stackTrace));
 
-  static StackTrace _getBestStackTrace(error, StackTrace stackTrace) {
+  static StackTrace? _getBestStackTrace(error, StackTrace? stackTrace) {
     if (stackTrace != null) return stackTrace;
     if (error is Error) {
       return error.stackTrace;

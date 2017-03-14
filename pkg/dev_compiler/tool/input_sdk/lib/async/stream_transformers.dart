@@ -12,7 +12,7 @@ class _EventSinkWrapper<T> implements EventSink<T> {
   _EventSinkWrapper(this._sink);
 
   void add(T data) { _sink._add(data); }
-  void addError(error, [StackTrace stackTrace]) {
+  void addError(error, [StackTrace? stackTrace]) {
     _sink._addError(error, stackTrace);
   }
   void close() { _sink._close(); }
@@ -215,7 +215,7 @@ class _HandlerEventSink<S, T> implements EventSink<S> {
                     this._sink);
 
   void add(S data) { _handleData(data, _sink); }
-  void addError(Object error, [StackTrace stackTrace]) {
+  void addError(Object error, [StackTrace? stackTrace]) {
     _handleError(error, stackTrace, _sink);
   }
   void close() { _handleDone(_sink); }

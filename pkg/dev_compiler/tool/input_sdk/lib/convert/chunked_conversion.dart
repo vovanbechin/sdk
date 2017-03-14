@@ -90,7 +90,7 @@ class _ConverterStreamEventSink<S, T> implements EventSink<S> {
         _chunkedSink = converter.startChunkedConversion(sink);
 
   void add(S o) { _chunkedSink.add(o); }
-  void addError(Object error, [StackTrace stackTrace]) {
+  void addError(Object error, [StackTrace? stackTrace]) {
     _eventSink.addError(error, stackTrace);
   }
   void close() { _chunkedSink.close(); }

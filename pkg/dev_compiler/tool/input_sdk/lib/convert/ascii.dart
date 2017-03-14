@@ -80,7 +80,7 @@ class _UnicodeSubsetEncoder extends Converter<String, List<int>> {
    * If [start] and [end] are provided, only the substring
    * `string.substring(start, end)` is used as input to the conversion.
    */
-  List<int> convert(String string, [int start = 0, int end]) {
+  List<int> convert(String string, [int start = 0, int? end]) {
     int stringLength = string.length;
     RangeError.checkValidRange(start, end, stringLength);
     if (end == null) end = stringLength;
@@ -181,7 +181,7 @@ abstract class _UnicodeSubsetDecoder extends Converter<List<int>, String> {
    * If [start] and [end] are provided, only the sub-list of bytes from
    * `start` to `end` (`end` not inclusive) is used as input to the conversion.
    */
-  String convert(List<int> bytes, [int start = 0, int end]) {
+  String convert(List<int> bytes, [int start = 0, int? end]) {
     int byteCount = bytes.length;
     RangeError.checkValidRange(start, end, byteCount);
     if (end == null) end = byteCount;

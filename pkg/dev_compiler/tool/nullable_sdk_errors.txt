@@ -175,49 +175,21 @@ dart:_runtime/operations.dart (261:73) The getter 'count' isn't defined for the 
 dart:_runtime/operations.dart (264:20) The getter 'typeName' isn't defined for the class '_MethodStats?'.
 dart:_runtime/operations.dart (264:36) The getter 'frame' isn't defined for the class '_MethodStats?'.
 dart:_runtime/operations.dart (264:49) The getter 'count' isn't defined for the class '_MethodStats?'.
-dart:async/async_error.dart (44:14) The return type 'StackTrace?' isn't a 'StackTrace', as defined by the method '_getBestStackTrace'.
-dart:async/async_error.dart (46:12) The return type 'Null' isn't a 'StackTrace', as defined by the method '_getBestStackTrace'.
-dart:async/broadcast_stream_controller.dart (26:3) Variable '_next' of non-nullable type '_BroadcastSubscription<T>' must be initialized.
-dart:async/broadcast_stream_controller.dart (26:3) Variable '_previous' of non-nullable type '_BroadcastSubscription<T>' must be initialized.
-dart:async/broadcast_stream_controller.dart (102:3) Variable '_addStreamState' of non-nullable type '_AddStreamState<T>' must be initialized.
-dart:async/broadcast_stream_controller.dart (102:3) Variable '_doneFuture' of non-nullable type '_Future<dynamic>' must be initialized.
-dart:async/broadcast_stream_controller.dart (102:3) Variable '_firstSubscription' of non-nullable type '_BroadcastSubscription<T>' must be initialized.
-dart:async/broadcast_stream_controller.dart (102:3) Variable '_lastSubscription' of non-nullable type '_BroadcastSubscription<T>' must be initialized.
-dart:async/broadcast_stream_controller.dart (177:26) A value of type 'Null' can't be assigned to a variable of type '_BroadcastSubscription<T>'.
-dart:async/broadcast_stream_controller.dart (232:61) The return type 'Null' isn't a 'Future', as defined by the method '_recordCancel'.
-dart:async/broadcast_stream_controller.dart (243:12) The return type 'Null' isn't a 'Future', as defined by the method '_recordCancel'.
-dart:async/broadcast_stream_controller.dart (264:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
-dart:async/broadcast_stream_controller.dart (308:23) A value of type 'Null' can't be assigned to a variable of type '_AddStreamState<T>'.
-dart:async/broadcast_stream_controller.dart (471:3) Variable '_pending' of non-nullable type '_StreamImplEvents<T>' must be initialized.
-dart:async/broadcast_stream_controller.dart (494:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
-dart:async/broadcast_stream_controller.dart (520:18) A value of type 'Null' can't be assigned to a variable of type '_StreamImplEvents<T>'.
-dart:async/broadcast_stream_controller.dart (533:15) Parameter 'resumeSignal' of non-nullable type 'Future<dynamic>' must have a default value.
-dart:async/broadcast_stream_controller.dart (543:43) Parameter 'value' of non-nullable type 'E' must have a default value.
-dart:async/deferred_load.dart (18:44) Parameter 'uri' of non-nullable type 'String' must have a default value.
-dart:async/future.dart (194:39) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
-dart:async/future.dart (224:46) Parameter 'computation' of non-nullable type '() → dynamic' must have a default value.
-dart:async/future.dart (259:29) Parameter 'cleanUp' of non-nullable type '(T) → void' must have a default value.
-dart:async/future.dart (261:17) Variable 'values' of non-nullable type 'List<T>' must be initialized.
-dart:async/future.dart (264:16) Variable 'stackTrace' of non-nullable type 'StackTrace' must be initialized.
-dart:async/future.dart (278:18) A value of type 'Null' can't be assigned to a variable of type 'List<T>'.
-dart:async/future.dart (435:49) Parameter 'onError' of non-nullable type 'Function' must have a default value.
-dart:async/future.dart (499:29) Parameter 'test' of non-nullable type '(Object) → bool' must have a default value.
-dart:async/future.dart (563:42) Parameter 'onTimeout' of non-nullable type '() → dynamic' must have a default value.
-dart:async/future.dart (575:35) Parameter 'duration' of non-nullable type 'Duration' must have a default value.
-dart:async/future.dart (743:37) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
-dart:async/future_impl.dart (19:37) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
-dart:async/future_impl.dart (74:35) A value of type 'Null' can't be assigned to a variable of type '_FutureListener'.
-dart:async/future_impl.dart (97:25) The initializer type 'Null' can't be assigned to the field type 'Function'.
-dart:async/future_impl.dart (216:38) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
+dart:async/future_impl.dart (148:11) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
+dart:async/future_impl.dart (151:11) The argument type 'Function?' can't be assigned to the parameter type '(dynamic) → dynamic'.
+dart:async/future_impl.dart (233:3) Invalid override. The type of '_Future.then' ('<E>((T) → dynamic, {onError: Function}) → Future<E>') isn't a subtype of 'Future<T>.then' ('<S>((T) → dynamic, {onError: Function?}) → Future<S>').
 dart:async/future_impl.dart (234:49) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:async/future_impl.dart (236:23) Variable 'registered' of non-nullable type '(dynamic) → dynamic' must be initialized.
+dart:async/future_impl.dart (253:3) Invalid override. The type of '_Future.catchError' ('(Function, {test: (dynamic) → bool}) → Future<T>') isn't a subtype of 'Future<T>.catchError' ('(Function, {test: (Object) → bool?}) → Future<T>').
 dart:async/future_impl.dart (253:48) Parameter 'test' of non-nullable type '(dynamic) → bool' must have a default value.
+dart:async/future_impl.dart (350:20) A value of type '_FutureListener?' can't be assigned to a variable of type '_FutureListener'.
 dart:async/future_impl.dart (384:28) A value of type 'Null' can't be assigned to a variable of type '_FutureListener'.
-dart:async/future_impl.dart (471:31) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
-dart:async/future_impl.dart (554:34) A value of type 'Null' can't be assigned to a variable of type '_FutureListener'.
+dart:async/future_impl.dart (387:30) A value of type '_FutureListener?' can't be assigned to a variable of type '_FutureListener'.
+dart:async/future_impl.dart (475:22) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
+dart:async/future_impl.dart (544:33) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
+dart:async/future_impl.dart (553:21) A value of type '_FutureListener?' can't be assigned to a variable of type '_FutureListener'.
+dart:async/future_impl.dart (578:33) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
 dart:async/future_impl.dart (582:14) Variable 'oldZone' of non-nullable type 'Zone' must be initialized.
-dart:async/future_impl.dart (704:42) Parameter 'onTimeout' of non-nullable type '() → dynamic' must have a default value.
-dart:async/future_impl.dart (707:11) Variable 'timer' of non-nullable type 'Timer' must be initialized.
 dart:async/schedule_microtask.dart (12:3) Variable 'next' of non-nullable type '_AsyncCallbackEntry' must be initialized.
 dart:async/schedule_microtask.dart (16:21) Variable '_nextCallback' of non-nullable type '_AsyncCallbackEntry' must be initialized.
 dart:async/schedule_microtask.dart (18:21) Variable '_lastCallback' of non-nullable type '_AsyncCallbackEntry' must be initialized.
@@ -279,7 +251,6 @@ dart:async/stream.dart (1304:27) Variable 'subscription' of non-nullable type 'S
 dart:async/stream.dart (1305:11) Variable 'timer' of non-nullable type 'Timer' must be initialized.
 dart:async/stream.dart (1306:10) Variable 'zone' of non-nullable type 'Zone' must be initialized.
 dart:async/stream.dart (1307:20) Variable 'timeout' of non-nullable type '() → void' must be initialized.
-dart:async/stream.dart (1335:64) The argument type 'Null' can't be assigned to the parameter type 'StackTrace'.
 dart:async/stream.dart (1343:45) The argument type 'Null' can't be assigned to the parameter type 'EventSink'.
 dart:async/stream.dart (1346:16) Couldn't infer type parameter 'T'; '_ControllerEventSinkWrapper<dynamic>' must be of type 'EventSink<T>'.
 dart:async/stream.dart (1346:53) The argument type '_ControllerEventSinkWrapper' can't be assigned to the parameter type 'EventSink<T>'.
@@ -287,7 +258,6 @@ dart:async/stream.dart (1347:27) A value of type 'Null' can't be assigned to a v
 dart:async/stream.dart (1357:22) A value of type 'Null' can't be assigned to a variable of type 'StreamSubscription<T>'.
 dart:async/stream.dart (1461:15) Parameter 'resumeSignal' of non-nullable type 'Future<dynamic>' must have a default value.
 dart:async/stream.dart (1485:40) Parameter 'futureValue' of non-nullable type 'E' must have a default value.
-dart:async/stream.dart (1497:30) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:async/stream.dart (1513:8) Parameter 'onListen' of non-nullable type '(StreamSubscription<T>) → void' must have a default value.
 dart:async/stream.dart (1514:8) Parameter 'onCancel' of non-nullable type '(StreamSubscription<T>) → void' must have a default value.
 dart:async/stream.dart (1518:34) Parameter 'onError' of non-nullable type 'Function' must have a default value.
@@ -296,22 +266,20 @@ dart:async/stream.dart (1520:34) Parameter 'cancelOnError' of non-nullable type 
 dart:async/stream.dart (1724:7) Parameter 'handleData' of non-nullable type '(S, EventSink<T>) → void' must have a default value.
 dart:async/stream.dart (1725:7) Parameter 'handleError' of non-nullable type '(Object, StackTrace, EventSink<T>) → void' must have a default value.
 dart:async/stream.dart (1726:7) Parameter 'handleDone' of non-nullable type '(EventSink<T>) → void' must have a default value.
-dart:async/stream.dart (1816:25) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:async/stream_controller.dart (94:29) Parameter 'onListen' of non-nullable type '() → void' must have a default value.
 dart:async/stream_controller.dart (95:29) Parameter 'onPause' of non-nullable type '() → void' must have a default value.
 dart:async/stream_controller.dart (96:29) Parameter 'onResume' of non-nullable type '() → void' must have a default value.
 dart:async/stream_controller.dart (97:29) Parameter 'onCancel' of non-nullable type '() → dynamic' must have a default value.
 dart:async/stream_controller.dart (155:39) Parameter 'onListen' of non-nullable type '() → void' must have a default value.
 dart:async/stream_controller.dart (156:39) Parameter 'onCancel' of non-nullable type '() → void' must have a default value.
-dart:async/stream_controller.dart (242:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
-dart:async/stream_controller.dart (352:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
-dart:async/stream_controller.dart (371:63) The return type 'Null' isn't a 'Future', as defined by the method '_recordCancel'.
 dart:async/stream_controller.dart (453:3) Variable '_doneFuture' of non-nullable type '_Future<dynamic>' must be initialized.
-dart:async/stream_controller.dart (587:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
-dart:async/stream_controller.dart (700:12) Variable 'result' of non-nullable type 'Future<dynamic>' must be initialized.
+dart:async/stream_controller.dart (590:30) A value of type 'AsyncError?' can't be assigned to a variable of type 'AsyncError'.
+dart:async/stream_controller.dart (595:22) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
+dart:async/stream_controller.dart (724:25) The method 'whenComplete' isn't defined for the class 'Future?'.
+dart:async/stream_controller.dart (735:23) The method 'whenComplete' isn't defined for the class 'Future?'.
 dart:async/stream_controller.dart (807:43) The return type 'Null' isn't a 'Future', as defined by the method '_runGuarded'.
 dart:async/stream_controller.dart (811:12) The return type 'Null' isn't a 'Future', as defined by the method '_runGuarded'.
-dart:async/stream_controller.dart (869:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
+dart:async/stream_controller.dart (850:3) Invalid override. The type of '_ControllerSubscription._onCancel' ('() → Future<dynamic>?') isn't a subtype of '_BufferingStreamSubscription<T>._onCancel' ('() → Future<dynamic>').
 dart:async/stream_controller.dart (923:14) The return type 'Null' isn't a 'Future', as defined by the method 'cancel'.
 dart:async/stream_impl.dart (111:3) Variable '_cancelFuture' of non-nullable type 'Future<dynamic>' must be initialized.
 dart:async/stream_impl.dart (111:3) Variable '_onData' of non-nullable type '(T) → void' must be initialized.
@@ -322,6 +290,7 @@ dart:async/stream_impl.dart (156:15) Parameter 'resumeSignal' of non-nullable ty
 dart:async/stream_impl.dart (194:40) Parameter 'futureValue' of non-nullable type 'E' must have a default value.
 dart:async/stream_impl.dart (228:34) A value of type 'Null' can't be assigned to a variable of type '_PendingEvents<T>'.
 dart:async/stream_impl.dart (299:12) The return type 'Null' isn't a 'Future', as defined by the method '_onCancel'.
+dart:async/stream_impl.dart (351:54) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
 dart:async/stream_impl.dart (435:20) A value of type 'Null' can't be assigned to a variable of type '_PendingEvents<T>'.
 dart:async/stream_impl.dart (463:34) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:async/stream_impl.dart (464:34) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
@@ -330,7 +299,7 @@ dart:async/stream_impl.dart (534:10) Variable 'isDone' of non-nullable type 'boo
 dart:async/stream_impl.dart (538:19) A value of type 'Null' can't be assigned to a variable of type 'Iterator<T>'.
 dart:async/stream_impl.dart (545:19) A value of type 'Null' can't be assigned to a variable of type 'Iterator<T>'.
 dart:async/stream_impl.dart (552:17) A value of type 'Null' can't be assigned to a variable of type 'Iterator<T>'.
-dart:async/stream_impl.dart (568:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
+dart:async/stream_impl.dart (569:43) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
 dart:async/stream_impl.dart (579:17) Variable 'next' of non-nullable type '_DelayedEvent<dynamic>' must be initialized.
 dart:async/stream_impl.dart (611:29) The return type 'Null' isn't a '_DelayedEvent', as defined by the method 'next'.
 dart:async/stream_impl.dart (684:37) A value of type 'Null' can't be assigned to a variable of type '_DelayedEvent'.
@@ -364,33 +333,39 @@ dart:async/stream_impl.dart (1025:21) A value of type 'Null' can't be assigned t
 dart:async/stream_impl.dart (1027:16) A value of type 'Null' can't be assigned to a variable of type 'T'.
 dart:async/stream_impl.dart (1033:38) The return type 'Null' isn't a 'Future', as defined by the method 'cancel'.
 dart:async/stream_impl.dart (1055:25) A value of type 'T' can't be assigned to a variable of type 'Null'.
-dart:async/stream_impl.dart (1059:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:async/stream_impl.dart (1069:25) A value of type 'AsyncError' can't be assigned to a variable of type 'Null'.
 dart:async/stream_impl.dart (1091:33) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:async/stream_impl.dart (1092:33) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
 dart:async/stream_impl.dart (1093:33) Parameter 'cancelOnError' of non-nullable type 'bool' must have a default value.
+dart:async/stream_pipe.dart (14:30) A value of type 'AsyncError?' can't be assigned to a variable of type 'AsyncError'.
+dart:async/stream_pipe.dart (20:22) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
+dart:async/stream_pipe.dart (42:28) A value of type 'AsyncError?' can't be assigned to a variable of type 'AsyncError'.
+dart:async/stream_pipe.dart (45:18) A value of type 'StackTrace?' can't be assigned to a variable of type 'StackTrace'.
 dart:async/stream_pipe.dart (89:33) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:async/stream_pipe.dart (90:33) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
 dart:async/stream_pipe.dart (91:33) Parameter 'cancelOnError' of non-nullable type 'bool' must have a default value.
 dart:async/stream_pipe.dart (129:3) Variable '_subscription' of non-nullable type 'StreamSubscription<S>' must be initialized.
+dart:async/stream_pipe.dart (147:3) Invalid override. The type of '_ForwardingStreamSubscription._addError' ('(Object, StackTrace) → void') isn't a subtype of '_BufferingStreamSubscription<T>._addError' ('(Object, StackTrace?) → void').
 dart:async/stream_pipe.dart (167:23) A value of type 'Null' can't be assigned to a variable of type 'StreamSubscription<S>'.
 dart:async/stream_pipe.dart (170:12) The return type 'Null' isn't a 'Future', as defined by the method '_onCancel'.
+dart:async/stream_pipe.dart (195:28) A value of type 'AsyncError?' can't be assigned to a variable of type 'AsyncError'.
 dart:async/stream_pipe.dart (211:10) Variable 'satisfies' of non-nullable type 'bool' must be initialized.
 dart:async/stream_pipe.dart (237:7) Variable 'outputEvent' of non-nullable type 'T' must be initialized.
 dart:async/stream_pipe.dart (377:10) Variable 'satisfies' of non-nullable type 'bool' must be initialized.
 dart:async/stream_pipe.dart (446:10) Variable 'satisfies' of non-nullable type 'bool' must be initialized.
 dart:async/stream_pipe.dart (478:12) Variable 'isEqual' of non-nullable type 'bool' must be initialized.
 dart:async/stream_pipe.dart (487:16) The return type 'Null' isn't a 'void', as defined by the method '_handleData'.
-dart:async/stream_transformers.dart (15:25) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
+dart:async/stream_transformers.dart (16:28) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
 dart:async/stream_transformers.dart (36:3) Variable '_subscription' of non-nullable type 'StreamSubscription<S>' must be initialized.
 dart:async/stream_transformers.dart (36:3) Variable '_transformerSink' of non-nullable type 'EventSink<S>' must be initialized.
+dart:async/stream_transformers.dart (77:3) Invalid override. The type of '_SinkTransformerStreamSubscription._addError' ('(Object, StackTrace) → void') isn't a subtype of '_BufferingStreamSubscription<T>._addError' ('(Object, StackTrace?) → void').
 dart:async/stream_transformers.dart (111:23) A value of type 'Null' can't be assigned to a variable of type 'StreamSubscription<S>'.
 dart:async/stream_transformers.dart (114:12) The return type 'Null' isn't a 'Future', as defined by the method '_onCancel'.
 dart:async/stream_transformers.dart (139:23) A value of type 'Null' can't be assigned to a variable of type 'StreamSubscription<S>'.
 dart:async/stream_transformers.dart (182:34) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:async/stream_transformers.dart (183:34) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
 dart:async/stream_transformers.dart (184:34) Parameter 'cancelOnError' of non-nullable type 'bool' must have a default value.
-dart:async/stream_transformers.dart (218:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
+dart:async/stream_transformers.dart (219:25) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
 dart:async/stream_transformers.dart (232:7) Parameter 'handleData' of non-nullable type '(S, EventSink<T>) → void' must have a default value.
 dart:async/stream_transformers.dart (233:7) Parameter 'handleError' of non-nullable type '(Object, StackTrace, EventSink<T>) → void' must have a default value.
 dart:async/stream_transformers.dart (234:7) Parameter 'handleDone' of non-nullable type '(EventSink<T>) → void' must have a default value.
@@ -439,7 +414,7 @@ dart:async/zone.dart (178:16) A value of type 'Null' can't be assigned to a vari
 dart:async/zone.dart (282:15) Parameter 'specification' of non-nullable type 'ZoneSpecification' must have a default value.
 dart:async/zone.dart (283:15) Parameter 'zoneValues' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
 dart:async/zone.dart (466:35) The return type 'Null' isn't a 'ZoneDelegate', as defined by the method '_parentDelegate'.
-dart:async/zone.dart (554:49) The return type 'Null' isn't a 'AsyncError', as defined by the method 'errorCallback'.
+dart:async/zone.dart (557:27) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
 dart:async/zone.dart (662:3) Variable '_createPeriodicTimer' of non-nullable type '_ZoneFunction<(Zone, ZoneDelegate, Zone, Duration, (Timer) → void) → Timer>' must be initialized.
 dart:async/zone.dart (662:3) Variable '_createTimer' of non-nullable type '_ZoneFunction<(Zone, ZoneDelegate, Zone, Duration, () → void) → Timer>' must be initialized.
 dart:async/zone.dart (662:3) Variable '_delegateCache' of non-nullable type 'ZoneDelegate' must be initialized.
@@ -456,7 +431,7 @@ dart:async/zone.dart (662:3) Variable '_runUnary' of non-nullable type '_ZoneFun
 dart:async/zone.dart (662:3) Variable '_scheduleMicrotask' of non-nullable type '_ZoneFunction<(Zone, ZoneDelegate, Zone, () → void) → void>' must be initialized.
 dart:async/zone.dart (810:14) Parameter 'specification' of non-nullable type 'ZoneSpecification' must have a default value.
 dart:async/zone.dart (810:47) Parameter 'zoneValues' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
-dart:async/zone.dart (893:59) The return type 'Null' isn't a 'AsyncError', as defined by the method 'errorCallback'.
+dart:async/zone.dart (897:58) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
 dart:async/zone.dart (1002:71) The return type 'Null' isn't a 'AsyncError', as defined by the method '_rootErrorCallback'.
 dart:async/zone.dart (1054:7) Variable 'valueMap' of non-nullable type 'Map<dynamic, dynamic>' must be initialized.
 dart:async/zone.dart (1068:9) Variable '_rootDelegate' of non-nullable type 'ZoneDelegate' must be initialized.
@@ -479,7 +454,6 @@ dart:async/zone.dart (1210:26) The argument type 'Null' can't be assigned to the
 dart:async/zone.dart (1210:32) The argument type 'Null' can't be assigned to the parameter type 'ZoneDelegate'.
 dart:async/zone.dart (1216:27) The argument type 'Null' can't be assigned to the parameter type 'Zone'.
 dart:async/zone.dart (1216:33) The argument type 'Null' can't be assigned to the parameter type 'ZoneDelegate'.
-dart:async/zone.dart (1227:68) The return type 'Null' isn't a 'AsyncError', as defined by the method 'errorCallback'.
 dart:async/zone.dart (1230:28) The argument type 'Null' can't be assigned to the parameter type 'Zone'.
 dart:async/zone.dart (1230:34) The argument type 'Null' can't be assigned to the parameter type 'ZoneDelegate'.
 dart:async/zone.dart (1274:20) Parameter 'zoneValues' of non-nullable type 'Map<dynamic, dynamic>' must have a default value.
@@ -487,7 +461,6 @@ dart:async/zone.dart (1275:20) Parameter 'zoneSpecification' of non-nullable typ
 dart:async/zone.dart (1276:20) Parameter 'onError' of non-nullable type 'Function' must have a default value.
 dart:async/zone.dart (1277:30) Variable 'errorHandler' of non-nullable type '(Zone, ZoneDelegate, Zone, dynamic, StackTrace) → dynamic' must be initialized.
 dart:collection (420:49) Unsafe implicit cast from 'Object' to 'K'. This usually indicates that type information was lost and resulted in 'dynamic' and/or a place that will have a failure at runtime.
-dart:collection/queue.dart (369:15) A value of type '_DoubleLinkedQueueEntry<E>?' can't be assigned to a variable of type '_DoubleLinkedQueueEntry<E>'.
 dart:collection/queue.dart (415:12) The return type 'DoubleLinkedQueueEntry<E>?' isn't a 'DoubleLinkedQueueEntry<E>', as defined by the method 'lastEntry'.
 dart:collection/queue.dart (419:12) The return type 'DoubleLinkedQueueEntry<E>?' isn't a 'DoubleLinkedQueueEntry<E>', as defined by the method 'firstEntry'.
 dart:collection/queue.dart (451:43) A value of type 'Null' can't be assigned to a variable of type '_DoubleLinkedQueueEntry<E>'.
@@ -553,13 +526,15 @@ dart:convert (309:22) A value of type 'List' can't be assigned to a variable of 
 dart:convert (330:16) The argument type 'Null' can't be assigned to the parameter type 'String'.
 dart:convert (338:13) A value of type 'Map' can't be assigned to a variable of type 'Null'.
 dart:convert/ascii.dart (54:36) Parameter 'allowInvalid' of non-nullable type 'bool' must have a default value.
-dart:convert/ascii.dart (83:52) Parameter 'end' of non-nullable type 'int' must have a default value.
-dart:convert/ascii.dart (184:51) Parameter 'end' of non-nullable type 'int' must have a default value.
+dart:convert/ascii.dart (87:22) The operator '-' isn't defined for the class 'int?'.
+dart:convert/ascii.dart (189:29) The argument type 'int?' can't be assigned to the parameter type 'num'.
+dart:convert/ascii.dart (195:46) The argument type 'int?' can't be assigned to the parameter type 'int'.
 dart:convert/ascii.dart (234:26) Variable 'stringSink' of non-nullable type 'StringConversionSink' must be initialized.
 dart:convert/base64.dart (179:12) The return type 'Null' isn't a 'Uint8List', as defined by the method 'encode'.
 dart:convert/base64.dart (269:3) Variable 'bufferCache' of non-nullable type 'Uint8List' must be initialized.
 dart:convert/base64.dart (286:10) The argument type 'Null' can't be assigned to the parameter type 'List<int>'.
-dart:convert/base64.dart (347:51) Parameter 'end' of non-nullable type 'int' must have a default value.
+dart:convert/base64.dart (351:53) The argument type 'int?' can't be assigned to the parameter type 'int'.
+dart:convert/base64.dart (352:26) The argument type 'int?' can't be assigned to the parameter type 'int'.
 dart:convert/base64.dart (485:14) The return type 'Null' isn't a 'Uint8List', as defined by the method 'decode'.
 dart:convert/base64.dart (575:9) Variable 'i' of non-nullable type 'int' must be initialized.
 dart:convert/base64.dart (604:12) The return type 'Null' isn't a 'Uint8List', as defined by the method '_allocateBuffer'.
@@ -568,7 +543,6 @@ dart:convert/base64.dart (736:26) The argument type 'Null' can't be assigned to 
 dart:convert/chunked_conversion.dart (14:3) Invalid override. The type of 'ChunkedConverter.bind' ('(dynamic) → dynamic') isn't a subtype of 'Converter<S, T>.bind' ('(Stream<S>) → Stream<T>').
 dart:convert/chunked_conversion.dart (14:3) Invalid override. The type of 'ChunkedConverter.bind' ('(dynamic) → dynamic') isn't a subtype of 'StreamTransformer<S, T>.bind' ('(Stream<S>) → Stream<T>').
 dart:convert/chunked_conversion.dart (15:3) Invalid override. The type of 'ChunkedConverter.startChunkedConversion' ('(dynamic) → dynamic') isn't a subtype of 'Converter<S, T>.startChunkedConversion' ('(Sink<T>) → Sink<S>').
-dart:convert/chunked_conversion.dart (93:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:convert/encoding.dart (75:30) The return type 'Null' isn't a 'Encoding', as defined by the method 'getByName'.
 dart:convert/encoding.dart (77:12) The return type 'Encoding?' isn't a 'Encoding', as defined by the method 'getByName'.
 dart:convert/html_escape.dart (182:27) A value of type 'Null' can't be assigned to a variable of type 'StringBuffer'.
@@ -579,28 +553,36 @@ dart:convert/json.dart (101:49) Parameter 'toEncodable' of non-nullable type '(d
 dart:convert/json.dart (125:34) Parameter 'reviver' of non-nullable type '(dynamic, dynamic) → dynamic' must have a default value.
 dart:convert/json.dart (142:32) Parameter 'toEncodable' of non-nullable type '(dynamic) → dynamic' must have a default value.
 dart:convert/json.dart (191:22) Parameter 'toEncodable' of non-nullable type '(dynamic) → dynamic' must have a default value.
-dart:convert/json.dart (192:23) The initializer type 'Null' can't be assigned to the field type 'String'.
-dart:convert/json.dart (192:23) The initializer type 'Null' can't be assigned to the field type 'String'.
-dart:convert/json.dart (213:46) Parameter 'toEncodable' of non-nullable type '(dynamic) → dynamic' must have a default value.
+dart:convert/json.dart (214:29) The initializer type '(dynamic) → dynamic?' can't be assigned to the field type '_ToEncodable(dynamic) → dynamic'.
+dart:convert/json.dart (214:29) The initializer type '(dynamic) → dynamic?' can't be assigned to the field type '_ToEncodable(dynamic) → dynamic'.
+dart:convert/json.dart (245:62) The argument type 'String?' can't be assigned to the parameter type 'String'.
+dart:convert/json.dart (261:67) The argument type 'String?' can't be assigned to the parameter type 'String'.
+dart:convert/json.dart (264:53) The argument type 'String?' can't be assigned to the parameter type 'String'.
+dart:convert/json.dart (273:34) The argument type 'String?' can't be assigned to the parameter type 'String'.
 dart:convert/json.dart (322:20) Parameter 'indent' of non-nullable type 'String' must have a default value.
 dart:convert/json.dart (323:20) Parameter 'toEncodable' of non-nullable type '(dynamic) → dynamic' must have a default value.
 dart:convert/json.dart (330:32) The return type 'Null' isn't a 'List<int>', as defined by the method '_utf8Encode'.
 dart:convert/json.dart (384:24) Variable 'byteSink' of non-nullable type 'ByteConversionSink' must be initialized.
-dart:convert/json.dart (480:22) Parameter 'reviver' of non-nullable type '(dynamic, dynamic) → dynamic' must have a default value.
+dart:convert/json.dart (497:54) The argument type '_Reviver?' can't be assigned to the parameter type '(dynamic, dynamic) → dynamic'.
+dart:convert/json.dart (505:33) The argument type '_Reviver?' can't be assigned to the parameter type '_Reviver(dynamic, dynamic) → dynamic'.
 dart:convert/json.dart (939:26) Variable 'stringifier' of non-nullable type '_JsonUtf8Stringifier' must be initialized.
 dart:convert/json.dart (958:14) A value of type 'Null' can't be assigned to a variable of type 'Uint8List'.
 dart:convert/latin1.dart (53:36) Parameter 'allowInvalid' of non-nullable type 'bool' must have a default value.
 dart:convert/latin1.dart (101:26) Variable 'stringSink' of non-nullable type 'StringConversionSink' must be initialized.
 dart:convert/latin1.dart (119:13) A value of type 'Null' can't be assigned to a variable of type 'StringConversionSink'.
-dart:convert/line_splitter.dart (32:63) Parameter 'end' of non-nullable type 'int' must have a default value.
+dart:convert/line_splitter.dart (36:29) The argument type 'int?' can't be assigned to the parameter type 'num'.
+dart:convert/line_splitter.dart (49:22) The argument type 'int?' can't be assigned to the parameter type 'num'.
 dart:convert/line_splitter.dart (110:3) Variable '_carry' of non-nullable type 'String' must be initialized.
 dart:convert/line_splitter.dart (125:16) A value of type 'Null' can't be assigned to a variable of type 'String'.
 dart:convert/line_splitter.dart (139:16) A value of type 'Null' can't be assigned to a variable of type 'String'.
-dart:convert/line_splitter.dart (176:28) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:convert/utf.dart (64:40) Parameter 'allowMalformed' of non-nullable type 'bool' must have a default value.
-dart:convert/utf.dart (90:52) Parameter 'end' of non-nullable type 'int' must have a default value.
+dart:convert/utf.dart (94:22) The operator '-' isn't defined for the class 'int?'.
+dart:convert/utf.dart (99:58) The argument type 'int?' can't be assigned to the parameter type 'int'.
+dart:convert/utf.dart (100:31) The operator '-' isn't defined for the class 'int?'.
+dart:convert/utf.dart (105:48) The operator '-' isn't defined for the class 'int?'.
 dart:convert/utf.dart (204:9) Variable 'stringIndex' of non-nullable type 'int' must be initialized.
-dart:convert/utf.dart (333:55) Parameter 'end' of non-nullable type 'int' must have a default value.
+dart:convert/utf.dart (336:76) The argument type 'int?' can't be assigned to the parameter type 'int'.
+dart:convert/utf.dart (346:39) The argument type 'int?' can't be assigned to the parameter type 'int'.
 dart:convert/utf.dart (358:26) Variable 'stringSink' of non-nullable type 'StringConversionSink' must be initialized.
 dart:convert/utf.dart (377:12) The return type 'Null' isn't a 'String', as defined by the method '_convertIntercepted'.
 dart:core/bool.dart (41:9) Only redirecting factory constructors can be declared to be 'const'.
@@ -1218,7 +1200,6 @@ dart:io/directory_impl.dart (239:12) Unsafe implicit cast from 'Stream<dynamic>'
 dart:io/directory_impl.dart (310:3) Variable '_ops' of non-nullable type '_AsyncDirectoryListerOps' must be initialized.
 dart:io/directory_impl.dart (310:3) Variable 'controller' of non-nullable type 'StreamController<dynamic>' must be initialized.
 dart:io/directory_impl.dart (322:12) The return type 'int?' isn't a 'int', as defined by the method '_pointer'.
-dart:io/directory_impl.dart (334:43) The argument type 'StackTrace?' can't be assigned to the parameter type 'StackTrace'.
 dart:io/directory_impl.dart (406:12) A value of type 'Null' can't be assigned to a variable of type '_AsyncDirectoryListerOps'.
 dart:io/file.dart (367:31) Parameter 'start' of non-nullable type 'int' must have a default value.
 dart:io/file.dart (367:42) Parameter 'end' of non-nullable type 'int' must have a default value.
@@ -1427,6 +1408,7 @@ dart:io/http_impl.dart (1326:38) A value of type 'Null' can't be assigned to a v
 dart:io/http_impl.dart (1340:23) Variable 'proxyCreds' of non-nullable type '_ProxyCredentials' must be initialized.
 dart:io/http_impl.dart (1341:22) Variable 'creds' of non-nullable type '_SiteCredentials' must be initialized.
 dart:io/http_impl.dart (1396:31) A value of type 'Null' can't be assigned to a variable of type 'Uri'.
+dart:io/http_impl.dart (1449:18) The argument type '(dynamic) → bool' can't be assigned to the parameter type '(Object) → bool?'.
 dart:io/http_impl.dart (1527:20) A value of type 'Null' can't be assigned to a variable of type 'Timer'.
 dart:io/http_impl.dart (1536:24) A value of type 'Null' can't be assigned to a variable of type 'Timer'.
 dart:io/http_impl.dart (1633:19) The argument type '([dynamic]) → void' can't be assigned to the parameter type '(_ConnectionInfo) → dynamic'.
@@ -1566,9 +1548,11 @@ dart:io/io_resource_info.dart (193:24) The argument type 'String?' can't be assi
 dart:io/io_resource_info.dart (195:32) The getter 'fullValueMap' isn't defined for the class '_ProcessResourceInfo?'.
 dart:io/io_resource_info.dart (259:24) The argument type 'String?' can't be assigned to the parameter type 'String'.
 dart:io/io_resource_info.dart (261:53) The method 'getSocketInfoMap' isn't defined for the class '_SocketResourceInfo?'.
+dart:io/io_sink.dart (103:3) Invalid override. The type of 'IOSink.addError' ('(dynamic, [StackTrace]) → void') isn't a subtype of 'EventSink<List<int>>.addError' ('(dynamic, [StackTrace?]) → void').
 dart:io/io_sink.dart (103:25) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:io/io_sink.dart (146:3) Variable '_controllerCompleter' of non-nullable type 'Completer<dynamic>' must be initialized.
 dart:io/io_sink.dart (146:3) Variable '_controllerInstance' of non-nullable type 'StreamController<T>' must be initialized.
+dart:io/io_sink.dart (153:3) Invalid override. The type of '_StreamSinkImpl.addError' ('(dynamic, [StackTrace]) → void') isn't a subtype of 'EventSink<T>.addError' ('(dynamic, [StackTrace?]) → void').
 dart:io/io_sink.dart (153:25) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:io/io_sink.dart (239:34) A value of type 'Null' can't be assigned to a variable of type 'Completer'.
 dart:io/io_sink.dart (240:33) A value of type 'Null' can't be assigned to a variable of type 'StreamController<T>'.
@@ -1718,6 +1702,7 @@ dart:io/websocket_impl.dart (47:30) Parameter 'headerValue' of non-nullable type
 dart:io/websocket_impl.dart (47:48) Parameter 'maxWindowBits' of non-nullable type 'int' must have a default value.
 dart:io/websocket_impl.dart (97:3) Variable '_eventSink' of non-nullable type 'EventSink<dynamic>' must be initialized.
 dart:io/websocket_impl.dart (97:60) Parameter '_deflate' of non-nullable type '_WebSocketPerMessageDeflate' must have a default value.
+dart:io/websocket_impl.dart (109:3) Invalid override. The type of '_WebSocketProtocolTransformer.addError' ('(Object, [StackTrace]) → void') isn't a subtype of 'EventSink<Uint8List>.addError' ('(dynamic, [StackTrace?]) → void').
 dart:io/websocket_impl.dart (109:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:io/websocket_impl.dart (389:34) A value of type 'Null' can't be assigned to a variable of type 'List<int>'.
 dart:io/websocket_impl.dart (394:34) A value of type 'Null' can't be assigned to a variable of type 'List<int>'.
@@ -1739,6 +1724,7 @@ dart:io/websocket_impl.dart (638:3) Variable '_deflateHelper' of non-nullable ty
 dart:io/websocket_impl.dart (638:3) Variable '_eventSink' of non-nullable type 'EventSink<List<int>>' must be initialized.
 dart:io/websocket_impl.dart (661:15) Variable 'data' of non-nullable type 'List<int>' must be initialized.
 dart:io/websocket_impl.dart (662:9) Variable 'opcode' of non-nullable type 'int' must be initialized.
+dart:io/websocket_impl.dart (685:3) Invalid override. The type of '_WebSocketOutgoingTransformer.addError' ('(Object, [StackTrace]) → void') isn't a subtype of 'EventSink<dynamic>.addError' ('(dynamic, [StackTrace?]) → void').
 dart:io/websocket_impl.dart (685:32) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:io/websocket_impl.dart (692:15) Variable 'data' of non-nullable type 'List<int>' must be initialized.
 dart:io/websocket_impl.dart (754:19) Variable 'list' of non-nullable type 'Uint8List' must be initialized.
@@ -1770,6 +1756,7 @@ dart:io/websocket_impl.dart (1141:8) Parameter 'onError' of non-nullable type 'F
 dart:io/websocket_impl.dart (1141:26) Parameter 'onDone' of non-nullable type '() → void' must have a default value.
 dart:io/websocket_impl.dart (1141:41) Parameter 'cancelOnError' of non-nullable type 'bool' must have a default value.
 dart:io/websocket_impl.dart (1167:28) The return type 'Null' isn't a 'String', as defined by the method 'extensions'.
+dart:io/websocket_impl.dart (1172:3) Invalid override. The type of '_WebSocketImpl.addError' ('(dynamic, [StackTrace]) → void') isn't a subtype of 'EventSink<dynamic>.addError' ('(dynamic, [StackTrace?]) → void').
 dart:io/websocket_impl.dart (1172:25) Parameter 'stackTrace' of non-nullable type 'StackTrace' must have a default value.
 dart:io/websocket_impl.dart (1178:17) Parameter 'code' of non-nullable type 'int' must have a default value.
 dart:io/websocket_impl.dart (1178:27) Parameter 'reason' of non-nullable type 'String' must have a default value.
@@ -1863,4 +1850,4 @@ dart:web_sql (120:54) Parameter 'errorCallback' of non-nullable type '(SqlError)
 dart:web_sql (120:97) Parameter 'successCallback' of non-nullable type '() → void' must have a default value.
 dart:web_sql (295:65) Parameter 'callback' of non-nullable type '(SqlTransaction, SqlResultSet) → void' must have a default value.
 dart:web_sql (295:96) Parameter 'errorCallback' of non-nullable type '(SqlTransaction, SqlError) → void' must have a default value.
-1865 total errors.
+1852 total errors.

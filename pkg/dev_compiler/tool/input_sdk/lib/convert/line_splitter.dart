@@ -29,7 +29,7 @@ class LineSplitter
   /// `lines.substring(start, end)`. The [start] and [end] values must
   /// specify a valid sub-range of [lines]
   /// (`0 <= start <= end <= lines.length`).
-  static Iterable<String> split(String lines, [int start = 0, int end]) sync* {
+  static Iterable<String> split(String lines, [int start = 0, int? end]) sync* {
     end = RangeError.checkValidRange(start, end, lines.length);
     int sliceStart = start;
     int char = 0;
@@ -173,7 +173,7 @@ class _LineSplitterEventSink extends _LineSplitterSink
       : _eventSink = eventSink,
         super(new StringConversionSink.from(eventSink));
 
-  void addError(Object o, [StackTrace stackTrace]) {
+  void addError(Object o, [StackTrace? stackTrace]) {
     _eventSink.addError(o, stackTrace);
   }
 }

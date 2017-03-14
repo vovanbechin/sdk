@@ -239,7 +239,7 @@ abstract class StreamController<T> implements StreamSink<T> {
    *
    * If [error] is `null`, it is replaced by a [NullThrownError].
    */
-  void addError(Object error, [StackTrace stackTrace]);
+  void addError(Object error, [StackTrace? stackTrace]);
 
   /**
    * Receives events from [source] and puts them into this controller's stream.
@@ -349,7 +349,7 @@ abstract class SynchronousStreamController<T> implements StreamController<T> {
    * As [StreamController.addError], but must not be called while an event is
    * being added by [add], [addError] or [close].
    */
-  void addError(Object error, [StackTrace stackTrace]);
+  void addError(Object error, [StackTrace? stackTrace]);
 
   /**
    * Closes the controller's stream.
@@ -368,7 +368,7 @@ abstract class _StreamControllerLifecycle<T> {
       bool cancelOnError);
   void _recordPause(StreamSubscription<T> subscription) {}
   void _recordResume(StreamSubscription<T> subscription) {}
-  Future _recordCancel(StreamSubscription<T> subscription) => null;
+  Future? _recordCancel(StreamSubscription<T> subscription) => null;
 }
 
 /**
@@ -584,7 +584,7 @@ abstract class _StreamController<T> implements StreamController<T>,
   /**
    * Send or enqueue an error event.
    */
-  void addError(Object error, [StackTrace stackTrace]) {
+  void addError(Object error, [StackTrace? stackTrace]) {
     if (!_mayAddEvent) throw _badEventState();
     error = _nonNullError(error);
     AsyncError replacement = Zone.current.errorCallback(error, stackTrace);
@@ -688,7 +688,7 @@ abstract class _StreamController<T> implements StreamController<T>,
     return subscription;
   }
 
-  Future _recordCancel(StreamSubscription<T> subscription) {
+  Future? _recordCancel(StreamSubscription<T> subscription) {
     // When we cancel, we first cancel any stream being added,
     // Then we call `onCancel`, and finally the _doneFuture is completed.
     // If either of addStream's cancel or `onCancel` returns a future,
@@ -697,7 +697,7 @@ abstract class _StreamController<T> implements StreamController<T>,
     // If more errors happen, we act as if it happens inside nested try/finallys
     // or whenComplete calls, and only the last error ends up in the
     // returned future.
-    Future result;
+    Future? result;
     if (_isAddingStream) {
       _StreamControllerAddStreamState<T> addState =
           _varData as Object /*=_StreamControllerAddStreamState<T>*/;
@@ -768,7 +768,7 @@ abstract class _SyncStreamControllerDispatch<T>
     _subscription._add(data);
   }
 
-  void _sendError(Object error, StackTrace stackTrace) {
+  void _sendError(Object error, StackTrace? stackTrace) {
     _subscription._addError(error, stackTrace);
   }
 
@@ -783,7 +783,7 @@ abstract class _AsyncStreamControllerDispatch<T>
     _subscription._addPending(new _DelayedData<dynamic /*=T*/>(data));
   }
 
-  void _sendError(Object error, StackTrace stackTrace) {
+  void _sendError(Object error, StackTrace? stackTrace) {
     _subscription._addPending(new _DelayedError(error, stackTrace));
   }
 
@@ -847,7 +847,7 @@ class _ControllerSubscription<T> extends _BufferingStreamSubscription<T> {
                           Function onError, void onDone(), bool cancelOnError)
       : super(onData, onError, onDone, cancelOnError);
 
-  Future _onCancel() {
+  Future? _onCancel() {
     return _controller._recordCancel(this);
   }
 
@@ -866,7 +866,7 @@ class _StreamSinkWrapper<T> implements StreamSink<T> {
   final StreamController _target;
   _StreamSinkWrapper(this._target);
   void add(T data) { _target.add(data); }
-  void addError(Object error, [StackTrace stackTrace]) {
+  void addError(Object error, [StackTrace? stackTrace]) {
     _target.addError(error, stackTrace);
   }
   Future close() => _target.close();

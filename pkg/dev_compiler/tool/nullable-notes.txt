@@ -131,6 +131,10 @@ Here's what the various "TODO(nnbd-...)" labels mean:
 - (nnbd-null-aware): Cases where a null-aware "?." can be used to avoid a null
   safety error.
 
+- (nnbd-lateinit): Cases where something like Kotlin's "lateinit" feature would
+  make an error go away. I added this category later, so a bunch of existing
+  nnbd-assert ones should probably use this instead.
+
 - (nnbd): Everything else. Random observations, missing features, potential
   bugs in the prototype, etc.
 

@@ -344,7 +344,7 @@ class Base64Decoder extends Converter<String, List<int>> {
 
   const Base64Decoder();
 
-  List<int> convert(String input, [int start = 0, int end]) {
+  List<int> convert(String input, [int start = 0, int? end]) {
     end = RangeError.checkValidRange(start, end, input.length);
     if (start == end) return new Uint8List(0);
     var decoder = new _Base64Decoder();
