@@ -401,14 +401,19 @@ class ParamInfo(object):
         self.name, self.type_id, self.is_optional)
     return '<ParamInfo(%s)>' % content
 
-def GetCallbackInfo(interface):
-  """For the given interface, find operations that take callbacks (for use in
-  auto-transforming callbacks into futures)."""
+def GetCallbackHandlers(interface):
+  callback_handlers = []
   callback_handlers = [operation for operation in interface.operations
       if operation.id == 'handleEvent']
   if callback_handlers == []:
     callback_handlers = [operation for operation in interface.operations
                          if operation.id == 'handleItem']
+  return callback_handlers
+
+def GetCallbackInfo(interface):
+  """For the given interface, find operations that take callbacks (for use in
+  auto-transforming callbacks into futures)."""
+  callback_handlers = GetCallbackHandlers(interface)
   return AnalyzeOperation(interface, callback_handlers)
 
 # Given a list of overloaded arguments, render dart arguments.
