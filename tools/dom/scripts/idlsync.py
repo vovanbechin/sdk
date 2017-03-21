@@ -175,14 +175,10 @@ def copy_files(source_dir, destination_dir):
           if isVerbose():
             print('...copying %s' % os.path.split(dst_file)[1])
           if f == IDL_EXTENDED_ATTRIBUTES_FILE:
-            warning_messages.append(('WARNING: File %s has changed, BUT will '
-                                     'not be automatically add-ed to git. '
-                                     'Please review') % dst_file)
+            warning_messages.append(dst_file)
           else:
             if has_Dart_fix_me:
-              warning_messages.append(('WARNING: File %s has %s, BUT will '
-                                       'not be automatically add-ed to git. '
-                                       'Please review') % (dst_file, DART_CHANGES))
+              warning_messages.append(dst_file)
             if not (isChecked() or has_Dart_fix_me):
               # git add the file
               RunCommand(['git', 'add', dst_file])
@@ -312,8 +308,9 @@ def main():
 
   end_time = time.time()
 
+  print 'WARNING: File(s) contain FIXMEDART and are NOT "git add " please review:'
   for warning in warning_messages:
-    print warning
+    print '    %s' % warning
 
   print '\nDone idlsync completed in %s seconds' % round(end_time - start_time, 2)
 
