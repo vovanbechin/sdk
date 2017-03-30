@@ -7,7 +7,7 @@
 part of $LIBRARYNAME;
 
 $(ANNOTATIONS)$(NATIVESPEC)$(CLASS_MODIFIERS)class $CLASSNAME$EXTENDS$IMPLEMENTS {
-  factory $CLASSNAME(TouchList touches, TouchList targetTouches,
+  factory $CLASSNAME.create(TouchList touches, TouchList targetTouches,
       TouchList changedTouches, String type,
       {Window view, int screenX: 0, int screenY: 0, int clientX: 0,
       int clientY: 0, bool ctrlKey: false, bool altKey: false,

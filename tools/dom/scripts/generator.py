@@ -509,7 +509,12 @@ def ConvertToFuture(info):
   instead uses futures instead of callbacks."""
   new_info = copy.deepcopy(info)
   def IsNotCallbackType(param):
-    return 'Callback' not in param.type_id
+    type_id = param.type_id
+    if type_id is None:
+      return False
+    else:
+      return 'Callback' not in type_id
+
   # Success callback is the first argument (change if this no longer holds).
   new_info.callback_args = filter(
       lambda x: not IsNotCallbackType(x), new_info.param_infos)
