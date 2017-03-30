@@ -13,7 +13,10 @@ import 'package:analyzer/plugin/resolver_provider.dart';
 import 'package:analyzer/source/analysis_options_provider.dart';
 import 'package:analyzer/source/package_map_resolver.dart';
 import 'package:analyzer/src/command_line/arguments.dart'
-    show applyAnalysisOptionFlags;
+    show
+        applyAnalysisOptionFlags,
+        bazelAnalysisOptionsPath,
+        flutterAnalysisOptionsPath;
 import 'package:analyzer/src/dart/analysis/byte_store.dart';
 import 'package:analyzer/src/dart/analysis/driver.dart'
     show AnalysisDriver, AnalysisDriverScheduler, PerformanceLog;
@@ -59,6 +62,14 @@ import 'package:yaml/yaml.dart';
  * [1]: https://github.com/dart-lang/dart_enhancement_proposals/blob/master/Accepted/0005%20-%20Package%20Specification/DEP-pkgspec.md.
  */
 class ContextBuilder {
+  /**
+   * A callback for when analysis drivers are created, which takes all the same
+   * arguments as the dart analysis driver constructor so that plugins may
+   * create their own drivers with the same tools, in theory. Here as a stopgap
+   * until the official plugin API is complete
+   */
+  static Function onCreateAnalysisDriver = null;
+
   /**
    * The [ResourceProvider] by which paths are converted into [Resource]s.
    */
@@ -149,6 +160,7 @@ class ContextBuilder {
   AnalysisDriver buildDriver(String path) {
     AnalysisOptions options = getAnalysisOptions(path);
     //_processAnalysisOptions(context, optionMap);
+    final sf = createSourceFactory(path, options);
     AnalysisDriver driver = new AnalysisDriver(
         analysisDriverScheduler,
         performanceLog,
@@ -156,8 +168,13 @@ class ContextBuilder {
         byteStore,
         fileContentOverlay,
         path,
-        createSourceFactory(path, options),
+        sf,
         options);
+    // temporary plugin support:
+    if (onCreateAnalysisDriver != null) {
+      onCreateAnalysisDriver(driver, analysisDriverScheduler, performanceLog,
+          resourceProvider, byteStore, fileContentOverlay, path, sf, options);
+    }
     declareVariablesInDriver(driver);
     return driver;
   }
@@ -398,23 +415,24 @@ class ContextBuilder {
       }
     } else {
       // Search for the default analysis options
+      // unless explicitly directed not to do so.
       Source source;
-      // TODO(danrubel) determine if bazel or gn project depends upon flutter
-      if (workspace.hasFlutterDependency) {
-        source =
-            sourceFactory.forUri('package:flutter/analysis_options_user.yaml');
-      }
-      if (source == null || !source.exists()) {
-        source =
-            sourceFactory.forUri('package:dart.analysis_options/default.yaml');
-      }
-      if (source.exists()) {
-        try {
-          optionMap = optionsProvider.getOptionsFromSource(source);
-          verbose('Loaded analysis options from ${source.fullName}');
-        } catch (e) {
-          // Ignore exceptions thrown while trying to load the options file.
-          verbose('Exception: $e\n  when loading ${source.fullName}');
+      if (builderOptions.packageDefaultAnalysisOptions) {
+        // TODO(danrubel) determine if bazel or gn project depends upon flutter
+        if (workspace.hasFlutterDependency) {
+          source = sourceFactory.forUri(flutterAnalysisOptionsPath);
+        }
+        if (source == null || !source.exists()) {
+          source = sourceFactory.forUri(bazelAnalysisOptionsPath);
+        }
+        if (source != null && source.exists()) {
+          try {
+            optionMap = optionsProvider.getOptionsFromSource(source);
+            verbose('Loaded analysis options from ${source.fullName}');
+          } catch (e) {
+            // Ignore exceptions thrown while trying to load the options file.
+            verbose('Exception: $e\n  when loading ${source.fullName}');
+          }
         }
       }
     }
@@ -626,6 +644,11 @@ class ContextBuilderOptions {
    * or `null` if the normal lookup mechanism should be used.
    */
   String defaultPackagesDirectoryPath;
+
+  /**
+   * Allow Flutter and bazel default analysis options to be used.
+   */
+  bool packageDefaultAnalysisOptions = true;
 
   /**
    * Initialize a newly created set of options

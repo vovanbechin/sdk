@@ -23,6 +23,7 @@ template <typename T>
 class GrowableArray;
 class ParsedFunction;
 
+
 class ParallelMoveResolver : public ValueObject {
  public:
   explicit ParallelMoveResolver(FlowGraphCompiler* compiler);
@@ -232,12 +233,19 @@ class SlowPathCode : public ZoneAllocated {
 };
 
 
-struct CidTarget {
-  intptr_t cid;
+struct CidRangeTarget {
+  intptr_t cid_start;
+  intptr_t cid_end;
   Function* target;
   intptr_t count;
-  CidTarget(intptr_t cid_arg, Function* target_arg, intptr_t count_arg)
-      : cid(cid_arg), target(target_arg), count(count_arg) {}
+  CidRangeTarget(intptr_t cid_start_arg,
+                 intptr_t cid_end_arg,
+                 Function* target_arg,
+                 intptr_t count_arg)
+      : cid_start(cid_start_arg),
+        cid_end(cid_end_arg),
+        target(target_arg),
+        count(count_arg) {}
 };
 
 
@@ -361,6 +369,12 @@ class FlowGraphCompiler : public ValueObject {
                     RawPcDescriptors::Kind kind,
                     LocationSummary* locs);
 
+  void GenerateCallWithDeopt(TokenPosition token_pos,
+                             intptr_t deopt_id,
+                             const StubEntry& stub_entry,
+                             RawPcDescriptors::Kind kind,
+                             LocationSummary* locs);
+
   void GeneratePatchableCall(TokenPosition token_pos,
                              const StubEntry& stub_entry,
                              RawPcDescriptors::Kind kind,
@@ -381,7 +395,6 @@ class FlowGraphCompiler : public ValueObject {
   void GenerateInstanceOf(TokenPosition token_pos,
                           intptr_t deopt_id,
                           const AbstractType& type,
-                          bool negate_result,
                           LocationSummary* locs);
 
   void GenerateInstanceCall(intptr_t deopt_id,
@@ -427,7 +440,8 @@ class FlowGraphCompiler : public ValueObject {
                                    intptr_t deopt_id,
                                    TokenPosition token_pos,
                                    LocationSummary* locs,
-                                   bool complete);
+                                   bool complete,
+                                   intptr_t total_call_count);
 
   // Pass a value for try-index where block is not available (e.g. slow path).
   void EmitMegamorphicInstanceCall(const ICData& ic_data,
@@ -452,7 +466,8 @@ class FlowGraphCompiler : public ValueObject {
                        intptr_t deopt_id,
                        TokenPosition token_index,
                        LocationSummary* locs,
-                       bool complete);
+                       bool complete,
+                       intptr_t total_ic_calls);
 
   Condition EmitEqualityRegConstCompare(Register reg,
                                         const Object& obj,
@@ -467,8 +482,14 @@ class FlowGraphCompiler : public ValueObject {
 
   void EmitEdgeCounter(intptr_t edge_id);
 #endif  // !defined(TARGET_ARCH_DBC)
+  void EmitCatchEntryState(
+      Environment* env = NULL,
+      intptr_t try_index = CatchClauseNode::kInvalidTryIndex);
 
-  void EmitTrySync(Instruction* instr, intptr_t try_index);
+  void EmitCallsiteMetaData(TokenPosition token_pos,
+                            intptr_t deopt_id,
+                            RawPcDescriptors::Kind kind,
+                            LocationSummary* locs);
 
   void EmitComment(Instruction* instr);
 
@@ -530,6 +551,7 @@ class FlowGraphCompiler : public ValueObject {
   RawArray* CreateDeoptInfo(Assembler* assembler);
   void FinalizeStackMaps(const Code& code);
   void FinalizeVarDescriptors(const Code& code);
+  void FinalizeCatchEntryStateMap(const Code& code);
   void FinalizeStaticCallTargetsTable(const Code& code);
   void FinalizeCodeSourceMap(const Code& code);
 
@@ -560,7 +582,7 @@ class FlowGraphCompiler : public ValueObject {
 
   // Returns 'sorted' array in decreasing count order.
   static void SortICDataByCount(const ICData& ic_data,
-                                GrowableArray<CidTarget>* sorted,
+                                GrowableArray<CidRangeTarget>* sorted,
                                 bool drop_smi);
 
   // Use in unoptimized compilation to preserve/reuse ICData.
@@ -609,8 +631,8 @@ class FlowGraphCompiler : public ValueObject {
 
  private:
   friend class CheckStackOverflowSlowPath;  // For pending_deoptimization_env_.
-
-  static bool ShouldInlineSmiStringHashCode(const ICData& ic_data);
+  friend class CheckedSmiSlowPath;          // Same.
+  friend class CheckedSmiComparisonSlowPath;  // Same.
 
   void EmitFrameEntry();
 
@@ -636,6 +658,12 @@ class FlowGraphCompiler : public ValueObject {
                                  TokenPosition token_pos,
                                  LocationSummary* locs,
                                  const ICData& ic_data);
+
+  // Helper for TestAndCall that calculates a good bias that
+  // allows more compact instructions to be emitted.
+  intptr_t ComputeGoodBiasForCidComparison(
+      const GrowableArray<CidRangeTarget>& sorted,
+      intptr_t max_immediate);
 
 // DBC handles type tests differently from all other architectures due
 // to its interpreted nature.
@@ -771,6 +799,7 @@ class FlowGraphCompiler : public ValueObject {
   DescriptorList* pc_descriptors_list_;
   StackMapTableBuilder* stackmap_table_builder_;
   CodeSourceMapBuilder* code_source_map_builder_;
+  CatchEntryStateMapBuilder* catch_entry_state_maps_builder_;
   GrowableArray<BlockInfo*> block_info_;
   GrowableArray<CompilerDeoptInfo*> deopt_infos_;
   GrowableArray<SlowPathCode*> slow_path_code_;

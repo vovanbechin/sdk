@@ -4,18 +4,21 @@
 
 library elements;
 
+import 'package:front_end/src/fasta/parser/async_modifier.dart'
+    show AsyncModifier;
+
 import '../common.dart';
 import '../common/resolution.dart' show Resolution;
 import '../constants/constructors.dart';
 import '../constants/expressions.dart';
-import '../core_types.dart' show CommonElements;
+import '../common_elements.dart' show CommonElements;
 import '../ordered_typeset.dart' show OrderedTypeSet;
 import '../resolution/scope.dart' show Scope;
 import '../resolution/tree_elements.dart' show TreeElements;
 import '../script.dart';
 import 'package:front_end/src/fasta/scanner.dart'
     show Token, isUserDefinableOperator, isMinusOperator;
-import '../tree/tree.dart';
+import '../tree/tree.dart' hide AsyncModifier;
 import '../universe/call_structure.dart';
 import 'package:front_end/src/fasta/scanner/characters.dart' show $_;
 import '../util/util.dart';
@@ -1337,17 +1340,21 @@ abstract class SetterElement extends AccessorElement {
 /// Enum for the synchronous/asynchronous function body modifiers.
 class AsyncMarker {
   /// The default function body marker.
-  static const AsyncMarker SYNC = const AsyncMarker._();
+  static const AsyncMarker SYNC = const AsyncMarker._(AsyncModifier.Sync);
 
   /// The `sync*` function body marker.
-  static const AsyncMarker SYNC_STAR = const AsyncMarker._(isYielding: true);
+  static const AsyncMarker SYNC_STAR =
+      const AsyncMarker._(AsyncModifier.SyncStar, isYielding: true);
 
   /// The `async` function body marker.
-  static const AsyncMarker ASYNC = const AsyncMarker._(isAsync: true);
+  static const AsyncMarker ASYNC =
+      const AsyncMarker._(AsyncModifier.Async, isAsync: true);
 
   /// The `async*` function body marker.
-  static const AsyncMarker ASYNC_STAR =
-      const AsyncMarker._(isAsync: true, isYielding: true);
+  static const AsyncMarker ASYNC_STAR = const AsyncMarker._(
+      AsyncModifier.AsyncStar,
+      isAsync: true,
+      isYielding: true);
 
   /// Is `true` if this marker defines the function body to have an
   /// asynchronous result, that is, either a [Future] or a [Stream].
@@ -1357,7 +1364,10 @@ class AsyncMarker {
   /// result, that is, either an [Iterable] or a [Stream].
   final bool isYielding;
 
-  const AsyncMarker._({this.isAsync: false, this.isYielding: false});
+  final AsyncModifier asyncParserState;
+
+  const AsyncMarker._(this.asyncParserState,
+      {this.isAsync: false, this.isYielding: false});
 
   String toString() {
     return '${isAsync ? 'async' : 'sync'}${isYielding ? '*' : ''}';
@@ -1999,7 +2009,7 @@ abstract class MemberSignature {
 abstract class Member extends MemberSignature {
   /// The [Element] that declared this member, possibly implicitly in case of
   /// a getter or setter defined by a field.
-  Element get element;
+  MemberElement get element;
 
   /// The instance of the class that declared this member.
   ///

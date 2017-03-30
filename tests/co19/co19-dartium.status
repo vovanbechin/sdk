@@ -467,6 +467,7 @@ LayoutTests/fast/dom/shadow/shadow-content-crash_t01: RuntimeError # co19-roll r
 LayoutTests/fast/dom/shadow/shadow-hierarchy-exception_t01: RuntimeError # Please triage this failure.
 LayoutTests/fast/dom/shadow/shadow-hierarchy-exception_t01: RuntimeError # Please triage this failure.
 LayoutTests/fast/dom/shadow/shadow-removechild-and-blur-event_t01: RuntimeError, Pass # co19-roll r738: Please triage this failure.
+LayoutTests/fast/dom/shadow/shadowroot-keyframes_t01: RuntimeError, Pass # Issue 29018
 LayoutTests/fast/dom/StyleSheet/css-medialist-item_t01: RuntimeError # Dartium JSInterop failure
 LayoutTests/fast/dom/StyleSheet/discarded-sheet-owner-null_t01: Skip # Test reloads itself. Issue 18558.
 LayoutTests/fast/dom/Window/window-resize_t01: RuntimeError # co19-roll r738: Please triage this failure.
@@ -1212,6 +1213,7 @@ WebPlatformTest/custom-elements/concepts/type_A07_t01: Skip # Timing out on the 
 
 [ $compiler == none && $runtime == dartium && $system == windows ]
 LayoutTests/fast/css/MarqueeLayoutTest_t01: Pass, RuntimeError # Please triage this failure
+LayoutTests/fast/writing-mode/flipped-blocks-hit-test-overflow_t01: Pass, RuntimeError # Issue 21605
 LayoutTests/fast/writing-mode/vertical-inline-block-hittest_t01: Pass, RuntimeError # Issue 21605
 LayoutTests/fast/dom/shadow/shadowhost-keyframes_t01: Pass, RuntimeError # Gardening: please triage this failure.
 WebPlatformTest/shadow-dom/events/retargeting-focus-events/test-001_t01: Skip # Timesout Issue 26134
@@ -1223,7 +1225,6 @@ LayoutTests/fast/css/font-face-unicode-range-monospace_t01: Pass, RuntimeError #
 
 [ $compiler == none && $runtime == dartium && $system == linux ]
 language/mixin_illegal_constructor_test/01: Skip # Issue 43
-LayoutTests/fast/dom/custom/*: Skip  # TODO(terry): MUST FIX 50 Roll problem with custom skip for now.
 
 [ $compiler == none && $runtime == dartium && ($system == windows || $system == linux) ]
 LayoutTests/fast/canvas/webgl/buffer-data-array-buffer_t01: RuntimeError # 45 roll webgl doesn't run on on windows/linux bots.

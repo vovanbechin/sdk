@@ -20,11 +20,7 @@ import 'package:analyzer/file_system/memory_file_system.dart'
 import 'package:analyzer/src/context/context.dart' show AnalysisContextImpl;
 import 'package:analyzer/src/summary/idl.dart' show PackageBundle;
 import 'package:analyzer/src/summary/package_bundle_reader.dart'
-    show
-        SummaryDataStore,
-        InSummaryUriResolver,
-        InputPackagesResultProvider,
-        InSummarySource;
+    show SummaryDataStore, InSummaryUriResolver, InSummarySource;
 import 'package:analyzer/src/dart/resolver/scope.dart' show Scope;
 
 import 'package:args/command_runner.dart';
@@ -67,10 +63,10 @@ class WebCompileCommand extends Command {
     return requestSummaries;
   }
 
-  void requestSummaries(String summaryRoot, String sdkUrl, List<String> summaryUrls,
-      Function onCompileReady, Function onError) {
+  void requestSummaries(String summaryRoot, String sdkUrl,
+      List<String> summaryUrls, Function onCompileReady, Function onError) {
     HttpRequest
-        .request(summaryRoot + sdkUrl,
+        .request(sdkUrl,
             responseType: "arraybuffer", mimeType: "application/octet-stream")
         .then((sdkRequest) {
       var sdkBytes = sdkRequest.response.asUint8List();
@@ -90,8 +86,8 @@ class WebCompileCommand extends Command {
 
         onCompileReady(setUpCompile(sdkBytes, summaryBytes, summaryUrls));
       }).catchError((error) => onError('Summaries failed to load: $error'));
-    }).catchError(
-            (error) => onError('Dart sdk summaries failed to load: $error. url: $sdkUrl'));
+    }).catchError((error) =>
+            onError('Dart sdk summaries failed to load: $error. url: $sdkUrl'));
   }
 
   List<Function> setUpCompile(List<int> sdkBytes, List<List<int>> summaryBytes,
@@ -104,10 +100,10 @@ class WebCompileCommand extends Command {
     var resourceUriResolver = new ResourceUriResolver(resourceProvider);
 
     var options = new AnalyzerOptions.basic(
-            dartSdkPath: '/dart-sdk', dartSdkSummaryPath: dartSdkSummaryPath);
+        dartSdkPath: '/dart-sdk', dartSdkSummaryPath: dartSdkSummaryPath);
 
-    var summaryDataStore =
-        new SummaryDataStore(options.summaryPaths, resourceProvider: resourceProvider, recordDependencyInfo: true);
+    var summaryDataStore = new SummaryDataStore(options.summaryPaths,
+        resourceProvider: resourceProvider, recordDependencyInfo: true);
     for (var i = 0; i < summaryBytes.length; i++) {
       var bytes = summaryBytes[i];
       var url = '/' + summaryUrls[i];
@@ -119,8 +115,7 @@ class WebCompileCommand extends Command {
 
     var fileResolvers = [summaryResolver, resourceUriResolver];
 
-    var compiler = new ModuleCompiler(
-        options,
+    var compiler = new ModuleCompiler(options,
         analysisRoot: '/web-compile-root',
         fileResolvers: fileResolvers,
         resourceProvider: resourceProvider,

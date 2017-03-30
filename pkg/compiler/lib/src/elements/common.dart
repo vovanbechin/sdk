@@ -7,7 +7,7 @@
 library elements.common;
 
 import '../common/names.dart' show Identifiers, Names, Uris;
-import '../core_types.dart' show CommonElements;
+import '../common_elements.dart' show CommonElements;
 import '../util/util.dart' show Link;
 import 'elements.dart';
 import 'resolution_types.dart'
@@ -611,6 +611,8 @@ enum _FromEnvironmentState {
 }
 
 abstract class ConstructorElementCommon implements ConstructorElement {
+  LibraryElement get library;
+
   _FromEnvironmentState _fromEnvironmentState;
 
   _FromEnvironmentState get fromEnvironmentState {

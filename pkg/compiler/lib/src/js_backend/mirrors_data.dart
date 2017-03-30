@@ -4,17 +4,116 @@
 
 import '../closure.dart';
 import '../common.dart';
+import '../common_elements.dart';
 import '../compiler.dart';
 import '../constants/values.dart';
 import '../elements/elements.dart';
 import '../elements/resolution_types.dart';
-import '../enqueue.dart';
 import '../options.dart';
 import '../world.dart';
+import '../universe/world_builder.dart';
 import '../util/emptyset.dart';
 import 'backend_helpers.dart';
+import 'constant_handler_javascript.dart';
 
-class MirrorsData {
+abstract class MirrorsData {
+  /// True if a call to preserveMetadataMarker has been seen.  This means that
+  /// metadata must be retained for dart:mirrors to work correctly.
+  // resolution-empty-queue
+  bool get mustRetainMetadata;
+
+  /// True if any metadata has been retained.  This is slightly different from
+  /// [mustRetainMetadata] and tells us if any metadata was retained.  For
+  /// example, if [mustRetainMetadata] is true but there is no metadata in the
+  /// program, this variable will stil be false.
+  // emitter
+  bool get hasRetainedMetadata;
+
+  /// True if a call to preserveLibraryNames has been seen.
+  // emitter
+  bool get mustRetainLibraryNames;
+
+  /// True if a call to preserveNames has been seen.
+  // resolution-empty-queue
+  bool get mustPreserveNames;
+
+  /// True if a call to disableTreeShaking has been seen.
+  bool get isTreeShakingDisabled;
+
+  /// True if a call to preserveUris has been seen and the preserve-uris flag
+  /// is set.
+  bool get mustPreserveUris;
+
+  /// Set of symbols that the user has requested for reflection.
+  Iterable<String> get symbolsUsed;
+
+  /// Set of elements that the user has requested for reflection.
+  Iterable<Element> get targetsUsed;
+
+  /// Should [element] (a getter) that would normally not be generated due to
+  /// treeshaking be retained for reflection?
+  bool shouldRetainGetter(Element element);
+
+  /// Should [element] (a setter) hat would normally not be generated due to
+  /// treeshaking be retained for reflection?
+  bool shouldRetainSetter(Element element);
+
+  /// Should [name] be retained for reflection?
+  bool shouldRetainName(String name);
+
+  /// Returns true if this element is covered by a mirrorsUsed annotation.
+  ///
+  /// Note that it might still be ok to tree shake the element away if no
+  /// reflection is used in the program (and thus [isTreeShakingDisabled] is
+  /// still false). Therefore _do not_ use this predicate to decide inclusion
+  /// in the tree, use [requiredByMirrorSystem] instead.
+  bool referencedFromMirrorSystem(Element element, [recursive = true]);
+
+  /// Returns `true` if [element] can be accessed through reflection, that is,
+  /// is in the set of elements covered by a `MirrorsUsed` annotation.
+  ///
+  /// This property is used to tag emitted elements with a marker which is
+  /// checked by the runtime system to throw an exception if an element is
+  /// accessed (invoked, get, set) that is not accessible for the reflective
+  /// system.
+  bool isAccessibleByReflection(Element element);
+
+  bool retainMetadataOf(Element element);
+
+  bool invokedReflectively(Element element);
+
+  /// Returns `true` if this member element needs reflection information at
+  /// runtime.
+  bool isMemberAccessibleByReflection(MemberElement element);
+
+  /// Returns true if this element has to be enqueued due to
+  /// mirror usage. Might be a subset of [referencedFromMirrorSystem] if
+  /// normal tree shaking is still active ([isTreeShakingDisabled] is false).
+  bool requiredByMirrorSystem(Element element);
+}
+
+abstract class MirrorsDataBuilder {
+  void registerUsedMember(MemberElement member);
+
+  /// Called by [MirrorUsageAnalyzerTask] after it has merged all @MirrorsUsed
+  /// annotations. The arguments corresponds to the unions of the corresponding
+  /// fields of the annotations.
+  void registerMirrorUsage(
+      Set<String> symbols, Set<Element> targets, Set<Element> metaTargets);
+
+  /// Called when `const Symbol(name)` is seen.
+  void registerConstSymbol(String name);
+
+  void maybeMarkClosureAsNeededForReflection(
+      ClosureClassElement globalizedElement,
+      FunctionElement callFunction,
+      FunctionElement function);
+
+  void computeMembersNeededForReflection(
+      ResolutionWorldBuilder worldBuilder, ClosedWorld closedWorld);
+}
+
+class MirrorsDataImpl implements MirrorsData, MirrorsDataBuilder {
   /// True if a call to preserveMetadataMarker has been seen.  This means that
   /// metadata must be retained for dart:mirrors to work correctly.
   bool mustRetainMetadata = false;
@@ -41,23 +140,29 @@ class MirrorsData {
   /// is set.
   bool mustPreserveUris = false;
 
-  /// List of symbols that the user has requested for reflection.
+  /// Set of symbols that the user has requested for reflection.
   final Set<String> symbolsUsed = new Set<String>();
 
-  /// List of elements that the user has requested for reflection.
+  /// Set of elements that the user has requested for reflection.
   final Set<Element> targetsUsed = new Set<Element>();
 
   /// List of annotations provided by user that indicate that the annotated
   /// element must be retained.
   final Set<Element> metaTargetsUsed = new Set<Element>();
 
-  final Compiler compiler;
+  // TODO(johnniwinther): Avoid the need for this.
+  final Compiler _compiler;
 
-  MirrorsData(this.compiler);
+  final CompilerOptions _options;
 
-  CompilerOptions get _options => compiler.options;
+  final CommonElements _commonElements;
 
-  BackendHelpers get _helpers => compiler.backend.helpers;
+  final BackendHelpers _helpers;
+
+  final JavaScriptConstantCompiler _constants;
+
+  MirrorsDataImpl(this._compiler, this._options, this._commonElements,
+      this._helpers, this._constants);
 
   void registerUsedMember(MemberElement member) {
     if (member == _helpers.disableTreeShakingMarker) {
@@ -96,10 +201,10 @@ class MirrorsData {
     if (mustRetainMetadata) hasRetainedMetadata = true;
     if (mustRetainMetadata && referencedFromMirrorSystem(element)) {
       for (MetadataAnnotation metadata in element.metadata) {
-        metadata.ensureResolved(compiler.resolution);
+        metadata.ensureResolved(_compiler.resolution);
         ConstantValue constant =
-            compiler.backend.constants.getConstantValueForMetadata(metadata);
-        compiler.backend.constants.addCompileTimeConstantForEmission(constant);
+            _constants.getConstantValueForMetadata(metadata);
+        _constants.addCompileTimeConstantForEmission(constant);
       }
       return true;
     }
@@ -107,7 +212,7 @@ class MirrorsData {
   }
 
   bool invokedReflectively(Element element) {
-    if (element.isRegularParameter || element.isInitializingFormal) {
+    if (element.isParameter) {
       ParameterElement parameter = element;
       if (invokedReflectively(parameter.functionDeclaration)) return true;
     }
@@ -156,20 +261,38 @@ class MirrorsData {
     if (metaTargets != null) metaTargetsUsed.addAll(metaTargets);
   }
 
-  /**
-   * Returns `true` if [element] can be accessed through reflection, that is,
-   * is in the set of elements covered by a `MirrorsUsed` annotation.
-   *
-   * This property is used to tag emitted elements with a marker which is
-   * checked by the runtime system to throw an exception if an element is
-   * accessed (invoked, get, set) that is not accessible for the reflective
-   * system.
-   */
+  /// Returns `true` if [element] can be accessed through reflection, that is,
+  /// is in the set of elements covered by a `MirrorsUsed` annotation.
+  ///
+  /// This property is used to tag emitted elements with a marker which is
+  /// checked by the runtime system to throw an exception if an element is
+  /// accessed (invoked, get, set) that is not accessible for the reflective
+  /// system.
   bool isAccessibleByReflection(Element element) {
     if (element.isClass) {
-      element = compiler.backend.getDartClass(element);
+      element = _getDartClass(element);
     }
     return membersNeededForReflection.contains(element);
+  }
+
+  ClassElement _getDartClass(ClassElement cls) {
+    if (cls == _helpers.jsIntClass) {
+      return _commonElements.intClass;
+    } else if (cls == _helpers.jsBoolClass) {
+      return _commonElements.boolClass;
+    } else if (cls == _helpers.jsNumberClass) {
+      return _commonElements.numClass;
+    } else if (cls == _helpers.jsDoubleClass) {
+      return _commonElements.doubleClass;
+    } else if (cls == _helpers.jsStringClass) {
+      return _commonElements.stringClass;
+    } else if (cls == _helpers.jsArrayClass) {
+      return _commonElements.listClass;
+    } else if (cls == _helpers.jsNullClass) {
+      return _commonElements.nullClass;
+    } else {
+      return cls;
+    }
   }
 
   /// Returns `true` if this member element needs reflection information at
@@ -212,11 +335,11 @@ class MirrorsData {
       // TODO(kasperl): It would be nice if we didn't have to resolve
       // all metadata but only stuff that potentially would match one
       // of the used meta targets.
-      metadata.ensureResolved(compiler.resolution);
+      metadata.ensureResolved(_compiler.resolution);
       ConstantValue value =
-          compiler.constants.getConstantValue(metadata.constant);
+          _compiler.constants.getConstantValue(metadata.constant);
       if (value == null) continue;
-      ResolutionDartType type = value.getType(compiler.commonElements);
+      ResolutionDartType type = value.getType(_commonElements);
       if (metaTargetsUsed.contains(type.element)) return true;
     }
     return false;
@@ -234,7 +357,8 @@ class MirrorsData {
    * be visible by reflection unless some other interfaces makes them
    * accessible.
    */
-  void computeMembersNeededForReflection(ClosedWorld closedWorld) {
+  void computeMembersNeededForReflection(
+      ResolutionWorldBuilder worldBuilder, ClosedWorld closedWorld) {
     if (_membersNeededForReflection != null) return;
     if (closedWorld.commonElements.mirrorsLibrary == null) {
       _membersNeededForReflection = const ImmutableEmptySet<Element>();
@@ -244,15 +368,12 @@ class MirrorsData {
     // can include the correct ones when including the class.
     Map<ClassElement, List<LocalFunctionElement>> closureMap =
         new Map<ClassElement, List<LocalFunctionElement>>();
-    for (LocalFunctionElement closure
-        in compiler.resolutionWorldBuilder.allClosures) {
+    for (LocalFunctionElement closure in worldBuilder.localFunctions) {
       closureMap.putIfAbsent(closure.enclosingClass, () => []).add(closure);
     }
     bool foundClosure = false;
     Set<Element> reflectableMembers = new Set<Element>();
-    ResolutionEnqueuer resolution = compiler.enqueuer.resolution;
-    for (ClassElement cls
-        in resolution.worldBuilder.directlyInstantiatedClasses) {
+    for (ClassElement cls in worldBuilder.directlyInstantiatedClasses) {
       // Do not process internal classes.
       if (cls.library.isInternalLibrary || cls.isInjected) continue;
       if (referencedFromMirrorSystem(cls)) {
@@ -261,15 +382,15 @@ class MirrorsData {
         assert(invariant(cls, cls.isResolved));
         reflectableMembers.add(cls);
         // 2) its constructors (if resolved)
-        cls.constructors.forEach((Element constructor) {
-          if (resolution.hasBeenProcessed(constructor)) {
+        cls.constructors.forEach((ConstructorElement constructor) {
+          if (worldBuilder.isMemberUsed(constructor)) {
             reflectableMembers.add(constructor);
           }
         });
         // 3) all members, including fields via getter/setters (if resolved)
         cls.forEachClassMember((Member member) {
           MemberElement element = member.element;
-          if (resolution.hasBeenProcessed(element)) {
+          if (worldBuilder.isMemberUsed(element)) {
             memberNames.add(member.name);
             reflectableMembers.add(element);
             element.nestedClosures
@@ -286,8 +407,8 @@ class MirrorsData {
               if (memberNames.contains(member.name)) {
                 // TODO(20993): find out why this assertion fails.
                 // assert(invariant(member.element,
-                //    resolution.hasBeenProcessed(member.element)));
-                if (resolution.hasBeenProcessed(member.element)) {
+                //    worldBuilder.isMemberUsed(member.element)));
+                if (worldBuilder.isMemberUsed(member.element)) {
                   reflectableMembers.add(member.element);
                 }
               }
@@ -303,13 +424,13 @@ class MirrorsData {
       } else {
         // check members themselves
         cls.constructors.forEach((ConstructorElement element) {
-          if (!resolution.hasBeenProcessed(element)) return;
+          if (!worldBuilder.isMemberUsed(element)) return;
           if (referencedFromMirrorSystem(element, false)) {
             reflectableMembers.add(element);
           }
         });
         cls.forEachClassMember((Member member) {
-          if (!resolution.hasBeenProcessed(member.element)) return;
+          if (!worldBuilder.isMemberUsed(member.element)) return;
           if (referencedFromMirrorSystem(member.element, false)) {
             reflectableMembers.add(member.element);
           }
@@ -331,11 +452,12 @@ class MirrorsData {
     // We also need top-level non-class elements like static functions and
     // global fields. We use the resolution queue to decide which elements are
     // part of the live world.
-    for (LibraryElement lib in compiler.libraryLoader.libraries) {
+    for (LibraryElement lib in _compiler.libraryLoader.libraries) {
       if (lib.isInternalLibrary) continue;
-      lib.forEachLocalMember((Element member) {
-        if (!(member.isClass || member.isTypedef) &&
-            resolution.hasBeenProcessed(member) &&
+      lib.forEachLocalMember((Element element) {
+        if (element.isClass || element.isTypedef) return;
+        MemberElement member = element;
+        if (worldBuilder.isMemberUsed(member) &&
             referencedFromMirrorSystem(member)) {
           reflectableMembers.add(member);
         }
@@ -357,8 +479,7 @@ class MirrorsData {
       ClassElement cls = _helpers.closureClass;
       reflectableMembers.add(cls);
     }
-    Set<Element> closurizedMembers =
-        compiler.resolutionWorldBuilder.closurizedMembers;
+    Set<MethodElement> closurizedMembers = worldBuilder.closurizedMembers;
     if (closurizedMembers.any(reflectableMembers.contains)) {
       ClassElement cls = _helpers.boundClosureClass;
       reflectableMembers.add(cls);
@@ -384,7 +505,7 @@ class MirrorsData {
     _membersNeededForReflection.add(globalizedElement);
   }
 
-  /// Called when [:const Symbol(name):] is seen.
+  /// Called when `const Symbol(name)` is seen.
   void registerConstSymbol(String name) {
     symbolsUsed.add(name);
     if (name.endsWith('=')) {

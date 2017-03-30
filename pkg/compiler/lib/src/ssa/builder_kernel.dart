@@ -57,7 +57,7 @@ class SsaKernelBuilderTask extends CompilerTask {
 
   HGraph build(CodegenWorkItem work, ClosedWorld closedWorld) {
     return measure(() {
-      AstElement element = work.element.implementation;
+      MemberElement element = work.element.implementation;
       Kernel kernel = backend.kernelTask.kernel;
       KernelSsaBuilder builder = new KernelSsaBuilder(
           element,
@@ -93,7 +93,7 @@ class SsaKernelBuilderTask extends CompilerTask {
 class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
   ir.Node target;
   bool _targetIsConstructorBody = false;
-  final AstElement targetElement;
+  final MemberElement targetElement;
   final ResolvedAst resolvedAst;
   final ClosedWorld closedWorld;
   final CodegenRegistry registry;
@@ -153,28 +153,9 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
     this.localsHandler = new LocalsHandler(this, targetElement, null, compiler);
     this.astAdapter = new KernelAstAdapter(kernel, compiler.backend,
         resolvedAst, kernel.nodeToAst, kernel.nodeToElement);
-    Element originTarget = targetElement;
-    if (originTarget.isPatch) {
-      originTarget = originTarget.origin;
-    }
-    if (originTarget is FunctionElement) {
-      if (originTarget is ConstructorBodyElement) {
-        ConstructorBodyElement body = originTarget;
-        _targetIsConstructorBody = true;
-        originTarget = body.constructor;
-      }
-      target = kernel.functions[originTarget];
-      // Closures require a lookup one level deeper in the closure class mapper.
-      if (target == null) {
-        FunctionElement originTargetFunction = originTarget;
-        ClosureClassMap classMap = compiler.closureToClassMapper
-            .getClosureToClassMapping(originTargetFunction.resolvedAst);
-        if (classMap.closureElement != null) {
-          target = kernel.localFunctions[classMap.closureElement];
-        }
-      }
-    } else if (originTarget is FieldElement) {
-      target = kernel.fields[originTarget];
+    target = astAdapter.getInitialKernelNode(targetElement);
+    if (targetElement is ConstructorBodyElement) {
+      _targetIsConstructorBody = true;
     }
   }
 
@@ -199,7 +180,7 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
       _targetFunction = (target as ir.FunctionDeclaration).function;
       buildFunctionNode(_targetFunction);
     } else {
-      throw 'No case implemented to handle target: $target';
+      throw 'No case implemented to handle target: $target for $targetElement';
     }
     assert(graph.isValid());
     return graph;
@@ -239,17 +220,18 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
 
   void _addClassTypeVariablesIfNeeded(ir.Member constructor) {
     var enclosing = constructor.enclosingClass;
-    if (backend.classNeedsRti(astAdapter.getElement(enclosing))) {
-      ClassElement clsElement =
-          astAdapter.getElement(constructor).enclosingElement;
+    if (backend.rtiNeed.classNeedsRti(astAdapter.getElement(enclosing))) {
       enclosing.typeParameters.forEach((ir.TypeParameter typeParameter) {
         var typeParamElement = astAdapter.getElement(typeParameter);
         HParameterValue param =
             addParameter(typeParamElement, commonMasks.nonNullType);
         // This is a little bit wacky (and n^2) until we make the localsHandler
         // take Kernel DartTypes instead of just the AST DartTypes.
-        var typeVariableType = clsElement.typeVariables.firstWhere(
-            (ResolutionTypeVariableType i) => i.name == typeParameter.name);
+        var typeVariableType = astAdapter
+            .getClass(enclosing)
+            .typeVariables
+            .firstWhere(
+                (ResolutionTypeVariableType i) => i.name == typeParameter.name);
         localsHandler.directLocals[
             localsHandler.getTypeVariableAsLocal(typeVariableType)] = param;
       });
@@ -278,6 +260,8 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
     _buildInitializers(constructor, constructorChain, fieldValues);
 
     final constructorArguments = <HInstruction>[];
+    // Doing this instead of fieldValues.forEach because we haven't defined the
+    // order of the arguments here. We can define that with JElements.
     astAdapter.getClass(constructor.enclosingClass).forEachInstanceField(
         (ClassElement enclosingClass, FieldElement member) {
       var value = fieldValues[astAdapter.getFieldFromElement(member)];
@@ -863,7 +847,7 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
     // Generate a structure equivalent to:
     //   Iterator<E> $iter = <iterable>.iterator;
     //   while ($iter.moveNext()) {
-    //     <declaredIdentifier> = $iter.current;
+    //     <variable> = $iter.current;
     //     <body>
     //   }
 
@@ -1693,7 +1677,7 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
       HInstruction object, ir.ListLiteral listLiteral) {
     ResolutionInterfaceType type = localsHandler
         .substInContext(astAdapter.getDartTypeOfListLiteral(listLiteral));
-    if (!backend.classNeedsRti(type.element) || type.treatAsRaw) {
+    if (!backend.rtiNeed.classNeedsRti(type.element) || type.treatAsRaw) {
       return object;
     }
     List<HInstruction> arguments = <HInstruction>[];
@@ -1768,7 +1752,7 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
 
     ir.Class cls = constructor.enclosingClass;
 
-    if (backend.classNeedsRti(astAdapter.getElement(cls))) {
+    if (backend.rtiNeed.classNeedsRti(astAdapter.getClass(cls))) {
       List<HInstruction> typeInputs = <HInstruction>[];
       type.typeArguments.forEach((ResolutionDartType argument) {
         typeInputs
@@ -2284,14 +2268,13 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
               function.requiredParameterCount ==
                   function.positionalParameters.length &&
               function.namedParameters.isEmpty) {
-            registry?.registerStaticUse(
-                new StaticUse.foreignUse(astAdapter.getMethod(staticTarget)));
             push(new HForeignCode(
                 js.js.expressionTemplateYielding(backend.emitter
                     .staticFunctionAccess(astAdapter.getMethod(staticTarget))),
                 commonMasks.dynamicType,
                 <HInstruction>[],
-                nativeBehavior: native.NativeBehavior.PURE));
+                nativeBehavior: native.NativeBehavior.PURE,
+                foreignFunction: astAdapter.getMethod(staticTarget)));
             return;
           }
           problem = 'does not handle a closure with optional parameters';
@@ -2584,11 +2567,7 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
     assert(nestedClosureData.closureClassElement != null);
     ClosureClassElement closureClassElement =
         nestedClosureData.closureClassElement;
-    FunctionElement callElement = nestedClosureData.callElement;
-    // TODO(ahe): This should be registered in codegen, not here.
-    // TODO(johnniwinther): Is [registerStaticUse] equivalent to
-    // [addToWorkList]?
-    registry?.registerStaticUse(new StaticUse.foreignUse(callElement));
+    MethodElement callElement = nestedClosureData.callElement;
 
     List<HInstruction> capturedVariables = <HInstruction>[];
     closureClassElement.closureFields.forEach((ClosureFieldElement field) {
@@ -2600,9 +2579,8 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
 
     TypeMask type = new TypeMask.nonNullExact(closureClassElement, closedWorld);
     // TODO(efortuna): Add source information here.
-    push(new HCreate(closureClassElement, capturedVariables, type));
-
-    registry?.registerInstantiatedClosure(methodElement);
+    push(new HCreate(closureClassElement, capturedVariables, type,
+        callMethod: callElement, localFunction: methodElement));
   }
 
   @override
@@ -2684,7 +2662,7 @@ class KernelSsaBuilder extends ir.Visitor with GraphBuilder {
         // TODO(efortuna): Do we need to check mixin classes as well?
         if (procedure.name.name == Identifiers.noSuchMethod_ &&
             Selectors.noSuchMethod_
-                .signatureApplies(astAdapter.getElement(procedure))) {
+                .signatureApplies(astAdapter.getMethod(procedure))) {
           noSuchMethod = procedure;
         }
       }

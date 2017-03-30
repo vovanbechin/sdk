@@ -414,9 +414,14 @@ part of lib;
 
     AnalysisResult libResult = await driver.getResult(lib);
     List<AnalysisError> errors = libResult.errors;
-    expect(errors, hasLength(1));
-    expect(errors[0].errorCode,
-        ResolverErrorCode.MISSING_LIBRARY_DIRECTIVE_WITH_PART);
+    if (libResult.unit.element.context.analysisOptions.enableUriInPartOf) {
+      // TODO(28522): Should cause an error for wrong library name.
+      expect(errors, hasLength(0));
+    } else {
+      expect(errors, hasLength(1));
+      expect(errors[0].errorCode,
+          ResolverErrorCode.MISSING_LIBRARY_DIRECTIVE_WITH_PART);
+    }
   }
 
   test_analyze_resolveDirectives_error_partOfDifferentLibrary_byName() async {
@@ -711,7 +716,7 @@ var A2 = B1;
 
     // Update the file, but don't notify the driver.
     allResults.clear();
-    provider.updateFile(testFile, 'var V = 1.2');
+    provider.updateFile(testFile, 'var V = 1.2;');
 
     // No new results.
     await pumpEventQueue();
@@ -1251,6 +1256,22 @@ import 'dart:math';
         unorderedEquals(['dart:async', 'dart:math', 'dart:core']));
   }
 
+  @failingTest
+  test_getResult_invalidUri_metadata() async {
+    String content = r'''
+@foo
+import '';
+
+@foo
+export '';
+
+@foo
+part '';
+''';
+    addTestFile(content);
+    await driver.getResult(testFile);
+  }
+
   test_getResult_mix_fileAndPackageUris() async {
     var a = _p('/test/bin/a.dart');
     var b = _p('/test/bin/b.dart');
@@ -1324,6 +1345,16 @@ var V;
     AnalysisResult result = await driver.getResult(path);
     expect(result, isNotNull);
     expect(result.unit.element.types.map((e) => e.name), ['A']);
+  }
+
+  test_getResult_recursiveFlatten() async {
+    String content = r'''
+import 'dart:async';
+class C<T> implements Future<C<T>> {}
+''';
+    addTestFile(content);
+    // Should not throw exceptions.
+    await driver.getResult(testFile);
   }
 
   test_getResult_sameFile_twoUris() async {
@@ -1465,7 +1496,7 @@ var A2 = B1;
     var d = _p('/test/lib/d.dart');
 
     provider.newFile(a, 'class A {}');
-    provider.newFile(b, 'export "a.dart", class B {}');
+    provider.newFile(b, 'export "a.dart"; class B {}');
     provider.newFile(c, 'import "d.dart"; class C {}');
     provider.newFile(d, 'class D {}');
 

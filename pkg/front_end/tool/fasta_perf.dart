@@ -8,14 +8,13 @@ library front_end.tool.fasta_perf;
 import 'dart:async';
 import 'dart:io';
 
-import 'package:front_end/src/fasta/analyzer/ast_builder.dart';
+import 'package:analyzer/src/fasta/ast_builder.dart';
 import 'package:front_end/src/fasta/dill/dill_target.dart' show DillTarget;
 import 'package:front_end/src/fasta/kernel/kernel_target.dart'
     show KernelTarget;
 import 'package:front_end/src/fasta/parser.dart';
 import 'package:front_end/src/fasta/scanner.dart';
 import 'package:front_end/src/fasta/scanner/io.dart' show readBytesFromFileSync;
-import 'package:front_end/src/fasta/scanner/precedence.dart';
 import 'package:front_end/src/fasta/source/scope_listener.dart' show Scope;
 import 'package:front_end/src/fasta/ticker.dart' show Ticker;
 import 'package:front_end/src/fasta/translate_uri.dart' show TranslateUri;
@@ -168,7 +167,7 @@ Set<String> extractDirectiveUris(List<int> contents) {
 class DirectiveParser extends ClassMemberParser {
   DirectiveParser(listener) : super(listener);
 
-  static final _endToken = new SymbolToken(EOF_INFO, -1);
+  static final _endToken = new SymbolToken.eof(-1);
 
   Token parseClassOrNamedMixinApplication(Token token) => _endToken;
   Token parseEnum(Token token) => _endToken;
@@ -199,7 +198,7 @@ class DirectiveListener extends Listener {
 
   void beginLiteralString(Token token) {
     if (_inDirective) {
-      var quotedString = token.value;
+      var quotedString = token.lexeme;
       uris.add(quotedString.substring(1, quotedString.length - 1));
     }
   }
@@ -233,7 +232,8 @@ class _EmptyScope extends Scope {
 // Note: AstBuilder doesn't build compilation-units or classes, only method
 // bodies. So this listener is not feature complete.
 class _PartialAstBuilder extends AstBuilder {
-  _PartialAstBuilder(Uri uri) : super(null, null, null, new _EmptyScope(), uri);
+  _PartialAstBuilder(Uri uri)
+      : super(null, null, null, null, new _EmptyScope(), uri);
 
   // Note: this method converts the body to kernel, so we skip that here.
   @override

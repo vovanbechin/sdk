@@ -124,8 +124,10 @@ class ObjectPointerVisitor;
   V(ClearAsyncThreadStackTrace, "_clearAsyncThreadStackTrace")                 \
   V(SetAsyncThreadStackTrace, "_setAsyncThreadStackTrace")                     \
   V(AsyncCatchHelper, "_asyncCatchHelper")                                     \
+  V(_CompleteOnAsyncReturn, "_completeOnAsyncReturn")                          \
   V(AsyncThenWrapperHelper, "_asyncThenWrapperHelper")                         \
   V(AsyncErrorWrapperHelper, "_asyncErrorWrapperHelper")                       \
+  V(AsyncStarMoveNextHelper, "_asyncStarMoveNextHelper")                       \
   V(AsyncStackTraceHelper, "_asyncStackTraceHelper")                           \
   V(AsyncAwaitHelper, "_awaitHelper")                                          \
   V(Await, "await")                                                            \
@@ -347,11 +349,6 @@ class ObjectPointerVisitor;
   V(_simpleInstanceOf, "_simpleInstanceOf")                                    \
   V(_simpleInstanceOfTrue, "_simpleInstanceOfTrue")                            \
   V(_simpleInstanceOfFalse, "_simpleInstanceOfFalse")                          \
-  V(_instanceOfSmi, "_instanceOfSmi")                                          \
-  V(_instanceOfNum, "_instanceOfNum")                                          \
-  V(_instanceOfInt, "_instanceOfInt")                                          \
-  V(_instanceOfDouble, "_instanceOfDouble")                                    \
-  V(_instanceOfString, "_instanceOfString")                                    \
   V(_as, "_as")                                                                \
   V(GetterPrefix, "get:")                                                      \
   V(ClosurizePrefix, "get:#")                                                  \
@@ -361,7 +358,7 @@ class ObjectPointerVisitor;
   V(DartScheme, "dart:")                                                       \
   V(DartSchemePrivate, "dart:_")                                               \
   V(DartNativeWrappers, "dart:nativewrappers")                                 \
-  V(DartNativeWrappersLibName, "dart.nativewrappers")                          \
+  V(DartNativeWrappersLibName, "nativewrappers")                               \
   V(DartCore, "dart:core")                                                     \
   V(DartCollection, "dart:collection")                                         \
   V(DartDeveloper, "dart:developer")                                           \

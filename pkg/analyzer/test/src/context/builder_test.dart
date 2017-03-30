@@ -739,6 +739,37 @@ linter:
     _expectEqualOptions(options, expected);
   }
 
+  void test_getAnalysisOptions_default_flutter_disabled() {
+    _defineMockLintRules();
+    ArgParser argParser = new ArgParser();
+    defineAnalysisArguments(argParser);
+    ArgResults argResults =
+        argParser.parse(['--no-$packageDefaultAnalysisOptions']);
+
+    builderOptions = createContextBuilderOptions(argResults);
+    expect(builderOptions.packageDefaultAnalysisOptions, isFalse);
+    builder = new ContextBuilder(resourceProvider, sdkManager, contentCache,
+        options: builderOptions);
+
+    AnalysisOptionsImpl expected = new AnalysisOptionsImpl();
+
+    String packagesFilePath =
+        resourceProvider.convertPath('/some/directory/path/.packages');
+    createFile(packagesFilePath, 'flutter:/pkg/flutter/lib/');
+    String optionsFilePath = resourceProvider
+        .convertPath('/pkg/flutter/lib/analysis_options_user.yaml');
+    createFile(
+        optionsFilePath,
+        '''
+linter:
+  rules:
+    - mock_lint_rule
+''');
+    String projPath = resourceProvider.convertPath('/some/directory/path');
+    AnalysisOptions options = builder.getAnalysisOptions(projPath);
+    _expectEqualOptions(options, expected);
+  }
+
   void test_getAnalysisOptions_default_noOverrides() {
     AnalysisOptionsImpl defaultOptions = new AnalysisOptionsImpl();
     defaultOptions.enableLazyAssignmentOperators = true;
@@ -876,6 +907,26 @@ analyzer:
 ''');
 
     AnalysisOptions options = builder.getAnalysisOptions(path);
+    _expectEqualOptions(options, expected);
+  }
+
+  void test_getAnalysisOptions_gnWorkspace() {
+    String _p(String path) => resourceProvider.convertPath(path);
+    String projectPath = _p('/workspace/some/path');
+    resourceProvider.newFolder(_p('/workspace/.jiri_root'));
+    resourceProvider.newFile(
+        _p('/workspace/out/debug/gen/dart.sources/foo_pkg'),
+        _p('/workspace/foo_pkg/lib'));
+    resourceProvider.newFolder(projectPath);
+    ArgParser argParser = new ArgParser();
+    defineAnalysisArguments(argParser);
+    ArgResults argResults = argParser.parse([]);
+    builderOptions = createContextBuilderOptions(argResults);
+    expect(builderOptions.packageDefaultAnalysisOptions, isTrue);
+    builder = new ContextBuilder(resourceProvider, sdkManager, contentCache,
+        options: builderOptions);
+    AnalysisOptionsImpl expected = new AnalysisOptionsImpl();
+    AnalysisOptions options = builder.getAnalysisOptions(projectPath);
     _expectEqualOptions(options, expected);
   }
 

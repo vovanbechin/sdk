@@ -211,9 +211,8 @@ class VMViewElement extends HtmlElement implements Renderable {
                     ..text = 'native heap allocation count',
                   new DivElement()
                     ..classes = ['memberValue']
-                    ..text = _vm.heapAllocationCount
+                    ..text = '${_vm.heapAllocationCount}'
                 ],
- 
               new BRElement(),
               new DivElement()
                 ..classes = ['memberItem']
@@ -230,6 +229,17 @@ class VMViewElement extends HtmlElement implements Renderable {
                       new SpanElement()..text = 'view ',
                       new AnchorElement(href: Uris.timeline())
                         ..text = 'timeline'
+                    ]
+                ],
+              new DivElement()
+                ..classes = ['memberItem']
+                ..children = [
+                  new DivElement()
+                    ..classes = ['memberName']
+                    ..children = [
+                      new SpanElement()..text = 'view ',
+                      new AnchorElement(href: Uris.nativeMemory())
+                        ..text = 'native memory profile'
                     ]
                 ]
             ],

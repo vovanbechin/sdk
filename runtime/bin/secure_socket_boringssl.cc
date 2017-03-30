@@ -5,8 +5,8 @@
 #if !defined(DART_IO_DISABLED) && !defined(DART_IO_SECURE_SOCKET_DISABLED)
 
 #include "platform/globals.h"
-#if defined(TARGET_OS_ANDROID) || defined(TARGET_OS_LINUX) ||                  \
-    defined(TARGET_OS_WINDOWS) || defined(TARGET_OS_FUCHSIA)
+#if defined(HOST_OS_ANDROID) || defined(HOST_OS_LINUX) ||                      \
+    defined(HOST_OS_WINDOWS) || defined(HOST_OS_FUCHSIA)
 
 #include "bin/secure_socket.h"
 #include "bin/secure_socket_boringssl.h"
@@ -261,12 +261,16 @@ void FUNCTION_NAME(SecureSocket_Connect)(Dart_NativeArguments args) {
 
 void FUNCTION_NAME(SecureSocket_Destroy)(Dart_NativeArguments args) {
   SSLFilter* filter = GetFilter(args);
-  // The SSLFilter is deleted in the finalizer for the Dart object created by
-  // SetFilter. There is no need to NULL-out the native field for the SSLFilter
-  // here because the SSLFilter won't be deleted until the finalizer for the
-  // Dart object runs while the Dart object is being GCd. This approach avoids a
-  // leak if Destroy isn't called, and avoids a NULL-dereference if Destroy is
-  // called more than once.
+  // There are two paths that can clean up an SSLFilter object. First,
+  // there is this explicit call to Destroy(), called from
+  // _SecureFilter.destroy() in Dart code. After a call to destroy(), the Dart
+  // code maintains the invariant that there will be no futher SSLFilter
+  // requests sent to the IO Service. Therefore, the internals of the SSLFilter
+  // are safe to deallocate, but not the SSLFilter itself, which is already
+  // set up to be cleaned up by the finalizer.
+  //
+  // The second path is through the finalizer, which we have to do in case
+  // some mishap prevents a call to _SecureFilter.destroy().
   filter->Destroy();
 }
 
@@ -432,7 +436,7 @@ void FUNCTION_NAME(SecurityContext_Allocate)(Dart_NativeArguments args) {
   SSLFilter::InitializeLibrary();
   SSL_CTX* ctx = SSL_CTX_new(TLS_method());
   SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, CertificateCallback);
-  SSL_CTX_set_min_version(ctx, TLS1_VERSION);
+  SSL_CTX_set_min_proto_version(ctx, TLS1_VERSION);
   SSL_CTX_set_cipher_list(ctx, "HIGH:MEDIUM");
   SSLContext* context = new SSLContext(ctx);
   Dart_Handle err = SetSecurityContext(args, context);
@@ -868,7 +872,7 @@ void FUNCTION_NAME(SecurityContext_TrustBuiltinRoots)(
     return;
   }
 
-#if defined(TARGET_OS_ANDROID)
+#if defined(HOST_OS_ANDROID)
   // On Android, we don't compile in the trusted root certificates. Insead,
   // we use the directory of trusted certificates already present on the device.
   // This saves ~240KB from the size of the binary. This has the drawback that
@@ -879,7 +883,7 @@ void FUNCTION_NAME(SecurityContext_TrustBuiltinRoots)(
   const char* android_cacerts = "/system/etc/security/cacerts";
   LoadRootCertCache(context, android_cacerts);
   return;
-#elif defined(TARGET_OS_LINUX)
+#elif defined(HOST_OS_LINUX)
   // On Linux, we use the compiled-in trusted certs as a last resort. First,
   // we try to find the trusted certs in various standard locations. A good
   // discussion of the complexities of this endeavor can be found here:
@@ -896,7 +900,7 @@ void FUNCTION_NAME(SecurityContext_TrustBuiltinRoots)(
     LoadRootCertCache(context, cachedir);
     return;
   }
-#endif  // defined(TARGET_OS_ANDROID)
+#endif  // defined(HOST_OS_ANDROID)
 
   // Fall back on the compiled-in certs if the standard locations don't exist,
   // or we aren't on Linux.
@@ -1661,7 +1665,7 @@ void SSLFilter::Renegotiate(bool use_session_cache,
 }
 
 
-SSLFilter::~SSLFilter() {
+void SSLFilter::FreeResources() {
   if (ssl_ != NULL) {
     SSL_free(ssl_);
     ssl_ = NULL;
@@ -1680,6 +1684,11 @@ SSLFilter::~SSLFilter() {
       buffers_[i] = NULL;
     }
   }
+}
+
+
+SSLFilter::~SSLFilter() {
+  FreeResources();
 }
 
 
@@ -1706,6 +1715,7 @@ void SSLFilter::Destroy() {
     Dart_DeletePersistentHandle(bad_certificate_callback_);
     bad_certificate_callback_ = NULL;
   }
+  FreeResources();
 }
 
 
@@ -1789,7 +1799,7 @@ int SSLFilter::ProcessWriteEncryptedBuffer(int start, int end) {
 }  // namespace bin
 }  // namespace dart
 
-#endif  // defined(TARGET_OS_LINUX)
+#endif  // defined(HOST_OS_LINUX)
 
 #endif  // !defined(DART_IO_DISABLED) &&
         // !defined(DART_IO_SECURE_SOCKET_DISABLED)

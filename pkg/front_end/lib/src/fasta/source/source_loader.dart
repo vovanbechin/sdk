@@ -8,11 +8,7 @@ import 'dart:async' show Future;
 
 import 'dart:io' show FileSystemException;
 
-import '../scanner/io.dart' show readBytesFromFile;
-
-import '../scanner.dart' show ErrorToken, ScannerResult, Token, scan;
-
-import '../parser/class_member_parser.dart' show ClassMemberParser;
+import 'dart:typed_data' show Uint8List;
 
 import 'package:kernel/ast.dart' show Program;
 
@@ -20,17 +16,21 @@ import 'package:kernel/class_hierarchy.dart' show ClassHierarchy;
 
 import 'package:kernel/core_types.dart' show CoreTypes;
 
-import '../errors.dart' show inputError, printUnexpected;
+import '../builder/builder.dart' show Builder, ClassBuilder, LibraryBuilder;
 
-import '../messages.dart' show warning;
+import '../compiler_context.dart' show CompilerContext;
+
+import '../errors.dart' show inputError;
 
 import '../export.dart' show Export;
 
-import '../builder/builder.dart' show Builder, ClassBuilder, LibraryBuilder;
-
-import 'outline_builder.dart' show OutlineBuilder;
-
 import '../loader.dart' show Loader;
+
+import '../parser/class_member_parser.dart' show ClassMemberParser;
+
+import '../scanner.dart' show ErrorToken, ScannerResult, Token, scan;
+
+import '../scanner/io.dart' show readBytesFromFile;
 
 import '../target_implementation.dart' show TargetImplementation;
 
@@ -38,10 +38,15 @@ import 'diet_listener.dart' show DietListener;
 
 import 'diet_parser.dart' show DietParser;
 
+import 'outline_builder.dart' show OutlineBuilder;
+
+import 'source_class_builder.dart' show SourceClassBuilder;
+
 import 'source_library_builder.dart' show SourceLibraryBuilder;
 
 class SourceLoader<L> extends Loader<L> {
   final Map<Uri, List<int>> sourceBytes = <Uri, List<int>>{};
+  final bool excludeSource = CompilerContext.current.options.excludeSource;
 
   // Used when building directly to kernel.
   ClassHierarchy hierarchy;
@@ -64,12 +69,14 @@ class SourceLoader<L> extends Loader<L> {
       ScannerResult result = scan(bytes);
       Token token = result.tokens;
       if (!suppressLexicalErrors) {
-        target.addLineStarts(library.fileUri, result.lineStarts);
+        List<int> source = getSource(bytes);
+        target.addSourceInformation(library.fileUri, result.lineStarts, source);
       }
       while (token is ErrorToken) {
         if (!suppressLexicalErrors) {
           ErrorToken error = token;
-          printUnexpected(uri, token.charOffset, error.assertionMessage);
+          library.addCompileTimeError(token.charOffset, error.assertionMessage,
+              fileUri: uri);
         }
         token = token.next;
       }
@@ -82,6 +89,17 @@ class SourceLoader<L> extends Loader<L> {
       }
       return inputError(uri, -1, message);
     }
+  }
+
+  List<int> getSource(List<int> bytes) {
+    if (excludeSource) return const <int>[];
+
+    // bytes is 0-terminated. We don't want that included.
+    if (bytes is Uint8List) {
+      return new Uint8List.view(
+          bytes.buffer, bytes.offsetInBytes, bytes.length - 1);
+    }
+    return bytes.sublist(0, bytes.length - 1);
   }
 
   Future<Null> buildOutline(SourceLibraryBuilder library) async {
@@ -316,8 +334,7 @@ class SourceLoader<L> extends Loader<L> {
             reported.add(cls);
           }
         }
-        warning(
-            cls.fileUri,
+        cls.addCompileTimeError(
             cls.charOffset,
             "'${cls.name}' is a supertype of "
             "itself via '${involved.map((c) => c.name).join(' ')}'.");
@@ -340,6 +357,14 @@ class SourceLoader<L> extends Loader<L> {
     ticker.logMs("Computed class hierarchy");
     coreTypes = new CoreTypes(program);
     ticker.logMs("Computed core types");
+  }
+
+  void checkOverrides(List<SourceClassBuilder> sourceClasses) {
+    assert(hierarchy != null);
+    for (SourceClassBuilder builder in sourceClasses) {
+      builder.checkOverrides(hierarchy);
+    }
+    ticker.logMs("Checked overrides");
   }
 
   List<Uri> getDependencies() => sourceBytes.keys.toList();

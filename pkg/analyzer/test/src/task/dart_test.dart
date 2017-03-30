@@ -870,8 +870,35 @@ part of my_lib;
 part of my_lib;
 '''
     });
-    _assertErrorsWithCodes(
-        [ResolverErrorCode.MISSING_LIBRARY_DIRECTIVE_WITH_PART]);
+    if (context.analysisOptions.enableUriInPartOf) {
+      // TODO(28522)
+      // Should report that names are wrong.
+    } else {
+      _assertErrorsWithCodes(
+          [ResolverErrorCode.MISSING_LIBRARY_DIRECTIVE_WITH_PART]);
+    }
+  }
+
+  test_perform_error_missingLibraryDirectiveWithPart_noCommon() {
+    _performBuildTask({
+      '/lib.dart': '''
+part 'partA.dart';
+part 'partB.dart';
+''',
+      '/partA.dart': '''
+part of libA;
+        ''',
+      '/partB.dart': '''
+part of libB;
+'''
+    });
+    if (context.analysisOptions.enableUriInPartOf) {
+      // TODO(28522)
+      // Should report that names are wrong.
+    } else {
+      _assertErrorsWithCodes(
+          [ResolverErrorCode.MISSING_LIBRARY_DIRECTIVE_WITH_PART]);
+    }
   }
 
   test_perform_error_partDoesNotExist() {
@@ -2891,10 +2918,7 @@ class M {}
         '/test.dart',
         '''
 var X = 1;
-
-var Y = () {
-  return 1 + X;
-};
+var Y = () => 1 + X;
 ''');
     computeResult(new LibrarySpecificUnit(source, source), RESOLVED_UNIT8,
         matcher: isInferStaticVariableTypesInUnitTask);
@@ -2902,9 +2926,8 @@ var Y = () {
     TopLevelVariableDeclaration declaration = unit.declarations[1];
     FunctionExpression function =
         declaration.variables.variables[0].initializer;
-    BlockFunctionBody body = function.body;
-    ReturnStatement statement = body.block.statements[0];
-    Expression expression = statement.expression;
+    ExpressionFunctionBody body = function.body;
+    Expression expression = body.expression;
     InterfaceType intType = context.typeProvider.intType;
     expect(expression.staticType, intType);
   }
@@ -4097,7 +4120,9 @@ class A {}
     expect(outputs[CREATED_RESOLVED_UNIT9], isTrue);
   }
 
-  // Test inference of instance fields across units
+  /**
+   * Test inference of instance fields across units
+   */
   void test_perform_inference_cross_unit_instance() {
     List<Source> sources = newSources({
       '/a.dart': '''
@@ -4148,13 +4173,15 @@ class A {}
 
     // A.a2 should now be fully resolved and inferred.
     assertVariableDeclarationTypes(
-        AstFinder.getFieldInClass(unit0, "A", "a2"), intType, intType);
+        AstFinder.getFieldInClass(unit0, "A", "a2"), dynamicType, intType);
 
     assertVariableDeclarationTypes(
         AstFinder.getFieldInClass(unit1, "B", "b2"), intType, intType);
   }
 
-  // Test inference of instance fields across units
+  /**
+   * Test inference of instance fields across units
+   */
   void test_perform_inference_cross_unit_instance_cyclic() {
     List<Source> sources = newSources({
       '/a.dart': '''
@@ -4196,7 +4223,9 @@ class A {}
         AstFinder.getFieldInClass(unit0, "A", "a2"), dynamicType, dynamicType);
   }
 
-  // Test inference of instance fields across units with cycles
+  /**
+   * Test inference of instance fields across units with cycles
+   */
   void test_perform_inference_cross_unit_static_instance() {
     List<Source> sources = newSources({
       '/a.dart': '''
@@ -4255,7 +4284,7 @@ class A {}
     assertVariableDeclarationTypes(
         AstFinder.getFieldInClass(unit0, "A", "a1"), intType, intType);
     assertVariableDeclarationTypes(
-        AstFinder.getFieldInClass(unit0, "A", "a2"), intType, intType);
+        AstFinder.getFieldInClass(unit0, "A", "a2"), dynamicType, intType);
 
     assertVariableDeclarationTypes(
         AstFinder.getFieldInClass(unit1, "B", "b1"), intType, intType);
@@ -4263,7 +4292,9 @@ class A {}
         AstFinder.getFieldInClass(unit1, "B", "b2"), intType, intType);
   }
 
-  // Test inference between static and instance fields
+  /**
+   * Test inference between static and instance fields
+   */
   void test_perform_inference_instance() {
     List<Source> sources = newSources({
       '/a.dart': '''
@@ -4979,9 +5010,10 @@ var tau = piFirst ? pi * 2 : 6.28;
     CompilationUnit unit2 = units[2];
 
     InterfaceType intType = context.typeProvider.intType;
+    DartType dynamicType = context.typeProvider.dynamicType;
 
     assertVariableDeclarationTypes(
-        AstFinder.getFieldInClass(unit0, "A", "a2"), intType, intType);
+        AstFinder.getFieldInClass(unit0, "A", "a2"), dynamicType, intType);
 
     assertVariableDeclarationTypes(
         AstFinder.getFieldInClass(unit1, "B", "b2"), intType, intType);
@@ -4989,7 +5021,7 @@ var tau = piFirst ? pi * 2 : 6.28;
     List<Statement> statements =
         AstFinder.getStatementsInTopLevelFunction(unit2, "test1");
 
-    assertAssignmentStatementTypes(statements[1], intType, intType);
+    assertAssignmentStatementTypes(statements[1], intType, dynamicType);
   }
 
   // Test inference interactions between local variables and fields
@@ -5121,11 +5153,12 @@ var tau = piFirst ? pi * 2 : 6.28;
     CompilationUnit unit2 = units[2];
 
     InterfaceType intType = context.typeProvider.intType;
+    DartType dynamicType = context.typeProvider.dynamicType;
 
     assertVariableDeclarationTypes(
         AstFinder.getFieldInClass(unit0, "A", "a1"), intType, intType);
     assertVariableDeclarationTypes(
-        AstFinder.getFieldInClass(unit0, "A", "a2"), intType, intType);
+        AstFinder.getFieldInClass(unit0, "A", "a2"), dynamicType, intType);
 
     assertVariableDeclarationTypes(
         AstFinder.getFieldInClass(unit1, "B", "b1"), intType, intType);
@@ -5136,7 +5169,7 @@ var tau = piFirst ? pi * 2 : 6.28;
         AstFinder.getStatementsInTopLevelFunction(unit2, "test1");
 
     assertAssignmentStatementTypes(statements[1], intType, intType);
-    assertAssignmentStatementTypes(statements[2], intType, intType);
+    assertAssignmentStatementTypes(statements[2], intType, dynamicType);
   }
 
   // Test inference across units (non-cyclic)

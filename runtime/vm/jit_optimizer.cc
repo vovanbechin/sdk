@@ -438,7 +438,7 @@ bool JitOptimizer::TryReplaceWithIndexedOp(InstanceCallInstr* call) {
   if (!call->HasICData()) return false;
   const ICData& ic_data =
       ICData::Handle(Z, call->ic_data()->AsUnaryClassChecks());
-  if (ic_data.NumberOfChecks() != 1) {
+  if (!ic_data.NumberOfChecksIs(1)) {
     return false;
   }
   return FlowGraphInliner::TryReplaceInstanceCallWithInline(
@@ -1198,7 +1198,8 @@ RawBool* JitOptimizer::InstanceOfAsBool(
   Class& cls = Class::Handle(Z);
 
   bool results_differ = false;
-  for (int i = 0; i < ic_data.NumberOfChecks(); i++) {
+  const intptr_t number_of_checks = ic_data.NumberOfChecks();
+  for (int i = 0; i < number_of_checks; i++) {
     cls = class_table.At(ic_data.GetReceiverClassIdAt(i));
     if (cls.NumTypeArguments() > 0) {
       return Bool::null();
@@ -1210,8 +1211,9 @@ RawBool* JitOptimizer::InstanceOfAsBool(
         cls.IsNullClass()
             ? (type_class.IsNullClass() || type_class.IsObjectClass() ||
                type_class.IsDynamicClass())
-            : cls.IsSubtypeOf(TypeArguments::Handle(Z), type_class,
-                              TypeArguments::Handle(Z), NULL, NULL, Heap::kOld);
+            : cls.IsSubtypeOf(Object::null_type_arguments(), type_class,
+                              Object::null_type_arguments(), NULL, NULL,
+                              Heap::kOld);
     results->Add(cls.id());
     results->Add(is_subtype);
     if (prev.IsNull()) {
@@ -1303,8 +1305,8 @@ static bool TryExpandTestCidsResult(ZoneGrowableArray<intptr_t>* results,
     const Class& cls = Class::Handle(class_table.At(kSmiCid));
     const Class& type_class = Class::Handle(type.type_class());
     const bool smi_is_subtype =
-        cls.IsSubtypeOf(TypeArguments::Handle(), type_class,
-                        TypeArguments::Handle(), NULL, NULL, Heap::kOld);
+        cls.IsSubtypeOf(Object::null_type_arguments(), type_class,
+                        Object::null_type_arguments(), NULL, NULL, Heap::kOld);
     results->Add((*results)[results->length() - 2]);
     results->Add((*results)[results->length() - 2]);
     for (intptr_t i = results->length() - 3; i > 1; --i) {
@@ -1328,66 +1330,34 @@ static bool TryExpandTestCidsResult(ZoneGrowableArray<intptr_t>* results,
 }
 
 
-// Tells whether the function of the call matches the core private name.
-static bool matches_core(InstanceCallInstr* call, const String& name) {
-  return call->function_name().raw() == Library::PrivateCoreLibName(name).raw();
-}
-
-
 // TODO(srdjan): Use ICData to check if always true or false.
 void JitOptimizer::ReplaceWithInstanceOf(InstanceCallInstr* call) {
   ASSERT(Token::IsTypeTestOperator(call->token_kind()));
   Definition* left = call->ArgumentAt(0);
   Definition* type_args = NULL;
   AbstractType& type = AbstractType::ZoneHandle(Z);
-  bool negate = false;
   if (call->ArgumentCount() == 2) {
     type_args = flow_graph()->constant_null();
-    if (matches_core(call, Symbols::_simpleInstanceOf())) {
-      type =
-          AbstractType::Cast(call->ArgumentAt(1)->AsConstant()->value()).raw();
-      negate = false;  // Just to be sure.
-    } else {
-      if (matches_core(call, Symbols::_instanceOfNum())) {
-        type = Type::Number();
-      } else if (matches_core(call, Symbols::_instanceOfInt())) {
-        type = Type::IntType();
-      } else if (matches_core(call, Symbols::_instanceOfSmi())) {
-        type = Type::SmiType();
-      } else if (matches_core(call, Symbols::_instanceOfDouble())) {
-        type = Type::Double();
-      } else if (matches_core(call, Symbols::_instanceOfString())) {
-        type = Type::StringType();
-      } else {
-        UNIMPLEMENTED();
-      }
-      negate =
-          Bool::Cast(
-              call->ArgumentAt(1)->OriginalDefinition()->AsConstant()->value())
-              .value();
-    }
+    ASSERT(call->MatchesCoreName(Symbols::_simpleInstanceOf()));
+    type = AbstractType::Cast(call->ArgumentAt(1)->AsConstant()->value()).raw();
   } else {
     type_args = call->ArgumentAt(1);
     type = AbstractType::Cast(call->ArgumentAt(2)->AsConstant()->value()).raw();
-    negate =
-        Bool::Cast(
-            call->ArgumentAt(3)->OriginalDefinition()->AsConstant()->value())
-            .value();
   }
   const ICData& unary_checks =
       ICData::ZoneHandle(Z, call->ic_data()->AsUnaryClassChecks());
-  if ((unary_checks.NumberOfChecks() > 0) &&
-      (unary_checks.NumberOfChecks() <= FLAG_max_polymorphic_checks)) {
+  const intptr_t number_of_checks = unary_checks.NumberOfChecks();
+  if ((number_of_checks > 0) &&
+      (number_of_checks <= FLAG_max_polymorphic_checks)) {
     ZoneGrowableArray<intptr_t>* results =
-        new (Z) ZoneGrowableArray<intptr_t>(unary_checks.NumberOfChecks() * 2);
+        new (Z) ZoneGrowableArray<intptr_t>(number_of_checks * 2);
     Bool& as_bool =
         Bool::ZoneHandle(Z, InstanceOfAsBool(unary_checks, type, results));
     if (as_bool.IsNull()) {
-      if (results->length() == unary_checks.NumberOfChecks() * 2) {
+      if (results->length() == number_of_checks * 2) {
         const bool can_deopt = TryExpandTestCidsResult(results, type);
         TestCidsInstr* test_cids = new (Z) TestCidsInstr(
-            call->token_pos(), negate ? Token::kISNOT : Token::kIS,
-            new (Z) Value(left), *results,
+            call->token_pos(), Token::kIS, new (Z) Value(left), *results,
             can_deopt ? call->deopt_id() : Thread::kNoDeoptId);
         // Remove type.
         ReplaceCall(call, test_cids);
@@ -1397,9 +1367,6 @@ void JitOptimizer::ReplaceWithInstanceOf(InstanceCallInstr* call) {
       // TODO(srdjan): Use TestCidsInstr also for this case.
       // One result only.
       AddReceiverCheck(call);
-      if (negate) {
-        as_bool = Bool::Get(!as_bool.value()).raw();
-      }
       ConstantInstr* bool_const = flow_graph()->GetConstant(as_bool);
       for (intptr_t i = 0; i < call->ArgumentCount(); ++i) {
         PushArgumentInstr* push = call->PushArgumentAt(i);
@@ -1420,17 +1387,18 @@ void JitOptimizer::ReplaceWithInstanceOf(InstanceCallInstr* call) {
     ConstantInstr* cid =
         flow_graph()->GetConstant(Smi::Handle(Z, Smi::New(type_cid)));
 
-    StrictCompareInstr* check_cid = new (Z) StrictCompareInstr(
-        call->token_pos(), negate ? Token::kNE_STRICT : Token::kEQ_STRICT,
-        new (Z) Value(left_cid), new (Z) Value(cid),
-        false);  // No number check.
+    StrictCompareInstr* check_cid =
+        new (Z) StrictCompareInstr(call->token_pos(), Token::kEQ_STRICT,
+                                   new (Z) Value(left_cid), new (Z) Value(cid),
+                                   false);  // No number check.
     ReplaceCall(call, check_cid);
     return;
   }
 
-  InstanceOfInstr* instance_of = new (Z)
-      InstanceOfInstr(call->token_pos(), new (Z) Value(left),
-                      new (Z) Value(type_args), type, negate, call->deopt_id());
+  InstanceOfInstr* instance_of = new (Z) InstanceOfInstr(
+      call->token_pos(), new (Z) Value(left), new (Z) Value(type_args),
+      NULL,  // TODO(regis): Pass function type args.
+      type, call->deopt_id());
   ReplaceCall(call, instance_of);
 }
 
@@ -1445,10 +1413,11 @@ void JitOptimizer::ReplaceWithTypeCast(InstanceCallInstr* call) {
   ASSERT(!type.IsMalformedOrMalbounded());
   const ICData& unary_checks =
       ICData::ZoneHandle(Z, call->ic_data()->AsUnaryClassChecks());
-  if ((unary_checks.NumberOfChecks() > 0) &&
-      (unary_checks.NumberOfChecks() <= FLAG_max_polymorphic_checks)) {
+  const intptr_t number_of_checks = unary_checks.NumberOfChecks();
+  if ((number_of_checks > 0) &&
+      (number_of_checks <= FLAG_max_polymorphic_checks)) {
     ZoneGrowableArray<intptr_t>* results =
-        new (Z) ZoneGrowableArray<intptr_t>(unary_checks.NumberOfChecks() * 2);
+        new (Z) ZoneGrowableArray<intptr_t>(number_of_checks * 2);
     const Bool& as_bool =
         Bool::ZoneHandle(Z, InstanceOfAsBool(unary_checks, type, results));
     if (as_bool.raw() == Bool::True().raw()) {
@@ -1467,11 +1436,89 @@ void JitOptimizer::ReplaceWithTypeCast(InstanceCallInstr* call) {
     }
   }
   AssertAssignableInstr* assert_as = new (Z) AssertAssignableInstr(
-      call->token_pos(), new (Z) Value(left), new (Z) Value(type_args), type,
-      Symbols::InTypeCast(), call->deopt_id());
+      call->token_pos(), new (Z) Value(left), new (Z) Value(type_args),
+      NULL,  // TODO(regis): Pass function type arguments.
+      type, Symbols::InTypeCast(), call->deopt_id());
   ReplaceCall(call, assert_as);
 }
 
+
+bool JitOptimizer::LookupMethodFor(int class_id,
+                                   const ArgumentsDescriptor& args_desc,
+                                   const String& name,
+                                   Function* fn_return) {
+  if (class_id < 0) return false;
+  if (class_id >= I->class_table()->NumCids()) return false;
+
+  RawClass* raw_class = I->class_table()->At(class_id);
+  if (raw_class == NULL) return false;
+  Class& cls = Class::Handle(Z, raw_class);
+  if (cls.IsNull()) return false;
+  if (!cls.is_finalized()) return false;
+  if (Array::Handle(cls.functions()).IsNull()) return false;
+
+  Function& target_function = Function::Handle(
+      Z, Resolver::ResolveDynamicForReceiverClass(cls, name, args_desc));
+  if (target_function.IsNull()) return false;
+  *fn_return ^= target_function.raw();
+  return true;
+}
+
+
+static int OrderById(const intptr_t* a, const intptr_t* b) {
+  // Negative if 'a' should sort before 'b'.
+  return *a - *b;
+}
+
+
+void JitOptimizer::TryExpandClassesInICData(const ICData& ic_data) {
+  if (ic_data.NumberOfChecks() == 0) return;
+
+  Function& dummy = Function::Handle(Z);
+
+  GrowableArray<intptr_t> ids;
+  for (int i = 0; i < ic_data.NumberOfChecks(); i++) {
+    // The API works for multi dispatch ICs that check more than one argument,
+    // but we know we only check one arg here, so only the 0th element of id
+    // will be used.
+    GrowableArray<intptr_t> id;
+    ic_data.GetCheckAt(i, &id, &dummy);
+    ids.Add(id[0]);
+  }
+  ids.Sort(OrderById);
+
+  Array& args_desc_array = Array::Handle(Z, ic_data.arguments_descriptor());
+  ArgumentsDescriptor args_desc(args_desc_array);
+  String& name = String::Handle(Z, ic_data.target_name());
+
+  Function& fn = Function::Handle(Z);
+  Function& fn_high = Function::Handle(Z);
+  Function& possible_match = Function::Handle(Z);
+
+  for (int cid_index = 0; cid_index < ids.length() - 1; cid_index++) {
+    int low_cid = ids[cid_index];
+    int high_cid = ids[cid_index + 1];
+    if (low_cid + 1 == high_cid) continue;
+    if (LookupMethodFor(low_cid, args_desc, name, &fn) &&
+        LookupMethodFor(high_cid, args_desc, name, &fn_high) &&
+        fn.raw() == fn_high.raw()) {
+      // Try to fill in the IC table by going downwards from a known class-id.
+      bool can_fill_in = true;
+      for (int i = low_cid + 1; i < high_cid; i++) {
+        if (!LookupMethodFor(i, args_desc, name, &possible_match) ||
+            possible_match.raw() != fn.raw()) {
+          can_fill_in = false;
+          break;
+        }
+      }
+      if (can_fill_in) {
+        for (int i = low_cid + 1; i < high_cid; i++) {
+          ic_data.AddReceiverCheck(i, fn, 0);
+        }
+      }
+    }
+  }
+}
 
 // Tries to optimize instance call by replacing it with a faster instruction
 // (e.g, binary op, field load, ..).
@@ -1494,18 +1541,6 @@ void JitOptimizer::VisitInstanceCall(InstanceCallInstr* instr) {
 
   const ICData& unary_checks =
       ICData::ZoneHandle(Z, instr->ic_data()->AsUnaryClassChecks());
-
-  const bool is_dense = CheckClassInstr::IsDenseCidRange(unary_checks);
-  const intptr_t max_checks = (op_kind == Token::kEQ)
-                                  ? FLAG_max_equality_polymorphic_checks
-                                  : FLAG_max_polymorphic_checks;
-  if ((unary_checks.NumberOfChecks() > max_checks) && !is_dense &&
-      flow_graph()->InstanceCallNeedsClassCheck(
-          instr, RawFunction::kRegularFunction)) {
-    // Too many checks, it will be megamorphic which needs unary checks.
-    instr->set_ic_data(&unary_checks);
-    return;
-  }
 
   if ((op_kind == Token::kASSIGN_INDEX) && TryReplaceWithIndexedOp(instr)) {
     return;
@@ -1542,6 +1577,10 @@ void JitOptimizer::VisitInstanceCall(InstanceCallInstr* instr) {
     return;
   }
 
+  // Now we are done trying the inlining options that benefit from only having
+  // 1 entry in the IC table.
+  TryExpandClassesInICData(unary_checks);
+
   bool has_one_target = unary_checks.HasOneTarget();
 
   if (has_one_target) {
@@ -1571,22 +1610,19 @@ void JitOptimizer::VisitInstanceCall(InstanceCallInstr* instr) {
     }
   }
 
-  if ((unary_checks.NumberOfChecks() <= FLAG_max_polymorphic_checks) ||
-      (has_one_target && is_dense)) {
-    bool call_with_checks;
-    if (has_one_target && FLAG_polymorphic_with_deopt) {
-      // Type propagation has not run yet, we cannot eliminate the check.
-      AddReceiverCheck(instr);
-      // Call can still deoptimize, do not detach environment from instr.
-      call_with_checks = false;
-    } else {
-      call_with_checks = true;
-    }
-    PolymorphicInstanceCallInstr* call = new (Z)
-        PolymorphicInstanceCallInstr(instr, unary_checks, call_with_checks,
-                                     /* complete = */ false);
-    instr->ReplaceWith(call, current_iterator());
+  bool call_with_checks;
+  if (has_one_target && FLAG_polymorphic_with_deopt) {
+    // Type propagation has not run yet, we cannot eliminate the check.
+    AddReceiverCheck(instr);
+    // Call can still deoptimize, do not detach environment from instr.
+    call_with_checks = false;
+  } else {
+    call_with_checks = true;
   }
+  PolymorphicInstanceCallInstr* call = new (Z)
+      PolymorphicInstanceCallInstr(instr, unary_checks, call_with_checks,
+                                   /* complete = */ false);
+  instr->ReplaceWith(call, current_iterator());
 }
 
 
@@ -1623,7 +1659,7 @@ void JitOptimizer::VisitStaticCall(StaticCallInstr* call) {
       // We can handle only monomorphic min/max call sites with both arguments
       // being either doubles or smis.
       if (CanUnboxDouble() && call->HasICData() &&
-          (call->ic_data()->NumberOfChecks() == 1)) {
+          call->ic_data()->NumberOfChecksIs(1)) {
         const ICData& ic_data = *call->ic_data();
         intptr_t result_cid = kIllegalCid;
         if (ICDataHasReceiverArgumentClassIds(ic_data, kDoubleCid,
@@ -1650,7 +1686,7 @@ void JitOptimizer::VisitStaticCall(StaticCallInstr* call) {
     }
 
     case MethodRecognizer::kDoubleFromInteger: {
-      if (call->HasICData() && (call->ic_data()->NumberOfChecks() == 1)) {
+      if (call->HasICData() && call->ic_data()->NumberOfChecksIs(1)) {
         const ICData& ic_data = *call->ic_data();
         if (CanUnboxDouble()) {
           if (ArgIsAlways(kSmiCid, ic_data, 1)) {
@@ -1769,7 +1805,7 @@ void JitOptimizer::VisitLoadCodeUnits(LoadCodeUnitsInstr* instr) {
 
 bool JitOptimizer::TryInlineInstanceSetter(InstanceCallInstr* instr,
                                            const ICData& unary_ic_data) {
-  ASSERT((unary_ic_data.NumberOfChecks() > 0) &&
+  ASSERT(!unary_ic_data.NumberOfChecksIs(0) &&
          (unary_ic_data.NumArgsTested() == 1));
   if (I->type_checks()) {
     // Checked mode setters are inlined like normal methods by conventional
@@ -1778,7 +1814,7 @@ bool JitOptimizer::TryInlineInstanceSetter(InstanceCallInstr* instr,
   }
 
   ASSERT(instr->HasICData());
-  if (unary_ic_data.NumberOfChecks() == 0) {
+  if (unary_ic_data.NumberOfChecksIs(0)) {
     // No type feedback collected.
     return false;
   }

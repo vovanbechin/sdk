@@ -271,7 +271,7 @@ class ClassEmitter extends CodeEmitterHelper {
       emitter.containerBuilder.addMemberMethod(method, builder);
     }
 
-    if (classElement.isObject && backend.enabledNoSuchMethod) {
+    if (classElement.isObject && backend.backendUsage.isNoSuchMethodUsed) {
       // Emit the noSuchMethod handlers on the Object prototype now,
       // so that the code in the dynamicFunction helper can find
       // them. Note that this helper is invoked before analyzing the
@@ -312,7 +312,7 @@ class ClassEmitter extends CodeEmitterHelper {
     if (backend.mirrorsData.isAccessibleByReflection(classElement)) {
       List<ResolutionDartType> typeVars = classElement.typeVariables;
       Iterable typeVariableProperties =
-          emitter.typeVariableHandler.typeVariablesOf(classElement);
+          emitter.typeVariableCodegenAnalysis.typeVariablesOf(classElement);
 
       ClassElement superclass = classElement.superclass;
       bool hasSuper = superclass != null;

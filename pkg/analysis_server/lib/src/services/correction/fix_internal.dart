@@ -15,10 +15,12 @@ import 'package:analysis_server/plugin/protocol/protocol.dart'
 import 'package:analysis_server/src/protocol_server.dart'
     show doSourceChange_addElementEdit, doSourceChange_addSourceEdit;
 import 'package:analysis_server/src/services/correction/fix.dart';
+import 'package:analysis_server/src/services/correction/flutter_util.dart';
 import 'package:analysis_server/src/services/correction/levenshtein.dart';
 import 'package:analysis_server/src/services/correction/name_suggestion.dart';
 import 'package:analysis_server/src/services/correction/namespace.dart';
 import 'package:analysis_server/src/services/correction/source_buffer.dart';
+import 'package:analysis_server/src/services/correction/source_range.dart';
 import 'package:analysis_server/src/services/correction/source_range.dart'
     as rf;
 import 'package:analysis_server/src/services/correction/strings.dart';
@@ -44,10 +46,8 @@ import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/error_verifier.dart';
 import 'package:analyzer/src/generated/java_core.dart';
 import 'package:analyzer/src/generated/parser.dart';
-import 'package:analyzer/src/generated/sdk.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/utilities_dart.dart';
-import 'package:analyzer/src/task/dart.dart';
 import 'package:path/path.dart';
 
 /**
@@ -369,6 +369,11 @@ class FixProcessor {
       _addFix_undefinedClassAccessor_useSimilar();
       _addFix_createField();
     }
+    if (errorCode == CompileTimeErrorCode.UNDEFINED_NAMED_PARAMETER ||
+        errorCode == StaticWarningCode.UNDEFINED_NAMED_PARAMETER) {
+      _addFix_convertFlutterChild();
+      _addFix_convertFlutterChildren();
+    }
     // lints
     if (errorCode is LintCode) {
       if (errorCode.name == LintNames.annotate_overrides) {
@@ -598,7 +603,7 @@ class FixProcessor {
       // In the future consider better values than null for specific element types.
       sb.append('$paramName: null');
 
-      _insertBuilder(sb, targetElement);
+      _insertBuilder(sb, null);
       _addFix(DartFixKind.ADD_MISSING_REQUIRED_ARGUMENT, [paramName]);
     }
   }
@@ -649,6 +654,43 @@ class FixProcessor {
         }
       }
     }
+  }
+
+  void _addFix_convertFlutterChild() {
+    NamedExpression namedExp = findFlutterNamedExpression(node, 'child');
+    if (namedExp == null) {
+      return;
+    }
+    InstanceCreationExpression childArg = getChildWidget(namedExp, false);
+    if (childArg != null) {
+      convertFlutterChildToChildren(
+          childArg,
+          namedExp,
+          eol,
+          utils.getNodeText,
+          utils.getLinePrefix,
+          utils.getIndent,
+          utils.getText,
+          _addInsertEdit,
+          _addRemoveEdit,
+          _addReplaceEdit,
+          rangeStartLength,
+          rangeNode);
+      _addFix(DartFixKind.CONVERT_FLUTTER_CHILD, []);
+      return;
+    }
+    ListLiteral listArg = getChildList(namedExp);
+    if (listArg != null) {
+      _addInsertEdit(namedExp.offset + 'child'.length, 'ren');
+      if (listArg.typeArguments == null) {
+        _addInsertEdit(listArg.offset, '<Widget>');
+      }
+      _addFix(DartFixKind.CONVERT_FLUTTER_CHILD, []);
+    }
+  }
+
+  void _addFix_convertFlutterChildren() {
+    // TODO(messick) Implement _addFix_convertFlutterChildren()
   }
 
   void _addFix_createClass() {
@@ -1573,42 +1615,7 @@ class FixProcessor {
         _addFix(DartFixKind.IMPORT_LIBRARY_SHOW, [libraryName]);
       }
     }
-    // check SDK libraries
-    {
-      DartSdk sdk = context.sourceFactory.dartSdk;
-      List<SdkLibrary> sdkLibraries = sdk.sdkLibraries;
-      for (SdkLibrary sdkLibrary in sdkLibraries) {
-        SourceFactory sdkSourceFactory = context.sourceFactory;
-        String libraryUri = sdkLibrary.shortName;
-        Source librarySource =
-            sdkSourceFactory.resolveUri(unitSource, libraryUri);
-        // maybe already imported
-        if (alreadyImportedWithPrefix.contains(librarySource)) {
-          continue;
-        }
-        // prepare LibraryElement
-        LibraryElement libraryElement =
-            context.getResult(librarySource, LIBRARY_ELEMENT1);
-        if (libraryElement == null) {
-          continue;
-        }
-        // prepare exported Element
-        Element element = getExportedElement(libraryElement, name);
-        if (element == null) {
-          continue;
-        }
-        if (element is PropertyAccessorElement) {
-          element = (element as PropertyAccessorElement).variable;
-        }
-        if (!elementKinds.contains(element.kind)) {
-          continue;
-        }
-        // add import
-        _addFix_importLibrary(
-            DartFixKind.IMPORT_LIBRARY_SDK, libraryElement.source);
-      }
-    }
-    // check project libraries
+    // Find new top-level declarations.
     {
       List<TopLevelDeclarationInSource> declarations =
           await getTopLevelDeclarations(name);
@@ -1619,15 +1626,14 @@ class FixProcessor {
         }
         // Check the source.
         Source librarySource = declaration.source;
-        if (librarySource.isInSystemLibrary) {
-          continue;
-        }
         if (alreadyImportedWithPrefix.contains(librarySource)) {
           continue;
         }
         // Compute the fix kind.
         FixKind fixKind;
-        if (_isLibSrcPath(librarySource.fullName)) {
+        if (librarySource.isInSystemLibrary) {
+          fixKind = DartFixKind.IMPORT_LIBRARY_SDK;
+        } else if (_isLibSrcPath(librarySource.fullName)) {
           // Bad: non-API.
           fixKind = DartFixKind.IMPORT_LIBRARY_PROJECT3;
         } else if (declaration.isExported) {

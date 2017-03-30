@@ -60,7 +60,7 @@ DEFINE_FLAG(bool,
             "Enable generic function syntax.");
 DEFINE_FLAG(bool,
             generic_method_semantics,
-            true,
+            false,
             "Enable generic function semantics (not yet supported).");
 DEFINE_FLAG(bool,
             initializing_formal_access,
@@ -1163,7 +1163,7 @@ void Parser::ParseFunction(ParsedFunction* parsed_function) {
   }
   parsed_function->SetNodeSequence(node_sequence);
 
-  // The instantiator may be required at run time for generic type checks or
+  // The instantiators may be required at run time for generic type checks or
   // allocation of generic types.
   if (parser.IsInstantiatorRequired()) {
     // In the case of a local function, only set the instantiator if the
@@ -1180,6 +1180,16 @@ void Parser::ParseFunction(ParsedFunction* parsed_function) {
         ((instantiator != NULL) && instantiator->is_captured())) {
       parsed_function->set_instantiator(instantiator);
     }
+  }
+  if (FLAG_generic_method_semantics && parser.current_function().IsGeneric()) {
+    const String* variable_name = &Symbols::FunctionInstantiatorVar();
+    const bool kTestOnly = true;
+    LocalVariable* instantiator =
+        node_sequence->scope()->LookupVariable(*variable_name, kTestOnly);
+    ASSERT(instantiator != NULL);
+    parsed_function->set_function_instantiator(instantiator);
+    // Function instantiator variables of parent generic functions, if any, are
+    // captured and accessible via the context.
   }
 }
 
@@ -3460,6 +3470,14 @@ SequenceNode* Parser::ParseFunc(const Function& func, bool check_semicolon) {
   ASSERT(!func.IsGenerativeConstructor());
   OpenFunctionBlock(func);  // Build local scope for function.
 
+  if (FLAG_generic_method_semantics && func.IsGeneric()) {
+    // Insert function instantiator variable to scope.
+    LocalVariable* function_instantiator = new (Z) LocalVariable(
+        TokenPosition::kNoSource, TokenPosition::kNoSource,
+        Symbols::FunctionInstantiatorVar(), Object::dynamic_type());
+    current_block_->scope->AddVariable(function_instantiator);
+  }
+
   ParamList params;
   // An instance closure function may capture and access the receiver, but via
   // the context and not via the first formal parameter.
@@ -3549,18 +3567,6 @@ SequenceNode* Parser::ParseFunc(const Function& func, bool check_semicolon) {
 
     // Populate function scope with the formal parameters.
     AddFormalParamsToScope(&params, current_block_->scope);
-
-    if (I->type_checks() && (FunctionLevel() > 0)) {
-      // We are parsing, but not compiling, a local function.
-      // The instantiator may be required at run time for generic type checks.
-      if (IsInstantiatorRequired()) {
-        // Make sure that the receiver of the enclosing instance function
-        // (or implicit first parameter of an enclosing factory) is marked as
-        // captured if type checks are enabled, because they may access it to
-        // instantiate types.
-        CaptureInstantiator();
-      }
-    }
   }
 
   const TokenPosition modifier_pos = TokenPos();
@@ -3618,6 +3624,22 @@ SequenceNode* Parser::ParseFunc(const Function& func, bool check_semicolon) {
       func.set_is_inlinable(false);
     }
     OpenAsyncGeneratorClosure();
+  }
+
+  // Function level is now correctly set to parse the (possibly async) body.
+  if (I->type_checks() && (FunctionLevel() > 0)) {
+    // We are parsing, but not compiling, a local function.
+    // The instantiator may be required at run time for generic type checks.
+    // Note that the source of this local function may not reference the
+    // generic type explicitly. However, it may assign a value to a captured
+    // variable declared with its generic type in the enclosing function.
+    // Make sure that the receiver of the enclosing instance function
+    // (or implicit first parameter of an enclosing factory) is marked as
+    // captured if type checks are enabled, because they may access it to
+    // instantiate types.
+    // If any enclosing parent of the function being parsed is generic, capture
+    // their function instantiators.
+    CaptureAllInstantiators();
   }
 
   BoolScope allow_await(&this->await_is_keyword_,
@@ -3687,7 +3709,7 @@ SequenceNode* Parser::ParseFunc(const Function& func, bool check_semicolon) {
     body = CloseAsyncFunction(generated_body_closure, body);
     generated_body_closure.set_end_token_pos(end_token_pos);
   } else if (func.IsAsyncClosure()) {
-    body = CloseAsyncClosure(body);
+    body = CloseAsyncClosure(body, end_token_pos);
   } else if (func.IsSyncGenerator()) {
     body = CloseSyncGenFunction(generated_body_closure, body);
     generated_body_closure.set_end_token_pos(end_token_pos);
@@ -3792,10 +3814,8 @@ RawLibraryPrefix* Parser::ParsePrefix() {
     return LibraryPrefix::null();
   }
   // Check whether the identifier is shadowed by a function type parameter.
-  // TODO(regis): Shortcut this lookup if no generic functions in scope.
-  if (!innermost_function().IsNull() &&
-      (innermost_function().LookupTypeParameter(ident, NULL) !=
-       TypeParameter::null())) {
+  if (InGenericFunctionScope() && (innermost_function().LookupTypeParameter(
+                                       ident, NULL) != TypeParameter::null())) {
     return LibraryPrefix::null();
   }
   // Check whether the identifier is shadowed by a class type parameter.
@@ -4439,32 +4459,23 @@ void Parser::ParseClassMemberDefinition(ClassDesc* members,
   }
 
   // Optionally parse a type.
-  if (CurrentToken() == Token::kVOID) {
-    if (member.has_var || member.has_factory) {
-      ReportError("void not expected");
-    }
-    ConsumeToken();
-    ASSERT(member.type == NULL);
-    member.type = &Object::void_type();
-  } else {
-    bool found_type = false;
-    {
-      // Lookahead to determine whether the next tokens are a return type.
-      TokenPosScope saved_pos(this);
-      if (TryParseType(true)) {
-        if (IsIdentifier() || (CurrentToken() == Token::kGET) ||
-            (CurrentToken() == Token::kSET) ||
-            (CurrentToken() == Token::kOPERATOR)) {
-          found_type = true;
-        }
+  bool found_type = false;
+  {
+    // Lookahead to determine whether the next tokens are a return type.
+    TokenPosScope saved_pos(this);
+    if (TryParseType(true)) {
+      if (IsIdentifier() || (CurrentToken() == Token::kGET) ||
+          (CurrentToken() == Token::kSET) ||
+          (CurrentToken() == Token::kOPERATOR)) {
+        found_type = true;
       }
     }
-    if (found_type) {
-      // It is too early to resolve the type here, since it can be a result type
-      // referring to a not yet declared function type parameter.
-      member.type = &AbstractType::ZoneHandle(
-          Z, ParseTypeOrFunctionType(false, ClassFinalizer::kDoNotResolve));
-    }
+  }
+  if (found_type) {
+    // It is too early to resolve the type here, since it can be a result type
+    // referring to a not yet declared function type parameter.
+    member.type = &AbstractType::ZoneHandle(
+        Z, ParseTypeOrFunctionType(true, ClassFinalizer::kDoNotResolve));
   }
 
   // Optionally parse a (possibly named) constructor name or factory.
@@ -5527,6 +5538,9 @@ void Parser::ParseTypeParameters(bool parameterizing_class) {
           parameterizing_class ? current_class() : Class::Handle(Z),
           parameterizing_class ? Function::Handle(Z) : innermost_function(),
           index, 0, type_parameter_name, type_parameter_bound, declaration_pos);
+      if (!parameterizing_class) {
+        type_parameter.SetIsFinalized();
+      }
       type_parameters_array.Add(
           &AbstractType::ZoneHandle(Z, type_parameter.raw()));
       if (FLAG_enable_mirrors && metadata_pos.IsReal()) {
@@ -6386,12 +6400,16 @@ void Parser::ParsePartHeader() {
     ReportError("'part of' expected");
   }
   ConsumeToken();
-  // The VM is not required to check that the library name matches the
-  // name of the current library, so we ignore it.
-  ExpectIdentifier("library name expected");
-  while (CurrentToken() == Token::kPERIOD) {
-    ConsumeToken();
-    ExpectIdentifier("malformed library name");
+  // The VM is not required to check that the library name or URI matches the
+  // name or URI of the current library, so we ignore them.
+  if (CurrentToken() == Token::kSTRING) {
+    ParseStringLiteral(false);
+  } else {
+    ExpectIdentifier("library name expected");
+    while (CurrentToken() == Token::kPERIOD) {
+      ConsumeToken();
+      ExpectIdentifier("malformed library name");
+    }
   }
   ExpectSemicolon();
 }
@@ -6696,7 +6714,8 @@ SequenceNode* Parser::CloseAsyncGeneratorTryBlock(SequenceNode* body) {
 }
 
 
-SequenceNode* Parser::CloseAsyncTryBlock(SequenceNode* try_block) {
+SequenceNode* Parser::CloseAsyncTryBlock(SequenceNode* try_block,
+                                         TokenPosition func_end_pos) {
   // This is the outermost try-catch of the function.
   ASSERT(try_stack_ != NULL);
   ASSERT(try_stack_->outer_try() == NULL);
@@ -6765,7 +6784,7 @@ SequenceNode* Parser::CloseAsyncTryBlock(SequenceNode* try_block) {
   completer_args->Add(
       new (Z) LoadLocalNode(TokenPosition::kNoSource, stack_trace_param.var));
   current_block_->statements->Add(new (Z) InstanceCallNode(
-      TokenPos(),
+      func_end_pos,
       new (Z) LoadLocalNode(TokenPosition::kNoSource, async_completer),
       Symbols::CompleterCompleteError(), completer_args));
   ReturnNode* return_node = new (Z) ReturnNode(TokenPosition::kNoSource);
@@ -7022,13 +7041,6 @@ RawFunction* Parser::OpenAsyncFunction(TokenPosition async_func_pos) {
   OpenFunctionBlock(closure);
   AddFormalParamsToScope(&closure_params, current_block_->scope);
   async_temp_scope_ = current_block_->scope;
-
-  // Capture instantiator in case it may be needed to generate the type
-  // check of the return value. (C.f. handling of Token::kRETURN.)
-  ASSERT(FunctionLevel() > 0);
-  if (I->type_checks() && IsInstantiatorRequired()) {
-    CaptureInstantiator();
-  }
   return closure.raw();
 }
 
@@ -7240,25 +7252,6 @@ SequenceNode* Parser::CloseAsyncGeneratorFunction(const Function& closure_func,
 
   TokenPosition token_pos = TokenPosition::kNoSource;
 
-  if (FLAG_causal_async_stacks) {
-    // Add to AST:
-    //   :async_stack_trace = _asyncStackTraceHelper();
-    const Function& async_stack_trace_helper = Function::ZoneHandle(
-        Z,
-        async_lib.LookupFunctionAllowPrivate(Symbols::AsyncStackTraceHelper()));
-    ASSERT(!async_stack_trace_helper.IsNull());
-    ArgumentListNode* async_stack_trace_helper_args =
-        new (Z) ArgumentListNode(TokenPosition::kNoSource);
-    StaticCallNode* async_stack_trace_helper_call = new (Z) StaticCallNode(
-        token_pos, async_stack_trace_helper, async_stack_trace_helper_args);
-    LocalVariable* async_stack_trace_var =
-        current_block_->scope->LookupVariable(Symbols::AsyncStackTraceVar(),
-                                              false);
-    StoreLocalNode* store_async_stack_trace = new (Z) StoreLocalNode(
-        token_pos, async_stack_trace_var, async_stack_trace_helper_call);
-    current_block_->statements->Add(store_async_stack_trace);
-  }
-
 
   // Add to AST:
   //   :async_op = <closure>;  (containing the original body)
@@ -7270,6 +7263,27 @@ SequenceNode* Parser::CloseAsyncGeneratorFunction(const Function& closure_func,
       StoreLocalNode(TokenPosition::kNoSource, async_op_var, closure_obj);
 
   current_block_->statements->Add(store_async_op);
+
+  if (FLAG_causal_async_stacks) {
+    // Add to AST:
+    //   :async_stack_trace = _asyncStackTraceHelper();
+    const Function& async_stack_trace_helper = Function::ZoneHandle(
+        Z,
+        async_lib.LookupFunctionAllowPrivate(Symbols::AsyncStackTraceHelper()));
+    ASSERT(!async_stack_trace_helper.IsNull());
+    ArgumentListNode* async_stack_trace_helper_args =
+        new (Z) ArgumentListNode(TokenPosition::kNoSource);
+    async_stack_trace_helper_args->Add(
+        new (Z) LoadLocalNode(TokenPosition::kNoSource, async_op_var));
+    StaticCallNode* async_stack_trace_helper_call = new (Z) StaticCallNode(
+        token_pos, async_stack_trace_helper, async_stack_trace_helper_args);
+    LocalVariable* async_stack_trace_var =
+        current_block_->scope->LookupVariable(Symbols::AsyncStackTraceVar(),
+                                              false);
+    StoreLocalNode* store_async_stack_trace = new (Z) StoreLocalNode(
+        token_pos, async_stack_trace_var, async_stack_trace_helper_call);
+    current_block_->statements->Add(store_async_stack_trace);
+  }
 
   // :async_then_callback = _asyncThenWrapperHelper(:async_op)
   const Function& async_then_wrapper_helper = Function::ZoneHandle(
@@ -7483,6 +7497,8 @@ SequenceNode* Parser::CloseAsyncFunction(const Function& closure,
     ASSERT(!async_stack_trace_helper.IsNull());
     ArgumentListNode* async_stack_trace_helper_args =
         new (Z) ArgumentListNode(token_pos);
+    async_stack_trace_helper_args->Add(
+        new (Z) LoadLocalNode(token_pos, async_op_var));
     StaticCallNode* async_stack_trace_helper_call = new (Z) StaticCallNode(
         token_pos, async_stack_trace_helper, async_stack_trace_helper_args);
     LocalVariable* async_stack_trace_var =
@@ -7552,11 +7568,12 @@ SequenceNode* Parser::CloseAsyncFunction(const Function& closure,
 }
 
 
-SequenceNode* Parser::CloseAsyncClosure(SequenceNode* body) {
+SequenceNode* Parser::CloseAsyncClosure(SequenceNode* body,
+                                        TokenPosition func_end_pos) {
   // We need a temporary expression to store intermediate return values.
   parsed_function()->EnsureExpressionTemp();
 
-  SequenceNode* new_body = CloseAsyncTryBlock(body);
+  SequenceNode* new_body = CloseAsyncTryBlock(body, func_end_pos);
   ASSERT(new_body != NULL);
   ASSERT(new_body->scope() != NULL);
   return new_body;
@@ -7717,11 +7734,45 @@ void Parser::CaptureInstantiator() {
 }
 
 
-void Parser::CaptureFunctionInstantiator() {
+void Parser::CaptureFunctionInstantiators() {
+  ASSERT(InGenericFunctionScope());
   ASSERT(FunctionLevel() > 0);
+  if (!FLAG_generic_method_semantics) {
+    return;
+  }
+  // Capture function instantiators starting at parent of innermost function.
+  intptr_t variable_function_level = FunctionLevel() - 1;
   const String* variable_name = &Symbols::FunctionInstantiatorVar();
-  current_block_->scope->CaptureVariable(
-      current_block_->scope->LookupVariable(*variable_name, true));
+  LocalScope* scope = current_block_->scope;
+  do {
+    while (scope->function_level() > variable_function_level) {
+      scope = scope->parent();
+    }
+    // Function instantiator is in top scope at that function level.
+    LocalScope* parent_scope = scope->parent();
+    while ((parent_scope != NULL) &&
+           (parent_scope->function_level() == scope->function_level())) {
+      scope = parent_scope;
+      parent_scope = scope->parent();
+    }
+    LocalVariable* function_instantiator_var =
+        scope->LookupVariable(*variable_name, true);
+    if (function_instantiator_var != NULL) {
+      current_block_->scope->CaptureVariable(function_instantiator_var);
+    }
+    scope = scope->parent();
+    variable_function_level--;
+  } while (variable_function_level >= 0);
+}
+
+
+void Parser::CaptureAllInstantiators() {
+  if (IsInstantiatorRequired()) {
+    CaptureInstantiator();
+  }
+  if (AreFunctionInstantiatorsRequired()) {
+    CaptureFunctionInstantiators();
+  }
 }
 
 
@@ -8065,10 +8116,9 @@ AstNode* Parser::ParseFunctionStatement(bool is_literal) {
   ASSERT(current_class().is_finalized());
   ASSERT(signature_type.IsFinalized());
 
-  // Make sure that the instantiator is captured.
-  if ((FunctionLevel() > 0) &&
-      Class::Handle(signature_type.type_class()).IsGeneric()) {
-    CaptureInstantiator();
+  // Make sure that the instantiators are captured.
+  if ((FunctionLevel() > 0) && !signature_type.IsInstantiated()) {
+    CaptureAllInstantiators();
   }
 
   // A local signature type itself cannot be malformed or malbounded, only its
@@ -9179,6 +9229,21 @@ AstNode* Parser::ParseAwaitForStatement(String* label_name) {
       stream_expr_pos, new (Z) LoadLocalNode(stream_expr_pos, iterator_var),
       Symbols::MoveNext(), no_args);
   OpenBlock();
+  if (FLAG_support_debugger) {
+    // Call '_asyncStarMoveNextHelper' so that the debugger can intercept and
+    // handle single stepping into a async* generator.
+    const Function& async_star_move_next_helper = Function::ZoneHandle(
+        Z, isolate()->object_store()->async_star_move_next_helper());
+    ASSERT(!async_star_move_next_helper.IsNull());
+    ArgumentListNode* async_star_move_next_helper_args =
+        new (Z) ArgumentListNode(stream_expr_pos);
+    async_star_move_next_helper_args->Add(
+        new (Z) LoadLocalNode(stream_expr_pos, stream_var));
+    StaticCallNode* async_star_move_next_helper_call =
+        new (Z) StaticCallNode(stream_expr_pos, async_star_move_next_helper,
+                               async_star_move_next_helper_args);
+    current_block_->statements->Add(async_star_move_next_helper_call);
+  }
   AstNode* await_moveNext = new (Z) AwaitNode(
       stream_expr_pos, iterator_moveNext, saved_try_ctx, async_saved_try_ctx,
       outer_saved_try_ctx, outer_async_saved_try_ctx, current_block_->scope);
@@ -9941,8 +10006,8 @@ SequenceNode* Parser::ParseCatchClauses(
       // Has a type specification that is not malformed or malbounded.  Now
       // form an 'if type check' to guard the catch handler code.
       if (!exception_param.type->IsInstantiated() && (FunctionLevel() > 0)) {
-        // Make sure that the instantiator is captured.
-        CaptureInstantiator();
+        // Make sure that the instantiators are captured.
+        CaptureAllInstantiators();
       }
       TypeNode* exception_type =
           new (Z) TypeNode(catch_pos, *exception_param.type);
@@ -10972,8 +11037,8 @@ AstNode* Parser::ParseBinaryExpr(int min_preced) {
         const AbstractType& type = AbstractType::ZoneHandle(
             Z, ParseTypeOrFunctionType(false, ClassFinalizer::kCanonicalize));
         if (!type.IsInstantiated() && (FunctionLevel() > 0)) {
-          // Make sure that the instantiator is captured.
-          CaptureInstantiator();
+          // Make sure that the instantiators are captured.
+          CaptureAllInstantiators();
         }
         right_operand = new (Z) TypeNode(type_pos, type);
         // In production mode, the type may be malformed.
@@ -11840,24 +11905,25 @@ AstNode* Parser::LoadTypeParameter(PrimaryNode* primary) {
                   "from static function",
                   name.ToCString());
     }
-    // TODO(regis): Verify that CaptureInstantiator() was already called
-    // and remove call below.
     if (FunctionLevel() > 0) {
       // Make sure that the class instantiator is captured.
       CaptureInstantiator();
     }
     type_parameter ^= CanonicalizeType(type_parameter);
-    ASSERT(!type_parameter.IsMalformed());
-    return new (Z) TypeNode(primary_pos, type_parameter);
   } else {
     ASSERT(type_parameter.IsFunctionTypeParameter());
-    // TODO(regis): Verify that CaptureFunctionInstantiator() was already
-    // called if necessary.
-    // TODO(regis): Finalize type parameter and return as type node.
-    // For now, map to dynamic type.
-    Type& type = Type::ZoneHandle(Z, Type::DynamicType());
-    return new (Z) TypeNode(primary_pos, type);
+    if (!FLAG_generic_method_semantics) {
+      Type& type = Type::ZoneHandle(Z, Type::DynamicType());
+      return new (Z) TypeNode(primary_pos, type);
+    }
+    if (type_parameter.parent_level() > 0) {
+      // Make sure that the function instantiators are captured.
+      CaptureFunctionInstantiators();
+    }
   }
+  ASSERT(type_parameter.IsFinalized());
+  ASSERT(!type_parameter.IsMalformed());
+  return new (Z) TypeNode(primary_pos, type_parameter);
 }
 
 
@@ -12361,13 +12427,11 @@ void Parser::ResolveType(AbstractType* type) {
         String::Handle(Z, unresolved_class.ident());
     if (unresolved_class.library_or_library_prefix() == Object::null()) {
       // First check if the type is a function type parameter.
-      if (!innermost_function().IsNull()) {
-        // TODO(regis): Shortcut this lookup if no generic functions in scope.
-        // A bit has_generic_parent() would be useful on Function.
-        // Unfortunately, all 32 kind bits are used in Function.
+      if (InGenericFunctionScope()) {
+        intptr_t type_param_func_level = FunctionLevel();
         TypeParameter& type_parameter = TypeParameter::ZoneHandle(
-            Z, innermost_function().LookupTypeParameter(unresolved_class_name,
-                                                        NULL));
+            Z, innermost_function().LookupTypeParameter(
+                   unresolved_class_name, &type_param_func_level));
         if (!type_parameter.IsNull()) {
           // A type parameter cannot be parameterized, so make the type
           // malformed if type arguments have previously been parsed.
@@ -12379,10 +12443,13 @@ void Parser::ResolveType(AbstractType* type) {
                 String::Handle(Z, type_parameter.name()).ToCString());
             return;
           }
-          // TODO(regis): Mark function type parameter as finalized (its index
-          // does not need adjustment upon finalization) and return it.
-          // For now, resolve the function type parameter to dynamic.
-          *type = Type::DynamicType();
+          if (FLAG_generic_method_semantics) {
+            ASSERT(type_parameter.IsFinalized());
+            ASSERT(!type_parameter.IsMalformed());
+            *type = type_parameter.raw();
+          } else {
+            *type = Type::DynamicType();
+          }
           return;
         }
       }
@@ -12446,11 +12513,9 @@ RawAbstractType* Parser::CanonicalizeType(const AbstractType& type) {
   // use the class scope of the class from which the function originates.
   if (current_class().IsMixinApplication()) {
     return ClassFinalizer::FinalizeType(
-        Class::Handle(Z, parsed_function()->function().origin()), type,
-        ClassFinalizer::kCanonicalize);
+        Class::Handle(Z, parsed_function()->function().origin()), type);
   }
-  return ClassFinalizer::FinalizeType(current_class(), type,
-                                      ClassFinalizer::kCanonicalize);
+  return ClassFinalizer::FinalizeType(current_class(), type);
 }
 
 
@@ -12499,8 +12564,7 @@ const AbstractType* Parser::ReceiverType(const Class& cls) {
   type = Type::New(cls, TypeArguments::Handle(Z, cls.type_parameters()),
                    cls.token_pos(), Heap::kOld);
   if (cls.is_type_finalized()) {
-    type ^= ClassFinalizer::FinalizeType(
-        cls, type, ClassFinalizer::kCanonicalizeWellFormed);
+    type ^= ClassFinalizer::FinalizeType(cls, type);
     // Note that the receiver type may now be a malbounded type.
     cls.SetCanonicalType(type);
   }
@@ -12515,6 +12579,31 @@ bool Parser::IsInstantiatorRequired() const {
     return false;
   }
   return current_class().IsGeneric();
+}
+
+
+bool Parser::AreFunctionInstantiatorsRequired() const {
+  ASSERT(!innermost_function().IsNull());
+  Function& parent = Function::Handle(innermost_function().parent_function());
+  while (!parent.IsNull()) {
+    if (parent.IsGeneric()) {
+      return true;
+    }
+    parent = parent.parent_function();
+  }
+  return false;
+}
+
+
+bool Parser::InGenericFunctionScope() const {
+  if (!innermost_function().IsNull()) {
+    // With one more free tag bit in Function, we could cache this information.
+    if (innermost_function().IsGeneric() ||
+        innermost_function().HasGenericParent()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 
@@ -12965,8 +13054,7 @@ AstNode* Parser::ResolveIdent(TokenPosition ident_pos,
   AstNode* resolved = NULL;
   intptr_t resolved_func_level = 0;
   ResolveIdentInLocalScope(ident_pos, ident, &resolved, &resolved_func_level);
-  if (!innermost_function().IsNull()) {
-    // TODO(regis): Shortcut this lookup if no generic functions in scope.
+  if (InGenericFunctionScope()) {
     intptr_t type_param_func_level = FunctionLevel();
     const TypeParameter& type_parameter =
         TypeParameter::ZoneHandle(Z, innermost_function().LookupTypeParameter(
@@ -12975,16 +13063,13 @@ AstNode* Parser::ResolveIdent(TokenPosition ident_pos,
       if ((resolved == NULL) || (resolved_func_level < type_param_func_level)) {
         // The identifier is a function type parameter, possibly shadowing
         // 'resolved'.
-        if ((FunctionLevel() > 0) &&
-            (type_param_func_level < FunctionLevel())) {
-          // Make sure that the function instantiator is captured.
-          CaptureFunctionInstantiator();
+        if (!FLAG_generic_method_semantics) {
+          Type& type = Type::ZoneHandle(Z, Type::DynamicType());
+          return new (Z) TypeNode(ident_pos, type);
         }
-        // TODO(regis): Mark function type parameter as finalized (its index
-        // does not need adjustment upon finalization) and return as type node.
-        // For now, resolve the function type parameter to dynamic.
-        Type& type = Type::ZoneHandle(Z, Type::DynamicType());
-        return new (Z) TypeNode(ident_pos, type);
+        ASSERT(type_parameter.IsFinalized());
+        ASSERT(!type_parameter.IsMalformed());
+        return new (Z) TypeNode(ident_pos, type_parameter);
       }
     }
   }
@@ -12994,10 +13079,6 @@ AstNode* Parser::ResolveIdent(TokenPosition ident_pos,
       TypeParameter& type_parameter = TypeParameter::ZoneHandle(
           Z, current_class().LookupTypeParameter(ident));
       if (!type_parameter.IsNull()) {
-        if (FunctionLevel() > 0) {
-          // Make sure that the class instantiator is captured.
-          CaptureInstantiator();
-        }
         type_parameter ^= CanonicalizeType(type_parameter);
         ASSERT(!type_parameter.IsMalformed());
         return new (Z) TypeNode(ident_pos, type_parameter);
@@ -13403,7 +13484,7 @@ AstNode* Parser::ParseListLiteral(TokenPosition type_pos,
       if (I->type_checks() && !element_type.IsDynamicType() &&
           (!elem->AsLiteralNode()->literal().IsNull() &&
            !elem->AsLiteralNode()->literal().IsInstanceOf(
-               element_type, TypeArguments::Handle(Z), &bound_error))) {
+               element_type, Object::null_type_arguments(), &bound_error))) {
         // If the failure is due to a bound error, display it instead.
         if (!bound_error.IsNull()) {
           ReportError(bound_error);
@@ -13432,8 +13513,8 @@ AstNode* Parser::ParseListLiteral(TokenPosition type_pos,
     ASSERT(!factory_method.IsNull());
     if (!list_type_arguments.IsNull() &&
         !list_type_arguments.IsInstantiated() && (FunctionLevel() > 0)) {
-      // Make sure that the instantiator is captured.
-      CaptureInstantiator();
+      // Make sure that the instantiators are captured.
+      CaptureAllInstantiators();
     }
     TypeArguments& factory_type_args =
         TypeArguments::ZoneHandle(Z, list_type_arguments.raw());
@@ -13683,7 +13764,7 @@ AstNode* Parser::ParseMapLiteral(TokenPosition type_pos,
     if (!map_type_arguments.IsNull() && !map_type_arguments.IsInstantiated() &&
         (FunctionLevel() > 0)) {
       // Make sure that the instantiator is captured.
-      CaptureInstantiator();
+      CaptureAllInstantiators();
     }
     TypeArguments& factory_type_args =
         TypeArguments::ZoneHandle(Z, map_type_arguments.raw());
@@ -13875,7 +13956,7 @@ void Parser::ParseConstructorClosurization(Function* constructor,
       (la3 == Token::kLT) || (la3 == Token::kPERIOD) || (la3 == Token::kHASH);
   LibraryPrefix& prefix = LibraryPrefix::ZoneHandle(Z);
   AbstractType& type =
-      AbstractType::Handle(Z, ParseType(ClassFinalizer::kCanonicalizeWellFormed,
+      AbstractType::Handle(Z, ParseType(ClassFinalizer::kCanonicalize,
                                         true,  // allow deferred type
                                         consume_unresolved_prefix, &prefix));
   // A constructor tear-off closure can only have been created for a
@@ -13938,7 +14019,7 @@ AstNode* Parser::ParseNewOperator(Token::Kind op_kind) {
 
   LibraryPrefix& prefix = LibraryPrefix::ZoneHandle(Z);
   AbstractType& type = AbstractType::ZoneHandle(
-      Z, ParseType(ClassFinalizer::kCanonicalizeWellFormed, allow_deferred_type,
+      Z, ParseType(ClassFinalizer::kCanonicalize, allow_deferred_type,
                    consume_unresolved_prefix, &prefix));
 
   if (FLAG_load_deferred_eagerly && !prefix.IsNull() &&
@@ -14168,10 +14249,9 @@ AstNode* Parser::ParseNewOperator(Token::Kind op_kind) {
     // enclosing function if necessary.
     OpenFunctionBlock(tearoff_func);
     // If there are type arguments in the tearoff expression that are
-    // not yet instantiated, capture the instantiator.
-    if (IsInstantiatorRequired() && !type_arguments.IsNull() &&
-        !type_arguments.IsInstantiated()) {
-      CaptureInstantiator();
+    // not yet instantiated, capture the instantiators.
+    if (!type_arguments.IsNull() && !type_arguments.IsInstantiated()) {
+      CaptureAllInstantiators();
     }
     SequenceNode* tearoff_body = CloseBlock();
     ClosureNode* closure_obj =
@@ -14241,8 +14321,8 @@ AstNode* Parser::ParseNewOperator(Token::Kind op_kind) {
       ASSERT(!type_bound.IsMalformed());
       Error& bound_error = Error::Handle(Z);
       ASSERT(!is_top_level_);  // We cannot check unresolved types.
-      if (!const_instance.IsInstanceOf(type_bound, TypeArguments::Handle(Z),
-                                       &bound_error)) {
+      if (!const_instance.IsInstanceOf(
+              type_bound, Object::null_type_arguments(), &bound_error)) {
         type_bound = ClassFinalizer::NewFinalizedMalformedType(
             bound_error, script_, new_pos,
             "const factory result is not an instance of '%s'",
@@ -14255,8 +14335,8 @@ AstNode* Parser::ParseNewOperator(Token::Kind op_kind) {
     CheckConstructorCallTypeArguments(new_pos, constructor, type_arguments);
     if (!type_arguments.IsNull() && !type_arguments.IsInstantiated() &&
         (FunctionLevel() > 0)) {
-      // Make sure that the instantiator is captured.
-      CaptureInstantiator();
+      // Make sure that the instantiators are captured.
+      CaptureAllInstantiators();
     }
     // If the type argument vector is not instantiated, we verify in checked
     // mode at runtime that it is within its declared bounds.
@@ -14440,8 +14520,7 @@ AstNode* Parser::ParsePrimary() {
       ResolveIdentInLocalScope(qual_ident_pos, ident, &primary,
                                &primary_func_level);
       // Check whether the identifier is shadowed by a function type parameter.
-      if (!innermost_function().IsNull()) {
-        // TODO(regis): Shortcut this lookup if no generic functions in scope.
+      if (InGenericFunctionScope()) {
         intptr_t type_param_func_level = FunctionLevel();
         TypeParameter& type_param = TypeParameter::ZoneHandle(
             Z, innermost_function().LookupTypeParameter(
@@ -14451,11 +14530,6 @@ AstNode* Parser::ParsePrimary() {
               (primary_func_level < type_param_func_level)) {
             // The identifier is a function type parameter, possibly shadowing
             // already resolved 'primary'.
-            if ((FunctionLevel() > 0) &&
-                (type_param_func_level < FunctionLevel())) {
-              // Make sure that the function instantiator is captured.
-              CaptureFunctionInstantiator();
-            }
             return new (Z) PrimaryNode(qual_ident_pos, type_param);
           }
         }

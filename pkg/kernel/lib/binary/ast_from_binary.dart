@@ -4,6 +4,7 @@
 library kernel.ast_from_binary;
 
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../ast.dart';
 import '../transformations/flags.dart';
@@ -74,6 +75,13 @@ class BinaryBuilder {
         readByte();
   }
 
+  List<int> readUtf8Bytes() {
+    List<int> bytes = new Uint8List(readUInt());
+    bytes.setRange(0, bytes.length, _bytes, _byteIndex);
+    _byteIndex += bytes.length;
+    return bytes;
+  }
+
   String readStringEntry() {
     int numBytes = readUInt();
     // Utf8Decoder will skip leading BOM characters, but we must preserve them.
@@ -123,16 +131,6 @@ class BinaryBuilder {
   String readStringOrNullIfEmpty() {
     var string = readStringReference();
     return string.isEmpty ? null : string;
-  }
-
-  InferredValue readOptionalInferredValue() {
-    if (readAndCheckOptionTag()) {
-      Reference baseClass = readClassReference(allowNull: true);
-      BaseClassKind baseClassKind = BaseClassKind.values[readByte()];
-      int valueBits = readByte();
-      return new InferredValue.byReference(baseClass, baseClassKind, valueBits);
-    }
-    return null;
   }
 
   bool readAndCheckOptionTag() {
@@ -271,7 +269,7 @@ class BinaryBuilder {
     Map<String, Source> uriToSource = <String, Source>{};
     for (int i = 0; i < length; ++i) {
       String uri = _sourceUriTable[i];
-      String sourceCode = readStringEntry();
+      List<int> sourceCode = readUtf8Bytes();
       int lineCount = readUInt();
       List<int> lineStarts = new List<int>(lineCount);
       int previousLineStart = 0;
@@ -445,7 +443,6 @@ class BinaryBuilder {
     var annotations = readAnnotationList(node);
     debugPath.add(node.name?.name ?? 'field');
     var type = readDartType();
-    var inferredValue = readOptionalInferredValue();
     var initializer = readExpressionOption();
     int transformerFlags = getAndResetTransformerFlags();
     debugPath.removeLast();
@@ -457,7 +454,6 @@ class BinaryBuilder {
       node.fileUri = fileUri;
       node.annotations = annotations;
       node.type = type;
-      node.inferredValue = inferredValue;
       node.initializer = initializer;
       node.initializer?.parent = node;
       node.transformerFlags = transformerFlags;
@@ -574,7 +570,6 @@ class BinaryBuilder {
     var positional = readAndPushVariableDeclarationList();
     var named = readAndPushVariableDeclarationList();
     var returnType = readDartType();
-    var inferredReturnValue = readOptionalInferredValue();
     int oldLabelStackBase = labelStackBase;
     labelStackBase = labelStack.length;
     var body = readStatementOption();
@@ -587,7 +582,6 @@ class BinaryBuilder {
         positionalParameters: positional,
         namedParameters: named,
         returnType: returnType,
-        inferredReturnValue: inferredReturnValue,
         asyncMarker: asyncMarker,
         dartAsyncMarker: dartAsyncMarker)
       ..fileOffset = offset
@@ -679,18 +673,22 @@ class BinaryBuilder {
         return new SuperPropertySet.byReference(
             readName(), readExpression(), readMemberReference(allowNull: true));
       case Tag.DirectPropertyGet:
+        int offset = readOffset();
         return new DirectPropertyGet.byReference(
-            readExpression(), readMemberReference());
+            readExpression(), readMemberReference())..fileOffset = offset;
       case Tag.DirectPropertySet:
+        int offset = readOffset();
         return new DirectPropertySet.byReference(
-            readExpression(), readMemberReference(), readExpression());
+            readExpression(), readMemberReference(), readExpression())
+          ..fileOffset = offset;
       case Tag.StaticGet:
         int offset = readOffset();
         return new StaticGet.byReference(readMemberReference())
           ..fileOffset = offset;
       case Tag.StaticSet:
+        int offset = readOffset();
         return new StaticSet.byReference(
-            readMemberReference(), readExpression());
+            readMemberReference(), readExpression())..fileOffset = offset;
       case Tag.MethodInvocation:
         int offset = readOffset();
         return new MethodInvocation.byReference(
@@ -744,7 +742,9 @@ class BinaryBuilder {
         return new IsExpression(readExpression(), readDartType())
           ..fileOffset = offset;
       case Tag.AsExpression:
-        return new AsExpression(readExpression(), readDartType());
+        int offset = readOffset();
+        return new AsExpression(readExpression(), readDartType())
+          ..fileOffset = offset;
       case Tag.StringLiteral:
         return new StringLiteral(readStringReference());
       case Tag.SpecializedIntLiteral:
@@ -771,18 +771,21 @@ class BinaryBuilder {
       case Tag.ThisExpression:
         return new ThisExpression();
       case Tag.Rethrow:
-        return new Rethrow();
+        int offset = readOffset();
+        return new Rethrow()..fileOffset = offset;
       case Tag.Throw:
         int offset = readOffset();
         return new Throw(readExpression())..fileOffset = offset;
       case Tag.ListLiteral:
+        int offset = readOffset();
         var typeArgument = readDartType();
         return new ListLiteral(readExpressionList(),
-            typeArgument: typeArgument, isConst: false);
+            typeArgument: typeArgument, isConst: false)..fileOffset = offset;
       case Tag.ConstListLiteral:
+        int offset = readOffset();
         var typeArgument = readDartType();
         return new ListLiteral(readExpressionList(),
-            typeArgument: typeArgument, isConst: true);
+            typeArgument: typeArgument, isConst: true)..fileOffset = offset;
       case Tag.MapLiteral:
         int offset = readOffset();
         var keyType = readDartType();
@@ -810,6 +813,21 @@ class BinaryBuilder {
         var body = readExpression();
         variableStack.length = stackHeight;
         return new Let(variable, body);
+      case Tag.VectorCreation:
+        var length = readUInt();
+        return new VectorCreation(length);
+      case Tag.VectorGet:
+        var vectorExpression = readExpression();
+        var index = readUInt();
+        return new VectorGet(vectorExpression, index);
+      case Tag.VectorSet:
+        var vectorExpression = readExpression();
+        var index = readUInt();
+        var value = readExpression();
+        return new VectorSet(vectorExpression, index, value);
+      case Tag.VectorCopy:
+        var vectorExpression = readExpression();
+        return new VectorCopy(vectorExpression);
       default:
         throw fail('Invalid expression tag: $tag');
     }
@@ -860,8 +878,10 @@ class BinaryBuilder {
         labelStack.removeLast();
         return label;
       case Tag.BreakStatement:
+        int offset = readOffset();
         int index = readUInt();
-        return new BreakStatement(labelStack[labelStackBase + index]);
+        return new BreakStatement(labelStack[labelStackBase + index])
+          ..fileOffset = offset;
       case Tag.WhileStatement:
         return new WhileStatement(readExpression(), readStatement());
       case Tag.DoStatement:
@@ -878,11 +898,13 @@ class BinaryBuilder {
       case Tag.AsyncForInStatement:
         bool isAsync = tag == Tag.AsyncForInStatement;
         int variableStackHeight = variableStack.length;
+        var offset = readOffset();
         var variable = readAndPushVariableDeclaration();
         var iterable = readExpression();
         var body = readStatement();
         variableStack.length = variableStackHeight;
-        return new ForInStatement(variable, iterable, body, isAsync: isAsync);
+        return new ForInStatement(variable, iterable, body, isAsync: isAsync)
+          ..fileOffset = offset;
       case Tag.SwitchStatement:
         var expression = readExpression();
         int count = readUInt();
@@ -892,6 +914,10 @@ class BinaryBuilder {
         for (int i = 0; i < cases.length; ++i) {
           var caseNode = cases[i];
           _fillTreeNodeList(caseNode.expressions, readExpression, caseNode);
+          caseNode.expressionOffsets.length = caseNode.expressions.length;
+          for (int i = 0; i < caseNode.expressionOffsets.length; ++i) {
+            caseNode.expressionOffsets[i] = readOffset();
+          }
           caseNode.isDefault = readByte() == 1;
           caseNode.body = readStatement()..parent = caseNode;
         }
@@ -985,6 +1011,8 @@ class BinaryBuilder {
   DartType readDartType() {
     int tag = readByte();
     switch (tag) {
+      case Tag.VectorType:
+        return const VectorType();
       case Tag.BottomType:
         return const BottomType();
       case Tag.InvalidType:
@@ -1081,13 +1109,15 @@ class BinaryBuilder {
 
   VariableDeclaration readVariableDeclaration() {
     int offset = readOffset();
+    int fileEqualsOffset = readOffset();
     int flags = readByte();
     return new VariableDeclaration(readStringOrNullIfEmpty(),
         type: readDartType(),
-        inferredValue: readOptionalInferredValue(),
         initializer: readExpressionOption(),
         isFinal: flags & 0x1 != 0,
-        isConst: flags & 0x2 != 0)..fileOffset = offset;
+        isConst: flags & 0x2 != 0)
+      ..fileOffset = offset
+      ..fileEqualsOffset = fileEqualsOffset;
   }
 
   int readOffset() {

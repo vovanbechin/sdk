@@ -10,14 +10,14 @@ import 'package:kernel/class_hierarchy.dart' show ClassHierarchy;
 
 import 'package:kernel/core_types.dart' show CoreTypes;
 
+import '../fasta_codes.dart' show FastaMessage, codeExpectedBlockToSkip;
+
 import '../parser/parser.dart' show Parser, optional;
 
 import '../scanner/token.dart' show BeginGroupToken, Token;
 
 import '../parser/dart_vm_native.dart'
     show removeNativeClause, skipNativeClause;
-
-import '../parser/error_kind.dart' show ErrorKind;
 
 import '../util/link.dart' show Link;
 
@@ -78,9 +78,9 @@ class DietListener extends StackListener {
   }
 
   @override
-  void endPartOf(Token partKeyword, Token semicolon) {
+  void endPartOf(Token partKeyword, Token semicolon, bool hasName) {
     debugEvent("PartOf");
-    discard(1);
+    if (hasName) discard(1);
   }
 
   @override
@@ -120,7 +120,7 @@ class DietListener extends StackListener {
   }
 
   @override
-  void endMixinApplication() {
+  void endMixinApplication(Token withKeyword) {
     debugEvent("MixinApplication");
   }
 
@@ -166,10 +166,21 @@ class DietListener extends StackListener {
   }
 
   @override
+  void handleFunctionType(Token functionToken, Token endToken) {
+    debugEvent("FunctionType");
+  }
+
+  @override
   void endFunctionTypeAlias(
       Token typedefKeyword, Token equals, Token endToken) {
     debugEvent("FunctionTypeAlias");
-    discard(2); // Name + endToken.
+    if (stack.length == 1) {
+      // TODO(ahe): This happens when recovering from `typedef I = A;`. Find a
+      // different way to track tokens of formal parameters.
+      discard(1); // Name.
+    } else {
+      discard(2); // Name + endToken.
+    }
     checkEmpty(typedefKeyword.charOffset);
   }
 
@@ -245,9 +256,14 @@ class DietListener extends StackListener {
   }
 
   @override
-  void endLiteralString(int interpolationCount) {
+  void endLiteralString(int interpolationCount, Token endToken) {
     debugEvent("endLiteralString");
     discard(interpolationCount);
+  }
+
+  @override
+  void handleScript(Token token) {
+    debugEvent("Script");
   }
 
   @override
@@ -339,7 +355,8 @@ class DietListener extends StackListener {
   }
 
   @override
-  void endFactoryMethod(Token beginToken, Token endToken) {
+  void endFactoryMethod(
+      Token beginToken, Token factoryKeyword, Token endToken) {
     debugEvent("FactoryMethod");
     BeginGroupToken bodyToken = pop();
     String name = pop();
@@ -445,15 +462,15 @@ class DietListener extends StackListener {
   }
 
   @override
-  Token handleUnrecoverableError(Token token, ErrorKind kind, Map arguments) {
-    if (isDartLibrary && kind == ErrorKind.ExpectedBlockToSkip) {
+  Token handleUnrecoverableError(Token token, FastaMessage message) {
+    if (isDartLibrary && message.code == codeExpectedBlockToSkip) {
       Token recover = skipNativeClause(token);
       if (recover != null) {
         assert(isTargetingDartVm);
         return recover;
       }
     }
-    return super.handleUnrecoverableError(token, kind, arguments);
+    return super.handleUnrecoverableError(token, message);
   }
 
   @override
@@ -473,11 +490,14 @@ class DietListener extends StackListener {
       listener.prepareInitializers();
       token = parser.parseInitializersOpt(token);
       token = parser.parseAsyncModifier(token);
-      AsyncMarker asyncModifier = getAsyncMarker(listener);
+      AsyncMarker asyncModifier = getAsyncMarker(listener) ?? AsyncMarker.Sync;
       bool isExpression = false;
-      bool allowAbstract = true;
+      bool allowAbstract = asyncModifier == AsyncMarker.Sync;
       parser.parseFunctionBody(token, isExpression, allowAbstract);
       var body = listener.pop();
+      if (listener.stack.length == 1) {
+        listener.pop(); // constructor initializers
+      }
       listener.checkEmpty(token.charOffset);
       listener.finishFunction(formals, asyncModifier, body);
     } on InputError {

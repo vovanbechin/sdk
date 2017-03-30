@@ -12,6 +12,8 @@ export 'kernel_field_builder.dart' show KernelFieldBuilder;
 
 export 'kernel_formal_parameter_builder.dart' show KernelFormalParameterBuilder;
 
+export 'kernel_function_type_builder.dart' show KernelFunctionTypeBuilder;
+
 export 'kernel_function_type_alias_builder.dart'
     show KernelFunctionTypeAliasBuilder;
 
@@ -56,8 +58,12 @@ import 'package:kernel/ast.dart'
 
 import '../errors.dart' show inputError;
 
-List<DartType> computeDefaultTypeArguments(
+import '../builder/builder.dart' show LibraryBuilder;
+
+List<DartType> computeDefaultTypeArguments(LibraryBuilder library,
     List<TypeParameter> typeParameters, List<DartType> arguments) {
+  // TODO(ahe): Not sure what to do if `arguments.length !=
+  // cls.typeParameters.length`.
   if (arguments == null) {
     return new List<DartType>.filled(
         typeParameters.length, const DynamicType());

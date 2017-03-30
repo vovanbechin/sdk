@@ -15,7 +15,7 @@ import '../compiler.dart' show Compiler;
 import '../constants/constant_system.dart';
 import '../constants/expressions.dart';
 import '../constants/values.dart';
-import '../core_types.dart' show CommonElements;
+import '../common_elements.dart' show CommonElements;
 import '../elements/resolution_types.dart';
 import '../diagnostics/messages.dart' show Message, MessageTemplate;
 import '../dump_info.dart' show InfoReporter;
@@ -36,7 +36,7 @@ import '../types/types.dart';
 import '../universe/call_structure.dart' show CallStructure;
 import '../universe/selector.dart' show Selector;
 import '../universe/side_effects.dart' show SideEffects;
-import '../universe/use.dart' show DynamicUse, StaticUse;
+import '../universe/use.dart' show ConstantUse, DynamicUse, StaticUse;
 import '../util/util.dart';
 import '../world.dart' show ClosedWorld;
 
@@ -89,7 +89,7 @@ class SsaBuilderTask extends CompilerTask {
             // This ensures the default value will be computed.
             ConstantValue constant =
                 backend.constants.getConstantValue(parameter.constant);
-            work.registry.registerCompileTimeConstant(constant);
+            work.registry.registerConstantUse(new ConstantUse.init(constant));
           });
         }
         if (backend.tracer.isEnabled) {
@@ -157,7 +157,7 @@ class SsaBuilder extends ast.Visitor
 
   final JavaScriptBackend backend;
   final ConstantSystem constantSystem;
-  final RuntimeTypes rti;
+  final RuntimeTypesSubstitutions rtiSubstitutions;
 
   SourceInformationBuilder sourceInformationBuilder;
 
@@ -206,7 +206,7 @@ class SsaBuilder extends ast.Visitor
       : this.infoReporter = backend.compiler.dumpInfoTask,
         this.backend = backend,
         this.constantSystem = backend.constantSystem,
-        this.rti = backend.rti,
+        this.rtiSubstitutions = backend.rtiSubstitutions,
         this.inferenceResults = backend.compiler.globalInference.results {
     assert(target.isImplementation);
     compiler = backend.compiler;
@@ -403,10 +403,10 @@ class SsaBuilder extends ast.Visitor
   bool tryInlineMethod(MethodElement element, Selector selector, TypeMask mask,
       List<HInstruction> providedArguments, ast.Node currentNode,
       {ResolutionInterfaceType instanceType}) {
-    registry.addImpact(
-        backend.codegenEnqueuerListener.registerUsedElement(element));
+    registry.registerStaticUse(new StaticUse.inlining(element));
 
-    if (backend.isJsInterop(element) && !element.isFactoryConstructor) {
+    if (backend.nativeData.isJsInteropMember(element) &&
+        !element.isFactoryConstructor) {
       // We only inline factory JavaScript interop constructors.
       return false;
     }
@@ -442,7 +442,7 @@ class SsaBuilder extends ast.Visitor
         }
       }
 
-      if (backend.isJsInterop(function)) return false;
+      if (backend.nativeData.isJsInteropMember(function)) return false;
 
       // Don't inline operator== methods if the parameter can be null.
       if (function.name == '==') {
@@ -473,7 +473,7 @@ class SsaBuilder extends ast.Visitor
 
     bool doesNotContainCode() {
       // A function with size 1 does not contain any code.
-      return InlineWeeder.canBeInlined(functionResolvedAst, 1, true,
+      return InlineWeeder.canBeInlined(functionResolvedAst, 1,
           enableUserAssertions: compiler.options.enableUserAssertions);
     }
 
@@ -481,7 +481,7 @@ class SsaBuilder extends ast.Visitor
       // The call is on a path which is executed rarely, so inline only if it
       // does not make the program larger.
       if (isCalledOnce(function)) {
-        return InlineWeeder.canBeInlined(functionResolvedAst, -1, false,
+        return InlineWeeder.canBeInlined(functionResolvedAst, null,
             enableUserAssertions: compiler.options.enableUserAssertions);
       }
       // TODO(sra): Measure if inlining would 'reduce' the size.  One desirable
@@ -519,7 +519,7 @@ class SsaBuilder extends ast.Visitor
       if (cachedCanBeInlined == true) {
         // We may have forced the inlining of some methods. Therefore check
         // if we can inline this method regardless of size.
-        assert(InlineWeeder.canBeInlined(functionResolvedAst, -1, false,
+        assert(InlineWeeder.canBeInlined(functionResolvedAst, null,
             allowLoops: true,
             enableUserAssertions: compiler.options.enableUserAssertions));
         return true;
@@ -527,7 +527,6 @@ class SsaBuilder extends ast.Visitor
 
       int numParameters = function.functionSignature.parameterCount;
       int maxInliningNodes;
-      bool useMaxInliningNodes = true;
       if (insideLoop) {
         maxInliningNodes = InlineWeeder.INLINING_NODES_INSIDE_LOOP +
             InlineWeeder.INLINING_NODES_INSIDE_LOOP_ARG_FACTOR * numParameters;
@@ -540,11 +539,10 @@ class SsaBuilder extends ast.Visitor
       // inlining stack are called only once as well, we know we will
       // save on output size by inlining this method.
       if (isCalledOnce(function)) {
-        useMaxInliningNodes = false;
+        maxInliningNodes = null;
       }
-      bool canInline;
-      canInline = InlineWeeder.canBeInlined(
-          functionResolvedAst, maxInliningNodes, useMaxInliningNodes,
+      bool canInline = InlineWeeder.canBeInlined(
+          functionResolvedAst, maxInliningNodes,
           enableUserAssertions: compiler.options.enableUserAssertions);
       if (canInline) {
         backend.inlineCache.markAsInlinable(function, insideLoop: insideLoop);
@@ -686,7 +684,7 @@ class SsaBuilder extends ast.Visitor
     assert(elements.getFunctionDefinition(function) != null);
     openFunction(functionElement, function);
     String name = functionElement.name;
-    if (backend.isJsInterop(functionElement)) {
+    if (backend.nativeData.isJsInteropMember(functionElement)) {
       push(invokeJsInteropFunction(functionElement, parameters.values.toList(),
           sourceInformationBuilder.buildGeneric(function)));
       var value = pop();
@@ -826,7 +824,7 @@ class SsaBuilder extends ast.Visitor
 
     ClassElement enclosing = function.enclosingClass;
     if ((function.isConstructor || function.isGenerativeConstructorBody) &&
-        backend.classNeedsRti(enclosing)) {
+        backend.rtiNeed.classNeedsRti(enclosing)) {
       enclosing.typeVariables
           .forEach((ResolutionTypeVariableType typeVariable) {
         HInstruction argument = compiledArguments[argumentIndex++];
@@ -906,7 +904,7 @@ class SsaBuilder extends ast.Visitor
     reporter.withCurrentElement(callee, () {
       constructorResolvedAsts.add(constructorResolvedAst);
       ClassElement enclosingClass = callee.enclosingClass;
-      if (backend.classNeedsRti(enclosingClass)) {
+      if (backend.rtiNeed.classNeedsRti(enclosingClass)) {
         // If [enclosingClass] needs RTI, we have to give a value to its
         // type parameters.
         ClassElement currentClass = caller.enclosingClass;
@@ -1069,7 +1067,7 @@ class SsaBuilder extends ast.Visitor
           ast.Send call = link.head;
           assert(ast.Initializers.isSuperConstructorCall(call) ||
               ast.Initializers.isConstructorRedirect(call));
-          FunctionElement target = elements[call].implementation;
+          ConstructorElement target = elements[call];
           CallStructure callStructure =
               elements.getSelector(call).callStructure;
           Link<ast.Node> arguments = call.arguments;
@@ -1173,7 +1171,7 @@ class SsaBuilder extends ast.Visitor
     ClassElement classElement = functionElement.enclosingClass.implementation;
     bool isNativeUpgradeFactory =
         backend.nativeData.isNativeOrExtendsNative(classElement) &&
-            !backend.isJsInterop(classElement);
+            !backend.nativeData.isJsInteropClass(classElement);
     ast.FunctionExpression function;
     if (resolvedAst.kind == ResolvedAstKind.PARSED) {
       function = resolvedAst.node;
@@ -1248,7 +1246,7 @@ class SsaBuilder extends ast.Visitor
     if (!isNativeUpgradeFactory) {
       // Create the runtime type information, if needed.
       bool hasRtiInput = false;
-      if (backend.classNeedsRtiField(classElement)) {
+      if (backend.rtiNeed.classNeedsRtiField(classElement)) {
         // Read the values of the type arguments and create a
         // HTypeInfoExpression to set on the newly create object.
         hasRtiInput = true;
@@ -1335,7 +1333,7 @@ class SsaBuilder extends ast.Visitor
       ConstructorElement constructor =
           constructorResolvedAst.element.implementation;
       ClassElement currentClass = constructor.enclosingClass;
-      if (backend.classNeedsRti(currentClass)) {
+      if (backend.rtiNeed.classNeedsRti(currentClass)) {
         // If [currentClass] needs RTI, we add the type variables as
         // parameters of the generative constructor body.
         currentClass.typeVariables
@@ -1372,7 +1370,7 @@ class SsaBuilder extends ast.Visitor
    *
    * Invariant: [functionElement] must be the implementation element.
    */
-  void openFunction(Element element, ast.Node node) {
+  void openFunction(MemberElement element, ast.Node node) {
     assert(invariant(element, element.isImplementation));
     HBasicBlock block = graph.addNewBlock();
     open(graph.entry);
@@ -1387,7 +1385,7 @@ class SsaBuilder extends ast.Visitor
     // may contain references to type variables.
     var enclosing = element.enclosingElement;
     if ((element.isConstructor || element.isGenerativeConstructorBody) &&
-        backend.classNeedsRti(enclosing)) {
+        backend.rtiNeed.classNeedsRti(enclosing)) {
       enclosing.typeVariables
           .forEach((ResolutionTypeVariableType typeVariable) {
         HParameterValue param =
@@ -1397,8 +1395,8 @@ class SsaBuilder extends ast.Visitor
       });
     }
 
-    if (element is FunctionElement) {
-      FunctionElement functionElement = element;
+    if (element is MethodElement) {
+      MethodElement functionElement = element;
       FunctionSignature signature = functionElement.functionSignature;
 
       // Put the type checks in the first successor of the entry,
@@ -1812,11 +1810,7 @@ class SsaBuilder extends ast.Visitor
     assert(nestedClosureData.closureClassElement != null);
     ClosureClassElement closureClassElement =
         nestedClosureData.closureClassElement;
-    FunctionElement callElement = nestedClosureData.callElement;
-    // TODO(ahe): This should be registered in codegen, not here.
-    // TODO(johnniwinther): Is [registerStaticUse] equivalent to
-    // [addToWorkList]?
-    registry?.registerStaticUse(new StaticUse.foreignUse(callElement));
+    MethodElement callElement = nestedClosureData.callElement;
 
     List<HInstruction> capturedVariables = <HInstruction>[];
     closureClassElement.closureFields.forEach((ClosureFieldElement field) {
@@ -1827,10 +1821,9 @@ class SsaBuilder extends ast.Visitor
     });
 
     TypeMask type = new TypeMask.nonNullExact(closureClassElement, closedWorld);
-    push(new HCreate(closureClassElement, capturedVariables, type)
+    push(new HCreate(closureClassElement, capturedVariables, type,
+        callMethod: callElement, localFunction: methodElement)
       ..sourceInformation = sourceInformationBuilder.buildCreate(node));
-
-    registry?.registerInstantiatedClosure(methodElement);
   }
 
   visitFunctionDeclaration(ast.FunctionDeclaration node) {
@@ -2425,7 +2418,7 @@ class SsaBuilder extends ast.Visitor
       pushInvokeStatic(null, helper, inputs, typeMask: commonMasks.boolType);
       HInstruction call = pop();
       return new HIs.variable(type, expression, call, commonMasks.boolType);
-    } else if (RuntimeTypes.hasTypeArguments(type)) {
+    } else if (RuntimeTypesSubstitutions.hasTypeArguments(type)) {
       ClassElement element = type.element;
       MethodElement helper = helpers.checkSubtype;
       HInstruction representations =
@@ -2497,8 +2490,8 @@ class SsaBuilder extends ast.Visitor
    * Invariant: [element] must be an implementation element.
    */
   List<HInstruction> makeStaticArgumentList(CallStructure callStructure,
-      Link<ast.Node> arguments, FunctionElement element) {
-    assert(invariant(element, element.isImplementation));
+      Link<ast.Node> arguments, MethodElement element) {
+    assert(invariant(element, element.isDeclaration));
 
     HInstruction compileArgument(ast.Node argument) {
       visit(argument);
@@ -2508,9 +2501,9 @@ class SsaBuilder extends ast.Visitor
     return Elements.makeArgumentsList<HInstruction>(
         callStructure,
         arguments,
-        element,
+        element.implementation,
         compileArgument,
-        backend.isJsInterop(element)
+        backend.nativeData.isJsInteropMember(element)
             ? handleConstantForOptionalParameterJsInterop
             : handleConstantForOptionalParameter);
   }
@@ -2918,13 +2911,13 @@ class SsaBuilder extends ast.Visitor
           closure, '"$name" does not handle closure with optional parameters.');
     }
 
-    registry?.registerStaticUse(new StaticUse.foreignUse(function));
     push(new HForeignCode(
         js.js.expressionTemplateYielding(
             backend.emitter.staticFunctionAccess(function)),
         commonMasks.dynamicType,
         <HInstruction>[],
-        nativeBehavior: native.NativeBehavior.PURE));
+        nativeBehavior: native.NativeBehavior.PURE,
+        foreignFunction: function));
     return params;
   }
 
@@ -3076,8 +3069,8 @@ class SsaBuilder extends ast.Visitor
     Selector selector = elements.getSelector(node);
     assert(invariant(node, selector.applies(method.implementation),
         message: "$selector does not apply to ${method.implementation}"));
-    List<HInstruction> inputs = makeStaticArgumentList(
-        selector.callStructure, node.arguments, method.implementation);
+    List<HInstruction> inputs =
+        makeStaticArgumentList(selector.callStructure, node.arguments, method);
     push(buildInvokeSuper(selector, method, inputs, sourceInformation));
   }
 
@@ -3243,13 +3236,13 @@ class SsaBuilder extends ast.Visitor
     if (closedWorld.isUsedAsMixin(cls)) return true;
 
     return closedWorld.anyStrictSubclassOf(cls, (ClassElement subclass) {
-      return !rti.isTrivialSubstitution(subclass, cls);
+      return !rtiSubstitutions.isTrivialSubstitution(subclass, cls);
     });
   }
 
   HInstruction handleListConstructor(ResolutionInterfaceType type,
       ast.Node currentNode, HInstruction newObject) {
-    if (!backend.classNeedsRti(type.element) || type.treatAsRaw) {
+    if (!backend.rtiNeed.classNeedsRti(type.element) || type.treatAsRaw) {
       return newObject;
     }
     List<HInstruction> inputs = <HInstruction>[];
@@ -3314,9 +3307,9 @@ class SsaBuilder extends ast.Visitor
         isFixedList = true;
         TypeMask inferred = _inferredTypeOfNewList(send);
         ClassElement cls = element.enclosingClass;
-        assert(backend.isNative(cls.thisType.element));
+        assert(backend.nativeData.isNativeClass(cls));
         return inferred.containsAll(closedWorld)
-            ? new TypeMask.nonNullExact(cls.thisType.element, closedWorld)
+            ? new TypeMask.nonNullExact(cls, closedWorld)
             : inferred;
       } else if (element.isGenerativeConstructor) {
         ClassElement cls = element.enclosingClass;
@@ -3324,7 +3317,7 @@ class SsaBuilder extends ast.Visitor
           // An error will be thrown.
           return new TypeMask.nonNullEmpty();
         } else {
-          return new TypeMask.nonNullExact(cls.thisType.element, closedWorld);
+          return new TypeMask.nonNullExact(cls, closedWorld);
         }
       } else {
         return TypeMaskFactory.inferredReturnTypeForElement(
@@ -3404,12 +3397,12 @@ class SsaBuilder extends ast.Visitor
     if (constructor.isGenerativeConstructor &&
         backend.nativeData
             .isNativeOrExtendsNative(constructor.enclosingClass) &&
-        !backend.isJsInterop(constructor)) {
+        !backend.nativeData.isJsInteropMember(constructor)) {
       // Native class generative constructors take a pre-constructed object.
       inputs.add(graph.addConstantNull(closedWorld));
     }
     inputs.addAll(makeStaticArgumentList(
-        callStructure, send.arguments, constructorImplementation));
+        callStructure, send.arguments, constructorImplementation.declaration));
 
     TypeMask elementType = computeType(constructor);
     if (isFixedListConstructorCall) {
@@ -3475,7 +3468,7 @@ class SsaBuilder extends ast.Visitor
     // not know about the type argument. Therefore we special case
     // this constructor to have the setRuntimeTypeInfo called where
     // the 'new' is done.
-    if (backend.classNeedsRti(commonElements.listClass) &&
+    if (backend.rtiNeed.classNeedsRti(commonElements.listClass) &&
         (isFixedListConstructorCall ||
             isGrowableListConstructorCall ||
             isJSArrayTypedConstructor)) {
@@ -3497,7 +3490,7 @@ class SsaBuilder extends ast.Visitor
   void potentiallyAddTypeArguments(List<HInstruction> inputs, ClassElement cls,
       ResolutionInterfaceType expectedType,
       {SourceInformation sourceInformation}) {
-    if (!backend.classNeedsRti(cls)) return;
+    if (!backend.rtiNeed.classNeedsRti(cls)) return;
     assert(cls.typeVariables.length == expectedType.typeArguments.length);
     expectedType.typeArguments.forEach((ResolutionDartType argument) {
       inputs.add(typeBuilder.analyzeTypeArgument(argument, sourceElement,
@@ -3569,9 +3562,9 @@ class SsaBuilder extends ast.Visitor
 
   /// Generate an invocation to the static or top level [function].
   void generateStaticFunctionInvoke(
-      ast.Send node, FunctionElement function, CallStructure callStructure) {
-    List<HInstruction> inputs = makeStaticArgumentList(
-        callStructure, node.arguments, function.implementation);
+      ast.Send node, MethodElement function, CallStructure callStructure) {
+    List<HInstruction> inputs =
+        makeStaticArgumentList(callStructure, node.arguments, function);
 
     pushInvokeStatic(node, function, inputs,
         sourceInformation:
@@ -4011,7 +4004,7 @@ class SsaBuilder extends ast.Visitor
 
   HForeignCode invokeJsInteropFunction(MethodElement element,
       List<HInstruction> arguments, SourceInformation sourceInformation) {
-    assert(backend.isJsInterop(element));
+    assert(backend.nativeData.isJsInteropMember(element));
     nativeEmitter.nativeMethods.add(element);
 
     if (element.isFactoryConstructor &&
@@ -4033,7 +4026,7 @@ class SsaBuilder extends ast.Visitor
         if (argument != null) {
           filteredArguments.add(argument);
           var jsName =
-              backend.nativeData.getUnescapedJSInteropName(parameter.name);
+              backend.nativeData.computeUnescapedJSInteropName(parameter.name);
           parameterNameMap[jsName] = new js.InterpolatedExpression(positions++);
         }
         i++;
@@ -4052,7 +4045,8 @@ class SsaBuilder extends ast.Visitor
         ..sourceInformation = sourceInformation;
     }
     var target = new HForeignCode(
-        js.js.parseForeignJS("${backend.namer.fixedBackendMethodPath(element)}."
+        js.js.parseForeignJS(
+            "${backend.nativeData.getFixedBackendMethodPath(element)}."
             "${backend.nativeData.getFixedBackendName(element)}"),
         commonMasks.dynamicType,
         <HInstruction>[]);
@@ -4080,7 +4074,8 @@ class SsaBuilder extends ast.Visitor
 
     // The allocation effects include the declared type if it is native (which
     // includes js interop types).
-    if (type.element != null && backend.isNative(type.element)) {
+    if (type is ResolutionInterfaceType &&
+        backend.nativeData.isNativeClass(type.element)) {
       nativeBehavior.typesInstantiated.add(type);
     }
 
@@ -4128,7 +4123,7 @@ class SsaBuilder extends ast.Visitor
     bool targetCanThrow = !closedWorld.getCannotThrow(element);
     // TODO(5346): Try to avoid the need for calling [declaration] before
     var instruction;
-    if (backend.isJsInterop(element)) {
+    if (backend.nativeData.isJsInteropMember(element)) {
       instruction =
           invokeJsInteropFunction(element, arguments, sourceInformation);
     } else {
@@ -5090,7 +5085,7 @@ class SsaBuilder extends ast.Visitor
     }
 
     ClassElement targetClass = targetConstructor.enclosingClass;
-    if (backend.classNeedsRti(targetClass)) {
+    if (backend.rtiNeed.classNeedsRti(targetClass)) {
       ClassElement cls = redirectingConstructor.enclosingClass;
       ResolutionInterfaceType targetType =
           redirectingConstructor.computeEffectiveTargetType(cls.thisType);
@@ -5205,7 +5200,7 @@ class SsaBuilder extends ast.Visitor
   HInstruction setRtiIfNeeded(HInstruction object, ast.Node node) {
     ResolutionInterfaceType type =
         localsHandler.substInContext(elements.getType(node));
-    if (!backend.classNeedsRti(type.element) || type.treatAsRaw) {
+    if (!backend.rtiNeed.classNeedsRti(type.element) || type.treatAsRaw) {
       return object;
     }
     List<HInstruction> arguments = <HInstruction>[];
@@ -5652,7 +5647,7 @@ class SsaBuilder extends ast.Visitor
     ClassElement cls = listConstructor.enclosingClass;
 
     MethodElement createFunction = listConstructor;
-    if (backend.classNeedsRti(cls)) {
+    if (backend.rtiNeed.classNeedsRti(cls)) {
       List<HInstruction> typeInputs = <HInstruction>[];
       expectedType.typeArguments.forEach((ResolutionDartType argument) {
         typeInputs
@@ -6587,23 +6582,23 @@ class InlineWeeder extends ast.Visitor {
   bool seenReturn = false;
   bool tooDifficult = false;
   int nodeCount = 0;
-  final int maxInliningNodes;
-  final bool useMaxInliningNodes;
+  final int maxInliningNodes; // `null` for unbounded.
   final bool allowLoops;
   final bool enableUserAssertions;
+  final TreeElements elements;
 
-  InlineWeeder(this.maxInliningNodes, this.useMaxInliningNodes, this.allowLoops,
+  InlineWeeder._(this.elements, this.maxInliningNodes, this.allowLoops,
       this.enableUserAssertions);
 
-  static bool canBeInlined(
-      ResolvedAst resolvedAst, int maxInliningNodes, bool useMaxInliningNodes,
+  static bool canBeInlined(ResolvedAst resolvedAst, int maxInliningNodes,
       {bool allowLoops: false, bool enableUserAssertions: null}) {
     assert(enableUserAssertions is bool); // Ensure we passed it.
     if (resolvedAst.elements.containsTryStatement) return false;
 
-    InlineWeeder weeder = new InlineWeeder(maxInliningNodes,
-        useMaxInliningNodes, allowLoops, enableUserAssertions);
+    InlineWeeder weeder = new InlineWeeder._(resolvedAst.elements,
+        maxInliningNodes, allowLoops, enableUserAssertions);
     ast.FunctionExpression functionExpression = resolvedAst.node;
+
     weeder.visit(functionExpression.initializers);
     weeder.visit(functionExpression.body);
     weeder.visit(functionExpression.asyncModifier);
@@ -6611,7 +6606,7 @@ class InlineWeeder extends ast.Visitor {
   }
 
   bool registerNode() {
-    if (!useMaxInliningNodes) return true;
+    if (maxInliningNodes == null) return true;
     if (nodeCount++ > maxInliningNodes) {
       tooDifficult = true;
       return false;
@@ -6658,6 +6653,15 @@ class InlineWeeder extends ast.Visitor {
   }
 
   void visitSend(ast.Send node) {
+    // TODO(sra): Investigate following, and possibly count occurrences, since
+    // repeated references might cause a temporary to be assigned.
+    //
+    //     Element element = elements[node];
+    //     if (element != null && element.isParameter) {
+    //       // Don't count as additional node, since it's likely that passing
+    //       // the argument would cost us as much space as we inline.
+    //       return;
+    //     }
     if (!registerNode()) return;
     node.visitChildren(this);
   }
@@ -6672,6 +6676,34 @@ class InlineWeeder extends ast.Visitor {
   void visitRedirectingFactoryBody(ast.RedirectingFactoryBody node) {
     if (!registerNode()) return;
     tooDifficult = true;
+  }
+
+  void visitConditional(ast.Conditional node) {
+    // Heuristic: In "parameter ? A : B" there is a high probability that
+    // parameter is a constant. Assuming the parameter is constant, we can
+    // compute a count that is bounded by the largest arm rather than the sum of
+    // both arms.
+    visit(node.condition);
+    if (tooDifficult) return;
+    int commonPrefixCount = nodeCount;
+
+    visit(node.thenExpression);
+    if (tooDifficult) return;
+    int thenCount = nodeCount - commonPrefixCount;
+
+    nodeCount = commonPrefixCount;
+    visit(node.elseExpression);
+    if (tooDifficult) return;
+    int elseCount = nodeCount - commonPrefixCount;
+
+    nodeCount = commonPrefixCount + thenCount + elseCount;
+    if (node.condition.asSend() != null &&
+        elements[node.condition]?.isParameter == true) {
+      nodeCount =
+          commonPrefixCount + (thenCount > elseCount ? thenCount : elseCount);
+    }
+    // This is last so that [tooDifficult] is always updated.
+    if (!registerNode()) return;
   }
 
   void visitRethrow(ast.Rethrow node) {

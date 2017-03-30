@@ -4,20 +4,33 @@
 
 library fasta.scanner.array_based_scanner;
 
-import 'error_token.dart' show ErrorToken;
+import 'error_token.dart' show ErrorToken, UnmatchedToken;
 
 import 'keyword.dart' show Keyword;
 
-import 'precedence.dart' show COMMENT_INFO, EOF_INFO, PrecedenceInfo;
+import 'precedence.dart' show PrecedenceInfo;
 
-import 'token.dart' show BeginGroupToken, KeywordToken, SymbolToken, Token;
+import 'token.dart'
+    show
+        BeginGroupToken,
+        CommentToken,
+        DartDocToken,
+        KeywordToken,
+        StringToken,
+        SymbolToken,
+        SyntheticSymbolToken,
+        Token;
 
 import 'token_constants.dart'
-    show LT_TOKEN, OPEN_CURLY_BRACKET_TOKEN, STRING_INTERPOLATION_TOKEN;
+    show
+        LT_TOKEN,
+        OPEN_CURLY_BRACKET_TOKEN,
+        OPEN_PAREN_TOKEN,
+        STRING_INTERPOLATION_TOKEN;
 
 import 'characters.dart' show $LF, $STX;
 
-import 'abstract_scanner.dart' show AbstractScanner;
+import 'abstract_scanner.dart' show AbstractScanner, closeBraceInfoFor;
 
 import '../util/link.dart' show Link;
 
@@ -35,6 +48,20 @@ abstract class ArrayBasedScanner extends AbstractScanner {
   Link<BeginGroupToken> groupingStack = const Link<BeginGroupToken>();
 
   /**
+   * Append the given token to the [tail] of the current stream of tokens.
+   */
+  void appendToken(Token token) {
+    tail.next = token;
+    tail.next.previousToken = tail;
+    tail = tail.next;
+    if (comments != null) {
+      tail.precedingCommentTokens = comments;
+      comments = null;
+      commentsTail = null;
+    }
+  }
+
+  /**
    * Appends a fixed token whose kind and content is determined by [info].
    * Appends an *operator* token from [info].
    *
@@ -42,8 +69,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
    * '=>', etc.
    */
   void appendPrecedenceToken(PrecedenceInfo info) {
-    tail.next = new SymbolToken(info, tokenStart);
-    tail = tail.next;
+    appendToken(new SymbolToken(info, tokenStart));
   }
 
   /**
@@ -72,8 +98,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
     if (identical(syntax, 'this')) {
       discardOpenLt();
     }
-    tail.next = new KeywordToken(keyword, tokenStart);
-    tail = tail.next;
+    appendToken(new KeywordToken(keyword, tokenStart));
   }
 
   void appendEofToken() {
@@ -83,10 +108,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
       unmatchedBeginGroup(groupingStack.head);
       groupingStack = groupingStack.tail;
     }
-    tail.next = new SymbolToken(EOF_INFO, tokenStart);
-    tail = tail.next;
-    // EOF points to itself so there's always infinite look-ahead.
-    tail.next = tail;
+    appendToken(new SymbolToken.eof(tokenStart));
   }
 
   /**
@@ -113,21 +135,23 @@ abstract class ArrayBasedScanner extends AbstractScanner {
   }
 
   /**
-   * Appends a token that begins a new group, represented by [value].
+   * Appends a token that begins a new group, represented by [info].
    * Group begin tokens are '{', '(', '[' and '${'.
    */
   void appendBeginGroup(PrecedenceInfo info) {
     Token token = new BeginGroupToken(info, tokenStart);
-    tail.next = token;
-    tail = tail.next;
+    appendToken(token);
 
-    // { (  [ ${ cannot appear inside a type parameters / arguments.
-    if (!identical(info.kind, LT_TOKEN)) discardOpenLt();
+    // { [ ${ cannot appear inside a type parameters / arguments.
+    if (!identical(info.kind, LT_TOKEN) &&
+        !identical(info.kind, OPEN_PAREN_TOKEN)) {
+      discardOpenLt();
+    }
     groupingStack = groupingStack.prepend(token);
   }
 
   /**
-   * Appends a token that begins an end group, represented by [value].
+   * Appends a token that begins an end group, represented by [info].
    * It handles the group end tokens '}', ')' and ']'. The tokens '>' and
    * '>>' are handled separately bo [appendGt] and [appendGtGt].
    */
@@ -207,16 +231,77 @@ abstract class ArrayBasedScanner extends AbstractScanner {
     }
   }
 
-  void appendComment(start, bool asciiOnly) {
+  void appendComment(start, PrecedenceInfo info, bool asciiOnly) {
     if (!includeComments) return;
-    appendSubstringToken(COMMENT_INFO, start, asciiOnly);
+    Token newComment = createCommentToken(info, start, asciiOnly);
+    _appendToCommentStream(newComment);
+  }
+
+  void appendDartDoc(start, PrecedenceInfo info, bool asciiOnly) {
+    if (!includeComments) return;
+    Token newComment = createDartDocToken(info, start, asciiOnly);
+    _appendToCommentStream(newComment);
+  }
+
+  void _appendToCommentStream(Token newComment) {
+    if (comments == null) {
+      comments = newComment;
+      commentsTail = comments;
+    } else {
+      commentsTail.next = newComment;
+      commentsTail.next.previousToken = commentsTail;
+      commentsTail = commentsTail.next;
+    }
   }
 
   void appendErrorToken(ErrorToken token) {
     hasErrors = true;
-    tail.next = token;
-    tail = token;
+    appendToken(token);
   }
+
+  void appendSubstringToken(PrecedenceInfo info, int start, bool asciiOnly,
+      [int extraOffset = 0]) {
+    appendToken(createSubstringToken(info, start, asciiOnly, extraOffset));
+  }
+
+  /**
+   * Returns a new substring from the scan offset [start] to the current
+   * [scanOffset] plus the [extraOffset]. For example, if the current
+   * scanOffset is 10, then [appendSubstringToken(5, -1)] will append the
+   * substring string [5,9).
+   *
+   * Note that [extraOffset] can only be used if the covered character(s) are
+   * known to be ASCII.
+   */
+  StringToken createSubstringToken(
+      PrecedenceInfo info, int start, bool asciiOnly,
+      [int extraOffset = 0]);
+
+  /**
+   * Returns a new comment from the scan offset [start] to the current
+   * [scanOffset] plus the [extraOffset]. For example, if the current
+   * scanOffset is 10, then [appendSubstringToken(5, -1)] will append the
+   * substring string [5,9).
+   *
+   * Note that [extraOffset] can only be used if the covered character(s) are
+   * known to be ASCII.
+   */
+  CommentToken createCommentToken(
+      PrecedenceInfo info, int start, bool asciiOnly,
+      [int extraOffset = 0]);
+
+  /**
+   * Returns a new dartdoc from the scan offset [start] to the current
+   * [scanOffset] plus the [extraOffset]. For example, if the current
+   * scanOffset is 10, then [appendSubstringToken(5, -1)] will append the
+   * substring string [5,9).
+   *
+   * Note that [extraOffset] can only be used if the covered character(s) are
+   * known to be ASCII.
+   */
+  DartDocToken createDartDocToken(
+      PrecedenceInfo info, int start, bool asciiOnly,
+      [int extraOffset = 0]);
 
   /**
    * This method is called to discard '<' from the "grouping" stack.
@@ -234,5 +319,56 @@ abstract class ArrayBasedScanner extends AbstractScanner {
         identical(groupingStack.head.kind, LT_TOKEN)) {
       groupingStack = groupingStack.tail;
     }
+  }
+
+  void unmatchedBeginGroup(BeginGroupToken begin) {
+    // We want to ensure that unmatched BeginGroupTokens are reported as
+    // errors.  However, the diet parser assumes that groups are well-balanced
+    // and will never look at the endGroup token.  This is a nice property that
+    // allows us to skip quickly over correct code. By inserting an additional
+    // synthetic token in the stream, we can keep ignoring endGroup tokens.
+    //
+    // [begin] --next--> [tail]
+    // [begin] --endG--> [synthetic] --next--> [next] --next--> [tail]
+    //
+    // This allows the diet parser to skip from [begin] via endGroup to
+    // [synthetic] and ignore the [synthetic] token (assuming it's correct),
+    // then the error will be reported when parsing the [next] token.
+    //
+    // For example, tokenize("{[1};") produces:
+    //
+    // SymbolToken({) --endGroup------------------------+
+    //      |                                           |
+    //     next                                         |
+    //      v                                           |
+    // SymbolToken([) --endGroup--+                     |
+    //      |                     |                     |
+    //     next                   |                     |
+    //      v                     |                     |
+    // StringToken(1)             |                     |
+    //      |                     |                     |
+    //     next                   |                     |
+    //      v                     |                     |
+    // SymbolToken(])<------------+ <-- Synthetic token |
+    //      |                                           |
+    //     next                                         |
+    //      v                                           |
+    // UnmatchedToken([)                                |
+    //      |                                           |
+    //     next                                         |
+    //      v                                           |
+    // SymbolToken(})<----------------------------------+
+    //      |
+    //     next
+    //      v
+    // SymbolToken(;)
+    //      |
+    //     next
+    //      v
+    //     EOF
+    PrecedenceInfo info = closeBraceInfoFor(begin);
+    appendToken(new SyntheticSymbolToken(info, tokenStart));
+    begin.endGroup = tail;
+    appendErrorToken(new UnmatchedToken(begin));
   }
 }

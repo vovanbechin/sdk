@@ -4,8 +4,7 @@
 
 library fasta.kernel_interface_type_builder;
 
-import 'package:kernel/ast.dart'
-    show DartType, DynamicType, Supertype, VoidType;
+import 'package:kernel/ast.dart' show DartType, DynamicType, Supertype;
 
 import '../messages.dart' show warning;
 
@@ -47,20 +46,16 @@ class KernelNamedTypeBuilder
     String message = builder.isTypeVariable
         ? "The type variable '$name' can't be used as supertype."
         : "The type '$name' can't be used as supertype.";
-    library.addCompileTimeError(charOffset, message, fileUri);
+    library.addCompileTimeError(charOffset, message, fileUri: fileUri);
     return null;
   }
 
   DartType build(LibraryBuilder library) {
-    if (name == "void") return const VoidType();
-    if (name == "dynamic") return const DynamicType();
     if (builder == null) return handleMissingType();
     return builder.buildType(library, arguments);
   }
 
   Supertype buildSupertype(LibraryBuilder library) {
-    if (name == "void") return null;
-    if (name == "dynamic") return null;
     if (builder == null) return handleMissingSupertype();
     if (builder is KernelClassBuilder) {
       KernelClassBuilder builder = this.builder;

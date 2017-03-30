@@ -61,6 +61,7 @@
 # ......isolate/
 # ......js/
 # ......js_util/
+# ......kernel/
 # ......math/
 # ......mirrors/
 # ......typed_data/
@@ -166,7 +167,7 @@ def CopySnapshots(snapshots, sdk_root):
              join(sdk_root, 'bin', 'snapshots', snapshot))
 
 def CopyAnalyzerSources(home, lib_dir):
-  for library in ['analyzer', 'analysis_server', 'front_end']:
+  for library in ['analyzer', 'analysis_server', 'front_end', 'kernel']:
     copytree(join(home, 'pkg', library), join(lib_dir, library),
              ignore=ignore_patterns('*.svn', 'doc', '*.py', '*.gypi', '*.sh',
                                     '.gitignore', 'packages'))
@@ -196,6 +197,8 @@ def CopyDevCompilerSdk(home, lib):
            join(lib, '_internal', 'ddc_sdk.sum'))
   copytree(join(home, 'pkg', 'dev_compiler', 'lib', 'js'),
            join(lib, 'dev_compiler'))
+  copyfile(join(home, 'third_party', 'requirejs', 'require.js'),
+           join(lib, 'dev_compiler', 'amd', 'require.js'))
 
 def Main():
   # Pull in all of the gypi files which will be munged into the sdk.

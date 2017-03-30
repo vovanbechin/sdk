@@ -22,6 +22,9 @@ abstract class LibraryDeserializer {
   /// Loads the [LibraryElement] associated with a library under [uri], or null
   /// if no serialized information is available for the given library.
   Future<LibraryElement> readLibrary(Uri uri);
+
+  /// Returns `true` if [element] has been deserialized.
+  bool isDeserialized(Element element);
 }
 
 /// Task that supports deserialization of elements.
@@ -70,7 +73,7 @@ class SerializationTask extends CompilerTask implements LibraryDeserializer {
   }
 
   /// Creates the [ResolutionWorkItem] for the deserialized [element].
-  ResolutionWorkItem createResolutionWorkItem(Element element) {
+  ResolutionWorkItem createResolutionWorkItem(MemberElement element) {
     assert(deserializer != null);
     assert(isDeserialized(element));
     return new DeserializedResolutionWorkItem(
@@ -135,7 +138,7 @@ class SerializationTask extends CompilerTask implements LibraryDeserializer {
 ///
 /// This will not resolve the element but only compute the [WorldImpact].
 class DeserializedResolutionWorkItem implements ResolutionWorkItem {
-  final Element element;
+  final MemberElement element;
   final WorldImpact worldImpact;
 
   DeserializedResolutionWorkItem(this.element, this.worldImpact);

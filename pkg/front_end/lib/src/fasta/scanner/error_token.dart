@@ -4,16 +4,25 @@
 
 library dart_scanner.error_token;
 
-// TODO(ahe): ErrorKind doesn't belong in dart_parser. Move to compiler_util or
-// this package?
-import '../parser/error_kind.dart' show ErrorKind;
+import '../fasta_codes.dart'
+    show
+        FastaCode,
+        codeAsciiControlCharacter,
+        codeEncoding,
+        codeExpectedHexDigit,
+        codeMissingExponent,
+        codeNonAsciiIdentifier,
+        codeNonAsciiWhitespace,
+        codeUnexpectedDollarInString,
+        codeUnmatchedToken,
+        codeUnterminatedComment,
+        codeUnterminatedString,
+        codeUnterminatedToken;
 
 import '../scanner.dart'
     show BeginGroupToken, Token, unicodeReplacementCharacter;
 
 import 'precedence.dart' show BAD_INPUT_INFO, PrecedenceInfo;
-
-export '../parser/error_kind.dart' show ErrorKind;
 
 ErrorToken buildUnexpectedCharacterToken(int character, int charOffset) {
   if (character < 0x1f) {
@@ -55,14 +64,14 @@ ErrorToken buildUnexpectedCharacterToken(int character, int charOffset) {
 
 /// Common superclass for all error tokens.
 ///
-/// It's considered an implementation error to access [value] of an
+/// It's considered an implementation error to access [lexeme] of an
 /// [ErrorToken].
 abstract class ErrorToken extends Token {
   ErrorToken(int charOffset) : super(charOffset);
 
   PrecedenceInfo get info => BAD_INPUT_INFO;
 
-  String get value => throw assertionMessage;
+  String get lexeme => throw assertionMessage;
 
   String get stringValue => null;
 
@@ -70,7 +79,7 @@ abstract class ErrorToken extends Token {
 
   String get assertionMessage;
 
-  ErrorKind get errorCode;
+  FastaCode get errorCode;
 
   int get character => null;
 
@@ -79,6 +88,11 @@ abstract class ErrorToken extends Token {
   int get endOffset => null;
 
   BeginGroupToken get begin => null;
+
+  @override
+  Token copyWithoutComments() {
+    throw 'unsupported operation';
+  }
 }
 
 /// Represents an encoding error.
@@ -89,7 +103,7 @@ class EncodingErrorToken extends ErrorToken {
 
   String get assertionMessage => "Unable to decode bytes as UTF-8.";
 
-  ErrorKind get errorCode => ErrorKind.Encoding;
+  FastaCode get errorCode => codeEncoding;
 }
 
 /// Represents a non-ASCII character outside a string or comment.
@@ -111,7 +125,7 @@ class NonAsciiIdentifierToken extends ErrorToken {
         " or '\$' (a dollar sign).";
   }
 
-  ErrorKind get errorCode => ErrorKind.NonAsciiIdentifier;
+  FastaCode get errorCode => codeNonAsciiIdentifier;
 }
 
 /// Represents a non-ASCII whitespace outside a string or comment.
@@ -128,7 +142,7 @@ class NonAsciiWhitespaceToken extends ErrorToken {
         "and comments.";
   }
 
-  ErrorKind get errorCode => ErrorKind.NonAsciiWhitespace;
+  FastaCode get errorCode => codeNonAsciiWhitespace;
 }
 
 /// Represents an ASCII control character outside a string or comment.
@@ -146,7 +160,7 @@ class AsciiControlCharacterToken extends ErrorToken {
         "comments.";
   }
 
-  ErrorKind get errorCode => ErrorKind.AsciiControlCharacter;
+  FastaCode get errorCode => codeAsciiControlCharacter;
 }
 
 /// Represents an unterminated string.
@@ -163,10 +177,10 @@ class UnterminatedToken extends ErrorToken {
 
   int get charCount => endOffset - charOffset;
 
-  ErrorKind get errorCode {
+  FastaCode get errorCode {
     switch (start) {
       case '1e':
-        return ErrorKind.MissingExponent;
+        return codeMissingExponent;
 
       case '"':
       case "'":
@@ -176,19 +190,19 @@ class UnterminatedToken extends ErrorToken {
       case "r'":
       case 'r"""':
       case "r'''":
-        return ErrorKind.UnterminatedString;
+        return codeUnterminatedString;
 
       case '0x':
-        return ErrorKind.ExpectedHexDigit;
+        return codeExpectedHexDigit;
 
       case r'$':
-        return ErrorKind.UnexpectedDollarInString;
+        return codeUnexpectedDollarInString;
 
       case '/*':
-        return ErrorKind.UnterminatedComment;
+        return codeUnterminatedComment;
 
       default:
-        return ErrorKind.UnterminatedToken;
+        return codeUnterminatedToken;
     }
   }
 }
@@ -204,9 +218,9 @@ class UnmatchedToken extends ErrorToken {
       : this.begin = begin,
         super(begin.charOffset);
 
-  String toString() => "UnmatchedToken(${begin.value})";
+  String toString() => "UnmatchedToken(${begin.lexeme})";
 
   String get assertionMessage => "'$begin' isn't closed.";
 
-  ErrorKind get errorCode => ErrorKind.UnmatchedToken;
+  FastaCode get errorCode => codeUnmatchedToken;
 }

@@ -23,17 +23,20 @@ import '../util/relativize.dart' show relativizeUri;
 
 import 'kernel_builder.dart'
     show
+        AccessErrorBuilder,
         Builder,
+        BuiltinTypeBuilder,
         ClassBuilder,
         ConstructorReferenceBuilder,
-        DynamicTypeBuilder,
         FormalParameterBuilder,
         FunctionTypeAliasBuilder,
+        InvalidTypeBuilder,
         KernelConstructorBuilder,
         KernelEnumBuilder,
         KernelFieldBuilder,
         KernelFormalParameterBuilder,
         KernelFunctionTypeAliasBuilder,
+        KernelFunctionTypeBuilder,
         KernelInvalidTypeBuilder,
         KernelMixinApplicationBuilder,
         KernelNamedMixinApplicationBuilder,
@@ -74,15 +77,8 @@ class KernelLibraryBuilder
 
   KernelTypeBuilder addNamedType(
       String name, List<KernelTypeBuilder> arguments, int charOffset) {
-    KernelNamedTypeBuilder type =
-        new KernelNamedTypeBuilder(name, arguments, charOffset, fileUri);
-    if (identical(name, "dynamic")) {
-      type.builder =
-          new DynamicTypeBuilder(const DynamicType(), this, charOffset);
-    } else {
-      addType(type);
-    }
-    return type;
+    return addType(
+        new KernelNamedTypeBuilder(name, arguments, charOffset, fileUri));
   }
 
   KernelTypeBuilder addMixinApplication(KernelTypeBuilder supertype,
@@ -93,7 +89,7 @@ class KernelLibraryBuilder
   }
 
   KernelTypeBuilder addVoidType(int charOffset) {
-    return new KernelNamedTypeBuilder("void", null, charOffset, fileUri);
+    return addNamedType("void", null, charOffset);
   }
 
   void addClass(
@@ -152,6 +148,12 @@ class KernelLibraryBuilder
         charOffset);
   }
 
+  String computeConstructorName(String name) {
+    assert(isConstructorName(name, currentDeclaration.name));
+    int index = name.indexOf(".");
+    return index == -1 ? "" : name.substring(index + 1);
+  }
+
   void addProcedure(
       List<MetadataBuilder> metadata,
       int modifiers,
@@ -162,6 +164,8 @@ class KernelLibraryBuilder
       AsyncMarker asyncModifier,
       ProcedureKind kind,
       int charOffset,
+      int charOpenParenOffset,
+      int charEndOffset,
       String nativeMethodName,
       {bool isTopLevel}) {
     // Nested declaration began in `OutlineBuilder.beginMethod` or
@@ -169,8 +173,7 @@ class KernelLibraryBuilder
     endNestedDeclaration().resolveTypes(typeVariables, this);
     ProcedureBuilder procedure;
     if (!isTopLevel && isConstructorName(name, currentDeclaration.name)) {
-      int index = name.indexOf(".");
-      name = index == -1 ? "" : name.substring(index + 1);
+      name = computeConstructorName(name);
       procedure = new KernelConstructorBuilder(
           metadata,
           modifiers & ~abstractMask,
@@ -180,6 +183,8 @@ class KernelLibraryBuilder
           formals,
           this,
           charOffset,
+          charOpenParenOffset,
+          charEndOffset,
           nativeMethodName);
     } else {
       procedure = new KernelProcedureBuilder(
@@ -193,6 +198,8 @@ class KernelLibraryBuilder
           kind,
           this,
           charOffset,
+          charOpenParenOffset,
+          charEndOffset,
           nativeMethodName);
     }
     addBuilder(name, procedure, charOffset);
@@ -209,13 +216,16 @@ class KernelLibraryBuilder
       AsyncMarker asyncModifier,
       ConstructorReferenceBuilder redirectionTarget,
       int charOffset,
+      int charOpenParenOffset,
+      int charEndOffset,
       String nativeMethodName) {
     // Nested declaration began in `OutlineBuilder.beginFactoryMethod`.
     DeclarationBuilder<KernelTypeBuilder> factoryDeclaration =
         endNestedDeclaration();
     String name = constructorName.name;
-    int index = name.indexOf(".");
-    name = index == -1 ? "" : name.substring(index + 1);
+    if (isConstructorName(name, currentDeclaration.name)) {
+      name = computeConstructorName(name);
+    }
     assert(constructorName.suffix == null);
     KernelProcedureBuilder procedure = new KernelProcedureBuilder(
         metadata,
@@ -228,6 +238,8 @@ class KernelLibraryBuilder
         ProcedureKind.Factory,
         this,
         charOffset,
+        charOpenParenOffset,
+        charEndOffset,
         nativeMethodName,
         redirectionTarget);
     currentDeclaration.addFactoryDeclaration(procedure, factoryDeclaration);
@@ -238,10 +250,11 @@ class KernelLibraryBuilder
   }
 
   void addEnum(List<MetadataBuilder> metadata, String name,
-      List<String> constants, int charOffset) {
+      List<Object> constantNamesAndOffsets, int charOffset, int charEndOffset) {
     addBuilder(
         name,
-        new KernelEnumBuilder(metadata, name, constants, this, charOffset),
+        new KernelEnumBuilder(metadata, name, constantNamesAndOffsets, this,
+            charOffset, charEndOffset),
         charOffset);
   }
 
@@ -257,6 +270,15 @@ class KernelLibraryBuilder
     // Nested declaration began in `OutlineBuilder.beginFunctionTypeAlias`.
     endNestedDeclaration().resolveTypes(typeVariables, this);
     addBuilder(name, typedef, charOffset);
+  }
+
+  KernelFunctionTypeBuilder addFunctionType(
+      KernelTypeBuilder returnType,
+      List<TypeVariableBuilder> typeVariables,
+      List<FormalParameterBuilder> formals,
+      int charOffset) {
+    return new KernelFunctionTypeBuilder(
+        charOffset, fileUri, returnType, typeVariables, formals);
   }
 
   KernelFormalParameterBuilder addFormalParameter(
@@ -292,6 +314,8 @@ class KernelLibraryBuilder
       library.addClass(builder.build(this));
     } else if (builder is PrefixBuilder) {
       // Ignored. Kernel doesn't represent prefixes.
+    } else if (builder is BuiltinTypeBuilder) {
+      // Nothing needed.
     } else {
       internalError("Unhandled builder: ${builder.runtimeType}");
     }
@@ -303,22 +327,99 @@ class KernelLibraryBuilder
     return library;
   }
 
+  @override
   Builder buildAmbiguousBuilder(
-      String name, Builder builder, Builder other, int charOffset) {
+      String name, Builder builder, Builder other, int charOffset,
+      {bool isExport: false, bool isImport: false}) {
+    if (builder == other) return builder;
+    if (builder is InvalidTypeBuilder) return builder;
+    if (other is InvalidTypeBuilder) return other;
+    if (builder is AccessErrorBuilder) {
+      AccessErrorBuilder error = builder;
+      builder = error.builder;
+    }
+    if (other is AccessErrorBuilder) {
+      AccessErrorBuilder error = other;
+      other = error.builder;
+    }
+    bool isLocal = false;
+    Builder preferred;
+    Uri uri;
+    Uri otherUri;
+    Uri preferredUri;
+    Uri hiddenUri;
+    if (members[name] == builder) {
+      isLocal = true;
+      preferred = builder;
+      hiddenUri = other.computeLibraryUri();
+    } else {
+      uri = builder.computeLibraryUri();
+      otherUri = other.computeLibraryUri();
+      if (otherUri?.scheme == "dart" && uri?.scheme != "dart") {
+        preferred = builder;
+        preferredUri = uri;
+        hiddenUri = otherUri;
+      } else if (uri?.scheme == "dart" && otherUri?.scheme != "dart") {
+        preferred = other;
+        preferredUri = otherUri;
+        hiddenUri = uri;
+      }
+    }
+    if (preferred != null) {
+      if (isLocal) {
+        if (isExport) {
+          addNit(charOffset,
+              "Local definition of '$name' hides export from '${hiddenUri}'.");
+        } else {
+          addNit(charOffset,
+              "Local definition of '$name' hides import from '${hiddenUri}'.");
+        }
+      } else {
+        if (isExport) {
+          addNit(
+              charOffset,
+              "Export of '$name' (from '${preferredUri}') hides export from "
+              "'${hiddenUri}'.");
+        } else {
+          addNit(
+              charOffset,
+              "Import of '$name' (from '${preferredUri}') hides import from "
+              "'${hiddenUri}'.");
+        }
+      }
+      return preferred;
+    }
     if (builder.next == null && other.next == null) {
       if (builder.isGetter && other.isSetter) {
         return new MixedAccessor(builder, other, this);
       } else if (builder.isSetter && other.isGetter) {
         return new MixedAccessor(other, builder, this);
       }
+      if (isImport && builder is PrefixBuilder && other is PrefixBuilder) {
+        // Handles the case where the same prefix is used for different
+        // imports.
+        PrefixBuilder prefix = builder;
+        other.exports.forEach((String name, Builder member) {
+          Builder existing = exports[name];
+          if (existing != null) {
+            if (existing != member) {
+              member = buildAmbiguousBuilder(name, existing, member, charOffset,
+                  isExport: isExport, isImport: isImport);
+            }
+          }
+          prefix.exports[name] = member;
+        });
+        return builder;
+      }
+    }
+    if (isExport) {
+      addNit(charOffset,
+          "'$name' is exported from both '${uri}' and '${otherUri}'.");
+    } else {
+      addNit(charOffset,
+          "'$name' is imported from both '${uri}' and '${otherUri}'.");
     }
     return new KernelInvalidTypeBuilder(name, charOffset, fileUri);
-  }
-
-  void addArgumentsWithMissingDefaultValues(
-      Arguments arguments, FunctionNode function) {
-    assert(partOfLibrary == null);
-    argumentsWithMissingDefaultValues.add([arguments, function]);
   }
 
   int finishStaticInvocations() {

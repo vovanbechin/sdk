@@ -7,6 +7,7 @@
 
 #include "vm/ast.h"
 #include "vm/code_generator.h"
+#include "vm/datastream.h"
 #include "vm/globals.h"
 #include "vm/growable_array.h"
 #include "vm/object.h"
@@ -148,6 +149,59 @@ class ExceptionHandlerList : public ZoneAllocated {
 };
 
 
+// An encoded move from stack/constant to stack performed
+struct CatchEntryStatePair {
+  enum { kCatchEntryStateIsMove = 1, kCatchEntryStateDestShift = 1 };
+
+  intptr_t src, dest;
+
+  static CatchEntryStatePair FromConstant(intptr_t pool_id,
+                                          intptr_t dest_slot) {
+    CatchEntryStatePair pair;
+    pair.src = pool_id;
+    pair.dest = (dest_slot << kCatchEntryStateDestShift);
+    return pair;
+  }
+
+  static CatchEntryStatePair FromMove(intptr_t src_slot, intptr_t dest_slot) {
+    CatchEntryStatePair pair;
+    pair.src = src_slot;
+    pair.dest =
+        (dest_slot << kCatchEntryStateDestShift) | kCatchEntryStateIsMove;
+    return pair;
+  }
+
+  bool operator==(const CatchEntryStatePair& rhs) {
+    return src == rhs.src && dest == rhs.dest;
+  }
+};
+
+
+// Used to construct CatchEntryState metadata for AoT mode of compilation.
+class CatchEntryStateMapBuilder : public ZoneAllocated {
+ public:
+  CatchEntryStateMapBuilder();
+
+  void NewMapping(intptr_t pc_offset);
+  void AppendMove(intptr_t src_slot, intptr_t dest_slot);
+  void AppendConstant(intptr_t pool_id, intptr_t dest_slot);
+  void EndMapping();
+  RawTypedData* FinalizeCatchEntryStateMap();
+
+ private:
+  class TrieNode;
+
+  Zone* zone_;
+  TrieNode* root_;
+  intptr_t current_pc_offset_;
+  GrowableArray<CatchEntryStatePair> moves_;
+  uint8_t* buffer_;
+  WriteStream stream_;
+
+  DISALLOW_COPY_AND_ASSIGN(CatchEntryStateMapBuilder);
+};
+
+
 // A CodeSourceMap maps from pc offsets to a stack of inlined functions and
 // their positions. This is encoded as a little bytecode that pushes and pops
 // functions and changes the top function's position as the PC advances.
@@ -187,6 +241,8 @@ class CodeSourceMapBuilder : public ZoneAllocated {
   RawCodeSourceMap* Finalize();
 
  private:
+  intptr_t GetFunctionId(intptr_t inline_id);
+
   void BufferChangePosition(TokenPosition pos) {
     buffered_token_pos_stack_.Last() = pos;
   }
@@ -203,7 +259,7 @@ class CodeSourceMapBuilder : public ZoneAllocated {
   }
   void WritePush(intptr_t inline_id) {
     stream_.Write<uint8_t>(kPushFunction);
-    stream_.Write<int32_t>(inline_id);
+    stream_.Write<int32_t>(GetFunctionId(inline_id));
     written_inline_id_stack_.Add(inline_id);
     written_token_pos_stack_.Add(kInitialPosition);
   }
@@ -240,6 +296,8 @@ class CodeSourceMapBuilder : public ZoneAllocated {
   const GrowableArray<intptr_t>& caller_inline_id_;
   const GrowableArray<TokenPosition>& inline_id_to_token_pos_;
   const GrowableArray<const Function*>& inline_id_to_function_;
+
+  const GrowableObjectArray& inlined_functions_;
 
   uint8_t* buffer_;
   WriteStream stream_;

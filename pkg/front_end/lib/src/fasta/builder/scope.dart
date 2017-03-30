@@ -20,6 +20,10 @@ class Scope {
   /// succeed.
   final bool isModifiable;
 
+  Map<String, Builder> labels;
+
+  Map<String, Builder> forwardDeclaredLabels;
+
   Scope(this.local, this.parent, {this.isModifiable: true});
 
   Scope createNestedScope({bool isModifiable: true}) {
@@ -33,7 +37,7 @@ class Scope {
         return lookupAmbiguous(name, builder, false, charOffset, fileUri);
       }
       return builder.isSetter
-          ? new AccessErrorBuilder(builder, charOffset, fileUri)
+          ? new AccessErrorBuilder(name, builder, charOffset, fileUri)
           : builder;
     } else {
       return parent?.lookup(name, charOffset, fileUri);
@@ -48,14 +52,14 @@ class Scope {
       }
       if (builder.isField) {
         if (builder.isFinal) {
-          return new AccessErrorBuilder(builder, charOffset, fileUri);
+          return new AccessErrorBuilder(name, builder, charOffset, fileUri);
         } else {
           return builder;
         }
       } else if (builder.isSetter) {
         return builder;
       } else {
-        return new AccessErrorBuilder(builder, charOffset, fileUri);
+        return new AccessErrorBuilder(name, builder, charOffset, fileUri);
       }
     } else {
       return parent?.lookupSetter(name, charOffset, fileUri);
@@ -77,13 +81,46 @@ class Scope {
       } else if (current.isSetter && setterBuilder == null) {
         setterBuilder = current;
       } else {
-        return new AmbiguousBuilder(builder, charOffset, fileUri);
+        return new AmbiguousBuilder(name, builder, charOffset, fileUri);
       }
       current = current.next;
     }
     assert(getterBuilder != null);
     assert(setterBuilder != null);
     return setter ? setterBuilder : getterBuilder;
+  }
+
+  bool hasLocalLabel(String name) => labels != null && labels.containsKey(name);
+
+  void declareLabel(String name, Builder target) {
+    if (isModifiable) {
+      labels ??= <String, Builder>{};
+      labels[name] = target;
+    } else {
+      internalError("Can't extend an unmodifiable scope.");
+    }
+  }
+
+  void forwardDeclareLabel(String name, Builder target) {
+    declareLabel(name, target);
+    forwardDeclaredLabels ??= <String, Builder>{};
+    forwardDeclaredLabels[name] = target;
+  }
+
+  void claimLabel(String name) {
+    if (forwardDeclaredLabels == null) return;
+    forwardDeclaredLabels.remove(name);
+    if (forwardDeclaredLabels.length == 0) {
+      forwardDeclaredLabels = null;
+    }
+  }
+
+  Map<String, Builder> get unclaimedForwardDeclarations {
+    return forwardDeclaredLabels;
+  }
+
+  Builder lookupLabel(String name) {
+    return (labels == null ? null : labels[name]) ?? parent?.lookupLabel(name);
   }
 
   // TODO(ahe): Rename to extend or something.
@@ -96,15 +133,31 @@ class Scope {
   }
 }
 
-class AccessErrorBuilder extends Builder {
+abstract class ProblemBuilder extends Builder {
+  final String name;
+
   final Builder builder;
 
-  AccessErrorBuilder(this.builder, int charOffset, Uri fileUri)
+  ProblemBuilder(this.name, this.builder, int charOffset, Uri fileUri)
       : super(null, charOffset, fileUri);
 
-  Builder get parent => builder;
-
   get target => null;
+
+  bool get hasProblem => true;
+
+  String get message;
+
+  @override
+  String get fullNameForErrors => name;
+}
+
+/// Represents a [builder] that's being accessed incorrectly. For example, an
+/// attempt to write to a final field, or to read from a setter.
+class AccessErrorBuilder extends ProblemBuilder {
+  AccessErrorBuilder(String name, Builder builder, int charOffset, Uri fileUri)
+      : super(name, builder, charOffset, fileUri);
+
+  Builder get parent => builder;
 
   bool get isFinal => builder.isFinal;
 
@@ -126,16 +179,12 @@ class AccessErrorBuilder extends Builder {
 
   bool get isLocal => builder.isLocal;
 
-  bool get hasProblem => true;
+  String get message => "Access error: '$name'.";
 }
 
-class AmbiguousBuilder extends Builder {
-  final Builder builder;
+class AmbiguousBuilder extends ProblemBuilder {
+  AmbiguousBuilder(String name, Builder builder, int charOffset, Uri fileUri)
+      : super(name, builder, charOffset, fileUri);
 
-  AmbiguousBuilder(this.builder, int charOffset, Uri fileUri)
-      : super(null, charOffset, fileUri);
-
-  get target => null;
-
-  bool get hasProblem => true;
+  String get message => "Duplicated named: '$name'.";
 }

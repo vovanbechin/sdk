@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 #include "platform/globals.h"
-#if defined(TARGET_OS_FUCHSIA)
+#if defined(HOST_OS_FUCHSIA)
 
 #include "bin/file.h"
 
@@ -131,11 +131,6 @@ bool File::SetPosition(int64_t position) {
   ASSERT(handle_->fd() >= 0);
   return NO_RETRY_EXPECTED(lseek(handle_->fd(), position, SEEK_SET)) >= 0;
 }
-
-
-// There is no difference between binary and text translation modes on this
-// platform, so this operation is a no-op.
-void File::SetTranslation(DartFileTranslation translation) {}
 
 
 bool File::Truncate(int64_t length) {
@@ -583,4 +578,4 @@ File::Identical File::AreIdentical(const char* file_1, const char* file_2) {
 }  // namespace bin
 }  // namespace dart
 
-#endif  // defined(TARGET_OS_FUCHSIA)
+#endif  // defined(HOST_OS_FUCHSIA)

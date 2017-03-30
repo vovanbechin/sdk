@@ -32,8 +32,14 @@ define(['dart_sdk'], function(dart_sdk) {
     names: ['equals', 'listEquals']
   });
   BenchmarkBase$.BenchmarkBase = class BenchmarkBase extends core.Object {
+    get name() {
+      return this[name$];
+    }
+    set name(value) {
+      super.name = value;
+    }
     new(name) {
-      this.name = name;
+      this[name$] = name;
     }
     run() {}
     warmup() {
@@ -75,6 +81,7 @@ define(['dart_sdk'], function(dart_sdk) {
       core.print(dart.str`${this.name}(RunTime): ${score} us.`);
     }
   };
+  const name$ = Symbol("BenchmarkBase.name");
   dart.setSignature(BenchmarkBase$.BenchmarkBase, {
     fields: () => ({name: core.String}),
     methods: () => ({
@@ -89,7 +96,7 @@ define(['dart_sdk'], function(dart_sdk) {
     statics: () => ({measureFor: dart.definiteFunctionType(core.double, [core.Function, core.int])}),
     names: ['measureFor']
   });
-  dart.trackLibraries("BenchmarkBase", {"BenchmarkBase.dart": BenchmarkBase$});
+  dart.trackLibraries("BenchmarkBase", {"BenchmarkBase.dart": BenchmarkBase$}, null);
   // Exports:
   return {
     BenchmarkBase: BenchmarkBase$

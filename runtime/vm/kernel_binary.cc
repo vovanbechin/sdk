@@ -328,7 +328,7 @@ class ReaderHelper {
 
 class Reader {
  public:
-  Reader(const uint8_t* buffer, int64_t size)
+  Reader(const uint8_t* buffer, intptr_t size)
       : buffer_(buffer), size_(size), offset_(0) {}
 
   uint32_t ReadUInt32() {
@@ -444,13 +444,13 @@ class Reader {
     if (offset_ != size_) {
       FATAL2(
           "Reading Kernel file: Expected to be at EOF "
-          "(offset: %" Pd64 ", size: %" Pd64 ")",
+          "(offset: %" Pd ", size: %" Pd ")",
           offset_, size_);
     }
   }
 
   void DumpOffset(const char* str) {
-    OS::PrintErr("@%" Pd64 " %s\n", offset_, str);
+    OS::PrintErr("@%" Pd " %s\n", offset_, str);
   }
 
   // The largest position read yet (since last reset).
@@ -494,17 +494,12 @@ class Reader {
     return name;
   }
 
-  CanonicalName* ReadDefiningCanonicalNameReference(LinkedNode* node_to_link) {
-    CanonicalName* name = ReadCanonicalNameReference();
-    ASSERT(name != NULL);
-    name->BindTo(node_to_link);
-    return name;
-  }
+  intptr_t offset() { return offset_; }
 
  private:
   const uint8_t* buffer_;
-  int64_t size_;
-  int64_t offset_;
+  intptr_t size_;
+  intptr_t offset_;
   ReaderHelper builder_;
   TokenPosition max_position_;
   TokenPosition min_position_;
@@ -636,7 +631,7 @@ class VariableDeclarationImpl {
  public:
   static VariableDeclaration* ReadFrom(Reader* reader) {
     TRACE_READ_OFFSET();
-    return VariableDeclaration::ReadFromImpl(reader);
+    return VariableDeclaration::ReadFromImpl(reader, false);
   }
 };
 
@@ -685,11 +680,9 @@ Library* Library::ReadFrom(Reader* reader) {
   int flags = reader->ReadFlags();
   ASSERT(flags == 0);  // external libraries not supported
 
-  CanonicalName* canonical_name =
-      reader->ReadDefiningCanonicalNameReference(this);
-
+  canonical_name_ = reader->ReadCanonicalNameReference();
   name_ = Reference::ReadStringFrom(reader);
-  import_uri_ = canonical_name->name();
+  import_uri_ = canonical_name_->name();
   source_uri_index_ = reader->ReadUInt();
   reader->set_current_script_id(source_uri_index_);
 
@@ -715,7 +708,7 @@ Library* Library::ReadFrom(Reader* reader) {
 Class* Class::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
 
-  reader->ReadDefiningCanonicalNameReference(this);
+  canonical_name_ = reader->ReadCanonicalNameReference();
   position_ = reader->ReadPosition(false);
   is_abstract_ = reader->ReadBool();
   name_ = Reference::ReadStringFrom(reader);
@@ -803,10 +796,11 @@ String* Reference::ReadStringFrom(Reader* reader) {
 
 Field* Field::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
+  kernel_offset_ = reader->offset();  // Notice the ReadTag() below.
   Tag tag = reader->ReadTag();
   ASSERT(tag == kField);
 
-  reader->ReadDefiningCanonicalNameReference(this);
+  canonical_name_ = reader->ReadCanonicalNameReference();
   position_ = reader->ReadPosition(false);
   end_position_ = reader->ReadPosition(false);
   flags_ = reader->ReadFlags();
@@ -817,7 +811,6 @@ Field* Field::ReadFrom(Reader* reader) {
   reader->record_token_position(end_position_);
   annotations_.ReadFromStatic<Expression>(reader);
   type_ = DartType::ReadFrom(reader);
-  inferred_value_ = reader->ReadOptional<InferredValue>();
   initializer_ = reader->ReadOptional<Expression>();
   return this;
 }
@@ -828,7 +821,7 @@ Constructor* Constructor::ReadFrom(Reader* reader) {
   Tag tag = reader->ReadTag();
   ASSERT(tag == kConstructor);
 
-  reader->ReadDefiningCanonicalNameReference(this);
+  canonical_name_ = reader->ReadCanonicalNameReference();
   VariableScope<ReaderHelper> parameters(reader->helper());
   position_ = reader->ReadPosition();
   end_position_ = reader->ReadPosition();
@@ -846,7 +839,7 @@ Procedure* Procedure::ReadFrom(Reader* reader) {
   Tag tag = reader->ReadTag();
   ASSERT(tag == kProcedure);
 
-  reader->ReadDefiningCanonicalNameReference(this);
+  canonical_name_ = reader->ReadCanonicalNameReference();
   VariableScope<ReaderHelper> parameters(reader->helper());
   position_ = reader->ReadPosition(false);
   end_position_ = reader->ReadPosition(false);
@@ -920,7 +913,7 @@ RedirectingInitializer* RedirectingInitializer::ReadFromImpl(Reader* reader) {
 LocalInitializer* LocalInitializer::ReadFromImpl(Reader* reader) {
   TRACE_READ_OFFSET();
   LocalInitializer* init = new LocalInitializer();
-  init->variable_ = VariableDeclaration::ReadFromImpl(reader);
+  init->variable_ = VariableDeclaration::ReadFromImpl(reader, false);
   return init;
 }
 
@@ -1096,6 +1089,7 @@ PropertySet* PropertySet::ReadFrom(Reader* reader) {
 DirectPropertyGet* DirectPropertyGet::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   DirectPropertyGet* get = new DirectPropertyGet();
+  get->position_ = reader->ReadPosition();
   get->receiver_ = Expression::ReadFrom(reader);
   get->target_reference_ = Reference::ReadMemberFrom(reader);
   return get;
@@ -1105,6 +1099,7 @@ DirectPropertyGet* DirectPropertyGet::ReadFrom(Reader* reader) {
 DirectPropertySet* DirectPropertySet::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   DirectPropertySet* set = new DirectPropertySet();
+  set->position_ = reader->ReadPosition();
   set->receiver_ = Expression::ReadFrom(reader);
   set->target_reference_ = Reference::ReadMemberFrom(reader);
   set->value_ = Expression::ReadFrom(reader);
@@ -1124,6 +1119,7 @@ StaticGet* StaticGet::ReadFrom(Reader* reader) {
 StaticSet* StaticSet::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   StaticSet* set = new StaticSet();
+  set->position_ = reader->ReadPosition();
   set->target_reference_ = Reference::ReadMemberFrom(reader);
   set->expression_ = Expression::ReadFrom(reader);
   return set;
@@ -1245,6 +1241,7 @@ IsExpression* IsExpression::ReadFrom(Reader* reader) {
 AsExpression* AsExpression::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   AsExpression* expr = new AsExpression();
+  expr->position_ = reader->ReadPosition();
   expr->operand_ = Expression::ReadFrom(reader);
   expr->type_ = DartType::ReadFrom(reader);
   return expr;
@@ -1326,7 +1323,9 @@ ThisExpression* ThisExpression::ReadFrom(Reader* reader) {
 
 Rethrow* Rethrow::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
-  return new Rethrow();
+  Rethrow* rethrow = new Rethrow();
+  rethrow->position_ = reader->ReadPosition();
+  return rethrow;
 }
 
 
@@ -1343,6 +1342,7 @@ ListLiteral* ListLiteral::ReadFrom(Reader* reader, bool is_const) {
   TRACE_READ_OFFSET();
   ListLiteral* literal = new ListLiteral();
   literal->is_const_ = is_const;
+  literal->position_ = reader->ReadPosition();
   literal->type_ = DartType::ReadFrom(reader);
   literal->expressions_.ReadFromStatic<Expression>(reader);
   return literal;
@@ -1381,6 +1381,7 @@ FunctionExpression* FunctionExpression::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   VariableScope<ReaderHelper> parameters(reader->helper());
   FunctionExpression* expr = new FunctionExpression();
+  expr->kernel_offset_ = reader->offset() - 1;  // -1 to include tag byte.
   expr->function_ = FunctionNode::ReadFrom(reader);
   return expr;
 }
@@ -1392,7 +1393,8 @@ Let* Let::ReadFrom(Reader* reader) {
   PositionScope scope(reader);
 
   Let* let = new Let();
-  let->variable_ = VariableDeclaration::ReadFromImpl(reader);
+  let->kernel_offset_ = reader->offset() - 1;  // -1 to include tag byte.
+  let->variable_ = VariableDeclaration::ReadFromImpl(reader, false);
   let->body_ = Expression::ReadFrom(reader);
   let->position_ = reader->min_position();
   let->end_position_ = reader->max_position();
@@ -1444,7 +1446,7 @@ Statement* Statement::ReadFrom(Reader* reader) {
     case kYieldStatement:
       return YieldStatement::ReadFrom(reader);
     case kVariableDeclaration:
-      return VariableDeclaration::ReadFromImpl(reader);
+      return VariableDeclaration::ReadFromImpl(reader, true);
     case kFunctionDeclaration:
       return FunctionDeclaration::ReadFrom(reader);
     default:
@@ -1472,6 +1474,7 @@ Block* Block::ReadFromImpl(Reader* reader) {
 
   VariableScope<ReaderHelper> vars(reader->helper());
   Block* block = new Block();
+  block->kernel_offset_ = reader->offset() - 1;  // -1 to include tag byte.
   block->statements().ReadFromStatic<Statement>(reader);
   block->position_ = reader->min_position();
   block->end_position_ = reader->max_position();
@@ -1508,6 +1511,7 @@ LabeledStatement* LabeledStatement::ReadFrom(Reader* reader) {
 BreakStatement* BreakStatement::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   BreakStatement* stmt = new BreakStatement();
+  stmt->position_ = reader->ReadPosition();
   stmt->target_ = reader->helper()->labels()->Lookup(reader->ReadUInt());
   return stmt;
 }
@@ -1537,6 +1541,7 @@ ForStatement* ForStatement::ReadFrom(Reader* reader) {
   PositionScope scope(reader);
 
   ForStatement* forstmt = new ForStatement();
+  forstmt->kernel_offset_ = reader->offset() - 1;  // -1 to include tag byte.
   forstmt->variables_.ReadFromStatic<VariableDeclarationImpl>(reader);
   forstmt->condition_ = reader->ReadOptional<Expression>();
   forstmt->updates_.ReadFromStatic<Expression>(reader);
@@ -1554,12 +1559,17 @@ ForInStatement* ForInStatement::ReadFrom(Reader* reader, bool is_async) {
   PositionScope scope(reader);
 
   ForInStatement* forinstmt = new ForInStatement();
+  forinstmt->kernel_offset_ = reader->offset() - 1;  // -1 to include tag byte.
   forinstmt->is_async_ = is_async;
-  forinstmt->variable_ = VariableDeclaration::ReadFromImpl(reader);
+  forinstmt->position_ = reader->ReadPosition();
+  forinstmt->variable_ = VariableDeclaration::ReadFromImpl(reader, false);
   forinstmt->iterable_ = Expression::ReadFrom(reader);
   forinstmt->body_ = Statement::ReadFrom(reader);
   forinstmt->end_position_ = reader->max_position();
-  forinstmt->position_ = reader->min_position();
+  if (!forinstmt->position_.IsReal()) {
+    forinstmt->position_ = reader->min_position();
+  }
+  forinstmt->variable_->set_end_position(forinstmt->position_);
 
   return forinstmt;
 }
@@ -1589,6 +1599,9 @@ SwitchStatement* SwitchStatement::ReadFrom(Reader* reader) {
 SwitchCase* SwitchCase::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   expressions_.ReadFromStatic<Expression>(reader);
+  for (intptr_t i = 0; i < expressions_.length(); ++i) {
+    expressions_[i]->set_position(reader->ReadPosition());
+  }
   is_default_ = reader->ReadBool();
   body_ = Statement::ReadFrom(reader);
   return this;
@@ -1641,6 +1654,7 @@ Catch* Catch::ReadFrom(Reader* reader) {
   PositionScope scope(reader);
 
   Catch* c = new Catch();
+  c->kernel_offset_ = reader->offset();  // Catch has no tag.
   c->guard_ = DartType::ReadFrom(reader);
   c->exception_ =
       reader->ReadOptional<VariableDeclaration, VariableDeclarationImpl>();
@@ -1678,20 +1692,23 @@ VariableDeclaration* VariableDeclaration::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   Tag tag = reader->ReadTag();
   ASSERT(tag == kVariableDeclaration);
-  return VariableDeclaration::ReadFromImpl(reader);
+  return VariableDeclaration::ReadFromImpl(reader, true);
 }
 
 
-VariableDeclaration* VariableDeclaration::ReadFromImpl(Reader* reader) {
+VariableDeclaration* VariableDeclaration::ReadFromImpl(Reader* reader,
+                                                       bool read_tag) {
   TRACE_READ_OFFSET();
   PositionScope scope(reader);
 
   VariableDeclaration* decl = new VariableDeclaration();
+  // -1 or -0 depending on whether there's a tag or not.
+  decl->kernel_offset_ = reader->offset() - (read_tag ? 1 : 0);
   decl->position_ = reader->ReadPosition();
+  decl->equals_position_ = reader->ReadPosition();
   decl->flags_ = reader->ReadFlags();
   decl->name_ = Reference::ReadStringFrom(reader);
   decl->type_ = DartType::ReadFrom(reader);
-  decl->inferred_value_ = reader->ReadOptional<InferredValue>();
   decl->initializer_ = reader->ReadOptional<Expression>();
 
   // Go to next token position so it ends *after* the last potentially
@@ -1708,8 +1725,9 @@ VariableDeclaration* VariableDeclaration::ReadFromImpl(Reader* reader) {
 FunctionDeclaration* FunctionDeclaration::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   FunctionDeclaration* decl = new FunctionDeclaration();
+  decl->kernel_offset_ = reader->offset() - 1;  // -1 to include tag byte.
   decl->position_ = reader->ReadPosition();
-  decl->variable_ = VariableDeclaration::ReadFromImpl(reader);
+  decl->variable_ = VariableDeclaration::ReadFromImpl(reader, false);
   VariableScope<ReaderHelper> parameters(reader->helper());
   decl->function_ = FunctionNode::ReadFrom(reader);
   return decl;
@@ -1724,15 +1742,6 @@ Name* Name::ReadFrom(Reader* reader) {
   } else {
     return new Name(string, NULL);
   }
-}
-
-
-InferredValue* InferredValue::ReadFrom(Reader* reader) {
-  InferredValue* type = new InferredValue();
-  type->klass_reference_ = Reference::ReadClassFrom(reader, true);
-  type->kind_ = static_cast<BaseClassKind>(reader->ReadByte());
-  type->value_bits_ = reader->ReadByte();
-  return type;
 }
 
 
@@ -1872,15 +1881,6 @@ Program* Program::ReadFrom(Reader* reader) {
 
   program->main_method_reference_ = Reference::ReadMemberFrom(reader);
 
-#ifdef DEBUG
-  for (intptr_t i = 0; i < canonical_names; ++i) {
-    CanonicalName* name = reader->helper()->GetCanonicalName(i);
-    if (name->is_referenced() && name->definition() == NULL) {
-      FATAL("Missing definition for canonical name");
-    }
-  }
-#endif
-
   return program;
 }
 
@@ -1890,6 +1890,7 @@ FunctionNode* FunctionNode::ReadFrom(Reader* reader) {
   TypeParameterScope<ReaderHelper> scope(reader->helper());
 
   FunctionNode* function = new FunctionNode();
+  function->kernel_offset_ = reader->offset();  // FunctionNode has no tag.
   function->position_ = reader->ReadPosition();
   function->end_position_ = reader->ReadPosition();
   function->async_marker_ =
@@ -1902,7 +1903,6 @@ FunctionNode* FunctionNode::ReadFrom(Reader* reader) {
       reader);
   function->named_parameters().ReadFromStatic<VariableDeclarationImpl>(reader);
   function->return_type_ = DartType::ReadFrom(reader);
-  function->inferred_return_value_ = reader->ReadOptional<InferredValue>();
 
   LabelScope<ReaderHelper, BlockStack<LabeledStatement> > labels(
       reader->helper());

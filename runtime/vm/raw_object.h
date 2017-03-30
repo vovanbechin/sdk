@@ -7,6 +7,7 @@
 
 #include "platform/assert.h"
 #include "vm/atomic.h"
+#include "vm/exceptions.h"
 #include "vm/globals.h"
 #include "vm/snapshot.h"
 #include "vm/token.h"
@@ -1114,14 +1115,6 @@ class RawNamespace : public RawObject {
 
 
 class RawCode : public RawObject {
-  enum InlinedMetadataIndex {
-    kInlinedIntervalsIndex = 0,
-    kInlinedIdToFunctionIndex = 1,
-    kInlinedCallerIdMapIndex = 2,
-    kInlinedIdToTokenPosIndex = 3,
-    kInlinedMetadataSize = 4,
-  };
-
   RAW_HEAP_OBJECT_IMPLEMENTATION(Code);
 
   uword entry_point_;          // Accessed from generated code.
@@ -1138,6 +1131,10 @@ class RawCode : public RawObject {
   RawObject* owner_;  // Function, Null, or a Class.
   RawExceptionHandlers* exception_handlers_;
   RawPcDescriptors* pc_descriptors_;
+  union {
+    RawTypedData* catch_entry_state_maps_;
+    RawSmi* variables_;
+  } catch_entry_;
   RawArray* stackmaps_;
   RawArray* inlined_id_to_function_;
   RawCodeSourceMap* code_source_map_;
@@ -1624,7 +1621,6 @@ class RawUnwindError : public RawError {
   RawString* message_;
   RawObject** to() { return reinterpret_cast<RawObject**>(&ptr()->message_); }
   bool is_user_initiated_;
-  bool is_vm_restart_;
 };
 
 

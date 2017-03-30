@@ -45,7 +45,6 @@ namespace bin {
   V(File_WriteFrom, 4)                                                         \
   V(File_Position, 1)                                                          \
   V(File_SetPosition, 2)                                                       \
-  V(File_SetTranslation, 2)                                                    \
   V(File_Truncate, 2)                                                          \
   V(File_Length, 1)                                                            \
   V(File_LengthFromPath, 1)                                                    \
@@ -147,7 +146,9 @@ namespace bin {
   V(Stdin_SetEchoMode, 1)                                                      \
   V(Stdin_GetLineMode, 0)                                                      \
   V(Stdin_SetLineMode, 1)                                                      \
+  V(Stdin_AnsiSupported, 0)                                                    \
   V(Stdout_GetTerminalSize, 1)                                                 \
+  V(Stdout_AnsiSupported, 1)                                                   \
   V(StringToSystemEncoding, 1)                                                 \
   V(SystemEncodingToString, 1)                                                 \
   V(X509_Subject, 1)                                                           \

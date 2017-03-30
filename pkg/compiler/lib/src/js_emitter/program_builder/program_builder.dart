@@ -10,7 +10,7 @@ import '../../common/names.dart' show Names, Selectors;
 import '../../compiler.dart' show Compiler;
 import '../../constants/values.dart'
     show ConstantValue, InterceptorConstantValue;
-import '../../core_types.dart' show CommonElements;
+import '../../common_elements.dart' show CommonElements;
 import '../../elements/resolution_types.dart'
     show ResolutionDartType, ResolutionFunctionType, ResolutionTypedefType;
 import '../../deferred_load.dart' show DeferredLoadTask, OutputUnit;
@@ -29,6 +29,7 @@ import '../../elements/elements.dart'
         ParameterElement,
         TypedefElement,
         VariableElement;
+import '../../elements/entities.dart';
 import '../../elements/types.dart' show DartType;
 import '../../js/js.dart' as js;
 import '../../js_backend/backend_helpers.dart' show BackendHelpers;
@@ -176,7 +177,7 @@ class ProgramBuilder {
     List<Holder> holders = _registry.holders.toList(growable: false);
 
     bool needsNativeSupport =
-        _compiler.enqueuer.codegen.nativeEnqueuer.hasInstantiatedNativeClasses;
+        backend.nativeCodegenEnqueuer.hasInstantiatedNativeClasses;
 
     assert(!needsNativeSupport || nativeClasses.isNotEmpty);
 
@@ -350,10 +351,10 @@ class ProgramBuilder {
     var stubNames = new Set<String>();
     librariesMap.forEach((LibraryElement library, List<Element> elements) {
       for (Element e in elements) {
-        if (e is ClassElement && backend.isJsInterop(e)) {
+        if (e is ClassElement && backend.nativeData.isJsInteropClass(e)) {
           e.declaration.forEachMember((_, Element member) {
             var jsName =
-                backend.nativeData.getUnescapedJSInteropName(member.name);
+                backend.nativeData.computeUnescapedJSInteropName(member.name);
             if (!member.isInstanceMember) return;
             if (member.isGetter || member.isField || member.isFunction) {
               var selectors = worldBuilder.getterInvocationsByName(member.name);
@@ -485,7 +486,8 @@ class ProgramBuilder {
         .toList(growable: false);
 
     bool visitStatics = true;
-    List<Field> staticFieldsForReflection = _buildFields(library, visitStatics);
+    List<Field> staticFieldsForReflection =
+        _buildFields(library, visitStatics: visitStatics);
 
     return new Library(
         library, uri, statics, classes, staticFieldsForReflection);
@@ -493,8 +495,8 @@ class ProgramBuilder {
 
   Class _buildClass(ClassElement element) {
     bool onlyForRti = collector.classesOnlyNeededForRti.contains(element);
-    bool hasRtiField = backend.classNeedsRtiField(element);
-    if (backend.isJsInterop(element)) {
+    bool hasRtiField = backend.rtiNeed.classNeedsRtiField(element);
+    if (backend.nativeData.isJsInteropClass(element)) {
       // TODO(jacobr): check whether the class has any active static fields
       // if it does not we can suppress it completely.
       onlyForRti = true;
@@ -533,7 +535,7 @@ class ProgramBuilder {
 
     List<StubMethod> noSuchMethodStubs = <StubMethod>[];
 
-    if (backend.enabledNoSuchMethod && element.isObject) {
+    if (backend.backendUsage.isNoSuchMethodUsed && element.isObject) {
       Map<js.Name, Selector> selectors =
           classStubGenerator.computeSelectorsForNsmHandlers();
       selectors.forEach((js.Name name, Selector selector) {
@@ -563,18 +565,23 @@ class ProgramBuilder {
     if (!onlyForRti && !element.isMixinApplication) {
       implementation.forEachMember(visitMember, includeBackendMembers: true);
     }
-
-    List<Field> instanceFields =
-        onlyForRti ? const <Field>[] : _buildFields(element, false);
-    List<Field> staticFieldsForReflection =
-        onlyForRti ? const <Field>[] : _buildFields(element, true);
+    bool isInterceptedClass =
+        backend.interceptorData.isInterceptedClass(element);
+    List<Field> instanceFields = onlyForRti
+        ? const <Field>[]
+        : _buildFields(element,
+            visitStatics: false, isHolderInterceptedClass: isInterceptedClass);
+    List<Field> staticFieldsForReflection = onlyForRti
+        ? const <Field>[]
+        : _buildFields(element,
+            visitStatics: true, isHolderInterceptedClass: isInterceptedClass);
 
     TypeTestProperties typeTests = runtimeTypeGenerator.generateIsTests(element,
         storeFunctionTypeInMetadata: _storeFunctionTypesInMetadata);
 
     List<StubMethod> checkedSetters = <StubMethod>[];
     List<StubMethod> isChecks = <StubMethod>[];
-    if (backend.isJsInterop(element)) {
+    if (backend.nativeData.isJsInteropClass(element)) {
       typeTests.properties.forEach((js.Name name, js.Node code) {
         _classes[helpers.jsInterceptorClass]
             .isChecks
@@ -602,12 +609,12 @@ class ProgramBuilder {
     // TODO(floitsch): we shouldn't update the registry in the middle of
     // building a class.
     Holder holder = _registry.registerHolder(holderName);
-    bool isInstantiated = !backend.isJsInterop(element) &&
+    bool isInstantiated = !backend.nativeData.isJsInteropClass(element) &&
         worldBuilder.directlyInstantiatedClasses.contains(element);
 
     Class result;
     if (element.isMixinApplication && !onlyForRti) {
-      assert(!backend.isNative(element));
+      assert(!backend.nativeData.isNativeClass(element));
       assert(methods.isEmpty);
 
       result = new MixinApplication(
@@ -639,7 +646,7 @@ class ProgramBuilder {
           isDirectlyInstantiated: isInstantiated,
           hasRtiField: hasRtiField,
           onlyForRti: onlyForRti,
-          isNative: backend.isNative(element));
+          isNative: backend.nativeData.isNativeClass(element));
     }
     _classes[element] = result;
     return result;
@@ -694,7 +701,7 @@ class ProgramBuilder {
     bool canBeReflected = _methodCanBeReflected(element);
     bool canBeApplied = _methodCanBeApplied(element);
 
-    js.Name aliasName = backend.isAliasedSuperMember(element)
+    js.Name aliasName = backend.superMemberData.isAliasedSuperMember(element)
         ? namer.aliasedSuperMemberPropertyName(element)
         : null;
 
@@ -824,14 +831,15 @@ class ProgramBuilder {
     Iterable<js.Name> names =
         backend.oneShotInterceptorData.specializedGetInterceptorNames;
     return names.map((js.Name name) {
-      Set<ClassElement> classes =
+      Set<ClassEntity> classes =
           backend.oneShotInterceptorData.getSpecializedGetInterceptorsFor(name);
       js.Expression code = stubGenerator.generateGetInterceptorMethod(classes);
       return new StaticStubMethod(name, holder, code);
     });
   }
 
-  List<Field> _buildFields(Element holder, bool visitStatics) {
+  List<Field> _buildFields(Element holder,
+      {bool visitStatics, bool isHolderInterceptedClass: false}) {
     List<Field> fields = <Field>[];
     new FieldVisitor(_compiler, namer, closedWorld)
         .visitFields(holder, visitStatics, (FieldElement field,
@@ -849,10 +857,10 @@ class ProgramBuilder {
           getterFlags = 1;
         } else {
           getterFlags += 2;
-          // TODO(sra): 'isInterceptorClass' might not be the correct test
+          // TODO(sra): 'isInterceptedClass' might not be the correct test
           // for methods forced to use the interceptor convention because
           // the method's class was elsewhere mixed-in to an interceptor.
-          if (!backend.interceptorData.isInterceptorClass(holder)) {
+          if (!isHolderInterceptedClass) {
             getterFlags += 1;
           }
         }
@@ -865,7 +873,7 @@ class ProgramBuilder {
           setterFlags = 1;
         } else {
           setterFlags += 2;
-          if (!backend.interceptorData.isInterceptorClass(holder)) {
+          if (!isHolderInterceptedClass) {
             setterFlags += 1;
           }
         }

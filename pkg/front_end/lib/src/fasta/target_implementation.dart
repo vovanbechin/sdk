@@ -20,6 +20,7 @@ import 'translate_uri.dart' show TranslateUri;
 abstract class TargetImplementation extends Target {
   final TranslateUri uriTranslator;
   Builder cachedCompileTimeError;
+  Builder cachedAbstractClassInstantiationError;
   Builder cachedNativeAnnotation;
 
   TargetImplementation(Ticker ticker, this.uriTranslator) : super(ticker);
@@ -50,6 +51,18 @@ abstract class TargetImplementation extends Target {
         loader.coreLibrary.getConstructor("_CompileTimeError", isPrivate: true);
   }
 
+  /// Returns a reference to the constructor of
+  /// [AbstractClassInstantiationError] error.  The constructor is expected to
+  /// accept a single argument of type String, which is the name of the
+  /// abstract class.
+  Builder getAbstractClassInstantiationError(Loader loader) {
+    if (cachedAbstractClassInstantiationError != null) {
+      return cachedAbstractClassInstantiationError;
+    }
+    return cachedAbstractClassInstantiationError =
+        loader.coreLibrary.getConstructor("AbstractClassInstantiationError");
+  }
+
   /// Returns a reference to the constructor used for creating `native`
   /// annotations. The constructor is expected to accept a single argument of
   /// type String, which is the name of the native method.
@@ -65,5 +78,6 @@ abstract class TargetImplementation extends Target {
     }
   }
 
-  void addLineStarts(Uri uri, List<int> lineStarts);
+  void addSourceInformation(
+      Uri uri, List<int> lineStarts, List<int> sourceCode);
 }

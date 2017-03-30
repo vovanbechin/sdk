@@ -6,8 +6,7 @@ library dart2js.js_backend.helpers;
 
 import '../common.dart';
 import '../common/names.dart' show Identifiers, Uris;
-import '../compiler.dart' show Compiler;
-import '../core_types.dart' show CommonElements, ElementEnvironment;
+import '../common_elements.dart' show CommonElements, ElementEnvironment;
 import '../elements/elements.dart' show PublicName;
 import '../elements/entities.dart';
 import '../library_loader.dart' show LoadedLibraries;
@@ -95,7 +94,9 @@ class BackendHelpers {
     assert(loadedLibraries.containsLibrary(Uris.dart_core));
     assert(loadedLibraries.containsLibrary(DART_INTERCEPTORS));
     assert(loadedLibraries.containsLibrary(DART_JS_HELPER));
+  }
 
+  void onResolutionStart() {
     // TODO(johnniwinther): Avoid these. Currently needed to ensure resolution
     // of the classes for various queries in native behavior computation,
     // inference and codegen.
@@ -296,6 +297,10 @@ class BackendHelpers {
   ClassEntity _typeVariableClass;
   ClassEntity get typeVariableClass =>
       _typeVariableClass ??= _findHelperClass('TypeVariable');
+
+  ConstructorEntity _typeVariableConstructor;
+  ConstructorEntity get typeVariableConstructor => _typeVariableConstructor ??=
+      _env.lookupConstructor(typeVariableClass, '');
 
   ClassEntity _noSideEffectsClass;
   ClassEntity get noSideEffectsClass =>
@@ -724,8 +729,10 @@ class BackendHelpers {
   FunctionEntity get callInIsolate =>
       _findLibraryMember(isolateHelperLibrary, '_callInIsolate');
 
+  FunctionEntity _findIndexForNativeSubclassType;
   FunctionEntity get findIndexForNativeSubclassType =>
-      _findLibraryMember(interceptorsLibrary, 'findIndexForNativeSubclassType');
+      _findIndexForNativeSubclassType ??= _findLibraryMember(
+          interceptorsLibrary, 'findIndexForNativeSubclassType');
 
   FunctionEntity get convertRtiToRuntimeType =>
       _findHelperFunction('convertRtiToRuntimeType');
@@ -736,6 +743,13 @@ class BackendHelpers {
   FunctionEntity get objectNoSuchMethod {
     return _objectNoSuchMethod ??= _env.lookupClassMember(
         commonElements.objectClass, Identifiers.noSuchMethod_);
+  }
+
+  bool isDefaultNoSuchMethodImplementation(FunctionEntity element) {
+    ClassEntity classElement = element.enclosingClass;
+    return classElement == commonElements.objectClass ||
+        classElement == jsInterceptorClass ||
+        classElement == jsNullClass;
   }
 
   ClassEntity get constantMapClass =>

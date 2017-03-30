@@ -1162,6 +1162,7 @@ class Class : public Object {
   RawFunction* LookupFunctionAllowPrivate(const String& name) const;
   RawFunction* LookupGetterFunction(const String& name) const;
   RawFunction* LookupSetterFunction(const String& name) const;
+  RawFunction* LookupCallFunctionForTypeTest() const;
   RawField* LookupInstanceField(const String& name) const;
   RawField* LookupStaticField(const String& name) const;
   RawField* LookupField(const String& name) const;
@@ -1547,6 +1548,16 @@ class UnresolvedClass : public Object {
 };
 
 
+// Classification of type genericity according to type parameter owners.
+enum Genericity {
+  kAny,              // Consider type params of class and functions.
+  kClass,            // Consider type params of class only.
+  kFunctions,        // Consider type params of current and parent functions.
+  kCurrentFunction,  // Consider type params of current function only.
+  kParentFunctions   // Consider type params of parent functions only.
+};
+
+
 // A TypeArguments is an array of AbstractType.
 class TypeArguments : public Object {
  public:
@@ -1624,11 +1635,13 @@ class TypeArguments : public Object {
                              TrailPtr trail = NULL) const;
 
   // Check if the vector is instantiated (it must not be null).
-  bool IsInstantiated(TrailPtr trail = NULL) const {
-    return IsSubvectorInstantiated(0, Length(), trail);
+  bool IsInstantiated(Genericity genericity = kAny,
+                      TrailPtr trail = NULL) const {
+    return IsSubvectorInstantiated(0, Length(), genericity, trail);
   }
   bool IsSubvectorInstantiated(intptr_t from_index,
                                intptr_t len,
+                               Genericity genericity = kAny,
                                TrailPtr trail = NULL) const;
   bool IsUninstantiatedIdentity() const;
   bool CanShareInstantiatorTypeArguments(const Class& instantiator_class) const;
@@ -1918,10 +1931,15 @@ class ICData : public Object {
   // the final one.
   intptr_t Length() const;
 
+  // Takes O(result) time!
   intptr_t NumberOfChecks() const;
 
   // Discounts any checks with usage of zero.
+  // Takes O(result)) time!
   intptr_t NumberOfUsedChecks() const;
+
+  // Takes O(n) time!
+  bool NumberOfChecksIs(intptr_t n) const;
 
   static intptr_t InstanceSize() {
     return RoundedAllocationSize(sizeof(RawICData));
@@ -2181,7 +2199,8 @@ class Function : public Object {
   // type parameters of class C, the owner of the function.
   RawString* Signature() const {
     const bool instantiate = false;
-    return BuildSignature(instantiate, kInternalName, TypeArguments::Handle());
+    return BuildSignature(instantiate, kInternalName,
+                          Object::null_type_arguments());
   }
 
   // Build a string of the form '(T, {B b, C c}) => R' representing the
@@ -2193,7 +2212,7 @@ class Function : public Object {
   RawString* UserVisibleSignature() const {
     const bool instantiate = false;
     return BuildSignature(instantiate, kUserVisibleName,
-                          TypeArguments::Handle());
+                          Object::null_type_arguments());
   }
 
   // Build a string of the form '(A, {B b, C c}) => D' representing the
@@ -2269,15 +2288,24 @@ class Function : public Object {
   // Return true if this function declares type parameters.
   bool IsGeneric() const { return NumTypeParameters(Thread::Current()) > 0; }
 
+  // Return true if any parent function of this function is generic.
+  bool HasGenericParent() const;
+
   // Not thread-safe; must be called in the main thread.
   // Sets function's code and code's function.
-  void InstallOptimizedCode(const Code& code, bool is_osr) const;
+  void InstallOptimizedCode(const Code& code) const;
   void AttachCode(const Code& value) const;
   void SetInstructions(const Code& value) const;
   void ClearCode() const;
 
   // Disables optimized code and switches to unoptimized code.
   void SwitchToUnoptimizedCode() const;
+
+  // Ensures that the function has code. If there is no code it compiles the
+  // unoptimized version of the code.  If the code contains errors, it calls
+  // Exceptions::PropagateError and does not return.  Normally returns the
+  // current code, whether it is optimized or unoptimized.
+  RawCode* EnsureHasCode() const;
 
   // Disables optimized code and switches to unoptimized code (or the lazy
   // compilation stub).
@@ -4703,6 +4731,16 @@ class Code : public Object {
   }
   void set_deopt_info_array(const Array& array) const;
 
+#if !defined(DART_PRECOMPILED_RUNTIME) && !defined(DART_PRECOMPILER)
+  RawSmi* variables() const { return raw_ptr()->catch_entry_.variables_; }
+  void set_variables(const Smi& smi) const;
+#else
+  RawTypedData* catch_entry_state_maps() const {
+    return raw_ptr()->catch_entry_.catch_entry_state_maps_;
+  }
+  void set_catch_entry_state_maps(const TypedData& maps) const;
+#endif
+
   RawArray* stackmaps() const { return raw_ptr()->stackmaps_; }
   void set_stackmaps(const Array& maps) const;
   RawStackMap* GetStackMap(uint32_t pc_offset,
@@ -5405,9 +5443,6 @@ class UnwindError : public Error {
   bool is_user_initiated() const { return raw_ptr()->is_user_initiated_; }
   void set_is_user_initiated(bool value) const;
 
-  bool is_vm_restart() const { return raw_ptr()->is_vm_restart_; }
-  void set_is_vm_restart(bool value) const;
-
   RawString* message() const { return raw_ptr()->message_; }
 
   static intptr_t InstanceSize() {
@@ -5665,7 +5700,8 @@ class AbstractType : public Instance {
   virtual RawTypeArguments* arguments() const;
   virtual void set_arguments(const TypeArguments& value) const;
   virtual TokenPosition token_pos() const;
-  virtual bool IsInstantiated(TrailPtr trail = NULL) const;
+  virtual bool IsInstantiated(Genericity genericity = kAny,
+                              TrailPtr trail = NULL) const;
   virtual bool CanonicalizeEquals(const Instance& other) const {
     return Equals(other);
   }
@@ -5880,7 +5916,8 @@ class Type : public AbstractType {
   virtual RawTypeArguments* arguments() const { return raw_ptr()->arguments_; }
   virtual void set_arguments(const TypeArguments& value) const;
   virtual TokenPosition token_pos() const { return raw_ptr()->token_pos_; }
-  virtual bool IsInstantiated(TrailPtr trail = NULL) const;
+  virtual bool IsInstantiated(Genericity genericity = kAny,
+                              TrailPtr trail = NULL) const;
   virtual bool IsEquivalent(const Instance& other, TrailPtr trail = NULL) const;
   virtual bool IsRecursive() const;
   // If signature is not null, this type represents a function type.
@@ -6018,7 +6055,8 @@ class TypeRef : public AbstractType {
   virtual TokenPosition token_pos() const {
     return AbstractType::Handle(type()).token_pos();
   }
-  virtual bool IsInstantiated(TrailPtr trail = NULL) const;
+  virtual bool IsInstantiated(Genericity genericity = kAny,
+                              TrailPtr trail = NULL) const;
   virtual bool IsEquivalent(const Instance& other, TrailPtr trail = NULL) const;
   virtual bool IsRecursive() const { return true; }
   virtual RawTypeRef* InstantiateFrom(
@@ -6102,7 +6140,8 @@ class TypeParameter : public AbstractType {
                   TrailPtr bound_trail,
                   Heap::Space space) const;
   virtual TokenPosition token_pos() const { return raw_ptr()->token_pos_; }
-  virtual bool IsInstantiated(TrailPtr trail = NULL) const { return false; }
+  virtual bool IsInstantiated(Genericity genericity = kAny,
+                              TrailPtr trail = NULL) const;
   virtual bool IsEquivalent(const Instance& other, TrailPtr trail = NULL) const;
   virtual bool IsRecursive() const { return false; }
   virtual RawAbstractType* InstantiateFrom(
@@ -6196,12 +6235,13 @@ class BoundedType : public AbstractType {
   virtual TokenPosition token_pos() const {
     return AbstractType::Handle(type()).token_pos();
   }
-  virtual bool IsInstantiated(TrailPtr trail = NULL) const {
+  virtual bool IsInstantiated(Genericity genericity = kAny,
+                              TrailPtr trail = NULL) const {
     // It is not possible to encounter an instantiated bounded type with an
     // uninstantiated upper bound. Therefore, we do not need to check if the
     // bound is instantiated. Moreover, doing so could lead into cycles, as in
     // class C<T extends C<C>> { }.
-    return AbstractType::Handle(type()).IsInstantiated();
+    return AbstractType::Handle(type()).IsInstantiated(genericity, trail);
   }
   virtual bool IsEquivalent(const Instance& other, TrailPtr trail = NULL) const;
   virtual bool IsRecursive() const;
@@ -8428,12 +8468,10 @@ class StackTrace : public Instance {
                             const StackTrace& async_link,
                             Heap::Space space = Heap::kNew);
 
-  // The argument 'max_frames' limits the number of printed frames.
-  static const char* ToCStringInternal(const StackTrace& stack_trace,
-                                       intptr_t* frame_index,
-                                       intptr_t max_frames = kMaxInt32);
-
  private:
+  static const char* ToDartCString(const StackTrace& stack_trace_in);
+  static const char* ToDwarfCString(const StackTrace& stack_trace_in);
+
   void set_code_array(const Array& code_array) const;
   void set_pc_offset_array(const Array& pc_offset_array) const;
   bool expand_inlined() const;

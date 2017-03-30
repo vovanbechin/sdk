@@ -124,11 +124,16 @@ class SyncStarFunctionRewriter extends ContinuationRewriterBase {
     // :sync_body(:iterator) {
     //     modified <node.body>;
     // }
+
+    // Note: SyncYielding functions have no Dart equivalent. Since they are
+    // synchronous, we use Sync. (Note also that the Dart VM backend uses the
+    // Dart async marker to decide if functions are debuggable.)
     final nestedClosureVariable = new VariableDeclaration(":sync_op");
     final function = new FunctionNode(buildClosureBody(),
         positionalParameters: [iteratorVariable],
         requiredParameterCount: 1,
-        asyncMarker: AsyncMarker.SyncYielding)
+        asyncMarker: AsyncMarker.SyncYielding,
+        dartAsyncMarker: AsyncMarker.Sync)
       ..fileOffset = enclosingFunction.fileOffset
       ..fileEndOffset = enclosingFunction.fileEndOffset
       ..returnType = helper.coreTypes.boolClass.rawType;
@@ -223,10 +228,15 @@ abstract class AsyncRewriterBase extends ContinuationRewriterBase {
       new VariableDeclaration(':exception'),
       new VariableDeclaration(':stack_trace'),
     ];
+
+    // Note: SyncYielding functions have no Dart equivalent. Since they are
+    // synchronous, we use Sync. (Note also that the Dart VM backend uses the
+    // Dart async marker to decide if functions are debuggable.)
     final function = new FunctionNode(buildWrappedBody(),
         positionalParameters: parameters,
         requiredParameterCount: 0,
-        asyncMarker: AsyncMarker.SyncYielding)
+        asyncMarker: AsyncMarker.SyncYielding,
+        dartAsyncMarker: AsyncMarker.Sync)
       ..fileOffset = enclosingFunction.fileOffset
       ..fileEndOffset = enclosingFunction.fileEndOffset;
 
@@ -544,7 +554,7 @@ abstract class AsyncRewriterBase extends ContinuationRewriterBase {
       //         ...
       //       }
       //     } finally {
-      //       :for-iterator.cancel();
+      //       await :for-iterator.cancel();
       //     }
       //   }
       var iteratorVariable = new VariableDeclaration(':for-iterator',
@@ -569,10 +579,9 @@ abstract class AsyncRewriterBase extends ContinuationRewriterBase {
       var tryBody = new WhileStatement(condition, whileBody);
 
       // iterator.cancel();
-      var tryFinalizer = new ExpressionStatement(new MethodInvocation(
-          new VariableGet(iteratorVariable),
-          new Name('cancel'),
-          new Arguments(<Expression>[])));
+      var tryFinalizer = new ExpressionStatement(new AwaitExpression(
+          new MethodInvocation(new VariableGet(iteratorVariable),
+              new Name('cancel'), new Arguments(<Expression>[]))));
 
       var tryFinally = new TryFinally(tryBody, tryFinalizer);
 
@@ -850,10 +859,9 @@ class AsyncFunctionRewriter extends AsyncRewriterBase {
     var expr = node.expression == null
         ? new NullLiteral()
         : expressionRewriter.rewrite(node.expression, statements);
-    statements
-        .add(new ExpressionStatement(new VariableSet(returnVariable, expr)));
-    statements
-        .add(new BreakStatement(labeledBody)..fileOffset = node.fileOffset);
+    statements.add(new ExpressionStatement(
+        new VariableSet(returnVariable, expr)..fileOffset = node.fileOffset));
+    statements.add(new BreakStatement(labeledBody));
     return null;
   }
 }

@@ -6,8 +6,6 @@ library fasta.builder;
 
 import '../errors.dart' show internalError;
 
-import '../messages.dart' show nit;
-
 export 'class_builder.dart' show ClassBuilder;
 
 export 'field_builder.dart' show FieldBuilder;
@@ -52,7 +50,13 @@ export 'mixed_accessor.dart' show MixedAccessor;
 
 export 'scope.dart' show AccessErrorBuilder;
 
+export 'builtin_type_builder.dart' show BuiltinTypeBuilder;
+
 export 'dynamic_type_builder.dart' show DynamicTypeBuilder;
+
+export 'void_type_builder.dart' show VoidTypeBuilder;
+
+export 'function_type_builder.dart' show FunctionTypeBuilder;
 
 import 'library_builder.dart' show LibraryBuilder;
 
@@ -86,53 +90,6 @@ abstract class Builder {
   /// return the number of constructors resolved.
   int resolveConstructors(covariant Builder parent) => 0;
 
-  /// This builder and [other] has been imported into [library] using [name].
-  ///
-  /// This method handles this case according to the Dart language
-  /// specification.
-  Builder combineAmbiguousImport(
-      String name, Builder other, LibraryBuilder library) {
-    if (other == this) return this;
-    bool isLocal = false;
-    Builder preferred;
-    Builder hidden;
-    if (library.members[name] == this) {
-      isLocal = true;
-      preferred = this;
-      hidden = other;
-    } else if (getUri(other)?.scheme == "dart" &&
-        getUri(this)?.scheme != "dart") {
-      preferred = this;
-      hidden = other;
-    } else if (getUri(this)?.scheme == "dart" &&
-        getUri(other)?.scheme != "dart") {
-      preferred = other;
-      hidden = this;
-    } else {
-      nit(
-          library.fileUri,
-          -1,
-          "'$name' is imported from both "
-          "'${getUri(this)}' and '${getUri(other)}'.");
-      return library.buildAmbiguousBuilder(name, this, other, charOffset);
-    }
-    if (isLocal) {
-      nit(
-          library.fileUri,
-          -1,
-          "Local definition of '$name' hides imported "
-          "version from '${getUri(other)}'.");
-    } else {
-      nit(
-          library.fileUri,
-          -1,
-          "Import of '$name' "
-          "(from '${getUri(preferred)}') hides imported version from "
-          "'${getUri(hidden)}'.");
-    }
-    return preferred;
-  }
-
   Builder get parent => null;
 
   bool get isFinal => false;
@@ -153,22 +110,28 @@ abstract class Builder {
 
   bool get isTypeDeclaration => false;
 
+  bool get isTypeVariable => false;
+
   bool get isConstructor => false;
 
   bool get isFactory => false;
 
   bool get isLocal => false;
 
+  bool get isConst => false;
+
   get target => internalError("Unsupported operation $runtimeType.");
 
   bool get hasProblem => false;
 
-  static Uri getUri(Builder builder) {
-    if (builder == null) return internalError("Builder is null.");
-    while (builder != null) {
+  String get fullNameForErrors;
+
+  Uri computeLibraryUri() {
+    Builder builder = this;
+    do {
       if (builder is LibraryBuilder) return builder.uri;
       builder = builder.parent;
-    }
+    } while (builder != null);
     return internalError("No library parent.");
   }
 }

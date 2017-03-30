@@ -10,75 +10,65 @@ import 'common/resolution.dart' show Resolution;
 import 'common/tasks.dart' show CompilerTask;
 import 'common/work.dart' show WorkItem;
 import 'common.dart';
+import 'constants/values.dart';
 import 'compiler.dart' show Compiler;
 import 'options.dart';
 import 'elements/elements.dart'
-    show
-        AnalyzableElement,
-        ClassElement,
-        ConstructorElement,
-        Element,
-        MemberElement;
+    show AnalyzableElement, ClassElement, MemberElement;
 import 'elements/entities.dart';
-import 'elements/resolution_types.dart'
-    show ResolutionDartType, ResolutionInterfaceType;
-import 'elements/types.dart' show InterfaceType;
-import 'native/native.dart' as native;
+import 'elements/resolution_types.dart' show ResolutionTypedefType;
+import 'elements/types.dart';
 import 'universe/world_builder.dart';
 import 'universe/use.dart'
-    show DynamicUse, StaticUse, StaticUseKind, TypeUse, TypeUseKind;
+    show
+        ConstantUse,
+        DynamicUse,
+        StaticUse,
+        StaticUseKind,
+        TypeUse,
+        TypeUseKind;
 import 'universe/world_impact.dart'
     show ImpactStrategy, ImpactUseCase, WorldImpact, WorldImpactVisitor;
 import 'util/enumset.dart';
 import 'util/util.dart' show Setlet;
+import 'world.dart' show ClosedWorld;
 
 class EnqueueTask extends CompilerTask {
   ResolutionEnqueuer _resolution;
-  Enqueuer _codegen;
   final Compiler compiler;
 
   String get name => 'Enqueue';
 
   EnqueueTask(Compiler compiler)
       : this.compiler = compiler,
-        super(compiler.measurer) {
-    _resolution = new ResolutionEnqueuer(
-        this,
-        compiler.options,
-        compiler.reporter,
-        compiler.options.analyzeOnly && compiler.options.analyzeMain
-            ? const DirectEnqueuerStrategy()
-            : const TreeShakingEnqueuerStrategy(),
-        compiler.backend.resolutionEnqueuerListener,
-        compiler.backend.nativeResolutionEnqueuer(),
-        new ResolutionWorldBuilderImpl(
-            compiler.backend, compiler.resolution, const OpenWorldStrategy()),
-        new ResolutionWorkItemBuilder(compiler.resolution));
-    _codegen = compiler.backend.createCodegenEnqueuer(this, compiler);
+        super(compiler.measurer);
+
+  // TODO(johnniwinther): Remove the need for this.
+  bool get hasResolution => _resolution != null;
+
+  // TODO(johnniwinther): Remove the need for this.
+  ResolutionEnqueuer get resolution {
+    assert(invariant(NO_LOCATION_SPANNABLE, _resolution != null,
+        message: "ResolutionEnqueuer has not been created yet."));
+    return _resolution;
   }
 
-  ResolutionEnqueuer get resolution => _resolution;
-  Enqueuer get codegen => _codegen;
+  ResolutionEnqueuer createResolutionEnqueuer() {
+    return _resolution ??=
+        compiler.backend.createResolutionEnqueuer(this, compiler);
+  }
+
+  Enqueuer createCodegenEnqueuer(ClosedWorld closedWorld) {
+    return compiler.backend.createCodegenEnqueuer(this, compiler, closedWorld);
+  }
 }
 
 abstract class Enqueuer {
   WorldBuilder get worldBuilder;
-  native.NativeEnqueuer get nativeEnqueuer;
 
-  // TODO(johnniwinther): Initialize [_impactStrategy] to `null`.
-  ImpactStrategy _impactStrategy = const ImpactStrategy();
-
-  ImpactStrategy get impactStrategy => _impactStrategy;
-
-  void open(ImpactStrategy impactStrategy) {
-    _impactStrategy = impactStrategy;
-  }
-
-  void close() {
-    // TODO(johnniwinther): Set [_impactStrategy] to `null` and [queueIsClosed]
-    // to `true` here.
-    _impactStrategy = const ImpactStrategy();
-  }
+  void open(ImpactStrategy impactStrategy, FunctionEntity mainMethod,
+      Iterable<LibraryEntity> libraries);
+  void close();
 
   /// Returns [:true:] if this enqueuer is the resolution enqueuer.
   bool get isResolutionQueue;
@@ -96,7 +86,10 @@ abstract class Enqueuer {
   /// if it is no longer needed.
   void applyImpact(WorldImpact worldImpact, {var impactSource});
   bool checkNoEnqueuedInvokedInstanceMethods();
-  void logSummary(log(message));
+
+  /// Check the enqueuer queue is empty or fail otherwise.
+  void checkQueueIsEmpty();
+  void logSummary(void log(String message));
 
   Iterable<Entity> get processedEntities;
 
@@ -105,7 +98,8 @@ abstract class Enqueuer {
 
 abstract class EnqueuerListener {
   /// Called to instruct to the backend that [type] has been instantiated.
-  void registerInstantiatedType(InterfaceType type, {bool isGlobal});
+  void registerInstantiatedType(InterfaceType type,
+      {bool isGlobal: false, bool nativeUsage: false});
 
   /// Called to notify to the backend that a class is being instantiated. Any
   /// backend specific [WorldImpact] of this is returned.
@@ -120,18 +114,20 @@ abstract class EnqueuerListener {
   /// specific [WorldImpact] of this is returned.
   WorldImpact registerGetOfStaticFunction();
 
-  /// Called to instruct the backend to register that a closure exists for a
-  /// function on an instantiated generic class. Any backend specific
+  /// Called to register that [member] has been closurized. Any backend specific
   /// [WorldImpact] of this is returned.
-  WorldImpact registerClosureWithFreeTypeVariables(MemberEntity member);
-
-  /// Called to register that a member has been closurized. Any backend specific
-  /// [WorldImpact] of this is returned.
-  WorldImpact registerBoundClosure();
+  WorldImpact registerClosurizedMember(MemberEntity member);
 
   /// Called to register that [element] is statically known to be used. Any
   /// backend specific [WorldImpact] of this is returned.
   WorldImpact registerUsedElement(MemberEntity member);
+
+  /// Called to register that [value] is statically known to be used. Any
+  /// backend specific [WorldImpact] of this is returned.
+  WorldImpact registerUsedConstant(ConstantValue value);
+
+  void onQueueOpen(Enqueuer enqueuer, FunctionEntity mainMethod,
+      Iterable<LibraryEntity> libraries);
 
   /// Called when [enqueuer]'s queue is empty, but before it is closed.
   ///
@@ -150,6 +146,12 @@ abstract class EnqueuerListener {
   /// [recentClasses], but every class seen by the [enqueuer] will be present in
   /// [recentClasses] at least once.
   bool onQueueEmpty(Enqueuer enqueuer, Iterable<ClassEntity> recentClasses);
+
+  /// Called when to the queue has been closed.
+  void onQueueClosed();
+
+  /// Called after the queue has been emptied.
+  void logSummary(void log(String message));
 }
 
 abstract class EnqueuerImpl extends Enqueuer {
@@ -159,6 +161,26 @@ abstract class EnqueuerImpl extends Enqueuer {
   void processStaticUse(StaticUse staticUse);
   void processTypeUse(TypeUse typeUse);
   void processDynamicUse(DynamicUse dynamicUse);
+  void processConstantUse(ConstantUse constantUse);
+  EnqueuerListener get listener;
+
+  // TODO(johnniwinther): Initialize [_impactStrategy] to `null`.
+  ImpactStrategy _impactStrategy = const ImpactStrategy();
+
+  ImpactStrategy get impactStrategy => _impactStrategy;
+
+  void open(ImpactStrategy impactStrategy, FunctionEntity mainMethod,
+      Iterable<LibraryEntity> libraries) {
+    _impactStrategy = impactStrategy;
+    listener.onQueueOpen(this, mainMethod, libraries);
+  }
+
+  void close() {
+    // TODO(johnniwinther): Set [_impactStrategy] to `null` and [queueIsClosed]
+    // to `true` here.
+    _impactStrategy = const ImpactStrategy();
+    listener.onQueueClosed();
+  }
 }
 
 /// [Enqueuer] which is specific to resolution.
@@ -169,12 +191,12 @@ class ResolutionEnqueuer extends EnqueuerImpl {
   final CompilerTask task;
   final String name;
   final CompilerOptions _options;
-  final EnqueuerListener _listener;
-  final native.NativeEnqueuer nativeEnqueuer;
+  final EnqueuerListener listener;
 
   final EnqueuerStrategy strategy;
   final Set<ClassEntity> _recentClasses = new Setlet<ClassEntity>();
-  final ResolutionWorldBuilderImpl _universe;
+  bool _recentConstants = false;
+  final ResolutionEnqueuerWorldBuilder _worldBuilder;
   final WorkItemBuilder _workItemBuilder;
   final DiagnosticReporter _reporter;
 
@@ -189,26 +211,27 @@ class ResolutionEnqueuer extends EnqueuerImpl {
 
   /// Queue of deferred resolution actions to execute when the resolution queue
   /// has been emptied.
-  final Queue<_DeferredAction> _deferredQueue = new Queue<_DeferredAction>();
+  final Queue<DeferredAction> _deferredQueue = new Queue<DeferredAction>();
 
-  ResolutionEnqueuer(
-      this.task,
-      this._options,
-      this._reporter,
-      this.strategy,
-      this._listener,
-      this.nativeEnqueuer,
-      this._universe,
-      this._workItemBuilder,
+  ResolutionEnqueuer(this.task, this._options, this._reporter, this.strategy,
+      this.listener, this._worldBuilder, this._workItemBuilder,
       [this.name = 'resolution enqueuer']) {
     _impactVisitor = new EnqueuerImplImpactVisitor(this);
   }
 
-  ResolutionWorldBuilder get worldBuilder => _universe;
+  ResolutionWorldBuilder get worldBuilder => _worldBuilder;
 
   bool get queueIsEmpty => _queue.isEmpty;
 
-  Iterable<ClassEntity> get processedClasses => _universe.processedClasses;
+  @override
+  void checkQueueIsEmpty() {
+    if (_queue.isNotEmpty) {
+      throw new SpannableAssertionFailure(
+          _queue.first.element, "$name queue is not empty.");
+    }
+  }
+
+  Iterable<ClassEntity> get processedClasses => _worldBuilder.processedClasses;
 
   void applyImpact(WorldImpact worldImpact, {var impactSource}) {
     if (worldImpact.isEmpty) return;
@@ -216,22 +239,19 @@ class ResolutionEnqueuer extends EnqueuerImpl {
         impactSource, worldImpact, _impactVisitor, impactUse);
   }
 
-  void _registerInstantiatedType(ResolutionInterfaceType type,
-      {ConstructorElement constructor,
+  void _registerInstantiatedType(InterfaceType type,
+      {ConstructorEntity constructor,
       bool mirrorUsage: false,
       bool nativeUsage: false,
       bool globalDependency: false,
       bool isRedirection: false}) {
     task.measure(() {
-      _universe.registerTypeInstantiation(type, _applyClassUse,
+      _worldBuilder.registerTypeInstantiation(type, _applyClassUse,
           constructor: constructor,
           byMirrors: mirrorUsage,
           isRedirection: isRedirection);
-      if (nativeUsage) {
-        nativeEnqueuer.onInstantiatedType(type);
-      }
-      _listener.registerInstantiatedType(type,
-          isGlobal: globalDependency && !mirrorUsage);
+      listener.registerInstantiatedType(type,
+          isGlobal: globalDependency && !mirrorUsage, nativeUsage: nativeUsage);
     });
   }
 
@@ -240,7 +260,7 @@ class ResolutionEnqueuer extends EnqueuerImpl {
   }
 
   void checkClass(ClassEntity cls) {
-    _universe.processClassMembers(cls,
+    _worldBuilder.processClassMembers(cls,
         (MemberEntity member, EnumSet<MemberUse> useSet) {
       if (useSet.isNotEmpty) {
         _reporter.internalError(member,
@@ -258,7 +278,7 @@ class ResolutionEnqueuer extends EnqueuerImpl {
       _registerClosurizedMember(member);
     }
     if (useSet.contains(MemberUse.CLOSURIZE_STATIC)) {
-      applyImpact(_listener.registerGetOfStaticFunction());
+      applyImpact(listener.registerGetOfStaticFunction());
     }
   }
 
@@ -266,25 +286,34 @@ class ResolutionEnqueuer extends EnqueuerImpl {
   void _applyClassUse(ClassEntity cls, EnumSet<ClassUse> useSet) {
     if (useSet.contains(ClassUse.INSTANTIATED)) {
       _recentClasses.add(cls);
-      _universe.processClassMembers(cls, _applyMemberUse);
+      _worldBuilder.processClassMembers(cls, _applyMemberUse);
       // We only tell the backend once that [cls] was instantiated, so
       // any additional dependencies must be treated as global
       // dependencies.
-      applyImpact(_listener.registerInstantiatedClass(cls));
+      applyImpact(listener.registerInstantiatedClass(cls));
     }
     if (useSet.contains(ClassUse.IMPLEMENTED)) {
-      applyImpact(_listener.registerImplementedClass(cls));
+      applyImpact(listener.registerImplementedClass(cls));
     }
   }
 
   void processDynamicUse(DynamicUse dynamicUse) {
     task.measure(() {
-      _universe.registerDynamicUse(dynamicUse, _applyMemberUse);
+      _worldBuilder.registerDynamicUse(dynamicUse, _applyMemberUse);
+    });
+  }
+
+  void processConstantUse(ConstantUse constantUse) {
+    task.measure(() {
+      if (_worldBuilder.registerConstantUse(constantUse)) {
+        applyImpact(listener.registerUsedConstant(constantUse.value));
+        _recentConstants = true;
+      }
     });
   }
 
   void processStaticUse(StaticUse staticUse) {
-    _universe.registerStaticUse(staticUse, _applyMemberUse);
+    _worldBuilder.registerStaticUse(staticUse, _applyMemberUse);
     // TODO(johnniwinther): Add `ResolutionWorldBuilder.registerConstructorUse`
     // for these:
     switch (staticUse.kind) {
@@ -305,7 +334,7 @@ class ResolutionEnqueuer extends EnqueuerImpl {
   }
 
   void processTypeUse(TypeUse typeUse) {
-    ResolutionDartType type = typeUse.type;
+    DartType type = typeUse.type;
     switch (typeUse.kind) {
       case TypeUseKind.INSTANTIATION:
         _registerInstantiatedType(type, globalDependency: false);
@@ -330,28 +359,21 @@ class ResolutionEnqueuer extends EnqueuerImpl {
         break;
       case TypeUseKind.TYPE_LITERAL:
         if (type.isTypedef) {
-          worldBuilder.registerTypedef(type.element);
+          ResolutionTypedefType typedef = type;
+          worldBuilder.registerTypedef(typedef.element);
         }
         break;
     }
   }
 
-  void _registerIsCheck(ResolutionDartType type) {
-    type = _universe.registerIsCheck(type);
-    // Even in checked mode, type annotations for return type and argument
-    // types do not imply type checks, so there should never be a check
-    // against the type variable of a typedef.
-    assert(!type.isTypeVariable || !type.element.enclosingElement.isTypedef);
+  void _registerIsCheck(DartType type) {
+    _worldBuilder.registerIsCheck(type);
   }
 
-  void _registerClosurizedMember(MemberElement element) {
+  void _registerClosurizedMember(MemberEntity element) {
     assert(element.isInstanceMember);
-    if (element.type.containsTypeVariables) {
-      applyImpact(_listener.registerClosureWithFreeTypeVariables(element));
-      _universe.closuresWithFreeTypeVariables.add(element);
-    }
-    applyImpact(_listener.registerBoundClosure());
-    _universe.closurizedMembers.add(element);
+    applyImpact(listener.registerClosurizedMember(element));
+    _worldBuilder.registerClosurizedMember(element);
   }
 
   void forEach(void f(WorkItem work)) {
@@ -366,17 +388,19 @@ class ResolutionEnqueuer extends EnqueuerImpl {
       }
       List recents = _recentClasses.toList(growable: false);
       _recentClasses.clear();
+      _recentConstants = false;
       if (!_onQueueEmpty(recents)) {
         _recentClasses.addAll(recents);
       }
     } while (_queue.isNotEmpty ||
         _recentClasses.isNotEmpty ||
-        _deferredQueue.isNotEmpty);
+        _deferredQueue.isNotEmpty ||
+        _recentConstants);
   }
 
-  void logSummary(log(message)) {
+  void logSummary(void log(String message)) {
     log('Resolved ${_processedEntities.length} elements.');
-    nativeEnqueuer.logSummary(log);
+    listener.logSummary(log);
   }
 
   String toString() => 'Enqueuer($name)';
@@ -388,7 +412,7 @@ class ResolutionEnqueuer extends EnqueuerImpl {
   bool get isResolutionQueue => true;
 
   /// Returns `true` if [element] has been processed by the resolution enqueuer.
-  // TODO(johnniwinther): Move this to the [OpenWorld]/[ResolutionWorldBuilder].
+  // TODO(johnniwinther): Remove this together with the resolver.
   bool hasBeenProcessed(MemberElement element) {
     assert(invariant(element, element == element.analyzableElement.declaration,
         message: "Unexpected element $element"));
@@ -404,7 +428,7 @@ class ResolutionEnqueuer extends EnqueuerImpl {
   /// Create a [WorkItem] for [entity] and add it to the work list if it has not
   /// already been processed.
   void _addToWorkList(MemberEntity entity) {
-    if (hasBeenProcessed(entity)) return;
+    if (_processedEntities.contains(entity)) return;
     WorkItem workItem = _workItemBuilder.createWorkItem(entity);
     if (workItem == null) return;
 
@@ -413,8 +437,8 @@ class ResolutionEnqueuer extends EnqueuerImpl {
           entity, "Resolution work list is closed. Trying to add $entity.");
     }
 
-    applyImpact(_listener.registerUsedElement(entity));
-    _universe.registerUsedElement(entity);
+    applyImpact(listener.registerUsedElement(entity));
+    _worldBuilder.registerUsedElement(entity);
     _queue.add(workItem);
   }
 
@@ -423,14 +447,18 @@ class ResolutionEnqueuer extends EnqueuerImpl {
   /// emptied.
   ///
   /// The queue is processed in FIFO order.
-  void addDeferredAction(Entity entity, void action()) {
+  void addDeferredAction(DeferredAction deferredAction) {
     if (queueIsClosed) {
       throw new SpannableAssertionFailure(
-          entity,
+          deferredAction.element,
           "Resolution work list is closed. "
-          "Trying to add deferred action for $entity");
+          "Trying to add deferred action for ${deferredAction.element}");
     }
-    _deferredQueue.add(new _DeferredAction(entity, action));
+    _deferredQueue.add(deferredAction);
+  }
+
+  void addDeferredActions(Iterable<DeferredAction> deferredActions) {
+    deferredActions.forEach(addDeferredAction);
   }
 
   /// [_onQueueEmpty] is called whenever the queue is drained. [recentClasses]
@@ -442,14 +470,14 @@ class ResolutionEnqueuer extends EnqueuerImpl {
   bool _onQueueEmpty(Iterable<ClassEntity> recentClasses) {
     _emptyDeferredQueue();
 
-    return _listener.onQueueEmpty(this, recentClasses);
+    return listener.onQueueEmpty(this, recentClasses);
   }
 
   void emptyDeferredQueueForTesting() => _emptyDeferredQueue();
 
   void _emptyDeferredQueue() {
     while (!_deferredQueue.isEmpty) {
-      _DeferredAction task = _deferredQueue.removeFirst();
+      DeferredAction task = _deferredQueue.removeFirst();
       _reporter.withCurrentElement(task.element, task.action);
     }
   }
@@ -467,6 +495,9 @@ class EnqueuerStrategy {
 
   /// Process a dynamic use for a call site in live code.
   void processDynamicUse(EnqueuerImpl enqueuer, DynamicUse dynamicUse) {}
+
+  /// Process a constant use in live code.
+  void processConstantUse(EnqueuerImpl enqueuer, ConstantUse constantUse) {}
 
   /// Check enqueuer consistency after the queue has been closed.
   bool checkEnqueuerConsistency(EnqueuerImpl enqueuer) => true;
@@ -506,6 +537,11 @@ class TreeShakingEnqueuerStrategy extends EnqueuerStrategy {
     enqueuer.processDynamicUse(dynamicUse);
   }
 
+  @override
+  void processConstantUse(EnqueuerImpl enqueuer, ConstantUse constantUse) {
+    enqueuer.processConstantUse(constantUse);
+  }
+
   /// Check enqueuer consistency after the queue has been closed.
   bool checkEnqueuerConsistency(EnqueuerImpl enqueuer) {
     enqueuer.task.measure(() {
@@ -542,15 +578,20 @@ class EnqueuerImplImpactVisitor implements WorldImpactVisitor {
   void visitTypeUse(TypeUse typeUse) {
     enqueuer.strategy.processTypeUse(enqueuer, typeUse);
   }
+
+  @override
+  void visitConstantUse(ConstantUse constantUse) {
+    enqueuer.strategy.processConstantUse(enqueuer, constantUse);
+  }
 }
 
-typedef void _DeferredActionFunction();
+typedef void DeferredActionFunction();
 
-class _DeferredAction {
-  final Element element;
-  final _DeferredActionFunction action;
+class DeferredAction {
+  final Entity element;
+  final DeferredActionFunction action;
 
-  _DeferredAction(this.element, this.action);
+  DeferredAction(this.element, this.action);
 }
 
 /// Interface for creating work items for enqueued member entities.

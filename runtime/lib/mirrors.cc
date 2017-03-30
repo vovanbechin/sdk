@@ -95,14 +95,7 @@ static void EnsureConstructorsAreCompiled(const Function& func) {
     Exceptions::PropagateError(error);
     UNREACHABLE();
   }
-  if (!func.HasCode()) {
-    const Error& error =
-        Error::Handle(zone, Compiler::CompileFunction(thread, func));
-    if (!error.IsNull()) {
-      Exceptions::PropagateError(error);
-      UNREACHABLE();
-    }
-  }
+  func.EnsureHasCode();
 }
 
 static RawInstance* CreateParameterMirrorList(const Function& func,
@@ -446,7 +439,14 @@ static RawInstance* CreateLibraryDependencyMirror(Thread* thread,
 
   const Array& args = Array::Handle(Array::New(7));
   args.SetAt(0, importer);
-  args.SetAt(1, importee.Loaded() ? importee_mirror : prefix);
+  if (importee.Loaded() || prefix.IsNull()) {
+    // A native extension is never "loaded" by the embedder. Use the fact that
+    // it doesn't have an prefix where asa  deferred import does to distinguish
+    // it from a deferred import. It will appear like an empty library.
+    args.SetAt(1, importee_mirror);
+  } else {
+    args.SetAt(1, prefix);
+  }
   args.SetAt(2, combinators);
   args.SetAt(3, prefix.IsNull() ? Object::null_object()
                                 : String::Handle(prefix.name()));
@@ -874,8 +874,7 @@ DEFINE_NATIVE_ENTRY(Mirrors_instantiateGenericType, 2) {
 
   Type& instantiated_type =
       Type::Handle(Type::New(clz, type_args_obj, TokenPosition::kNoSource));
-  instantiated_type ^= ClassFinalizer::FinalizeType(
-      clz, instantiated_type, ClassFinalizer::kCanonicalize);
+  instantiated_type ^= ClassFinalizer::FinalizeType(clz, instantiated_type);
   if (instantiated_type.IsMalbounded()) {
     const LanguageError& type_error =
         LanguageError::Handle(instantiated_type.error());

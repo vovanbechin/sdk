@@ -272,7 +272,7 @@ class ApiElementBuilder extends _BaseElementBuilder {
         _setCodeRange(element, node);
         element.metadata = _createElementAnnotations(node.metadata);
         setElementDocumentationComment(element, node);
-        if (node.externalKeyword != null) {
+        if (node.externalKeyword != null || body is NativeFunctionBody) {
           element.external = true;
         }
         element.functions = holder.functions;
@@ -313,7 +313,7 @@ class ApiElementBuilder extends _BaseElementBuilder {
           _setCodeRange(getter, node);
           getter.metadata = _createElementAnnotations(node.metadata);
           setElementDocumentationComment(getter, node);
-          if (node.externalKeyword != null) {
+          if (node.externalKeyword != null || body is NativeFunctionBody) {
             getter.external = true;
           }
           getter.functions = holder.functions;
@@ -341,7 +341,7 @@ class ApiElementBuilder extends _BaseElementBuilder {
           _setCodeRange(setter, node);
           setter.metadata = _createElementAnnotations(node.metadata);
           setElementDocumentationComment(setter, node);
-          if (node.externalKeyword != null) {
+          if (node.externalKeyword != null || body is NativeFunctionBody) {
             setter.external = true;
           }
           setter.functions = holder.functions;
@@ -427,6 +427,43 @@ class ApiElementBuilder extends _BaseElementBuilder {
   }
 
   @override
+  Object visitGenericFunctionType(GenericFunctionType node) {
+    ElementHolder holder = new ElementHolder();
+    _visitChildren(holder, node);
+    GenericFunctionTypeElementImpl element =
+        new GenericFunctionTypeElementImpl.forOffset(node.beginToken.offset);
+    _setCodeRange(element, node);
+    element.parameters = holder.parameters;
+    element.typeParameters = holder.typeParameters;
+    FunctionType type = new FunctionTypeImpl(element);
+    element.type = type;
+    (node as GenericFunctionTypeImpl).type = type;
+    holder.validate();
+    return null;
+  }
+
+  @override
+  Object visitGenericTypeAlias(GenericTypeAlias node) {
+    ElementHolder holder = new ElementHolder();
+    _visitChildren(holder, node);
+    SimpleIdentifier aliasName = node.name;
+    List<TypeParameterElement> typeParameters = holder.typeParameters;
+    GenericTypeAliasElementImpl element =
+        new GenericTypeAliasElementImpl.forNode(aliasName);
+    _setCodeRange(element, node);
+    element.metadata = _createElementAnnotations(node.metadata);
+    setElementDocumentationComment(element, node);
+    element.typeParameters = typeParameters;
+    _createTypeParameterTypes(typeParameters);
+    element.type = new FunctionTypeImpl.forTypedef(element);
+    element.function = node.functionType?.type?.element;
+    _currentHolder.addTypeAlias(element);
+    aliasName.staticElement = element;
+    holder.validate();
+    return null;
+  }
+
+  @override
   Object visitImportDirective(ImportDirective node) {
     List<ElementAnnotation> annotations =
         _createElementAnnotations(node.metadata);
@@ -463,7 +500,7 @@ class ApiElementBuilder extends _BaseElementBuilder {
         element.metadata = _createElementAnnotations(node.metadata);
         setElementDocumentationComment(element, node);
         element.abstract = node.isAbstract;
-        if (node.externalKeyword != null) {
+        if (node.externalKeyword != null || body is NativeFunctionBody) {
           element.external = true;
         }
         element.functions = holder.functions;
@@ -501,7 +538,7 @@ class ApiElementBuilder extends _BaseElementBuilder {
           _setCodeRange(getter, node);
           getter.metadata = _createElementAnnotations(node.metadata);
           setElementDocumentationComment(getter, node);
-          if (node.externalKeyword != null) {
+          if (node.externalKeyword != null || body is NativeFunctionBody) {
             getter.external = true;
           }
           getter.functions = holder.functions;
@@ -529,7 +566,7 @@ class ApiElementBuilder extends _BaseElementBuilder {
           _setCodeRange(setter, node);
           setter.metadata = _createElementAnnotations(node.metadata);
           setElementDocumentationComment(setter, node);
-          if (node.externalKeyword != null) {
+          if (node.externalKeyword != null || body is NativeFunctionBody) {
             setter.external = true;
           }
           setter.functions = holder.functions;
@@ -1176,7 +1213,8 @@ class LocalElementBuilder extends _BaseElementBuilder {
     _setCodeRange(element, node);
     setElementDocumentationComment(element, node);
     element.metadata = _createElementAnnotations(node.metadata);
-    if (node.externalKeyword != null) {
+    FunctionBody body = expression.body;
+    if (node.externalKeyword != null || body is NativeFunctionBody) {
       element.external = true;
     }
     element.functions = holder.functions;
@@ -1185,7 +1223,6 @@ class LocalElementBuilder extends _BaseElementBuilder {
     element.parameters = holder.parameters;
     element.typeParameters = holder.typeParameters;
 
-    FunctionBody body = expression.body;
     if (body.isAsynchronous) {
       element.asynchronous = body.isAsynchronous;
     }
@@ -1409,7 +1446,7 @@ abstract class _BaseElementBuilder extends RecursiveAstVisitor<Object> {
     if (normalParameter is SimpleFormalParameterImpl) {
       normalParameter.element = parameter;
     }
-    parameterName.staticElement = parameter;
+    parameterName?.staticElement = parameter;
     normalParameter.accept(this);
     return null;
   }

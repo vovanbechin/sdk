@@ -19,6 +19,7 @@ import 'package:compiler/src/constants/values.dart'
 import 'package:compiler/src/elements/elements.dart' show Element, Elements;
 
 import 'package:compiler/src/js_backend/js_backend.dart' show JavaScriptBackend;
+import 'package:compiler/src/js_backend/mirrors_analysis.dart';
 
 import 'package:compiler/src/js_emitter/full_emitter/emitter.dart' as full
     show Emitter;
@@ -129,8 +130,10 @@ void main() {
     Set<ConstantValue> compiledConstants = backend.constants.compiledConstants;
     // Make sure that most of the metadata constants aren't included in the
     // generated code.
-    backend.processMetadata(compiler.enqueuer.resolution.processedEntities,
-        (metadata) {
+    MirrorsResolutionAnalysisImpl mirrorsResolutionAnalysis =
+        backend.mirrorsResolutionAnalysis;
+    mirrorsResolutionAnalysis.processMetadata(
+        compiler.enqueuer.resolution.processedEntities, (metadata) {
       ConstantValue constant =
           backend.constants.getConstantValueForMetadata(metadata);
       Expect.isFalse(

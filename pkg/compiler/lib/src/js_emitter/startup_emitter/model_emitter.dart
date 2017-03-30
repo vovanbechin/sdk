@@ -34,17 +34,15 @@ import '../../../compiler_new.dart';
 import '../../common.dart';
 import '../../compiler.dart' show Compiler;
 import '../../constants/values.dart' show ConstantValue, FunctionConstantValue;
-import '../../core_types.dart' show CommonElements;
+import '../../common_elements.dart' show CommonElements;
 import '../../elements/elements.dart' show ClassElement, MethodElement;
 import '../../hash/sha1.dart' show Hasher;
 import '../../io/code_output.dart';
-import '../../io/line_column_provider.dart'
-    show LineColumnCollector, LineColumnProvider;
+import '../../io/line_column_provider.dart' show LineColumnCollector;
 import '../../io/source_map_builder.dart' show SourceMapBuilder;
 import '../../js/js.dart' as js;
 import '../../js_backend/js_backend.dart'
     show JavaScriptBackend, Namer, ConstantEmitter;
-import '../../util/uri_extras.dart' show relativize;
 import '../constant_ordering.dart' show deepCompareConstants;
 import '../headers.dart';
 import '../js_emitter.dart' show NativeEmitter;

@@ -6,8 +6,6 @@ library fasta.compile_platform;
 
 import 'dart:async' show Future;
 
-import 'kernel/verifier.dart' show verifyProgram;
-
 import 'ticker.dart' show Ticker;
 
 import 'dart:io' show exitCode;
@@ -31,10 +29,8 @@ Future mainEntryPoint(List<String> arguments) async {
     if (i > 0) {
       print("\n");
     }
-    Ticker ticker = new Ticker();
     try {
-      await CompilerCommandLine.withGlobalOptions("compile_platform", arguments,
-          (CompilerContext c) => compilePlatform(c, ticker));
+      await compilePlatform(arguments);
     } on InputError catch (e) {
       exitCode = 1;
       print(e.format());
@@ -43,11 +39,20 @@ Future mainEntryPoint(List<String> arguments) async {
   }
 }
 
-Future compilePlatform(CompilerContext c, Ticker ticker) async {
+Future compilePlatform(List<String> arguments) async {
+  Ticker ticker = new Ticker();
+  await CompilerCommandLine.withGlobalOptions("compile_platform", arguments,
+      (CompilerContext c) {
+    Uri patchedSdk = Uri.base.resolveUri(new Uri.file(c.options.arguments[0]));
+    Uri output = Uri.base.resolveUri(new Uri.file(c.options.arguments[1]));
+    return compilePlatformInternal(c, ticker, patchedSdk, output);
+  });
+}
+
+Future compilePlatformInternal(
+    CompilerContext c, Ticker ticker, Uri patchedSdk, Uri output) async {
   ticker.isVerbose = c.options.verbose;
-  Uri output = Uri.base.resolveUri(new Uri.file(c.options.arguments[1]));
-  Uri deps = Uri.base.resolveUri(new Uri.file("${c.options.arguments[1]}.d"));
-  Uri patchedSdk = Uri.base.resolveUri(new Uri.file(c.options.arguments[0]));
+  Uri deps = Uri.base.resolveUri(new Uri.file("${output.toFilePath()}.d"));
   ticker.logMs("Parsed arguments");
   if (ticker.isVerbose) {
     print("Compiling $patchedSdk to $output");
@@ -66,22 +71,7 @@ Future compilePlatform(CompilerContext c, Ticker ticker) async {
   await kernelTarget.writeOutline(output);
 
   if (exitCode != 0) return null;
-  if (c.options.dumpIr) {
-    kernelTarget.dumpIr();
-  }
-  if (c.options.verify) {
-    try {
-      verifyProgram(kernelTarget.program);
-      ticker.logMs("Verified program");
-    } catch (e, s) {
-      exitCode = 1;
-      print("Verification of program failed: $e");
-      if (s != null && c.options.verbose) {
-        print(s);
-      }
-    }
-  }
-  if (exitCode != 0) return null;
-  await kernelTarget.writeProgram(output);
+  await kernelTarget.writeProgram(output,
+      dumpIr: c.options.dumpIr, verify: c.options.verify);
   await kernelTarget.writeDepsFile(output, deps);
 }

@@ -29,7 +29,7 @@ import 'package:kernel/binary/ast_from_binary.dart' show BinaryBuilder;
 
 import 'package:analyzer/src/generated/sdk.dart' show DartSdk;
 
-import 'package:kernel/analyzer/loader.dart'
+import 'package:analyzer/src/kernel/loader.dart'
     show DartLoader, DartOptions, createDartSdk;
 
 import 'package:kernel/target/targets.dart' show Target, TargetFlags, getTarget;
@@ -192,12 +192,12 @@ class Verify extends Step<Program, Program, TestContext> {
   String get name => "verify";
 
   Future<Result<Program>> run(Program program, TestContext testContext) async {
-    try {
-      verifyProgram(program, isOutline: !fullCompile);
+    var errors = verifyProgram(program, isOutline: !fullCompile);
+    if (errors.isEmpty) {
       return pass(program);
-    } catch (e, s) {
+    } else {
       return new Result<Program>(
-          null, testContext.expectationSet["VerificationError"], e, s);
+          null, testContext.expectationSet["VerificationError"], errors, null);
     }
   }
 }

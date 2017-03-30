@@ -101,12 +101,20 @@ class DillLibraryBuilder extends LibraryBuilder<KernelTypeBuilder, Library> {
     return internalError("Not implemented yet.");
   }
 
-  void addToScope(String name, Builder member) {
+  @override
+  void addToScope(String name, Builder member, int charOffset, bool isImport) {
     internalError("Not implemented yet.");
   }
 
-  KernelInvalidTypeBuilder buildAmbiguousBuilder(
-      String name, Builder builder, Builder other, int charOffset) {
+  @override
+  Builder buildAmbiguousBuilder(
+      String name, Builder builder, Builder other, int charOffset,
+      {bool isExport: false, bool isImport: false}) {
     return new KernelInvalidTypeBuilder(name, charOffset, fileUri);
+  }
+
+  @override
+  String get fullNameForErrors {
+    return library.name ?? "<library '${library.fileUri}'>";
   }
 }

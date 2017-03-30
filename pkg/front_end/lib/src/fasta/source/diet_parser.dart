@@ -4,20 +4,19 @@
 
 library fasta.diet_parser;
 
-import '../scanner/token.dart' show BeginGroupToken, Token;
+import '../fasta_codes.dart' show codeExpectedOpenParens;
 
 import '../parser/class_member_parser.dart' show ClassMemberParser;
-
-import '../parser/error_kind.dart' show ErrorKind;
 
 import '../parser/listener.dart' show Listener;
 
 import '../parser/parser.dart' show optional;
 
+import '../scanner/token.dart' show BeginGroupToken, Token;
+
 // TODO(ahe): Move this to parser package.
 class DietParser extends ClassMemberParser {
-  DietParser(Listener listener, {bool asyncAwaitKeywordsEnabled: false})
-      : super(listener, asyncAwaitKeywordsEnabled: asyncAwaitKeywordsEnabled);
+  DietParser(Listener listener) : super(listener);
 
   Token parseFormalParameters(Token token, {bool inFunctionType: false}) {
     return skipFormals(token);
@@ -27,10 +26,10 @@ class DietParser extends ClassMemberParser {
     listener.beginOptionalFormalParameters(token);
     if (!optional('(', token)) {
       if (optional(';', token)) {
-        reportRecoverableError(token, ErrorKind.ExpectedOpenParens, {});
+        reportRecoverableErrorCode(token, codeExpectedOpenParens);
         return token;
       }
-      return reportUnrecoverableError(token, ErrorKind.UnexpectedToken);
+      return reportUnexpectedToken(token).next;
     }
     BeginGroupToken beginGroupToken = token;
     Token endToken = beginGroupToken.endGroup;

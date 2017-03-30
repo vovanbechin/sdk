@@ -128,6 +128,8 @@ class NoReloadScope : public StackResource {
 
 // Fixed cache for exception handler lookup.
 typedef FixedCache<intptr_t, ExceptionHandlerInfo, 16> HandlerInfoCache;
+// Fixed cache for catch entry state lookup.
+typedef FixedCache<intptr_t, CatchEntryState, 16> CatchEntryStateCache;
 
 // List of Isolate flags with corresponding members of Dart_IsolateFlags and
 // corresponding global command line flags.
@@ -161,7 +163,6 @@ class Isolate : public BaseIsolate {
     // Internal message ids.
     kInterruptMsg = 10,     // Break in the debugger.
     kInternalKillMsg = 11,  // Like kill, but does not run exit listeners, etc.
-    kVMRestartMsg = 12,     // Sent to isolates when vm is restarting.
   };
   // The different Isolate API message priorities for ping and kill messages.
   enum LibMsgPriority {
@@ -528,7 +529,7 @@ class Isolate : public BaseIsolate {
     should_pause_post_service_request_ = should_pause_post_service_request;
   }
 
-  void PausePostRequest();
+  RawError* PausePostRequest();
 
   uword user_tag() const { return user_tag_; }
   static intptr_t user_tag_offset() { return OFFSET_OF(Isolate, user_tag_); }
@@ -674,6 +675,10 @@ class Isolate : public BaseIsolate {
   }
 
   HandlerInfoCache* handler_info_cache() { return &handler_info_cache_; }
+
+  CatchEntryStateCache* catch_entry_state_cache() {
+    return &catch_entry_state_cache_;
+  }
 
   void MaybeIncreaseReloadEveryNStackOverflowChecks();
 
@@ -870,6 +875,7 @@ class Isolate : public BaseIsolate {
   bool should_pause_post_service_request_;
 
   HandlerInfoCache handler_info_cache_;
+  CatchEntryStateCache catch_entry_state_cache_;
 
   static Dart_IsolateCreateCallback create_callback_;
   static Dart_IsolateShutdownCallback shutdown_callback_;

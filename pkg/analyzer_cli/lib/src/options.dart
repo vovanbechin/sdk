@@ -9,6 +9,7 @@ import 'dart:io';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:analyzer/src/command_line/arguments.dart';
 import 'package:analyzer/src/context/builder.dart';
+import 'package:analyzer_cli/src/ansi.dart' as ansi;
 import 'package:analyzer_cli/src/driver.dart';
 import 'package:args/args.dart';
 import 'package:cli_util/cli_util.dart' show getSdkDir;
@@ -143,6 +144,9 @@ class CommandLineOptions {
   /// Emit output in a verbose mode.
   final bool verbose;
 
+  /// Use ANSI color codes for output.
+  final bool color;
+
   /// Initialize options from the given parsed [args].
   CommandLineOptions._fromArgs(ArgResults args)
       : buildAnalysisOutput = args['build-analysis-output'],
@@ -181,7 +185,8 @@ class CommandLineOptions {
         lintsAreFatal = args['fatal-lints'],
         useAnalysisDriverMemoryByteStore =
             args['use-analysis-driver-memory-byte-store'],
-        verbose = args['verbose'];
+        verbose = args['verbose'],
+        color = args['color'];
 
   /// The path to an analysis options file
   String get analysisOptionsFile =>
@@ -383,6 +388,10 @@ class CommandLineOptions {
           help: 'Exit with code 0 even if errors are found.',
           defaultsTo: false,
           negatable: false,
+          hide: hide)
+      ..addFlag('color',
+          help: 'Use asni colors when printing messages.',
+          defaultsTo: ansi.terminalSupportsAnsi(),
           hide: hide);
 
     // Hidden flags.
@@ -456,17 +465,11 @@ class CommandLineOptions {
 
       // Persistent worker.
       if (args.contains('--persistent_worker')) {
-        bool validArgs;
-        if (!args.contains('--build-mode')) {
-          validArgs = false;
-        } else if (args.length == 2) {
-          validArgs = true;
-        } else if (args.length == 4 && args.contains('--dart-sdk')) {
-          validArgs = true;
-        } else {
-          validArgs = false;
-        }
-        if (!validArgs) {
+        bool hasBuildMode = args.contains('--build-mode');
+        bool onlyDartSdkArg = args.length == 2 ||
+            (args.length == 3 && args.any((a) => a.startsWith('--dart-sdk'))) ||
+            (args.length == 4 && args.contains('--dart-sdk'));
+        if (!(hasBuildMode && onlyDartSdkArg)) {
           printAndFail('The --persistent_worker flag should be used with and '
               'only with the --build-mode flag, and possibly the --dart-sdk '
               'option. Got: $args');

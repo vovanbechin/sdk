@@ -213,7 +213,6 @@ type Field extends Member {
   UriReference fileUri;
   List<Expression> annotations;
   DartType type;
-  Option<InferredValue> inferredValue;
   Option<Expression> initializer;
 }
 
@@ -304,7 +303,6 @@ type FunctionNode {
   List<VariableDeclaration> positionalParameters;
   List<VariableDeclaration> namedParameters;
   DartType returnType;
-  Option<InferredValue> inferredReturnValue;
   Option<Statement> body;
 }
 
@@ -395,12 +393,14 @@ type SuperPropertySet extends Expression {
 
 type DirectPropertyGet extends Expression {
   Byte tag = 15; // Note: tag is out of order
+  FileOffset fileOffset;
   Expression receiver;
   MemberReference target;
 }
 
 type DirectPropertySet extends Expression {
   Byte tag = 16; // Note: tag is out of order
+  FileOffset fileOffset;
   Expression receiver;
   MemberReference target;
   Expression value;
@@ -414,6 +414,7 @@ type StaticGet extends Expression {
 
 type StaticSet extends Expression {
   Byte tag = 27;
+  FileOffset fileOffset;
   MemberReference target;
   Expression value;
 }
@@ -524,6 +525,7 @@ type IsExpression extends Expression {
 
 type AsExpression extends Expression {
   Byte tag = 38;
+  FileOffset fileOffset;
   Expression operand;
   DartType type;
 }
@@ -586,6 +588,7 @@ type ThisExpression extends Expression {
 
 type Rethrow extends Expression {
   Byte tag = 47;
+  FileOffset fileOffset;
 }
 
 type Throw extends Expression {
@@ -596,12 +599,14 @@ type Throw extends Expression {
 
 type ListLiteral extends Expression {
   Byte tag = 49;
+  FileOffset fileOffset;
   DartType typeArgument;
   List<Expression> values;
 }
 
 type ConstListLiteral extends Expression {
   Byte tag = 58; // Note: tag is out of order.
+  FileOffset fileOffset;
   DartType typeArgument;
   List<Expression> values;
 }
@@ -653,6 +658,29 @@ type CheckLibraryIsLoaded extends Expression {
   DeferredImportReference import;
 }
 
+type VectorCreation extends Expression {
+  Byte tag = 102;
+  UInt length;
+}
+
+type VectorGet extends Expression {
+  Byte tag = 103;
+  Expression vectorExpression;
+  UInt index;
+}
+
+type VectorSet extends Expression {
+  Byte tag = 104;
+  Expression vectorExpression;
+  UInt index;
+  Expression value;
+}
+
+type VectorCopy extends Expression {
+  Byte tag = 105;
+  Expression vectorExpression;
+}
+
 abstract type Statement extends Node {}
 
 type InvalidStatement extends Statement {
@@ -686,6 +714,7 @@ type LabeledStatement extends Statement {
 
 type BreakStatement extends Statement {
   Byte tag = 66;
+  FileOffset fileOffset;
 
   // Reference to the Nth LabeledStatement in scope, with 0 being the
   // outermost enclosing labeled statement within the same FunctionNode.
@@ -716,6 +745,7 @@ type ForStatement extends Statement {
 
 type ForInStatement extends Statement {
   Byte tag = 70;
+  FileOffset fileOffset; // note that this is actually the body offset
   VariableDeclaration variable;
   Expression iterable;
   Statement body;
@@ -723,6 +753,7 @@ type ForInStatement extends Statement {
 
 type AsyncForInStatement extends Statement {
   Byte tag = 80; // Note: tag is out of order.
+  FileOffset fileOffset; // note that this is actually the body offset
   VariableDeclaration variable;
   Expression iterable;
   Statement body;
@@ -737,6 +768,7 @@ type SwitchStatement extends Statement {
 type SwitchCase {
   // Note: there is no tag on SwitchCase
   List<Expression> expressions;
+  FileOffset[expressions.length] expressionOffsets; // 1-to-1 with expressions.
   Byte isDefault; // 1 if default, 0 is not default.
   Statement body;
 }
@@ -801,14 +833,20 @@ type VariableDeclarationStatement extends Statement {
 }
 
 type VariableDeclaration {
+  // The offset for the variable declaration, i.e. the offset of the start of
+  // the declaration.
   FileOffset fileOffset;
+
+  // The offset for the equal sign in the declaration (if it contains one).
+  // If it does not contain one this should be -1.
+  FileOffset fileEqualsOffset;
+
   Byte flags (isFinal, isConst);
   // For named parameters, this is the parameter name.
   // For other variables, the name is cosmetic, may be empty,
   // and is not necessarily unique.
   StringReference name;
   DartType type;
-  Option<InferredValue> inferredValue;
 
   // For statements and for-loops, this is the initial value.
   // For optional parameters, this is the default value (if given).
@@ -898,18 +936,14 @@ type TypeParameterType extends DartType {
   UInt index;
 }
 
+type VectorType extends DartType {
+  Byte tag = 88;
+}
+
 type TypeParameter {
   // Note: there is no tag on TypeParameter
   StringReference name; // Cosmetic, may be empty, not unique.
   DartType bound; // 'dynamic' if no explicit bound was given.
-}
-
-/* enum BaseClassKind { None, Exact, Subclass, Subtype, } */
-
-type InferredValue {
-  ClassReference baseClass; // May be NullReference if kind = None.
-  Byte kind; // Index into BaseClassKind.
-  Byte valueBits; // See lib/type_propagation/type_propagation.dart
 }
 
 ```
