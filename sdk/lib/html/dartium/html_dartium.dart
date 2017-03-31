@@ -641,8 +641,8 @@ final htmlBlinkMap = {
   'WorkerLocation': () => _WorkerLocation.instanceRuntimeType,
   'WorkerNavigator': () => _WorkerNavigator.instanceRuntimeType,
   'WorkerPerformance': () => WorkerPerformance.instanceRuntimeType,
-  'Worklet': () => Worklet.instanceRuntimeType,
-  'WorkletGlobalScope': () => WorkletGlobalScope.instanceRuntimeType,
+  'Worklet': () => _Worklet.instanceRuntimeType,
+  'WorkletGlobalScope': () => _WorkletGlobalScope.instanceRuntimeType,
   'XMLDocument': () => XmlDocument.instanceRuntimeType,
   'XMLHttpRequest': () => HttpRequest.instanceRuntimeType,
   'XMLHttpRequestEventTarget': () => HttpRequestEventTarget.instanceRuntimeType,
@@ -44852,7 +44852,7 @@ class Window extends EventTarget
   @DomName('Window.renderWorklet')
   @DocsEditable()
   @Experimental() // untriaged
-  Worklet get renderWorklet =>
+  _Worklet get renderWorklet =>
       _blink.BlinkWindow.instance.renderWorklet_Getter_(this);
 
   /**
@@ -46481,54 +46481,6 @@ class WorkerPerformance extends EventTarget {
   void setResourceTimingBufferSize(int maxSize) =>
       _blink.BlinkWorkerPerformance.instance
           .setResourceTimingBufferSize_Callback_1_(this, maxSize);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('Worklet')
-@Experimental() // untriaged
-class Worklet extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory Worklet._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  Worklet.internal_() {}
-
-  @DomName('Worklet.import')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future import(String url) => convertNativePromiseToDartFuture(
-      _blink.BlinkWorklet.instance.import_Callback_1_(this, url));
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('WorkletGlobalScope')
-@Experimental() // untriaged
-class WorkletGlobalScope extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory WorkletGlobalScope._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  WorkletGlobalScope.internal_() {}
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -48501,6 +48453,48 @@ class _WorkerNavigator extends DartHtmlDomObject
   bool get onLine => _blink.BlinkWorkerNavigator.instance.onLine_Getter_(this);
 }
 
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('Worklet')
+@Experimental() // untriaged
+class _Worklet extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _Worklet._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _Worklet.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('WorkletGlobalScope')
+@Experimental() // untriaged
+class _WorkletGlobalScope extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _WorkletGlobalScope._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _WorkletGlobalScope.internal_() {}
+}
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.

@@ -140,6 +140,8 @@ _removed_html_interfaces = [
   'WebKitSourceBufferList',
   'WorkerLocation', # Workers
   'WorkerNavigator', # Workers
+  'Worklet', # Rendering Workers
+  'WorkletGlobalScope', # Rendering Workers
   'XMLHttpRequestProgressEvent',
   # Obsolete event for NaCl.
   'ResourceProgressEvent',

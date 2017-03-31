@@ -4033,24 +4033,6 @@ class WorkerPerformanceImpl extends WorkerPerformance implements js_library.JSOb
   get runtimeType => WorkerPerformance;
   toString() => super.toString();
 }
-@patch class Worklet {
-  static Type get instanceRuntimeType => WorkletImpl;
-
-}
-class WorkletImpl extends Worklet implements js_library.JSObjectInterfacesDom {
-  WorkletImpl.internal_() : super.internal_();
-  get runtimeType => Worklet;
-  toString() => super.toString();
-}
-@patch class WorkletGlobalScope {
-  static Type get instanceRuntimeType => WorkletGlobalScopeImpl;
-
-}
-class WorkletGlobalScopeImpl extends WorkletGlobalScope implements js_library.JSObjectInterfacesDom {
-  WorkletGlobalScopeImpl.internal_() : super.internal_();
-  get runtimeType => WorkletGlobalScope;
-  toString() => super.toString();
-}
 @patch class XPathEvaluator {
   static Type get instanceRuntimeType => XPathEvaluatorImpl;
 
@@ -4436,6 +4418,24 @@ class _WorkerLocationImpl extends _WorkerLocation implements js_library.JSObject
 class _WorkerNavigatorImpl extends _WorkerNavigator implements js_library.JSObjectInterfacesDom {
   _WorkerNavigatorImpl.internal_() : super.internal_();
   get runtimeType => _WorkerNavigator;
+  toString() => super.toString();
+}
+@patch class _Worklet {
+  static Type get instanceRuntimeType => _WorkletImpl;
+
+}
+class _WorkletImpl extends _Worklet implements js_library.JSObjectInterfacesDom {
+  _WorkletImpl.internal_() : super.internal_();
+  get runtimeType => _Worklet;
+  toString() => super.toString();
+}
+@patch class _WorkletGlobalScope {
+  static Type get instanceRuntimeType => _WorkletGlobalScopeImpl;
+
+}
+class _WorkletGlobalScopeImpl extends _WorkletGlobalScope implements js_library.JSObjectInterfacesDom {
+  _WorkletGlobalScopeImpl.internal_() : super.internal_();
+  get runtimeType => _WorkletGlobalScope;
   toString() => super.toString();
 }
 

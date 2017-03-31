@@ -38591,7 +38591,7 @@ class Window extends EventTarget
   @DomName('Window.renderWorklet')
   @DocsEditable()
   @Experimental() // untriaged
-  final Worklet renderWorklet;
+  final _Worklet renderWorklet;
 
   /**
    * Information about the screen displaying this window.
@@ -40523,39 +40523,6 @@ class WorkerPerformance extends EventTarget {
 // BSD-style license that can be found in the LICENSE file.
 
 @DocsEditable()
-@DomName('Worklet')
-@Experimental() // untriaged
-@Native("Worklet")
-class Worklet extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory Worklet._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('Worklet.import')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future import(String url) native ;
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
-@DomName('WorkletGlobalScope')
-@Experimental() // untriaged
-@Native("WorkletGlobalScope")
-class WorkletGlobalScope extends Interceptor {
-  // To suppress missing implicit constructor warnings.
-  factory WorkletGlobalScope._() {
-    throw new UnsupportedError("Not supported");
-  }
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
 @DomName('XPathEvaluator')
 // http://www.w3.org/TR/DOM-Level-3-XPath/xpath.html#XPathEvaluator
 @deprecated // experimental
@@ -42076,6 +42043,34 @@ abstract class _WorkerNavigator extends Interceptor
 
 }
 
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+@DocsEditable()
+@DomName('Worklet')
+@Experimental() // untriaged
+@Native("Worklet")
+abstract class _Worklet extends Interceptor {
+  // To suppress missing implicit constructor warnings.
+  factory _Worklet._() {
+    throw new UnsupportedError("Not supported");
+  }
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+@DocsEditable()
+@DomName('WorkletGlobalScope')
+@Experimental() // untriaged
+@Native("WorkletGlobalScope")
+abstract class _WorkletGlobalScope extends Interceptor {
+  // To suppress missing implicit constructor warnings.
+  factory _WorkletGlobalScope._() {
+    throw new UnsupportedError("Not supported");
+  }
+}
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
