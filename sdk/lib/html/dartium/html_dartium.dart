@@ -3559,10 +3559,10 @@ class CalcLength extends LengthValue {
   @Experimental() // untriaged
   num get ex => _blink.BlinkCalcLength.instance.ex_Getter_(this);
 
-  @DomName('CalcLength.inch')
+  @DomName('CalcLength.in')
   @DocsEditable()
   @Experimental() // untriaged
-  num get inch => _blink.BlinkCalcLength.instance.inch_Getter_(this);
+  num get inch => _blink.BlinkCalcLength.instance.in_Getter_(this);
 
   @DomName('CalcLength.mm')
   @DocsEditable()

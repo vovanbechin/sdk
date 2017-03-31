@@ -1486,6 +1486,9 @@
       "ex": {
         "support_level": "untriaged"
       },
+      "in": {
+        "support_level": "untriaged"
+      },
       "inch": {
         "support_level": "untriaged"
       },

@@ -2163,7 +2163,8 @@ class CalcLength extends LengthValue {
   @Experimental() // untriaged
   final double ex;
 
-  @DomName('CalcLength.inch')
+  @JSName('in')
+  @DomName('CalcLength.in')
   @DocsEditable()
   @Experimental() // untriaged
   final double inch;

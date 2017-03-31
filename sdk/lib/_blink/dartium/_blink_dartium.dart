@@ -2932,8 +2932,8 @@ class BlinkCalcLength extends BlinkLengthValue {
   ex_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* CalcLength */, "ex");
 
-  inch_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* CalcLength */, "inch");
+  in_Getter_(mthis) =>
+      Blink_JsNative_DomException.getProperty(mthis /* CalcLength */, "in");
 
   mm_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* CalcLength */, "mm");

@@ -453,8 +453,7 @@ interface Performance {
 
 [DartSupplemental]
 interface CalcLength {
-    [DartSuppress] readonly attribute double? in;
-    readonly attribute double? inch;
+    [DartName=inch] readonly attribute double? in;
 };
 
 [DartSupplemental]
