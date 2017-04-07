@@ -1230,7 +1230,6 @@ LayoutTests/fast/forms/ValidityState-tooLong-textarea_t01: RuntimeError # Roll 5
 LayoutTests/fast/forms/willvalidate_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/html/object-border_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/innerHTML/innerHTML-uri-resolution_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/text/international/combining-marks-position_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/writing-mode/auto-sizing-orthogonal-flows_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/writing-mode/flipped-blocks-hit-test-overflow-scroll_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/writing-mode/flipped-blocks-hit-test-overflow_t01: RuntimeError # Roll 50 breakage
@@ -1261,6 +1260,15 @@ WebPlatformTest/shadow-dom/shadow-trees/upper-boundary-encapsulation/test-007_t0
 # ---------------------------------------------
 # TODO(terry): End of Dartium 50 roll failures
 
+[ $compiler == none && $runtime == dartium && $system == macos && $checked && $system == macos ]
+# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
+# ---------------------------------------------
+LayoutTests/fast/canvas/webgl/buffer-data-array-buffer_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/canvas/webgl/texImageTest_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/canvas/webgl/tex-input-validation_t01: RuntimeError # Roll 50 breakage
+# ---------------------------------------------
+# TODO(terry): End of Dartium 50 roll failures
+
 [ $compiler == none && $runtime == dartium && $system == macos ]
 LayoutTests/fast/css-generated-content/pseudo-animation-before-onload_t01: Skip # Depends on animation timing, commented as known to be flaky in test.  Will not fix.
 LayoutTests/fast/forms/input-value-sanitization_t01: RuntimeError # 45 roll
@@ -1269,6 +1277,14 @@ LayoutTests/fast/writing-mode/flipped-blocks-hit-test-overflow_t01: Pass, Runtim
 LayoutTests/fast/writing-mode/vertical-inline-block-hittest_t01: Pass, RuntimeError # Issue 21605
 LibTest/collection/ListBase/ListBase_class_A01_t02: Skip # Timing out on the bots. Please triage this failure.
 WebPlatformTest/custom-elements/concepts/type_A07_t01: Skip # Timing out on the bots. Please triage this failure.
+
+# TODO(terry): Failing Mac ONLY tests with Dartium 50 roll (NEED TO FIX All)
+# ---------------------------------------------
+LayoutTests/fast/canvas/webgl/buffer-data-array-buffer_t01: RuntimeError # Roll 50 must fix.
+LayoutTests/fast/canvas/webgl/tex-input-validation_t01: RuntimeError # Roll 50 must fix.
+LayoutTests/fast/canvas/webgl/texImageTest_t01: RuntimeError # Roll 50 must fix.
+# ---------------------------------------------
+# TODO(terry): End of Mac ONLY Dartium 50 roll failures
 
 [ $compiler == none && $runtime == dartium && $system == windows ]
 LayoutTests/fast/css/MarqueeLayoutTest_t01: Pass, RuntimeError # Please triage this failure
@@ -1284,6 +1300,12 @@ LayoutTests/fast/css/font-face-unicode-range-monospace_t01: Pass, RuntimeError #
 
 [ $compiler == none && $runtime == dartium && $system == linux ]
 language/mixin_illegal_constructor_test/01: Skip # Issue 43
+
+# TODO(terry): Failing Linux ONLY tests with Dartium 50 roll (NEED TO FIX All)
+# ---------------------------------------------
+LayoutTests/fast/text/international/combining-marks-position_t01: RuntimeError # Roll 50 breakage
+# ---------------------------------------------
+# TODO(terry): End of Failing Linux ONLY tests with Dartium 50 roll (NEED TO FIX All)
 
 [ $compiler == none && $runtime == dartium && ($system == windows || $system == linux) ]
 LayoutTests/fast/canvas/webgl/buffer-data-array-buffer_t01: RuntimeError # 45 roll webgl doesn't run on on windows/linux bots.
@@ -1316,6 +1338,15 @@ WebPlatformTest/html/semantics/embedded-content/media-elements/interfaces/TextTr
 WebPlatformTest/html/semantics/forms/the-datalist-element/datalistoptions_t01: Skip # Issue 20540.
 
 [ $compiler == none && $runtime == dartium && $checked ]
+
+# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
+# ---------------------------------------------
+WebPlatformTest/html/semantics/forms/textfieldselection/selection_t01: RuntimeError # Roll 50 breakage
+WebPlatformTest/html-templates/template-element/template-content_t01: RuntimeError # Roll 50 breakage
+LibTest/html/Element/Element.tag_A01_t01: RuntimeError # Roll 50 breakage
+# ---------------------------------------------
+# TODO(terry): End of Failing tests with Dartium 50 roll (NEED TO FIX All)
+
 Language/Errors_and_Warnings/static_warning_t02: RuntimeError # Please triage this failure.
 Language/Errors_and_Warnings/static_warning_t03: RuntimeError # Please triage this failure.
 Language/Errors_and_Warnings/static_warning_t04: RuntimeError # Please triage this failure.
