@@ -5179,13 +5179,16 @@ class StyleElement extends SvgElement {
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-class _AttributeClassSet extends CssClassSetImpl {
+class AttributeClassSet extends CssClassSetImpl {
   final Element _element;
 
-  _AttributeClassSet(this._element);
+  AttributeClassSet(this._element);
 
   Set<String> readClasses() {
     var classname = _element.attributes['class'];
+    if (classname is AnimatedString) {
+      classname = classname.baseVal;
+    }
 
     Set<String> s = new LinkedHashSet<String>();
     if (classname == null) {
@@ -5201,7 +5204,7 @@ class _AttributeClassSet extends CssClassSetImpl {
   }
 
   void writeClasses(Set s) {
-    _element.attributes['class'] = s.join(' ');
+    _element.setAttribute('class', s.join(' '));
   }
 }
 
@@ -5230,7 +5233,7 @@ class SvgElement extends Element implements GlobalEventHandlers {
     return fragment.nodes.where((e) => e is SvgElement).single;
   }
 
-  CssClassSet get classes => new _AttributeClassSet(this);
+  CssClassSet get classes => new AttributeClassSet(this);
 
   List<Element> get children => new FilteredElementList(this);
 
