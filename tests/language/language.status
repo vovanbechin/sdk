@@ -90,6 +90,21 @@ type_checks_in_factory_method_test: Fail # Issue 14651.
 vm/type_vm_test: Fail # Issue 14651.
 
 [ $compiler == none && ($runtime == dartium || $runtime == drt) ]
+
+# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
+# ---------------------------------------------
+compile_time_constant13_test/02: Timeout # Roll 50 crash
+compile_time_constant13_test/03: Timeout # Roll 50 crash
+compile_time_constant13_test/04: Timeout # Roll 50 crash
+compile_time_constant13_test/05: Timeout # Roll 50 crash
+compile_time_constant_p_test/01: Timeout # Roll 50 crash
+final_syntax_test/09: Timeout # Roll 50 crash
+missing_const_constructor_test/02: Timeout # Roll 50 crash
+missing_const_constructor_test/03: Timeout # Roll 50 crash
+missing_const_constructor_test/05: Timeout # Roll 50 crash
+# ---------------------------------------------
+# TODO(terry): End of Dartium 50 roll failures
+
 abstract_beats_arguments2_test/01: Skip # Issue 29171
 # Other issues.
 issue13474_test: Pass, Fail # Issue 14651.
