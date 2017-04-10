@@ -17,13 +17,9 @@ main() {
   });
 
   group('functional', () {
-    test('unsupported throws', () {
-      var expectation = TouchEvent.supported ? returnsNormally : throws;
-
-      expect(() {
-        var e = new TouchEvent('touch');
-        expect(e is TouchEvent, true);
-      }, expectation);
+    test('TouchEvent construction', () {
+      var e = new TouchEvent('touch');
+      expect(e is TouchEvent, true);
     });
   });
 }
