@@ -40954,25 +40954,6 @@ class Touch extends DartHtmlDomObject {
 // http://www.w3.org/TR/touch-events/, http://www.chromestatus.com/features
 @Experimental()
 class TouchEvent extends UIEvent {
-  factory TouchEvent.create(TouchList touches, TouchList targetTouches,
-      TouchList changedTouches, String type,
-      {Window view,
-      int screenX: 0,
-      int screenY: 0,
-      int clientX: 0,
-      int clientY: 0,
-      bool ctrlKey: false,
-      bool altKey: false,
-      bool shiftKey: false,
-      bool metaKey: false}) {
-    if (view == null) {
-      view = window;
-    }
-    TouchEvent e = document._createEvent("TouchEvent");
-    e._initTouchEvent(touches, targetTouches, changedTouches, type, view,
-        screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey);
-    return e;
-  }
   // To suppress missing implicit constructor warnings.
   factory TouchEvent._() {
     throw new UnsupportedError("Not supported");
