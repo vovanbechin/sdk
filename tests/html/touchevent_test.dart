@@ -20,6 +20,9 @@ main() {
     test('TouchEvent construction', () {
       var e = new TouchEvent('touch');
       expect(e is TouchEvent, true);
+
+      var e2 = new TouchEvent("touch", { 'touches': [], 'targetTouches': [], 'changedTouches': [] } );
+      expect(e2 is TouchEvent, true);
     });
   });
 }

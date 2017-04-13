@@ -544,6 +544,7 @@ class HtmlDartGenerator(object):
     # Hack to ignore the Image constructor used by JavaScript.
     if ((self._interface.id == 'HTMLImageElement' or
          self._interface.id == 'Blob' or
+         self._interface.id == 'TouchEvent' or
          self._interface.id == 'DOMException')
       and not constructor_info.pure_dart_constructor):
       return

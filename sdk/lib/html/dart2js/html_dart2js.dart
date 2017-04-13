@@ -35272,24 +35272,47 @@ class Touch extends Interceptor {
 @Experimental()
 @Native("TouchEvent")
 class TouchEvent extends UIEvent {
+  factory TouchEvent(String type, [Map eventInitDict]) {
+    if (eventInitDict == null) {
+      eventInitDict = [];
+    }
+    var touches =
+        eventInitDict.containsKey('touches') ? eventInitDict['touches'] : [];
+    var targetTouches = eventInitDict.containsKey('targetTouches')
+        ? eventInitDict['targetTouches']
+        : [];
+    var changedTouches = eventInitDict.containsKey('changedTouches')
+        ? eventInitDict['changedTouches']
+        : [];
+    var view =
+        eventInitDict.containsKey('view') ? eventInitDict['view'] : window;
+    var screenX =
+        eventInitDict.containsKey('screenX') ? eventInitDict['screenX'] : 0;
+    var screenY =
+        eventInitDict.containsKey('screenY') ? eventInitDict['screenY'] : 0;
+    var clientX =
+        eventInitDict.containsKey('clientX') ? eventInitDict['clientX'] : 0;
+    var clientY =
+        eventInitDict.containsKey('clientY') ? eventInitDict['clientY'] : 0;
+    var ctrlKey =
+        eventInitDict.containsKey('ctrlKey') ? eventInitDict['ctrlKey'] : false;
+    var altKey =
+        eventInitDict.containsKey('altKey') ? eventInitDict['altKey'] : false;
+    var shiftKey = eventInitDict.containsKey('shiftKey')
+        ? eventInitDict['shiftKey']
+        : false;
+    var metaKey =
+        eventInitDict.containsKey('metaKey') ? eventInitDict['metaKey'] : false;
+
+    TouchEvent e = document._createEvent("TouchEvent");
+    e._initTouchEvent(touches, targetTouches, changedTouches, type, view,
+        screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey);
+    return e;
+  }
   // To suppress missing implicit constructor warnings.
   factory TouchEvent._() {
     throw new UnsupportedError("Not supported");
   }
-
-  @DomName('TouchEvent.TouchEvent')
-  @DocsEditable()
-  factory TouchEvent(String type, [Map eventInitDict]) {
-    if (eventInitDict != null) {
-      var eventInitDict_1 = convertDartToNative_Dictionary(eventInitDict);
-      return TouchEvent._create_1(type, eventInitDict_1);
-    }
-    return TouchEvent._create_2(type);
-  }
-  static TouchEvent _create_1(type, eventInitDict) =>
-      JS('TouchEvent', 'new TouchEvent(#,#)', type, eventInitDict);
-  static TouchEvent _create_2(type) =>
-      JS('TouchEvent', 'new TouchEvent(#)', type);
 
   @DomName('TouchEvent.altKey')
   @DocsEditable()

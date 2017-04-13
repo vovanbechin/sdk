@@ -40954,13 +40954,6 @@ class Touch extends DartHtmlDomObject {
 // http://www.w3.org/TR/touch-events/, http://www.chromestatus.com/features
 @Experimental()
 class TouchEvent extends UIEvent {
-  // To suppress missing implicit constructor warnings.
-  factory TouchEvent._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('TouchEvent.TouchEvent')
-  @DocsEditable()
   factory TouchEvent(String type, [Map eventInitDict]) {
     if (eventInitDict != null) {
       var eventInitDict_1 = convertDartToNative_Dictionary(eventInitDict);
@@ -40968,6 +40961,10 @@ class TouchEvent extends UIEvent {
           .constructorCallback_2_(type, eventInitDict_1);
     }
     return _blink.BlinkTouchEvent.instance.constructorCallback_1_(type);
+  }
+  // To suppress missing implicit constructor warnings.
+  factory TouchEvent._() {
+    throw new UnsupportedError("Not supported");
   }
 
   @Deprecated("Internal Use Only")
