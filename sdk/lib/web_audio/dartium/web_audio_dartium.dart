@@ -738,32 +738,28 @@ class AudioNode extends EventTarget {
       _blink.BlinkAudioNode.instance.numberOfOutputs_Getter_(this);
 
   AudioNode _connect(destination, [int output, int input]) {
-    if ((destination is AudioNode || destination == null) &&
-        output == null &&
-        input == null) {
+    if ((destination is AudioNode) && output == null && input == null) {
       return _blink.BlinkAudioNode.instance
           .connect_Callback_1_(this, destination);
     }
     if ((output is int || output == null) &&
-        (destination is AudioNode || destination == null) &&
+        (destination is AudioNode) &&
         input == null) {
       return _blink.BlinkAudioNode.instance
           .connect_Callback_2_(this, destination, output);
     }
     if ((input is int || input == null) &&
         (output is int || output == null) &&
-        (destination is AudioNode || destination == null)) {
+        (destination is AudioNode)) {
       return _blink.BlinkAudioNode.instance
           .connect_Callback_3_(this, destination, output, input);
     }
-    if ((destination is AudioParam || destination == null) &&
-        output == null &&
-        input == null) {
+    if ((destination is AudioParam) && output == null && input == null) {
       return _blink.BlinkAudioNode.instance
           .connect_Callback_1_(this, destination);
     }
     if ((output is int || output == null) &&
-        (destination is AudioParam || destination == null) &&
+        (destination is AudioParam) &&
         input == null) {
       return _blink.BlinkAudioNode.instance
           .connect_Callback_2_(this, destination, output);
@@ -776,45 +772,41 @@ class AudioNode extends EventTarget {
       _blink.BlinkAudioNode.instance.disconnect_Callback_0_(this);
       return;
     }
-    if ((destination_OR_output is int || destination_OR_output == null) &&
+    if ((destination_OR_output is int) && output == null && input == null) {
+      _blink.BlinkAudioNode.instance
+          .disconnect_Callback_1_(this, destination_OR_output);
+      return;
+    }
+    if ((destination_OR_output is AudioNode) &&
         output == null &&
         input == null) {
       _blink.BlinkAudioNode.instance
           .disconnect_Callback_1_(this, destination_OR_output);
       return;
     }
-    if ((destination_OR_output is AudioNode || destination_OR_output == null) &&
-        output == null &&
-        input == null) {
-      _blink.BlinkAudioNode.instance
-          .disconnect_Callback_1_(this, destination_OR_output);
-      return;
-    }
-    if ((output is int || output == null) &&
-        (destination_OR_output is AudioNode || destination_OR_output == null) &&
+    if ((output is int) &&
+        (destination_OR_output is AudioNode) &&
         input == null) {
       _blink.BlinkAudioNode.instance
           .disconnect_Callback_2_(this, destination_OR_output, output);
       return;
     }
-    if ((input is int || input == null) &&
-        (output is int || output == null) &&
-        (destination_OR_output is AudioNode || destination_OR_output == null)) {
+    if ((input is int) &&
+        (output is int) &&
+        (destination_OR_output is AudioNode)) {
       _blink.BlinkAudioNode.instance
           .disconnect_Callback_3_(this, destination_OR_output, output, input);
       return;
     }
-    if ((destination_OR_output is AudioParam ||
-            destination_OR_output == null) &&
+    if ((destination_OR_output is AudioParam) &&
         output == null &&
         input == null) {
       _blink.BlinkAudioNode.instance
           .disconnect_Callback_1_(this, destination_OR_output);
       return;
     }
-    if ((output is int || output == null) &&
-        (destination_OR_output is AudioParam ||
-            destination_OR_output == null) &&
+    if ((output is int) &&
+        (destination_OR_output is AudioParam) &&
         input == null) {
       _blink.BlinkAudioNode.instance
           .disconnect_Callback_2_(this, destination_OR_output, output);
@@ -888,15 +880,11 @@ class AudioParam extends DartHtmlDomObject {
           .linearRampToValueAtTime_Callback_2_(this, value, time);
 
   AudioParam setTargetAtTime(num target, num time, num timeConstant) {
-    if ((timeConstant is num || timeConstant == null) &&
-        (time is num || time == null) &&
-        (target is num || target == null)) {
+    if ((timeConstant is num) && (time is num) && (target is num)) {
       return _blink.BlinkAudioParam.instance
           .setTargetAtTime_Callback_3_(this, target, time, timeConstant);
     }
-    if ((timeConstant is num || timeConstant == null) &&
-        (time is num || time == null) &&
-        (target is num || target == null)) {
+    if ((timeConstant is num) && (time is num) && (target is num)) {
       return _blink.BlinkAudioParam.instance
           .setTargetAtTime_Callback_3_(this, target, time, timeConstant);
     }

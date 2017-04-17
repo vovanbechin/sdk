@@ -19,7 +19,6 @@ events_test: RuntimeError # Roll 50 breakage
 
 # TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
 # ---------------------------------------------
-canvasrenderingcontext2d_test/pixel_manipulation: RuntimeError # Roll 50 breakage
 element_types_constructors1_test: RuntimeError # Roll 50 breakage
 element_types_constructors3_test/constructors: RuntimeError # Roll 50 breakage
 event_test: RuntimeError # Roll 50 breakage

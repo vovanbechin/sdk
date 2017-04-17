@@ -3058,23 +3058,19 @@ class RenderingContext extends DartHtmlDomObject
           this, srcRGB, dstRGB, srcAlpha, dstAlpha);
 
   void bufferData(int target, data_OR_size, int usage) {
-    if ((usage is int || usage == null) &&
-        (data_OR_size is int || data_OR_size == null) &&
-        (target is int || target == null)) {
+    if ((usage is int) && (data_OR_size is int) && (target is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .bufferData_Callback_3_(this, target, data_OR_size, usage);
       return;
     }
-    if ((usage is int || usage == null) &&
-        (data_OR_size is TypedData || data_OR_size == null) &&
-        (target is int || target == null)) {
+    if ((usage is int) && (data_OR_size is TypedData) && (target is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .bufferData_Callback_3_(this, target, data_OR_size, usage);
       return;
     }
-    if ((usage is int || usage == null) &&
+    if ((usage is int) &&
         (data_OR_size is ByteBuffer || data_OR_size == null) &&
-        (target is int || target == null)) {
+        (target is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .bufferData_Callback_3_(this, target, data_OR_size, usage);
       return;
@@ -3083,16 +3079,14 @@ class RenderingContext extends DartHtmlDomObject
   }
 
   void bufferSubData(int target, int offset, data) {
-    if ((data is TypedData || data == null) &&
-        (offset is int || offset == null) &&
-        (target is int || target == null)) {
+    if ((data is TypedData) && (offset is int) && (target is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .bufferSubData_Callback_3_(this, target, offset, data);
       return;
     }
     if ((data is ByteBuffer || data == null) &&
-        (offset is int || offset == null) &&
-        (target is int || target == null)) {
+        (offset is int) &&
+        (target is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .bufferSubData_Callback_3_(this, target, offset, data);
       return;
@@ -3620,15 +3614,14 @@ class RenderingContext extends DartHtmlDomObject
       int type,
       TypedData pixels]) {
     if ((pixels is TypedData || pixels == null) &&
-        (type is int || type == null) &&
-        (format is int || format == null) &&
-        (bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is int ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null)) {
+        (type is int) &&
+        (format is int) &&
+        (bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is int) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int)) {
       _blink.BlinkWebGLRenderingContext.instance.texImage2D_Callback_9_(
           this,
           target,
@@ -3644,11 +3637,11 @@ class RenderingContext extends DartHtmlDomObject
     }
     if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is ImageData ||
             bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -3663,13 +3656,12 @@ class RenderingContext extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-                is ImageElement ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is ImageElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -3684,13 +3676,12 @@ class RenderingContext extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-                is CanvasElement ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is CanvasElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -3705,13 +3696,12 @@ class RenderingContext extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-                is VideoElement ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is VideoElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -3726,13 +3716,12 @@ class RenderingContext extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-                is ImageBitmap ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is ImageBitmap) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -3772,15 +3761,14 @@ class RenderingContext extends DartHtmlDomObject
       [int type,
       TypedData pixels]) {
     if ((pixels is TypedData || pixels == null) &&
-        (type is int || type == null) &&
-        (bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is int ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null)) {
+        (type is int) &&
+        (bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is int) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int)) {
       _blink.BlinkWebGLRenderingContext.instance.texSubImage2D_Callback_9_(
           this,
           target,
@@ -3796,12 +3784,12 @@ class RenderingContext extends DartHtmlDomObject
     }
     if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is ImageData ||
             bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         type == null &&
         pixels == null) {
       _blink.BlinkWebGLRenderingContext.instance.texSubImage2D_Callback_7_(
@@ -3816,14 +3804,13 @@ class RenderingContext extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-                is ImageElement ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is ImageElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         type == null &&
         pixels == null) {
       _blink.BlinkWebGLRenderingContext.instance.texSubImage2D_Callback_7_(
@@ -3838,14 +3825,13 @@ class RenderingContext extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-                is CanvasElement ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is CanvasElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         type == null &&
         pixels == null) {
       _blink.BlinkWebGLRenderingContext.instance.texSubImage2D_Callback_7_(
@@ -3860,14 +3846,13 @@ class RenderingContext extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-                is VideoElement ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is VideoElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         type == null &&
         pixels == null) {
       _blink.BlinkWebGLRenderingContext.instance.texSubImage2D_Callback_7_(
@@ -3882,14 +3867,13 @@ class RenderingContext extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-                is ImageBitmap ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is ImageBitmap) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         type == null &&
         pixels == null) {
       _blink.BlinkWebGLRenderingContext.instance.texSubImage2D_Callback_7_(
@@ -3913,14 +3897,13 @@ class RenderingContext extends DartHtmlDomObject
           .uniform1f_Callback_2_(this, location, x);
 
   void uniform1fv(UniformLocation location, v) {
-    if ((v is Float32List || v == null) &&
+    if ((v is Float32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform1fv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<num> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<num>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform1fv_Callback_2_(this, location, v);
       return;
@@ -3935,14 +3918,12 @@ class RenderingContext extends DartHtmlDomObject
           .uniform1i_Callback_2_(this, location, x);
 
   void uniform1iv(UniformLocation location, v) {
-    if ((v is Int32List || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is Int32List) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform1iv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform1iv_Callback_2_(this, location, v);
       return;
@@ -3957,14 +3938,13 @@ class RenderingContext extends DartHtmlDomObject
           .uniform2f_Callback_3_(this, location, x, y);
 
   void uniform2fv(UniformLocation location, v) {
-    if ((v is Float32List || v == null) &&
+    if ((v is Float32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform2fv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<num> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<num>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform2fv_Callback_2_(this, location, v);
       return;
@@ -3979,14 +3959,12 @@ class RenderingContext extends DartHtmlDomObject
           .uniform2i_Callback_3_(this, location, x, y);
 
   void uniform2iv(UniformLocation location, v) {
-    if ((v is Int32List || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is Int32List) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform2iv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform2iv_Callback_2_(this, location, v);
       return;
@@ -4001,14 +3979,13 @@ class RenderingContext extends DartHtmlDomObject
           .uniform3f_Callback_4_(this, location, x, y, z);
 
   void uniform3fv(UniformLocation location, v) {
-    if ((v is Float32List || v == null) &&
+    if ((v is Float32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform3fv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<num> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<num>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform3fv_Callback_2_(this, location, v);
       return;
@@ -4023,14 +4000,12 @@ class RenderingContext extends DartHtmlDomObject
           .uniform3i_Callback_4_(this, location, x, y, z);
 
   void uniform3iv(UniformLocation location, v) {
-    if ((v is Int32List || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is Int32List) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform3iv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform3iv_Callback_2_(this, location, v);
       return;
@@ -4045,14 +4020,13 @@ class RenderingContext extends DartHtmlDomObject
           .uniform4f_Callback_5_(this, location, x, y, z, w);
 
   void uniform4fv(UniformLocation location, v) {
-    if ((v is Float32List || v == null) &&
+    if ((v is Float32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform4fv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<num> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<num>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform4fv_Callback_2_(this, location, v);
       return;
@@ -4067,14 +4041,12 @@ class RenderingContext extends DartHtmlDomObject
           .uniform4i_Callback_5_(this, location, x, y, z, w);
 
   void uniform4iv(UniformLocation location, v) {
-    if ((v is Int32List || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is Int32List) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform4iv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniform4iv_Callback_2_(this, location, v);
       return;
@@ -4083,15 +4055,15 @@ class RenderingContext extends DartHtmlDomObject
   }
 
   void uniformMatrix2fv(UniformLocation location, bool transpose, array) {
-    if ((array is Float32List || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniformMatrix2fv_Callback_3_(this, location, transpose, array);
       return;
     }
-    if ((array is List<num> || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniformMatrix2fv_Callback_3_(this, location, transpose, array);
@@ -4101,15 +4073,15 @@ class RenderingContext extends DartHtmlDomObject
   }
 
   void uniformMatrix3fv(UniformLocation location, bool transpose, array) {
-    if ((array is Float32List || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniformMatrix3fv_Callback_3_(this, location, transpose, array);
       return;
     }
-    if ((array is List<num> || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniformMatrix3fv_Callback_3_(this, location, transpose, array);
@@ -4119,15 +4091,15 @@ class RenderingContext extends DartHtmlDomObject
   }
 
   void uniformMatrix4fv(UniformLocation location, bool transpose, array) {
-    if ((array is Float32List || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniformMatrix4fv_Callback_3_(this, location, transpose, array);
       return;
     }
-    if ((array is List<num> || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGLRenderingContext.instance
           .uniformMatrix4fv_Callback_3_(this, location, transpose, array);
@@ -4154,14 +4126,12 @@ class RenderingContext extends DartHtmlDomObject
           .vertexAttrib1f_Callback_2_(this, indx, x);
 
   void vertexAttrib1fv(int indx, values) {
-    if ((values is Float32List || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is Float32List) && (indx is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .vertexAttrib1fv_Callback_2_(this, indx, values);
       return;
     }
-    if ((values is List<num> || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is List<num>) && (indx is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .vertexAttrib1fv_Callback_2_(this, indx, values);
       return;
@@ -4176,14 +4146,12 @@ class RenderingContext extends DartHtmlDomObject
           .vertexAttrib2f_Callback_3_(this, indx, x, y);
 
   void vertexAttrib2fv(int indx, values) {
-    if ((values is Float32List || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is Float32List) && (indx is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .vertexAttrib2fv_Callback_2_(this, indx, values);
       return;
     }
-    if ((values is List<num> || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is List<num>) && (indx is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .vertexAttrib2fv_Callback_2_(this, indx, values);
       return;
@@ -4198,14 +4166,12 @@ class RenderingContext extends DartHtmlDomObject
           .vertexAttrib3f_Callback_4_(this, indx, x, y, z);
 
   void vertexAttrib3fv(int indx, values) {
-    if ((values is Float32List || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is Float32List) && (indx is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .vertexAttrib3fv_Callback_2_(this, indx, values);
       return;
     }
-    if ((values is List<num> || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is List<num>) && (indx is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .vertexAttrib3fv_Callback_2_(this, indx, values);
       return;
@@ -4220,14 +4186,12 @@ class RenderingContext extends DartHtmlDomObject
           .vertexAttrib4f_Callback_5_(this, indx, x, y, z, w);
 
   void vertexAttrib4fv(int indx, values) {
-    if ((values is Float32List || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is Float32List) && (indx is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .vertexAttrib4fv_Callback_2_(this, indx, values);
       return;
     }
-    if ((values is List<num> || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is List<num>) && (indx is int)) {
       _blink.BlinkWebGLRenderingContext.instance
           .vertexAttrib4fv_Callback_2_(this, indx, values);
       return;
@@ -5909,16 +5873,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .clearBufferfi_Callback_4_(this, buffer, drawbuffer, depth, stencil);
 
   void clearBufferfv(int buffer, int drawbuffer, value) {
-    if ((value is Float32List || value == null) &&
-        (drawbuffer is int || drawbuffer == null) &&
-        (buffer is int || buffer == null)) {
+    if ((value is Float32List) && (drawbuffer is int) && (buffer is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .clearBufferfv_Callback_3_(this, buffer, drawbuffer, value);
       return;
     }
-    if ((value is List<num> || value == null) &&
-        (drawbuffer is int || drawbuffer == null) &&
-        (buffer is int || buffer == null)) {
+    if ((value is List<num>) && (drawbuffer is int) && (buffer is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .clearBufferfv_Callback_3_(this, buffer, drawbuffer, value);
       return;
@@ -5927,16 +5887,12 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void clearBufferiv(int buffer, int drawbuffer, value) {
-    if ((value is Int32List || value == null) &&
-        (drawbuffer is int || drawbuffer == null) &&
-        (buffer is int || buffer == null)) {
+    if ((value is Int32List) && (drawbuffer is int) && (buffer is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .clearBufferiv_Callback_3_(this, buffer, drawbuffer, value);
       return;
     }
-    if ((value is List<int> || value == null) &&
-        (drawbuffer is int || drawbuffer == null) &&
-        (buffer is int || buffer == null)) {
+    if ((value is List<int>) && (drawbuffer is int) && (buffer is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .clearBufferiv_Callback_3_(this, buffer, drawbuffer, value);
       return;
@@ -5945,16 +5901,12 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void clearBufferuiv(int buffer, int drawbuffer, value) {
-    if ((value is Uint32List || value == null) &&
-        (drawbuffer is int || drawbuffer == null) &&
-        (buffer is int || buffer == null)) {
+    if ((value is Uint32List) && (drawbuffer is int) && (buffer is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .clearBufferuiv_Callback_3_(this, buffer, drawbuffer, value);
       return;
     }
-    if ((value is List<int> || value == null) &&
-        (drawbuffer is int || drawbuffer == null) &&
-        (buffer is int || buffer == null)) {
+    if ((value is List<int>) && (drawbuffer is int) && (buffer is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .clearBufferuiv_Callback_3_(this, buffer, drawbuffer, value);
       return;
@@ -6361,15 +6313,15 @@ class RenderingContext2 extends DartHtmlDomObject
       int type,
       offset_OR_pixels) {
     if ((offset_OR_pixels is TypedData || offset_OR_pixels == null) &&
-        (type is int || type == null) &&
-        (format is int || format == null) &&
-        (border is int || border == null) &&
-        (depth is int || depth == null) &&
-        (height is int || height == null) &&
-        (width is int || width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null)) {
+        (type is int) &&
+        (format is int) &&
+        (border is int) &&
+        (depth is int) &&
+        (height is int) &&
+        (width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int)) {
       _blink.BlinkWebGL2RenderingContext.instance.texImage3D_Callback_10_(
           this,
           target,
@@ -6384,16 +6336,16 @@ class RenderingContext2 extends DartHtmlDomObject
           offset_OR_pixels);
       return;
     }
-    if ((offset_OR_pixels is int || offset_OR_pixels == null) &&
-        (type is int || type == null) &&
-        (format is int || format == null) &&
-        (border is int || border == null) &&
-        (depth is int || depth == null) &&
-        (height is int || height == null) &&
-        (width is int || width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null)) {
+    if ((offset_OR_pixels is int) &&
+        (type is int) &&
+        (format is int) &&
+        (border is int) &&
+        (depth is int) &&
+        (height is int) &&
+        (width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int)) {
       _blink.BlinkWebGL2RenderingContext.instance.texImage3D_Callback_10_(
           this,
           target,
@@ -6440,17 +6392,16 @@ class RenderingContext2 extends DartHtmlDomObject
       int type,
       TypedData pixels]) {
     if ((pixels is TypedData || pixels == null) &&
-        (type is int || type == null) &&
-        (format is int || format == null) &&
-        (bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is int ||
-            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (zoffset is int || zoffset == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null)) {
+        (type is int) &&
+        (format is int) &&
+        (bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is int) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (zoffset is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int)) {
       _blink.BlinkWebGL2RenderingContext.instance.texSubImage3D_Callback_11_(
           this,
           target,
@@ -6468,13 +6419,13 @@ class RenderingContext2 extends DartHtmlDomObject
     }
     if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is ImageData ||
             bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (zoffset is int || zoffset == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (zoffset is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -6492,13 +6443,13 @@ class RenderingContext2 extends DartHtmlDomObject
     }
     if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is ImageElement ||
             bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (zoffset is int || zoffset == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (zoffset is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -6516,13 +6467,13 @@ class RenderingContext2 extends DartHtmlDomObject
     }
     if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is CanvasElement ||
             bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (zoffset is int || zoffset == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (zoffset is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -6540,13 +6491,13 @@ class RenderingContext2 extends DartHtmlDomObject
     }
     if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is VideoElement ||
             bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (zoffset is int || zoffset == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (zoffset is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -6564,13 +6515,13 @@ class RenderingContext2 extends DartHtmlDomObject
     }
     if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is ImageBitmap ||
             bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (zoffset is int || zoffset == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (zoffset is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -6606,14 +6557,13 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform1ui_Callback_2_(this, location, v0);
 
   void uniform1uiv(UniformLocation location, v) {
-    if ((v is Uint32List || v == null) &&
+    if ((v is Uint32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform1uiv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform1uiv_Callback_2_(this, location, v);
       return;
@@ -6629,14 +6579,13 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform2ui_Callback_3_(this, location, v0, v1);
 
   void uniform2uiv(UniformLocation location, v) {
-    if ((v is Uint32List || v == null) &&
+    if ((v is Uint32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform2uiv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform2uiv_Callback_2_(this, location, v);
       return;
@@ -6652,14 +6601,13 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform3ui_Callback_4_(this, location, v0, v1, v2);
 
   void uniform3uiv(UniformLocation location, v) {
-    if ((v is Uint32List || v == null) &&
+    if ((v is Uint32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform3uiv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform3uiv_Callback_2_(this, location, v);
       return;
@@ -6675,14 +6623,13 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform4ui_Callback_5_(this, location, v0, v1, v2, v3);
 
   void uniform4uiv(UniformLocation location, v) {
-    if ((v is Uint32List || v == null) &&
+    if ((v is Uint32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform4uiv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform4uiv_Callback_2_(this, location, v);
       return;
@@ -6700,15 +6647,15 @@ class RenderingContext2 extends DartHtmlDomObject
               this, program, uniformBlockIndex, uniformBlockBinding);
 
   void uniformMatrix2x3fv(UniformLocation location, bool transpose, value) {
-    if ((value is Float32List || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix2x3fv_Callback_3_(this, location, transpose, value);
       return;
     }
-    if ((value is List<num> || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix2x3fv_Callback_3_(this, location, transpose, value);
@@ -6718,15 +6665,15 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void uniformMatrix2x4fv(UniformLocation location, bool transpose, value) {
-    if ((value is Float32List || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix2x4fv_Callback_3_(this, location, transpose, value);
       return;
     }
-    if ((value is List<num> || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix2x4fv_Callback_3_(this, location, transpose, value);
@@ -6736,15 +6683,15 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void uniformMatrix3x2fv(UniformLocation location, bool transpose, value) {
-    if ((value is Float32List || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix3x2fv_Callback_3_(this, location, transpose, value);
       return;
     }
-    if ((value is List<num> || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix3x2fv_Callback_3_(this, location, transpose, value);
@@ -6754,15 +6701,15 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void uniformMatrix3x4fv(UniformLocation location, bool transpose, value) {
-    if ((value is Float32List || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix3x4fv_Callback_3_(this, location, transpose, value);
       return;
     }
-    if ((value is List<num> || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix3x4fv_Callback_3_(this, location, transpose, value);
@@ -6772,15 +6719,15 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void uniformMatrix4x2fv(UniformLocation location, bool transpose, value) {
-    if ((value is Float32List || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix4x2fv_Callback_3_(this, location, transpose, value);
       return;
     }
-    if ((value is List<num> || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix4x2fv_Callback_3_(this, location, transpose, value);
@@ -6790,15 +6737,15 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void uniformMatrix4x3fv(UniformLocation location, bool transpose, value) {
-    if ((value is Float32List || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix4x3fv_Callback_3_(this, location, transpose, value);
       return;
     }
-    if ((value is List<num> || value == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((value is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix4x3fv_Callback_3_(this, location, transpose, value);
@@ -6822,12 +6769,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .vertexAttribI4i_Callback_5_(this, index, x, y, z, w);
 
   void vertexAttribI4iv(int index, v) {
-    if ((v is Int32List || v == null) && (index is int || index == null)) {
+    if ((v is Int32List) && (index is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttribI4iv_Callback_2_(this, index, v);
       return;
     }
-    if ((v is List<int> || v == null) && (index is int || index == null)) {
+    if ((v is List<int>) && (index is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttribI4iv_Callback_2_(this, index, v);
       return;
@@ -6843,12 +6790,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .vertexAttribI4ui_Callback_5_(this, index, x, y, z, w);
 
   void vertexAttribI4uiv(int index, v) {
-    if ((v is Uint32List || v == null) && (index is int || index == null)) {
+    if ((v is Uint32List) && (index is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttribI4uiv_Callback_2_(this, index, v);
       return;
     }
-    if ((v is List<int> || v == null) && (index is int || index == null)) {
+    if ((v is List<int>) && (index is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttribI4uiv_Callback_2_(this, index, v);
       return;
@@ -6973,23 +6920,19 @@ class RenderingContext2 extends DartHtmlDomObject
           this, srcRGB, dstRGB, srcAlpha, dstAlpha);
 
   void bufferData(int target, data_OR_size, int usage) {
-    if ((usage is int || usage == null) &&
-        (data_OR_size is int || data_OR_size == null) &&
-        (target is int || target == null)) {
+    if ((usage is int) && (data_OR_size is int) && (target is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .bufferData_Callback_3_(this, target, data_OR_size, usage);
       return;
     }
-    if ((usage is int || usage == null) &&
-        (data_OR_size is TypedData || data_OR_size == null) &&
-        (target is int || target == null)) {
+    if ((usage is int) && (data_OR_size is TypedData) && (target is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .bufferData_Callback_3_(this, target, data_OR_size, usage);
       return;
     }
-    if ((usage is int || usage == null) &&
+    if ((usage is int) &&
         (data_OR_size is ByteBuffer || data_OR_size == null) &&
-        (target is int || target == null)) {
+        (target is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .bufferData_Callback_3_(this, target, data_OR_size, usage);
       return;
@@ -6998,16 +6941,14 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void bufferSubData(int target, int offset, data) {
-    if ((data is TypedData || data == null) &&
-        (offset is int || offset == null) &&
-        (target is int || target == null)) {
+    if ((data is TypedData) && (offset is int) && (target is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .bufferSubData_Callback_3_(this, target, offset, data);
       return;
     }
     if ((data is ByteBuffer || data == null) &&
-        (offset is int || offset == null) &&
-        (target is int || target == null)) {
+        (offset is int) &&
+        (target is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .bufferSubData_Callback_3_(this, target, offset, data);
       return;
@@ -7624,15 +7565,14 @@ class RenderingContext2 extends DartHtmlDomObject
       int type,
       TypedData pixels]) {
     if ((pixels is TypedData || pixels == null) &&
-        (type is int || type == null) &&
-        (format is int || format == null) &&
-        (bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is int ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null)) {
+        (type is int) &&
+        (format is int) &&
+        (bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is int) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int)) {
       _blink.BlinkWebGL2RenderingContext.instance.texImage2D_Callback_9_(
           this,
           target,
@@ -7648,11 +7588,11 @@ class RenderingContext2 extends DartHtmlDomObject
     }
     if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is ImageData ||
             bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -7667,13 +7607,12 @@ class RenderingContext2 extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-                is ImageElement ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is ImageElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -7688,13 +7627,12 @@ class RenderingContext2 extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-                is CanvasElement ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is CanvasElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -7709,13 +7647,12 @@ class RenderingContext2 extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-                is VideoElement ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is VideoElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -7730,13 +7667,12 @@ class RenderingContext2 extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-                is ImageBitmap ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (internalformat is int || internalformat == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is ImageBitmap) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (internalformat is int) &&
+        (level is int) &&
+        (target is int) &&
         format == null &&
         type == null &&
         pixels == null) {
@@ -7778,15 +7714,14 @@ class RenderingContext2 extends DartHtmlDomObject
       [int type,
       TypedData pixels]) {
     if ((pixels is TypedData || pixels == null) &&
-        (type is int || type == null) &&
-        (bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is int ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null)) {
+        (type is int) &&
+        (bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is int) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int)) {
       _blink.BlinkWebGL2RenderingContext.instance.texSubImage2D_Callback_9_(
           this,
           target,
@@ -7802,12 +7737,12 @@ class RenderingContext2 extends DartHtmlDomObject
     }
     if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is ImageData ||
             bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         type == null &&
         pixels == null) {
       _blink.BlinkWebGL2RenderingContext.instance.texSubImage2D_Callback_7_(
@@ -7822,14 +7757,13 @@ class RenderingContext2 extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-                is ImageElement ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is ImageElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         type == null &&
         pixels == null) {
       _blink.BlinkWebGL2RenderingContext.instance.texSubImage2D_Callback_7_(
@@ -7844,14 +7778,13 @@ class RenderingContext2 extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-                is CanvasElement ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is CanvasElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         type == null &&
         pixels == null) {
       _blink.BlinkWebGL2RenderingContext.instance.texSubImage2D_Callback_7_(
@@ -7866,14 +7799,13 @@ class RenderingContext2 extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-                is VideoElement ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is VideoElement) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         type == null &&
         pixels == null) {
       _blink.BlinkWebGL2RenderingContext.instance.texSubImage2D_Callback_7_(
@@ -7888,14 +7820,13 @@ class RenderingContext2 extends DartHtmlDomObject
       return;
     }
     if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-                is ImageBitmap ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
-        (height_OR_type is int || height_OR_type == null) &&
-        (format_OR_width is int || format_OR_width == null) &&
-        (yoffset is int || yoffset == null) &&
-        (xoffset is int || xoffset == null) &&
-        (level is int || level == null) &&
-        (target is int || target == null) &&
+            is ImageBitmap) &&
+        (height_OR_type is int) &&
+        (format_OR_width is int) &&
+        (yoffset is int) &&
+        (xoffset is int) &&
+        (level is int) &&
+        (target is int) &&
         type == null &&
         pixels == null) {
       _blink.BlinkWebGL2RenderingContext.instance.texSubImage2D_Callback_7_(
@@ -7920,14 +7851,13 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform1f_Callback_2_(this, location, x);
 
   void uniform1fv(UniformLocation location, v) {
-    if ((v is Float32List || v == null) &&
+    if ((v is Float32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform1fv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<num> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<num>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform1fv_Callback_2_(this, location, v);
       return;
@@ -7943,14 +7873,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform1i_Callback_2_(this, location, x);
 
   void uniform1iv(UniformLocation location, v) {
-    if ((v is Int32List || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is Int32List) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform1iv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform1iv_Callback_2_(this, location, v);
       return;
@@ -7966,14 +7894,13 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform2f_Callback_3_(this, location, x, y);
 
   void uniform2fv(UniformLocation location, v) {
-    if ((v is Float32List || v == null) &&
+    if ((v is Float32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform2fv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<num> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<num>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform2fv_Callback_2_(this, location, v);
       return;
@@ -7989,14 +7916,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform2i_Callback_3_(this, location, x, y);
 
   void uniform2iv(UniformLocation location, v) {
-    if ((v is Int32List || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is Int32List) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform2iv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform2iv_Callback_2_(this, location, v);
       return;
@@ -8012,14 +7937,13 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform3f_Callback_4_(this, location, x, y, z);
 
   void uniform3fv(UniformLocation location, v) {
-    if ((v is Float32List || v == null) &&
+    if ((v is Float32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform3fv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<num> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<num>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform3fv_Callback_2_(this, location, v);
       return;
@@ -8035,14 +7959,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform3i_Callback_4_(this, location, x, y, z);
 
   void uniform3iv(UniformLocation location, v) {
-    if ((v is Int32List || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is Int32List) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform3iv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform3iv_Callback_2_(this, location, v);
       return;
@@ -8058,14 +7980,13 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform4f_Callback_5_(this, location, x, y, z, w);
 
   void uniform4fv(UniformLocation location, v) {
-    if ((v is Float32List || v == null) &&
+    if ((v is Float32List) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform4fv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<num> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<num>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform4fv_Callback_2_(this, location, v);
       return;
@@ -8081,14 +8002,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .uniform4i_Callback_5_(this, location, x, y, z, w);
 
   void uniform4iv(UniformLocation location, v) {
-    if ((v is Int32List || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is Int32List) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform4iv_Callback_2_(this, location, v);
       return;
     }
-    if ((v is List<int> || v == null) &&
-        (location is UniformLocation || location == null)) {
+    if ((v is List<int>) && (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform4iv_Callback_2_(this, location, v);
       return;
@@ -8097,15 +8016,15 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void uniformMatrix2fv(UniformLocation location, bool transpose, array) {
-    if ((array is Float32List || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix2fv_Callback_3_(this, location, transpose, array);
       return;
     }
-    if ((array is List<num> || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix2fv_Callback_3_(this, location, transpose, array);
@@ -8115,15 +8034,15 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void uniformMatrix3fv(UniformLocation location, bool transpose, array) {
-    if ((array is Float32List || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix3fv_Callback_3_(this, location, transpose, array);
       return;
     }
-    if ((array is List<num> || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix3fv_Callback_3_(this, location, transpose, array);
@@ -8133,15 +8052,15 @@ class RenderingContext2 extends DartHtmlDomObject
   }
 
   void uniformMatrix4fv(UniformLocation location, bool transpose, array) {
-    if ((array is Float32List || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is Float32List) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix4fv_Callback_3_(this, location, transpose, array);
       return;
     }
-    if ((array is List<num> || array == null) &&
-        (transpose is bool || transpose == null) &&
+    if ((array is List<num>) &&
+        (transpose is bool) &&
         (location is UniformLocation || location == null)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .uniformMatrix4fv_Callback_3_(this, location, transpose, array);
@@ -8172,14 +8091,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .vertexAttrib1f_Callback_2_(this, indx, x);
 
   void vertexAttrib1fv(int indx, values) {
-    if ((values is Float32List || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is Float32List) && (indx is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttrib1fv_Callback_2_(this, indx, values);
       return;
     }
-    if ((values is List<num> || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is List<num>) && (indx is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttrib1fv_Callback_2_(this, indx, values);
       return;
@@ -8195,14 +8112,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .vertexAttrib2f_Callback_3_(this, indx, x, y);
 
   void vertexAttrib2fv(int indx, values) {
-    if ((values is Float32List || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is Float32List) && (indx is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttrib2fv_Callback_2_(this, indx, values);
       return;
     }
-    if ((values is List<num> || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is List<num>) && (indx is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttrib2fv_Callback_2_(this, indx, values);
       return;
@@ -8218,14 +8133,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .vertexAttrib3f_Callback_4_(this, indx, x, y, z);
 
   void vertexAttrib3fv(int indx, values) {
-    if ((values is Float32List || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is Float32List) && (indx is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttrib3fv_Callback_2_(this, indx, values);
       return;
     }
-    if ((values is List<num> || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is List<num>) && (indx is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttrib3fv_Callback_2_(this, indx, values);
       return;
@@ -8241,14 +8154,12 @@ class RenderingContext2 extends DartHtmlDomObject
           .vertexAttrib4f_Callback_5_(this, indx, x, y, z, w);
 
   void vertexAttrib4fv(int indx, values) {
-    if ((values is Float32List || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is Float32List) && (indx is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttrib4fv_Callback_2_(this, indx, values);
       return;
     }
-    if ((values is List<num> || values == null) &&
-        (indx is int || indx == null)) {
+    if ((values is List<num>) && (indx is int)) {
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttrib4fv_Callback_2_(this, indx, values);
       return;

@@ -3519,12 +3519,11 @@ class CalcLength extends LengthValue {
   @DomName('CalcLength.CalcLength')
   @DocsEditable()
   factory CalcLength(calcDictionary_OR_length) {
-    if ((calcDictionary_OR_length is LengthValue ||
-        calcDictionary_OR_length == null)) {
+    if ((calcDictionary_OR_length is LengthValue)) {
       return _blink.BlinkCalcLength.instance
           .constructorCallback_1_(calcDictionary_OR_length);
     }
-    if ((calcDictionary_OR_length is Map || calcDictionary_OR_length == null)) {
+    if ((calcDictionary_OR_length is Map)) {
       var calcDictionary_1 =
           convertDartToNative_Dictionary(calcDictionary_OR_length);
       return _blink.BlinkCalcLength.instance
@@ -3766,8 +3765,7 @@ class CanvasElement extends HtmlElement implements CanvasImageSource {
       return _blink.BlinkHTMLCanvasElement.instance
           .toDataURL_Callback_1_(this, type);
     }
-    if ((arguments_OR_quality is num || arguments_OR_quality == null) &&
-        (type is String || type == null)) {
+    if ((arguments_OR_quality is num) && (type is String || type == null)) {
       return _blink.BlinkHTMLCanvasElement.instance
           .toDataURL_Callback_2_(this, type, arguments_OR_quality);
     }
@@ -4295,20 +4293,17 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
       _blink.BlinkCanvasRenderingContext2D.instance.clip_Callback_0_(this);
       return;
     }
-    if ((path_OR_winding is String || path_OR_winding == null) &&
-        winding == null) {
+    if ((path_OR_winding is String) && winding == null) {
       _blink.BlinkCanvasRenderingContext2D.instance
           .clip_Callback_1_(this, path_OR_winding);
       return;
     }
-    if ((path_OR_winding is Path2D || path_OR_winding == null) &&
-        winding == null) {
+    if ((path_OR_winding is Path2D) && winding == null) {
       _blink.BlinkCanvasRenderingContext2D.instance
           .clip_Callback_1_(this, path_OR_winding);
       return;
     }
-    if ((winding is String || winding == null) &&
-        (path_OR_winding is Path2D || path_OR_winding == null)) {
+    if ((winding is String) && (path_OR_winding is Path2D)) {
       _blink.BlinkCanvasRenderingContext2D.instance
           .clip_Callback_2_(this, path_OR_winding, winding);
       return;
@@ -4317,13 +4312,11 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
   }
 
   ImageData createImageData(imagedata_OR_sw, [num sh]) {
-    if ((imagedata_OR_sw is ImageData || imagedata_OR_sw == null) &&
-        sh == null) {
+    if ((imagedata_OR_sw is ImageData) && sh == null) {
       return _blink.BlinkCanvasRenderingContext2D.instance
           .createImageData_Callback_1_(this, imagedata_OR_sw);
     }
-    if ((sh is num || sh == null) &&
-        (imagedata_OR_sw is num || imagedata_OR_sw == null)) {
+    if ((sh is num) && (imagedata_OR_sw is num)) {
       return _blink.BlinkCanvasRenderingContext2D.instance
           .createImageData_Callback_2_(this, imagedata_OR_sw, sh);
     }
@@ -4350,14 +4343,12 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
           .createRadialGradient_Callback_6_(this, x0, y0, r0, x1, y1, r1);
 
   void drawFocusIfNeeded(element_OR_path, [Element element]) {
-    if ((element_OR_path is Element || element_OR_path == null) &&
-        element == null) {
+    if ((element_OR_path is Element) && element == null) {
       _blink.BlinkCanvasRenderingContext2D.instance
           .drawFocusIfNeeded_Callback_1_(this, element_OR_path);
       return;
     }
-    if ((element is Element || element == null) &&
-        (element_OR_path is Path2D || element_OR_path == null)) {
+    if ((element is Element) && (element_OR_path is Path2D)) {
       _blink.BlinkCanvasRenderingContext2D.instance
           .drawFocusIfNeeded_Callback_2_(this, element_OR_path, element);
       return;
@@ -4367,8 +4358,8 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
 
   void _drawImage(Object image, num sx_OR_x, num sy_OR_y,
       [num sw_OR_width, num height_OR_sh, num dx, num dy, num dw, num dh]) {
-    if ((sy_OR_y is num || sy_OR_y == null) &&
-        (sx_OR_x is num || sx_OR_x == null) &&
+    if ((sy_OR_y is num) &&
+        (sx_OR_x is num) &&
         image != null &&
         sw_OR_width == null &&
         height_OR_sh == null &&
@@ -4380,10 +4371,10 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
           .drawImage_Callback_3_(this, image, sx_OR_x, sy_OR_y);
       return;
     }
-    if ((height_OR_sh is num || height_OR_sh == null) &&
-        (sw_OR_width is num || sw_OR_width == null) &&
-        (sy_OR_y is num || sy_OR_y == null) &&
-        (sx_OR_x is num || sx_OR_x == null) &&
+    if ((height_OR_sh is num) &&
+        (sw_OR_width is num) &&
+        (sy_OR_y is num) &&
+        (sx_OR_x is num) &&
         image != null &&
         dx == null &&
         dy == null &&
@@ -4393,14 +4384,14 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
           this, image, sx_OR_x, sy_OR_y, sw_OR_width, height_OR_sh);
       return;
     }
-    if ((dh is num || dh == null) &&
-        (dw is num || dw == null) &&
-        (dy is num || dy == null) &&
-        (dx is num || dx == null) &&
-        (height_OR_sh is num || height_OR_sh == null) &&
-        (sw_OR_width is num || sw_OR_width == null) &&
-        (sy_OR_y is num || sy_OR_y == null) &&
-        (sx_OR_x is num || sx_OR_x == null) &&
+    if ((dh is num) &&
+        (dw is num) &&
+        (dy is num) &&
+        (dx is num) &&
+        (height_OR_sh is num) &&
+        (sw_OR_width is num) &&
+        (sy_OR_y is num) &&
+        (sx_OR_x is num) &&
         image != null) {
       _blink.BlinkCanvasRenderingContext2D.instance.drawImage_Callback_9_(this,
           image, sx_OR_x, sy_OR_y, sw_OR_width, height_OR_sh, dx, dy, dw, dh);
@@ -4414,20 +4405,17 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
       _blink.BlinkCanvasRenderingContext2D.instance.fill_Callback_0_(this);
       return;
     }
-    if ((path_OR_winding is String || path_OR_winding == null) &&
-        winding == null) {
+    if ((path_OR_winding is String) && winding == null) {
       _blink.BlinkCanvasRenderingContext2D.instance
           .fill_Callback_1_(this, path_OR_winding);
       return;
     }
-    if ((path_OR_winding is Path2D || path_OR_winding == null) &&
-        winding == null) {
+    if ((path_OR_winding is Path2D) && winding == null) {
       _blink.BlinkCanvasRenderingContext2D.instance
           .fill_Callback_1_(this, path_OR_winding);
       return;
     }
-    if ((winding is String || winding == null) &&
-        (path_OR_winding is Path2D || path_OR_winding == null)) {
+    if ((winding is String) && (path_OR_winding is Path2D)) {
       _blink.BlinkCanvasRenderingContext2D.instance
           .fill_Callback_2_(this, path_OR_winding, winding);
       return;
@@ -4478,31 +4466,31 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
       .isContextLost_Callback_0_(this);
 
   bool isPointInPath(path_OR_x, num x_OR_y, [winding_OR_y, String winding]) {
-    if ((x_OR_y is num || x_OR_y == null) &&
-        (path_OR_x is num || path_OR_x == null) &&
+    if ((x_OR_y is num) &&
+        (path_OR_x is num) &&
         winding_OR_y == null &&
         winding == null) {
       return _blink.BlinkCanvasRenderingContext2D.instance
           .isPointInPath_Callback_2_(this, path_OR_x, x_OR_y);
     }
-    if ((winding_OR_y is String || winding_OR_y == null) &&
-        (x_OR_y is num || x_OR_y == null) &&
-        (path_OR_x is num || path_OR_x == null) &&
+    if ((winding_OR_y is String) &&
+        (x_OR_y is num) &&
+        (path_OR_x is num) &&
         winding == null) {
       return _blink.BlinkCanvasRenderingContext2D.instance
           .isPointInPath_Callback_3_(this, path_OR_x, x_OR_y, winding_OR_y);
     }
-    if ((winding_OR_y is num || winding_OR_y == null) &&
-        (x_OR_y is num || x_OR_y == null) &&
-        (path_OR_x is Path2D || path_OR_x == null) &&
+    if ((winding_OR_y is num) &&
+        (x_OR_y is num) &&
+        (path_OR_x is Path2D) &&
         winding == null) {
       return _blink.BlinkCanvasRenderingContext2D.instance
           .isPointInPath_Callback_3_(this, path_OR_x, x_OR_y, winding_OR_y);
     }
-    if ((winding is String || winding == null) &&
-        (winding_OR_y is num || winding_OR_y == null) &&
-        (x_OR_y is num || x_OR_y == null) &&
-        (path_OR_x is Path2D || path_OR_x == null)) {
+    if ((winding is String) &&
+        (winding_OR_y is num) &&
+        (x_OR_y is num) &&
+        (path_OR_x is Path2D)) {
       return _blink.BlinkCanvasRenderingContext2D.instance
           .isPointInPath_Callback_4_(
               this, path_OR_x, x_OR_y, winding_OR_y, winding);
@@ -4511,15 +4499,11 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
   }
 
   bool isPointInStroke(path_OR_x, num x_OR_y, [num y]) {
-    if ((x_OR_y is num || x_OR_y == null) &&
-        (path_OR_x is num || path_OR_x == null) &&
-        y == null) {
+    if ((x_OR_y is num) && (path_OR_x is num) && y == null) {
       return _blink.BlinkCanvasRenderingContext2D.instance
           .isPointInStroke_Callback_2_(this, path_OR_x, x_OR_y);
     }
-    if ((y is num || y == null) &&
-        (x_OR_y is num || x_OR_y == null) &&
-        (path_OR_x is Path2D || path_OR_x == null)) {
+    if ((y is num) && (x_OR_y is num) && (path_OR_x is Path2D)) {
       return _blink.BlinkCanvasRenderingContext2D.instance
           .isPointInStroke_Callback_3_(this, path_OR_x, x_OR_y, y);
     }
@@ -4534,9 +4518,9 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
 
   void putImageData(ImageData imagedata, num dx, num dy,
       [num dirtyX, num dirtyY, num dirtyWidth, num dirtyHeight]) {
-    if ((dy is num || dy == null) &&
-        (dx is num || dx == null) &&
-        (imagedata is ImageData || imagedata == null) &&
+    if ((dy is num) &&
+        (dx is num) &&
+        (imagedata is ImageData) &&
         dirtyX == null &&
         dirtyY == null &&
         dirtyWidth == null &&
@@ -4545,13 +4529,13 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
           this, convertDartToNative_ImageData(imagedata), dx, dy);
       return;
     }
-    if ((dirtyHeight is num || dirtyHeight == null) &&
-        (dirtyWidth is num || dirtyWidth == null) &&
-        (dirtyY is num || dirtyY == null) &&
-        (dirtyX is num || dirtyX == null) &&
-        (dy is num || dy == null) &&
-        (dx is num || dx == null) &&
-        (imagedata is ImageData || imagedata == null)) {
+    if ((dirtyHeight is num) &&
+        (dirtyWidth is num) &&
+        (dirtyY is num) &&
+        (dirtyX is num) &&
+        (dy is num) &&
+        (dx is num) &&
+        (imagedata is ImageData)) {
       _blink.BlinkCanvasRenderingContext2D.instance.putImageData_Callback_7_(
           this,
           convertDartToNative_ImageData(imagedata),
@@ -4627,7 +4611,7 @@ class CanvasRenderingContext2D extends DartHtmlDomObject
       _blink.BlinkCanvasRenderingContext2D.instance.stroke_Callback_0_(this);
       return;
     }
-    if ((path is Path2D || path == null)) {
+    if ((path is Path2D)) {
       _blink.BlinkCanvasRenderingContext2D.instance
           .stroke_Callback_1_(this, path);
       return;
@@ -10011,8 +9995,7 @@ class DataTransferItemList extends DartHtmlDomObject {
       _blink.BlinkDataTransferItemList.instance.length_Getter_(this);
 
   DataTransferItem add(data_OR_file, [String type]) {
-    if ((type is String || type == null) &&
-        (data_OR_file is String || data_OR_file == null)) {
+    if ((type is String) && (data_OR_file is String)) {
       return _blink.BlinkDataTransferItemList.instance
           .add_Callback_2_(this, data_OR_file, type);
     }
@@ -12256,7 +12239,7 @@ class DomMatrix extends DomMatrixReadOnly {
     if (other == null) {
       return _blink.BlinkDOMMatrix.instance.constructorCallback_0_();
     }
-    if ((other is DomMatrixReadOnly || other == null)) {
+    if ((other is DomMatrixReadOnly)) {
       return _blink.BlinkDOMMatrix.instance.constructorCallback_1_(other);
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -12838,10 +12821,7 @@ class DomPoint extends DomPointReadOnly {
   @DomName('DOMPoint.DOMPoint')
   @DocsEditable()
   factory DomPoint([point_OR_x, num y, num z, num w]) {
-    if ((point_OR_x is Map || point_OR_x == null) &&
-        y == null &&
-        z == null &&
-        w == null) {
+    if ((point_OR_x is Map) && y == null && z == null && w == null) {
       var point_1 = convertDartToNative_Dictionary(point_OR_x);
       return _blink.BlinkDOMPoint.instance.constructorCallback_1_(point_1);
     }
@@ -13239,12 +13219,12 @@ class DomStringMap extends DartHtmlDomObject {
   DomStringMap.internal_() {}
 
   void __delete__(index_OR_name) {
-    if ((index_OR_name is String || index_OR_name == null)) {
+    if ((index_OR_name is String)) {
       _blink.BlinkDOMStringMap.instance
           .$__delete___Callback_1_(this, index_OR_name);
       return;
     }
-    if ((index_OR_name is int || index_OR_name == null)) {
+    if ((index_OR_name is int)) {
       _blink.BlinkDOMStringMap.instance
           .$__delete___Callback_1_(this, index_OR_name);
       return;
@@ -13258,14 +13238,12 @@ class DomStringMap extends DartHtmlDomObject {
       _blink.BlinkDOMStringMap.instance.$__getter___Callback_1_(this, index);
 
   void __setter__(index_OR_name, String value) {
-    if ((value is String || value == null) &&
-        (index_OR_name is String || index_OR_name == null)) {
+    if ((value is String) && (index_OR_name is String)) {
       _blink.BlinkDOMStringMap.instance
           .$__setter___Callback_2_(this, index_OR_name, value);
       return;
     }
-    if ((value is String || value == null) &&
-        (index_OR_name is int || index_OR_name == null)) {
+    if ((value is String) && (index_OR_name is int)) {
       _blink.BlinkDOMStringMap.instance
           .$__setter___Callback_2_(this, index_OR_name, value);
       return;
@@ -13326,10 +13304,10 @@ class DomTokenList extends DartHtmlDomObject {
       _blink.BlinkDOMTokenList.instance.contains_Callback_1_(this, token);
 
   String item(int index) {
-    if ((index is int || index == null)) {
+    if ((index is int)) {
       return _blink.BlinkDOMTokenList.instance.item_Callback_1_(this, index);
     }
-    if ((index is int || index == null)) {
+    if ((index is int)) {
       return _blink.BlinkDOMTokenList.instance.item_Callback_1_(this, index);
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -16707,7 +16685,7 @@ class Element extends Node
     if (effect != null && timing == null) {
       return _blink.BlinkElement.instance.animate_Callback_1_(this, effect);
     }
-    if ((timing is num || timing == null) && effect != null) {
+    if ((timing is num) && effect != null) {
       return _blink.BlinkElement.instance
           .animate_Callback_2_(this, effect, timing);
     }
@@ -16895,12 +16873,11 @@ class Element extends Node
       _blink.BlinkElement.instance.scroll_Callback_0_(this);
       return;
     }
-    if ((options_OR_x is Map || options_OR_x == null) && y == null) {
+    if ((options_OR_x is Map) && y == null) {
       _blink.BlinkElement.instance.scroll_Callback_1_(this, options_OR_x);
       return;
     }
-    if ((y is num || y == null) &&
-        (options_OR_x is num || options_OR_x == null)) {
+    if ((y is num) && (options_OR_x is num)) {
       _blink.BlinkElement.instance.scroll_Callback_2_(this, options_OR_x, y);
       return;
     }
@@ -16912,12 +16889,11 @@ class Element extends Node
       _blink.BlinkElement.instance.scrollBy_Callback_0_(this);
       return;
     }
-    if ((options_OR_x is Map || options_OR_x == null) && y == null) {
+    if ((options_OR_x is Map) && y == null) {
       _blink.BlinkElement.instance.scrollBy_Callback_1_(this, options_OR_x);
       return;
     }
-    if ((y is num || y == null) &&
-        (options_OR_x is num || options_OR_x == null)) {
+    if ((y is num) && (options_OR_x is num)) {
       _blink.BlinkElement.instance.scrollBy_Callback_2_(this, options_OR_x, y);
       return;
     }
@@ -16949,12 +16925,11 @@ class Element extends Node
       _blink.BlinkElement.instance.scrollTo_Callback_0_(this);
       return;
     }
-    if ((options_OR_x is Map || options_OR_x == null) && y == null) {
+    if ((options_OR_x is Map) && y == null) {
       _blink.BlinkElement.instance.scrollTo_Callback_1_(this, options_OR_x);
       return;
     }
-    if ((y is num || y == null) &&
-        (options_OR_x is num || options_OR_x == null)) {
+    if ((y is num) && (options_OR_x is num)) {
       _blink.BlinkElement.instance.scrollTo_Callback_2_(this, options_OR_x, y);
       return;
     }
@@ -19649,22 +19624,16 @@ class FormData extends DartHtmlDomObject {
       _blink.BlinkFormData.instance.has_Callback_1_(this, name);
 
   void set(String name, value, [String filename]) {
-    if ((value is Blob || value == null) &&
-        (name is String || name == null) &&
-        filename == null) {
+    if ((value is Blob) && (name is String) && filename == null) {
       _blink.BlinkFormData.instance.set_Callback_2_(this, name, value);
       return;
     }
-    if ((filename is String || filename == null) &&
-        (value is Blob || value == null) &&
-        (name is String || name == null)) {
+    if ((filename is String) && (value is Blob) && (name is String)) {
       _blink.BlinkFormData.instance
           .set_Callback_3_(this, name, value, filename);
       return;
     }
-    if ((value is String || value == null) &&
-        (name is String || name == null) &&
-        filename == null) {
+    if ((value is String) && (name is String) && filename == null) {
       _blink.BlinkFormData.instance.set_Callback_2_(this, name, value);
       return;
     }
@@ -21017,14 +20986,14 @@ class Headers extends DartHtmlDomObject {
     if (input == null) {
       return _blink.BlinkHeaders.instance.constructorCallback_0_();
     }
-    if ((input is Headers || input == null)) {
+    if ((input is Headers)) {
       return _blink.BlinkHeaders.instance.constructorCallback_1_(input);
     }
-    if ((input is Map || input == null)) {
+    if ((input is Map)) {
       var input_1 = convertDartToNative_Dictionary(input);
       return _blink.BlinkHeaders.instance.constructorCallback_1_(input_1);
     }
-    if ((input is List<Object> || input == null)) {
+    if ((input is List<Object>)) {
       return _blink.BlinkHeaders.instance.constructorCallback_1_(input);
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -23353,27 +23322,27 @@ class HttpRequest extends HttpRequestEventTarget {
       _blink.BlinkXMLHttpRequest.instance.send_Callback_1_(this, body_OR_data);
       return;
     }
-    if ((body_OR_data is TypedData || body_OR_data == null)) {
+    if ((body_OR_data is TypedData)) {
       _blink.BlinkXMLHttpRequest.instance.send_Callback_1_(this, body_OR_data);
       return;
     }
-    if ((body_OR_data is ByteBuffer || body_OR_data == null)) {
+    if ((body_OR_data is ByteBuffer)) {
       _blink.BlinkXMLHttpRequest.instance.send_Callback_1_(this, body_OR_data);
       return;
     }
-    if ((body_OR_data is Document || body_OR_data == null)) {
+    if ((body_OR_data is Document)) {
       _blink.BlinkXMLHttpRequest.instance.send_Callback_1_(this, body_OR_data);
       return;
     }
-    if ((body_OR_data is String || body_OR_data == null)) {
+    if ((body_OR_data is String)) {
       _blink.BlinkXMLHttpRequest.instance.send_Callback_1_(this, body_OR_data);
       return;
     }
-    if ((body_OR_data is FormData || body_OR_data == null)) {
+    if ((body_OR_data is FormData)) {
       _blink.BlinkXMLHttpRequest.instance.send_Callback_1_(this, body_OR_data);
       return;
     }
-    if ((body_OR_data is Blob || body_OR_data == null)) {
+    if ((body_OR_data is Blob)) {
       _blink.BlinkXMLHttpRequest.instance.send_Callback_1_(this, body_OR_data);
       return;
     }
@@ -23842,21 +23811,15 @@ class ImageData extends DartHtmlDomObject {
   @DomName('ImageData.ImageData')
   @DocsEditable()
   factory ImageData(data_OR_sw, int sh_OR_sw, [int sh]) {
-    if ((sh_OR_sw is int || sh_OR_sw == null) &&
-        (data_OR_sw is int || data_OR_sw == null) &&
-        sh == null) {
+    if ((sh_OR_sw is int) && (data_OR_sw is int) && sh == null) {
       return _blink.BlinkImageData.instance
           .constructorCallback_2_(data_OR_sw, sh_OR_sw);
     }
-    if ((sh_OR_sw is int || sh_OR_sw == null) &&
-        (data_OR_sw is Uint8ClampedList || data_OR_sw == null) &&
-        sh == null) {
+    if ((sh_OR_sw is int) && (data_OR_sw is Uint8ClampedList) && sh == null) {
       return _blink.BlinkImageData.instance
           .constructorCallback_2_(data_OR_sw, sh_OR_sw);
     }
-    if ((sh is int || sh == null) &&
-        (sh_OR_sw is int || sh_OR_sw == null) &&
-        (data_OR_sw is Uint8ClampedList || data_OR_sw == null)) {
+    if ((sh is int) && (sh_OR_sw is int) && (data_OR_sw is Uint8ClampedList)) {
       return _blink.BlinkImageData.instance
           .constructorCallback_3_(data_OR_sw, sh_OR_sw, sh);
     }
@@ -24662,7 +24625,7 @@ class InputElement extends HtmlElement
 
   void setRangeText(String replacement,
       {int start, int end, String selectionMode}) {
-    if ((replacement is String || replacement == null) &&
+    if ((replacement is String) &&
         start == null &&
         end == null &&
         selectionMode == null) {
@@ -24670,18 +24633,18 @@ class InputElement extends HtmlElement
           .setRangeText_Callback_1_(this, replacement);
       return;
     }
-    if ((end is int || end == null) &&
-        (start is int || start == null) &&
-        (replacement is String || replacement == null) &&
+    if ((end is int) &&
+        (start is int) &&
+        (replacement is String) &&
         selectionMode == null) {
       _blink.BlinkHTMLInputElement.instance
           .setRangeText_Callback_3_(this, replacement, start, end);
       return;
     }
     if ((selectionMode is String || selectionMode == null) &&
-        (end is int || end == null) &&
-        (start is int || start == null) &&
-        (replacement is String || replacement == null)) {
+        (end is int) &&
+        (start is int) &&
+        (replacement is String)) {
       _blink.BlinkHTMLInputElement.instance.setRangeText_Callback_4_(
           this, replacement, start, end, selectionMode);
       return;
@@ -25625,13 +25588,13 @@ class KeyframeEffect extends AnimationEffectReadOnly {
       return _blink.BlinkKeyframeEffect.instance
           .constructorCallback_2_(target, effect);
     }
-    if ((timing is num || timing == null) &&
+    if ((timing is num) &&
         effect != null &&
         (target is Element || target == null)) {
       return _blink.BlinkKeyframeEffect.instance
           .constructorCallback_3_(target, effect, timing);
     }
-    if ((timing is Map || timing == null) &&
+    if ((timing is Map) &&
         effect != null &&
         (target is Element || target == null)) {
       var timing_1 = convertDartToNative_Dictionary(timing);
@@ -26346,12 +26309,12 @@ class Matrix extends TransformComponent {
       num m42,
       num m43,
       num m44]) {
-    if ((f_OR_m22 is num || f_OR_m22 == null) &&
-        (e_OR_m21 is num || e_OR_m21 == null) &&
-        (d_OR_m14 is num || d_OR_m14 == null) &&
-        (c_OR_m13 is num || c_OR_m13 == null) &&
-        (b_OR_m12 is num || b_OR_m12 == null) &&
-        (a_OR_m11 is num || a_OR_m11 == null) &&
+    if ((f_OR_m22 is num) &&
+        (e_OR_m21 is num) &&
+        (d_OR_m14 is num) &&
+        (c_OR_m13 is num) &&
+        (b_OR_m12 is num) &&
+        (a_OR_m11 is num) &&
         m23 == null &&
         m24 == null &&
         m31 == null &&
@@ -26365,22 +26328,22 @@ class Matrix extends TransformComponent {
       return _blink.BlinkMatrix.instance.constructorCallback_6_(
           a_OR_m11, b_OR_m12, c_OR_m13, d_OR_m14, e_OR_m21, f_OR_m22);
     }
-    if ((m44 is num || m44 == null) &&
-        (m43 is num || m43 == null) &&
-        (m42 is num || m42 == null) &&
-        (m41 is num || m41 == null) &&
-        (m34 is num || m34 == null) &&
-        (m33 is num || m33 == null) &&
-        (m32 is num || m32 == null) &&
-        (m31 is num || m31 == null) &&
-        (m24 is num || m24 == null) &&
-        (m23 is num || m23 == null) &&
-        (f_OR_m22 is num || f_OR_m22 == null) &&
-        (e_OR_m21 is num || e_OR_m21 == null) &&
-        (d_OR_m14 is num || d_OR_m14 == null) &&
-        (c_OR_m13 is num || c_OR_m13 == null) &&
-        (b_OR_m12 is num || b_OR_m12 == null) &&
-        (a_OR_m11 is num || a_OR_m11 == null)) {
+    if ((m44 is num) &&
+        (m43 is num) &&
+        (m42 is num) &&
+        (m41 is num) &&
+        (m34 is num) &&
+        (m33 is num) &&
+        (m32 is num) &&
+        (m31 is num) &&
+        (m24 is num) &&
+        (m23 is num) &&
+        (f_OR_m22 is num) &&
+        (e_OR_m21 is num) &&
+        (d_OR_m14 is num) &&
+        (c_OR_m13 is num) &&
+        (b_OR_m12 is num) &&
+        (a_OR_m11 is num)) {
       return _blink.BlinkMatrix.instance.constructorCallback_16_(
           a_OR_m11,
           b_OR_m12,
@@ -26918,7 +26881,7 @@ class MediaElement extends HtmlElement {
   }
 
   String canPlayType(String type, [String keySystem]) {
-    if ((type is String || type == null) && keySystem == null) {
+    if ((type is String) && keySystem == null) {
       return _blink.BlinkHTMLMediaElement.instance
           .canPlayType_Callback_1_(this, type);
     }
@@ -27784,12 +27747,11 @@ class MediaStream extends EventTarget {
     if (stream_OR_tracks == null) {
       return _blink.BlinkMediaStream.instance.constructorCallback_0_();
     }
-    if ((stream_OR_tracks is MediaStream || stream_OR_tracks == null)) {
+    if ((stream_OR_tracks is MediaStream)) {
       return _blink.BlinkMediaStream.instance
           .constructorCallback_1_(stream_OR_tracks);
     }
-    if ((stream_OR_tracks is List<MediaStreamTrack> ||
-        stream_OR_tracks == null)) {
+    if ((stream_OR_tracks is List<MediaStreamTrack>)) {
       return _blink.BlinkMediaStream.instance
           .constructorCallback_1_(stream_OR_tracks);
     }
@@ -32148,10 +32110,10 @@ class Path2D extends DartHtmlDomObject implements _CanvasPathMethods {
     if (path_OR_text == null) {
       return _blink.BlinkPath2D.instance.constructorCallback_0_();
     }
-    if ((path_OR_text is Path2D || path_OR_text == null)) {
+    if ((path_OR_text is Path2D)) {
       return _blink.BlinkPath2D.instance.constructorCallback_1_(path_OR_text);
     }
-    if ((path_OR_text is String || path_OR_text == null)) {
+    if ((path_OR_text is String)) {
       return _blink.BlinkPath2D.instance.constructorCallback_1_(path_OR_text);
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -33542,22 +33504,22 @@ class PresentationConnection extends EventTarget {
       _blink.BlinkPresentationConnection.instance.close_Callback_0_(this);
 
   void send(data_OR_message) {
-    if ((data_OR_message is String || data_OR_message == null)) {
+    if ((data_OR_message is String)) {
       _blink.BlinkPresentationConnection.instance
           .send_Callback_1_(this, data_OR_message);
       return;
     }
-    if ((data_OR_message is Blob || data_OR_message == null)) {
+    if ((data_OR_message is Blob)) {
       _blink.BlinkPresentationConnection.instance
           .send_Callback_1_(this, data_OR_message);
       return;
     }
-    if ((data_OR_message is TypedData || data_OR_message == null)) {
+    if ((data_OR_message is TypedData)) {
       _blink.BlinkPresentationConnection.instance
           .send_Callback_1_(this, data_OR_message);
       return;
     }
-    if ((data_OR_message is ByteBuffer || data_OR_message == null)) {
+    if ((data_OR_message is ByteBuffer)) {
       _blink.BlinkPresentationConnection.instance
           .send_Callback_1_(this, data_OR_message);
       return;
@@ -34541,16 +34503,10 @@ class Rotation extends TransformComponent {
   @DomName('Rotation.Rotation')
   @DocsEditable()
   factory Rotation(num angle, [num x, num y, num z]) {
-    if ((angle is num || angle == null) &&
-        x == null &&
-        y == null &&
-        z == null) {
+    if ((angle is num) && x == null && y == null && z == null) {
       return _blink.BlinkRotation.instance.constructorCallback_1_(angle);
     }
-    if ((z is num || z == null) &&
-        (y is num || y == null) &&
-        (x is num || x == null) &&
-        (angle is num || angle == null)) {
+    if ((z is num) && (y is num) && (x is num) && (angle is num)) {
       return _blink.BlinkRotation.instance
           .constructorCallback_4_(angle, x, y, z);
     }
@@ -34756,19 +34712,19 @@ class RtcDataChannel extends EventTarget {
   void close() => _blink.BlinkRTCDataChannel.instance.close_Callback_0_(this);
 
   void send(data) {
-    if ((data is String || data == null)) {
+    if ((data is String)) {
       _blink.BlinkRTCDataChannel.instance.send_Callback_1_(this, data);
       return;
     }
-    if ((data is Blob || data == null)) {
+    if ((data is Blob)) {
       _blink.BlinkRTCDataChannel.instance.send_Callback_1_(this, data);
       return;
     }
-    if ((data is TypedData || data == null)) {
+    if ((data is TypedData)) {
       _blink.BlinkRTCDataChannel.instance.send_Callback_1_(this, data);
       return;
     }
-    if ((data is ByteBuffer || data == null)) {
+    if ((data is ByteBuffer)) {
       _blink.BlinkRTCDataChannel.instance.send_Callback_1_(this, data);
       return;
     }
@@ -35222,10 +35178,9 @@ class RtcPeerConnection extends EventTarget {
       return _blink.BlinkRTCPeerConnection.instance
           .addIceCandidate_Callback_1_(this, candidate);
     }
-    if ((failureCallback is RtcPeerConnectionErrorCallback ||
-            failureCallback == null) &&
-        (successCallback is VoidCallback || successCallback == null) &&
-        (candidate is RtcIceCandidate || candidate == null)) {
+    if ((failureCallback is RtcPeerConnectionErrorCallback) &&
+        (successCallback is VoidCallback) &&
+        (candidate is RtcIceCandidate)) {
       return _blink.BlinkRTCPeerConnection.instance.addIceCandidate_Callback_3_(
           this, candidate, successCallback, failureCallback);
     }
@@ -35584,12 +35539,10 @@ class Scale extends TransformComponent {
   @DomName('Scale.Scale')
   @DocsEditable()
   factory Scale(num x, num y, [num z]) {
-    if ((y is num || y == null) && (x is num || x == null) && z == null) {
+    if ((y is num) && (x is num) && z == null) {
       return _blink.BlinkScale.instance.constructorCallback_2_(x, y);
     }
-    if ((z is num || z == null) &&
-        (y is num || y == null) &&
-        (x is num || x == null)) {
+    if ((z is num) && (y is num) && (x is num)) {
       return _blink.BlinkScale.instance.constructorCallback_3_(x, y, z);
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -38785,11 +38738,11 @@ class Storage extends DartHtmlDomObject implements Map<String, String> {
   int get _length => _blink.BlinkStorage.instance.length_Getter_(this);
 
   bool __delete__(index_OR_name) {
-    if ((index_OR_name is String || index_OR_name == null)) {
+    if ((index_OR_name is String)) {
       return _blink.BlinkStorage.instance
           .$__delete___Callback_1_(this, index_OR_name);
     }
-    if ((index_OR_name is int || index_OR_name == null)) {
+    if ((index_OR_name is int)) {
       return _blink.BlinkStorage.instance
           .$__delete___Callback_1_(this, index_OR_name);
     }
@@ -38797,11 +38750,11 @@ class Storage extends DartHtmlDomObject implements Map<String, String> {
   }
 
   String __getter__(index_OR_name) {
-    if ((index_OR_name is String || index_OR_name == null)) {
+    if ((index_OR_name is String)) {
       return _blink.BlinkStorage.instance
           .$__getter___Callback_1_(this, index_OR_name);
     }
-    if ((index_OR_name is int || index_OR_name == null)) {
+    if ((index_OR_name is int)) {
       return _blink.BlinkStorage.instance
           .$__getter___Callback_1_(this, index_OR_name);
     }
@@ -38809,14 +38762,12 @@ class Storage extends DartHtmlDomObject implements Map<String, String> {
   }
 
   void __setter__(index_OR_name, String value) {
-    if ((value is String || value == null) &&
-        (index_OR_name is String || index_OR_name == null)) {
+    if ((value is String) && (index_OR_name is String)) {
       _blink.BlinkStorage.instance
           .$__setter___Callback_2_(this, index_OR_name, value);
       return;
     }
-    if ((value is String || value == null) &&
-        (index_OR_name is int || index_OR_name == null)) {
+    if ((value is String) && (index_OR_name is int)) {
       _blink.BlinkStorage.instance
           .$__setter___Callback_2_(this, index_OR_name, value);
       return;
@@ -40182,7 +40133,7 @@ class TextAreaElement extends HtmlElement {
 
   void setRangeText(String replacement,
       {int start, int end, String selectionMode}) {
-    if ((replacement is String || replacement == null) &&
+    if ((replacement is String) &&
         start == null &&
         end == null &&
         selectionMode == null) {
@@ -40190,18 +40141,18 @@ class TextAreaElement extends HtmlElement {
           .setRangeText_Callback_1_(this, replacement);
       return;
     }
-    if ((end is int || end == null) &&
-        (start is int || start == null) &&
-        (replacement is String || replacement == null) &&
+    if ((end is int) &&
+        (start is int) &&
+        (replacement is String) &&
         selectionMode == null) {
       _blink.BlinkHTMLTextAreaElement.instance
           .setRangeText_Callback_3_(this, replacement, start, end);
       return;
     }
     if ((selectionMode is String || selectionMode == null) &&
-        (end is int || end == null) &&
-        (start is int || start == null) &&
-        (replacement is String || replacement == null)) {
+        (end is int) &&
+        (start is int) &&
+        (replacement is String)) {
       _blink.BlinkHTMLTextAreaElement.instance.setRangeText_Callback_4_(
           this, replacement, start, end, selectionMode);
       return;
@@ -41443,8 +41394,7 @@ class TransformValue extends StyleValue {
     if (transformComponents == null) {
       return _blink.BlinkTransformValue.instance.constructorCallback_0_();
     }
-    if ((transformComponents is List<TransformComponent> ||
-        transformComponents == null)) {
+    if ((transformComponents is List<TransformComponent>)) {
       return _blink.BlinkTransformValue.instance
           .constructorCallback_1_(transformComponents);
     }
@@ -41526,14 +41476,10 @@ class Translation extends TransformComponent {
   @DomName('Translation.Translation')
   @DocsEditable()
   factory Translation(LengthValue x, LengthValue y, [LengthValue z]) {
-    if ((y is LengthValue || y == null) &&
-        (x is LengthValue || x == null) &&
-        z == null) {
+    if ((y is LengthValue) && (x is LengthValue) && z == null) {
       return _blink.BlinkTranslation.instance.constructorCallback_2_(x, y);
     }
-    if ((z is LengthValue || z == null) &&
-        (y is LengthValue || y == null) &&
-        (x is LengthValue || x == null)) {
+    if ((z is LengthValue) && (y is LengthValue) && (x is LengthValue)) {
       return _blink.BlinkTranslation.instance.constructorCallback_3_(x, y, z);
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -41829,18 +41775,15 @@ class Url extends DartHtmlDomObject implements UrlUtils {
   Url.internal_() {}
 
   static String createObjectUrl(blob_OR_source_OR_stream) {
-    if ((blob_OR_source_OR_stream is Blob ||
-        blob_OR_source_OR_stream == null)) {
+    if ((blob_OR_source_OR_stream is Blob)) {
       return _blink.BlinkURL.instance
           .createObjectURL_Callback_1_(blob_OR_source_OR_stream);
     }
-    if ((blob_OR_source_OR_stream is MediaStream ||
-        blob_OR_source_OR_stream == null)) {
+    if ((blob_OR_source_OR_stream is MediaStream)) {
       return _blink.BlinkURL.instance
           .createObjectURL_Callback_1_(blob_OR_source_OR_stream);
     }
-    if ((blob_OR_source_OR_stream is MediaSource ||
-        blob_OR_source_OR_stream == null)) {
+    if ((blob_OR_source_OR_stream is MediaSource)) {
       return _blink.BlinkURL.instance
           .createObjectURL_Callback_1_(blob_OR_source_OR_stream);
     }
@@ -43969,19 +43912,19 @@ class WebSocket extends EventTarget {
   }
 
   void send(data) {
-    if ((data is String || data == null)) {
+    if ((data is String)) {
       _blink.BlinkWebSocket.instance.send_Callback_1_(this, data);
       return;
     }
-    if ((data is Blob || data == null)) {
+    if ((data is Blob)) {
       _blink.BlinkWebSocket.instance.send_Callback_1_(this, data);
       return;
     }
-    if ((data is TypedData || data == null)) {
+    if ((data is TypedData)) {
       _blink.BlinkWebSocket.instance.send_Callback_1_(this, data);
       return;
     }
-    if ((data is ByteBuffer || data == null)) {
+    if ((data is ByteBuffer)) {
       _blink.BlinkWebSocket.instance.send_Callback_1_(this, data);
       return;
     }
@@ -45035,11 +44978,11 @@ class Window extends EventTarget
       _blink.BlinkWindow.instance.window_Getter_(this));
 
   WindowBase __getter__(index_OR_name) {
-    if ((index_OR_name is int || index_OR_name == null)) {
+    if ((index_OR_name is int)) {
       return _blink.BlinkWindow.instance
           .$__getter___Callback_1_(this, index_OR_name);
     }
-    if ((index_OR_name is String || index_OR_name == null)) {
+    if ((index_OR_name is String)) {
       return _blink.BlinkWindow.instance
           .$__getter___Callback_1_(this, index_OR_name);
     }
@@ -45252,27 +45195,19 @@ class Window extends EventTarget
       _blink.BlinkWindow.instance.scroll_Callback_0_(this);
       return;
     }
-    if ((options_OR_x is Map || options_OR_x == null) &&
-        y == null &&
-        scrollOptions == null) {
+    if ((options_OR_x is Map) && y == null && scrollOptions == null) {
       _blink.BlinkWindow.instance.scroll_Callback_1_(this, options_OR_x);
       return;
     }
-    if ((y is num || y == null) &&
-        (options_OR_x is num || options_OR_x == null) &&
-        scrollOptions == null) {
+    if ((y is num) && (options_OR_x is num) && scrollOptions == null) {
       _blink.BlinkWindow.instance.scroll_Callback_2_(this, options_OR_x, y);
       return;
     }
-    if ((y is int || y == null) &&
-        (options_OR_x is int || options_OR_x == null) &&
-        scrollOptions == null) {
+    if ((y is int) && (options_OR_x is int) && scrollOptions == null) {
       _blink.BlinkWindow.instance.scroll_Callback_2_(this, options_OR_x, y);
       return;
     }
-    if ((scrollOptions is Map || scrollOptions == null) &&
-        (y is int || y == null) &&
-        (options_OR_x is int || options_OR_x == null)) {
+    if ((scrollOptions is Map) && (y is int) && (options_OR_x is int)) {
       _blink.BlinkWindow.instance.scroll_Callback_3_(
           this, options_OR_x, y, convertDartToNative_Dictionary(scrollOptions));
       return;
@@ -45285,27 +45220,19 @@ class Window extends EventTarget
       _blink.BlinkWindow.instance.scrollBy_Callback_0_(this);
       return;
     }
-    if ((options_OR_x is Map || options_OR_x == null) &&
-        y == null &&
-        scrollOptions == null) {
+    if ((options_OR_x is Map) && y == null && scrollOptions == null) {
       _blink.BlinkWindow.instance.scrollBy_Callback_1_(this, options_OR_x);
       return;
     }
-    if ((y is num || y == null) &&
-        (options_OR_x is num || options_OR_x == null) &&
-        scrollOptions == null) {
+    if ((y is num) && (options_OR_x is num) && scrollOptions == null) {
       _blink.BlinkWindow.instance.scrollBy_Callback_2_(this, options_OR_x, y);
       return;
     }
-    if ((y is int || y == null) &&
-        (options_OR_x is int || options_OR_x == null) &&
-        scrollOptions == null) {
+    if ((y is int) && (options_OR_x is int) && scrollOptions == null) {
       _blink.BlinkWindow.instance.scrollBy_Callback_2_(this, options_OR_x, y);
       return;
     }
-    if ((scrollOptions is Map || scrollOptions == null) &&
-        (y is int || y == null) &&
-        (options_OR_x is int || options_OR_x == null)) {
+    if ((scrollOptions is Map) && (y is int) && (options_OR_x is int)) {
       _blink.BlinkWindow.instance.scrollBy_Callback_3_(
           this, options_OR_x, y, convertDartToNative_Dictionary(scrollOptions));
       return;
@@ -45318,27 +45245,19 @@ class Window extends EventTarget
       _blink.BlinkWindow.instance.scrollTo_Callback_0_(this);
       return;
     }
-    if ((options_OR_x is Map || options_OR_x == null) &&
-        y == null &&
-        scrollOptions == null) {
+    if ((options_OR_x is Map) && y == null && scrollOptions == null) {
       _blink.BlinkWindow.instance.scrollTo_Callback_1_(this, options_OR_x);
       return;
     }
-    if ((y is num || y == null) &&
-        (options_OR_x is num || options_OR_x == null) &&
-        scrollOptions == null) {
+    if ((y is num) && (options_OR_x is num) && scrollOptions == null) {
       _blink.BlinkWindow.instance.scrollTo_Callback_2_(this, options_OR_x, y);
       return;
     }
-    if ((y is int || y == null) &&
-        (options_OR_x is int || options_OR_x == null) &&
-        scrollOptions == null) {
+    if ((y is int) && (options_OR_x is int) && scrollOptions == null) {
       _blink.BlinkWindow.instance.scrollTo_Callback_2_(this, options_OR_x, y);
       return;
     }
-    if ((scrollOptions is Map || scrollOptions == null) &&
-        (y is int || y == null) &&
-        (options_OR_x is int || options_OR_x == null)) {
+    if ((scrollOptions is Map) && (y is int) && (options_OR_x is int)) {
       _blink.BlinkWindow.instance.scrollTo_Callback_3_(
           this, options_OR_x, y, convertDartToNative_Dictionary(scrollOptions));
       return;
@@ -47591,7 +47510,7 @@ class _HTMLAllCollection extends DartHtmlDomObject {
   _HTMLAllCollection.internal_() {}
 
   Element _item(int index) {
-    if ((index is int || index == null)) {
+    if ((index is int)) {
       return _blink.BlinkHTMLAllCollection.instance
           .item_Callback_1_(this, index);
     }
@@ -47829,11 +47748,11 @@ class _NamedNodeMap extends DartHtmlDomObject
   // -- end List<Node> mixins.
 
   _Attr getNamedItem(String name) {
-    if ((name is String || name == null)) {
+    if ((name is String)) {
       return _blink.BlinkNamedNodeMap.instance
           .getNamedItem_Callback_1_(this, name);
     }
-    if ((name is String || name == null)) {
+    if ((name is String)) {
       return _blink.BlinkNamedNodeMap.instance
           .getNamedItem_Callback_1_(this, name);
     }

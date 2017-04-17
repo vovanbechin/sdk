@@ -440,12 +440,12 @@ def Generate_Blink(output_dir, database, type_registry):
       blink_file.write(Select_Stub(CONSTRUCTOR_0, _Is_Native(name, 'constructor')) % rename_constructor(name))
 
     _Process_Attributes(blink_file, interface, interface.attributes)
-    _Process_Operations(blink_file, interface, interface.operations)
+    _Process_Operations(blink_file, interface, interface.operations, True)
 
     secondary_parents = database.TransitiveSecondaryParents(interface, False)
     for secondary in secondary_parents:
       _Process_Attributes(blink_file, secondary, secondary.attributes)
-      _Process_Operations(blink_file, secondary, secondary.operations)
+      _Process_Operations(blink_file, secondary, secondary.operations, False)
 
     blink_file.write(CLASS_DEFINITION_END);
 
@@ -485,7 +485,7 @@ def _Process_Attributes(blink_file, interface, attributes):
       blink_file.write(Select_Stub(ATTRIBUTE_GETTER, is_native) % (name, interface.id, name))
       blink_file.write(Select_Stub(ATTRIBUTE_SETTER, is_native) % (name, interface.id, name))
 
-def _Process_Operations(blink_file, interface, operations):
+def _Process_Operations(blink_file, interface, operations, primary_interface = False):
   analyzeOperations = []
 
   for operation in sorted(operations, ConstantOutputOrder):
@@ -496,15 +496,34 @@ def _Process_Operations(blink_file, interface, operations):
         # Handle overloads
         analyzeOperations.append(operation)
       else:
-        _Emit_Blink_Operation(blink_file, interface, analyzeOperations)
+        _Emit_Blink_Operation(blink_file, interface, analyzeOperations, primary_interface)
         analyzeOperations = [operation]
   if len(analyzeOperations) > 0:
-    _Emit_Blink_Operation(blink_file, interface, analyzeOperations)
+    _Emit_Blink_Operation(blink_file, interface, analyzeOperations, primary_interface)
 
-def _Emit_Blink_Operation(blink_file, interface, analyzeOperations):
+# List of DartName operations to not emit (e.g., For now only WebGL2RenderingContextBase
+# has readPixels in both WebGLRenderingContextBase and WebGL2RenderingContextBase.
+# Furthermore, readPixels has the exact same number of arguments - in Javascript
+# there is no typing so they're the same.
+suppressed_operations = {
+    'WebGL2RenderingContextBase': [ 'readPixels2', 'texImage2D2' ],
+}
+
+def _Suppress_Operation(interface, analyzed):
+  if interface.id in suppressed_operations:
+    # Should this DartName (name property) be suppressed on this interface?
+    return analyzed.name in suppressed_operations[interface.id]
+  return False
+
+def _Emit_Blink_Operation(blink_file, interface, analyzeOperations, primary_interface):
   analyzed = AnalyzeOperation(interface, analyzeOperations)
+
+  if not(primary_interface) and _Suppress_Operation(interface, analyzed):
+    return
+
   (arg_min_count, arg_max_count) = generate_parameter_entries(analyzed.param_infos)
   name = analyzed.js_name
+
   is_native = _Is_Native(interface.id, name)
 
   operation = analyzeOperations[0]

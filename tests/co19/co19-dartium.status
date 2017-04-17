@@ -1182,7 +1182,6 @@ Language/Metadata/compilation_t09: Timeout # Roll 50  crash
 Language/Metadata/compilation_t10: Timeout # Roll 50  crash
 Language/Metadata/compilation_t11: Timeout # Roll 50  crash
 LayoutTests/fast/borders/border-width-percent_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/canvas/canvas-putImageData_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/css-escaped-identifier_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/fontface-properties_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/font-shorthand-from-longhands_t01: RuntimeError # Roll 50 breakage
