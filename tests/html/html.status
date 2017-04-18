@@ -365,10 +365,6 @@ postmessage_structured_test: SkipByDesign
 [ $compiler == dart2js &&  ($runtime == chrome || $runtime == drt) ]
 svgelement_test/supported_altGlyph: RuntimeError # Issue 25787
 
-[ ($runtime == dartium) && ($system == macos || $system == windows || $system == linux)]
-# Desktop operating systems do not support touch events on chrome 34 dartium.
-touchevent_test/supported: Fail
-
 [ (($runtime == dartium || $runtime == drt) && $system == macos) || $system == windows ]
 xhr_test/xhr: Skip # Times out.  Issue 21527
 

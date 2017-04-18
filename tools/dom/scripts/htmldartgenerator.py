@@ -541,7 +541,7 @@ class HtmlDartGenerator(object):
 
   def _AddConstructor(self,
       constructor_info, factory_name, factory_constructor_name):
-    # Hack to ignore the Image constructor used by JavaScript.
+    # Hack to ignore the constructor used by JavaScript.
     if ((self._interface.id == 'HTMLImageElement' or
          self._interface.id == 'Blob' or
          self._interface.id == 'TouchEvent' or

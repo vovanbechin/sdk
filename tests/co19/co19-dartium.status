@@ -1263,7 +1263,6 @@ WebPlatformTest/shadow-dom/shadow-trees/upper-boundary-encapsulation/test-007_t0
 # TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
 # ---------------------------------------------
 LayoutTests/fast/canvas/webgl/buffer-data-array-buffer_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/canvas/webgl/texImageTest_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/canvas/webgl/tex-input-validation_t01: RuntimeError # Roll 50 breakage
 # ---------------------------------------------
 # TODO(terry): End of Dartium 50 roll failures
@@ -1281,7 +1280,6 @@ WebPlatformTest/custom-elements/concepts/type_A07_t01: Skip # Timing out on the 
 # ---------------------------------------------
 LayoutTests/fast/canvas/webgl/buffer-data-array-buffer_t01: RuntimeError # Roll 50 must fix.
 LayoutTests/fast/canvas/webgl/tex-input-validation_t01: RuntimeError # Roll 50 must fix.
-LayoutTests/fast/canvas/webgl/texImageTest_t01: RuntimeError # Roll 50 must fix.
 # ---------------------------------------------
 # TODO(terry): End of Mac ONLY Dartium 50 roll failures
 

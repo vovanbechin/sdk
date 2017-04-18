@@ -35249,38 +35249,20 @@ class Touch extends Interceptor {
 @Experimental()
 @Native("TouchEvent")
 class TouchEvent extends UIEvent {
-  factory TouchEvent(String type, [Map eventInitDict]) {
-    if (eventInitDict == null) {
-      eventInitDict = [];
+  factory TouchEvent(TouchList touches, TouchList targetTouches,
+      TouchList changedTouches, String type,
+      {Window view,
+      int screenX: 0,
+      int screenY: 0,
+      int clientX: 0,
+      int clientY: 0,
+      bool ctrlKey: false,
+      bool altKey: false,
+      bool shiftKey: false,
+      bool metaKey: false}) {
+    if (view == null) {
+      view = window;
     }
-    var touches =
-        eventInitDict.containsKey('touches') ? eventInitDict['touches'] : [];
-    var targetTouches = eventInitDict.containsKey('targetTouches')
-        ? eventInitDict['targetTouches']
-        : [];
-    var changedTouches = eventInitDict.containsKey('changedTouches')
-        ? eventInitDict['changedTouches']
-        : [];
-    var view =
-        eventInitDict.containsKey('view') ? eventInitDict['view'] : window;
-    var screenX =
-        eventInitDict.containsKey('screenX') ? eventInitDict['screenX'] : 0;
-    var screenY =
-        eventInitDict.containsKey('screenY') ? eventInitDict['screenY'] : 0;
-    var clientX =
-        eventInitDict.containsKey('clientX') ? eventInitDict['clientX'] : 0;
-    var clientY =
-        eventInitDict.containsKey('clientY') ? eventInitDict['clientY'] : 0;
-    var ctrlKey =
-        eventInitDict.containsKey('ctrlKey') ? eventInitDict['ctrlKey'] : false;
-    var altKey =
-        eventInitDict.containsKey('altKey') ? eventInitDict['altKey'] : false;
-    var shiftKey = eventInitDict.containsKey('shiftKey')
-        ? eventInitDict['shiftKey']
-        : false;
-    var metaKey =
-        eventInitDict.containsKey('metaKey') ? eventInitDict['metaKey'] : false;
-
     TouchEvent e = document._createEvent("TouchEvent");
     e._initTouchEvent(touches, targetTouches, changedTouches, type, view,
         screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey);

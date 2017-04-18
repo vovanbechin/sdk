@@ -509,7 +509,7 @@ suppressed_operations = {
     'WebGL2RenderingContextBase': [ 'readPixels2', 'texImage2D2' ],
 }
 
-def _Suppress_Operation(interface, analyzed):
+def _Suppress_Secondary_Interface_Operation(interface, analyzed):
   if interface.id in suppressed_operations:
     # Should this DartName (name property) be suppressed on this interface?
     return analyzed.name in suppressed_operations[interface.id]
@@ -518,7 +518,7 @@ def _Suppress_Operation(interface, analyzed):
 def _Emit_Blink_Operation(blink_file, interface, analyzeOperations, primary_interface):
   analyzed = AnalyzeOperation(interface, analyzeOperations)
 
-  if not(primary_interface) and _Suppress_Operation(interface, analyzed):
+  if not(primary_interface) and _Suppress_Secondary_Interface_Operation(interface, analyzed):
     return
 
   (arg_min_count, arg_max_count) = generate_parameter_entries(analyzed.param_infos)

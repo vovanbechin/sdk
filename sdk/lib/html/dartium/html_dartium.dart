@@ -40905,13 +40905,24 @@ class Touch extends DartHtmlDomObject {
 // http://www.w3.org/TR/touch-events/, http://www.chromestatus.com/features
 @Experimental()
 class TouchEvent extends UIEvent {
-  factory TouchEvent(String type, [Map eventInitDict]) {
-    if (eventInitDict != null) {
-      var eventInitDict_1 = convertDartToNative_Dictionary(eventInitDict);
-      return _blink.BlinkTouchEvent.instance
-          .constructorCallback_2_(type, eventInitDict_1);
+  factory TouchEvent(TouchList touches, TouchList targetTouches,
+      TouchList changedTouches, String type,
+      {Window view,
+      int screenX: 0,
+      int screenY: 0,
+      int clientX: 0,
+      int clientY: 0,
+      bool ctrlKey: false,
+      bool altKey: false,
+      bool shiftKey: false,
+      bool metaKey: false}) {
+    if (view == null) {
+      view = window;
     }
-    return _blink.BlinkTouchEvent.instance.constructorCallback_1_(type);
+    TouchEvent e = _blink.BlinkTouchEvent.instance.constructorCallback_1_(type);
+    e._initTouchEvent(touches, targetTouches, changedTouches, type, view,
+        screenX, screenY, clientX, clientY, ctrlKey, altKey, shiftKey, metaKey);
+    return e;
   }
   // To suppress missing implicit constructor warnings.
   factory TouchEvent._() {
@@ -40993,7 +41004,7 @@ class TouchEvent extends UIEvent {
    * Note that touch events are only supported if the user is using a touch
    * device.
    */
-  static bool get supported => Device.isEventTypeSupported('TouchEvent');
+  static bool get supported => true;
 }
 // Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a

@@ -17,12 +17,13 @@ main() {
   });
 
   group('functional', () {
-    test('TouchEvent construction', () {
-      var e = new TouchEvent('touch');
-      expect(e is TouchEvent, true);
+    test('unsupported throws', () {
+      var expectation = TouchEvent.supported ? returnsNormally : throws;
 
-      var e2 = new TouchEvent("touch", { 'touches': [], 'targetTouches': [], 'changedTouches': [] } );
-      expect(e2 is TouchEvent, true);
+      expect(() {
+        var e = new TouchEvent(null, null, null, 'touch');
+        expect(e is TouchEvent, true);
+      }, expectation);
     });
   });
 }
