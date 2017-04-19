@@ -19518,6 +19518,12 @@ class FontFaceSet extends EventTarget {
   @Experimental() // untriaged
   String get status => _blink.BlinkFontFaceSet.instance.status_Getter_(this);
 
+  @DomName('FontFaceSet.add')
+  @DocsEditable()
+  @Experimental() // untriaged
+  FontFaceSet add(FontFace arg) =>
+      _blink.BlinkFontFaceSet.instance.add_Callback_1_(this, arg);
+
   bool check(String font, [String text]) {
     if (text != null) {
       return _blink.BlinkFontFaceSet.instance
@@ -19525,6 +19531,33 @@ class FontFaceSet extends EventTarget {
     }
     return _blink.BlinkFontFaceSet.instance.check_Callback_1_(this, font);
   }
+
+  @DomName('FontFaceSet.clear')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void clear() => _blink.BlinkFontFaceSet.instance.clear_Callback_0_(this);
+
+  @DomName('FontFaceSet.delete')
+  @DocsEditable()
+  @Experimental() // untriaged
+  bool delete(FontFace arg) =>
+      _blink.BlinkFontFaceSet.instance.delete_Callback_1_(this, arg);
+
+  void forEach(Object callback, [Object thisArg]) {
+    if (thisArg != null) {
+      _blink.BlinkFontFaceSet.instance
+          .forEach_Callback_2_(this, callback, thisArg);
+      return;
+    }
+    _blink.BlinkFontFaceSet.instance.forEach_Callback_1_(this, callback);
+    return;
+  }
+
+  @DomName('FontFaceSet.has')
+  @DocsEditable()
+  @Experimental() // untriaged
+  bool has(FontFace arg) =>
+      _blink.BlinkFontFaceSet.instance.has_Callback_1_(this, arg);
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a

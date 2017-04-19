@@ -9048,6 +9048,12 @@ class BlinkFontFaceSet extends BlinkEventTarget {
   status_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* FontFaceSet */, "status");
 
+  add_Callback_0_(mthis) => Blink_JsNative_DomException
+      .callMethod(mthis /* FontFaceSet */, "add", []);
+
+  add_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
+      .callMethod(mthis /* FontFaceSet */, "add", [__arg_0]);
+
   check_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* FontFaceSet */, "check", []);
 
@@ -9056,6 +9062,30 @@ class BlinkFontFaceSet extends BlinkEventTarget {
 
   check_Callback_2_(mthis, __arg_0, __arg_1) => Blink_JsNative_DomException
       .callMethod(mthis /* FontFaceSet */, "check", [__arg_0, __arg_1]);
+
+  clear_Callback_0_(mthis) => Blink_JsNative_DomException
+      .callMethod(mthis /* FontFaceSet */, "clear", []);
+
+  delete_Callback_0_(mthis) => Blink_JsNative_DomException
+      .callMethod(mthis /* FontFaceSet */, "delete", []);
+
+  delete_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
+      .callMethod(mthis /* FontFaceSet */, "delete", [__arg_0]);
+
+  forEach_Callback_0_(mthis) => Blink_JsNative_DomException
+      .callMethod(mthis /* FontFaceSet */, "forEach", []);
+
+  forEach_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
+      .callMethod(mthis /* FontFaceSet */, "forEach", [__arg_0]);
+
+  forEach_Callback_2_(mthis, __arg_0, __arg_1) => Blink_JsNative_DomException
+      .callMethod(mthis /* FontFaceSet */, "forEach", [__arg_0, __arg_1]);
+
+  has_Callback_0_(mthis) => Blink_JsNative_DomException
+      .callMethod(mthis /* FontFaceSet */, "has", []);
+
+  has_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
+      .callMethod(mthis /* FontFaceSet */, "has", [__arg_0]);
 
   load_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* FontFaceSet */, "load", []);

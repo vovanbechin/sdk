@@ -18223,10 +18223,35 @@ class FontFaceSet extends EventTarget {
   @Experimental() // untriaged
   final String status;
 
+  @DomName('FontFaceSet.add')
+  @DocsEditable()
+  @Experimental() // untriaged
+  FontFaceSet add(FontFace arg) native;
+
   @DomName('FontFaceSet.check')
   @DocsEditable()
   @Experimental() // untriaged
   bool check(String font, [String text]) native;
+
+  @DomName('FontFaceSet.clear')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void clear() native;
+
+  @DomName('FontFaceSet.delete')
+  @DocsEditable()
+  @Experimental() // untriaged
+  bool delete(FontFace arg) native;
+
+  @DomName('FontFaceSet.forEach')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void forEach(Object callback, [Object thisArg]) native;
+
+  @DomName('FontFaceSet.has')
+  @DocsEditable()
+  @Experimental() // untriaged
+  bool has(FontFace arg) native;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a

@@ -747,6 +747,7 @@ LayoutTests/fast/url/relative-win_t01: RuntimeError # co19-roll r786: Please tri
 LayoutTests/fast/url/segments_t01: RuntimeError # co19-roll r786: Please triage this failure.
 LayoutTests/fast/url/segments-from-data-url_t01: RuntimeError # co19-roll r786: Please triage this failure.
 LayoutTests/fast/url/standard-url_t01: RuntimeError # co19-roll r786: Please triage this failure.
+LayoutTests/fast/writing-mode/auto-sizing-orthogonal-flows_t01: RuntimeError # co19 test failure div container data-expected-height should be 575 not 590
 LayoutTests/fast/writing-mode/percentage-margins-absolute-replaced_t01: Pass, RuntimeError # co19 issue 11.
 LayoutTests/fast/writing-mode/positionForPoint_t01: RuntimeError # co19-roll r786: Please triage this failure.
 LayoutTests/fast/writing-mode/positionForPoint_t01: Skip # co19 issue 732.
@@ -1183,7 +1184,6 @@ Language/Metadata/compilation_t10: Timeout # Roll 50  crash
 Language/Metadata/compilation_t11: Timeout # Roll 50  crash
 LayoutTests/fast/borders/border-width-percent_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/css-escaped-identifier_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/css/fontface-properties_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/font-shorthand-from-longhands_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/getComputedStyle/computed-style-border-image_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/getComputedStyle/computed-style-cross-fade_t01: RuntimeError # Roll 50 breakage
@@ -1229,7 +1229,6 @@ LayoutTests/fast/forms/ValidityState-tooLong-textarea_t01: RuntimeError # Roll 5
 LayoutTests/fast/forms/willvalidate_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/html/object-border_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/innerHTML/innerHTML-uri-resolution_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/writing-mode/auto-sizing-orthogonal-flows_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/writing-mode/flipped-blocks-hit-test-overflow-scroll_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/writing-mode/flipped-blocks-hit-test-overflow_t01: RuntimeError # Roll 50 breakage
 LibTest/html/Element/isTagSupported_A01_t01: RuntimeError # Roll 50 breakage
