@@ -19,11 +19,9 @@ events_test: RuntimeError # Roll 50 breakage
 
 # TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
 # ---------------------------------------------
-element_types_constructors1_test: RuntimeError # Roll 50 breakage
-element_types_constructors3_test/constructors: RuntimeError # Roll 50 breakage
+cssstyledeclaration_test: RuntimeError # Roll 50 breakage
 event_test: RuntimeError # Roll 50 breakage
 history_test/history: RuntimeError # Roll 50 breakage
-node_validator_important_if_you_suppress_make_the_bug_critical_test/DOM_sanitization: RuntimeError # Roll 50 breakage
 svgelement_test/PathElement: RuntimeError # Roll 50 breakage
 # ---------------------------------------------
 # TODO(terry): End of Dartium 50 roll failures

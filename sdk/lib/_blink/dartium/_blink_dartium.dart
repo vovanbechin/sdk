@@ -2678,8 +2678,8 @@ class BlinkCSSStyleDeclaration {
   $__getter___Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
       .callMethod(mthis /* CSSStyleDeclaration */, "__getter__", [__arg_0]);
 
-  $__propertyQuery___Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .propertyQuery(mthis, __arg_0); /* CSSStyleDeclaration */
+  $__propertyQuery___Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_PQ_CSSStyleDeclaration";
 
   $__setter___Callback_2_(mthis, __arg_0, __arg_1) =>
       Blink_JsNative_DomException.callMethod(
@@ -2692,12 +2692,11 @@ class BlinkCSSStyleDeclaration {
       Blink_JsNative_DomException.callMethod(
           mthis /* CSSStyleDeclaration */, "getPropertyPriority", [__arg_0]);
 
-  getPropertyValue_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* CSSStyleDeclaration */, "getPropertyValue", []);
+  getPropertyValue_Callback_0_(mthis)
+      native "Blink_Operation_0_CSSStyleDeclaration_getPropertyValue";
 
-  getPropertyValue_Callback_1_(mthis, __arg_0) =>
-      Blink_JsNative_DomException.callMethod(
-          mthis /* CSSStyleDeclaration */, "getPropertyValue", [__arg_0]);
+  getPropertyValue_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_CSSStyleDeclaration_getPropertyValue"; /* __arg_0 */
 
   item_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* CSSStyleDeclaration */, "item", []);
@@ -2711,16 +2710,15 @@ class BlinkCSSStyleDeclaration {
   removeProperty_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
       .callMethod(mthis /* CSSStyleDeclaration */, "removeProperty", [__arg_0]);
 
-  setProperty_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* CSSStyleDeclaration */, "setProperty", [__arg_0]);
+  setProperty_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_CSSStyleDeclaration_setProperty"; /* __arg_0 */
 
-  setProperty_Callback_2_(mthis, __arg_0, __arg_1) =>
-      Blink_JsNative_DomException.callMethod(
-          mthis /* CSSStyleDeclaration */, "setProperty", [__arg_0, __arg_1]);
+  setProperty_Callback_2_(mthis, __arg_0, __arg_1)
+      native "Blink_Operation_CSSStyleDeclaration_setProperty"; /* __arg_0, __arg_1 */
 
-  setProperty_Callback_3_(mthis, __arg_0, __arg_1, __arg_2) =>
-      Blink_JsNative_DomException.callMethod(mthis /* CSSStyleDeclaration */,
-          "setProperty", [__arg_0, __arg_1, __arg_2]);
+  setProperty_Callback_3_(mthis, __arg_0, __arg_1, __arg_2)
+      native "Blink_Operation_CSSStyleDeclaration_setProperty"; /* __arg_0, __arg_1, __arg_2 */
+
 }
 
 class BlinkCSSStyleRule extends BlinkCSSRule {
@@ -3956,8 +3954,7 @@ class BlinkCharacterData extends BlinkNode {
       Blink_JsNative_DomException.callMethod(
           mthis /* CharacterData */, "substringData", [__arg_0, __arg_1]);
 
-  remove_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* ChildNode */, "remove", []);
+  remove_Callback_0_(mthis) native "Blink_Operation_0_ChildNode_remove";
 
   nextElementSibling_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* NonDocumentTypeChildNode */, "nextElementSibling");
@@ -3970,8 +3967,7 @@ class BlinkCharacterData extends BlinkNode {
 class BlinkChildNode {
   static final instance = new BlinkChildNode();
 
-  remove_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* ChildNode */, "remove", []);
+  remove_Callback_0_(mthis) native "Blink_Operation_0_ChildNode_remove";
 }
 
 class BlinkCircularGeofencingRegion extends BlinkGeofencingRegion {
@@ -5927,11 +5923,9 @@ class BlinkDocument extends BlinkNode {
   applets_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Document */, "applets");
 
-  body_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Document */, "body");
+  body_Getter_(mthis) native "Blink_Getter_Document_body";
 
-  body_Setter_(mthis, __arg_0) => Blink_JsNative_DomException.setProperty(
-      mthis /* Document */, "body", __arg_0);
+  body_Setter_(mthis, __arg_0) native "Blink_Setter_Document_body";
 
   characterSet_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Document */, "characterSet");
@@ -6267,15 +6261,14 @@ class BlinkDocument extends BlinkNode {
   createDocumentFragment_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Document */, "createDocumentFragment", []);
 
-  createElement_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* Document */, "createElement", []);
+  createElement_Callback_0_(mthis)
+      native "Blink_Operation_0_Document_createElement";
 
-  createElement_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* Document */, "createElement", [__arg_0]);
+  createElement_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_Document_createElement"; /* __arg_0 */
 
-  createElement_Callback_2_(mthis, __arg_0, __arg_1) =>
-      Blink_JsNative_DomException.callMethod(
-          mthis /* Document */, "createElement", [__arg_0, __arg_1]);
+  createElement_Callback_2_(mthis, __arg_0, __arg_1)
+      native "Blink_Operation_Document_createElement"; /* __arg_0, __arg_1 */
 
   createElementNS_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Document */, "createElementNS", []);
@@ -6341,11 +6334,11 @@ class BlinkDocument extends BlinkNode {
   createRange_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Document */, "createRange", []);
 
-  createTextNode_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* Document */, "createTextNode", []);
+  createTextNode_Callback_0_(mthis)
+      native "Blink_Operation_0_Document_createTextNode";
 
-  createTextNode_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* Document */, "createTextNode", [__arg_0]);
+  createTextNode_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_Document_createTextNode"; /* __arg_0 */
 
   createTouch_Callback_9_(mthis, __arg_0, __arg_1, __arg_2, __arg_3, __arg_4,
           __arg_5, __arg_6, __arg_7, __arg_8) =>
@@ -7024,14 +7017,13 @@ class BlinkDocument extends BlinkNode {
   childElementCount_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* ParentNode */, "childElementCount");
 
-  children_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "children");
+  children_Getter_(mthis) native "Blink_Getter_ParentNode_children";
 
-  firstElementChild_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "firstElementChild");
+  firstElementChild_Getter_(mthis)
+      native "Blink_Getter_ParentNode_firstElementChild";
 
-  lastElementChild_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "lastElementChild");
+  lastElementChild_Getter_(mthis)
+      native "Blink_Getter_ParentNode_lastElementChild";
 
   querySelector_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* ParentNode */, "querySelector", []);
@@ -7062,14 +7054,13 @@ class BlinkDocumentFragment extends BlinkNode {
   childElementCount_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* ParentNode */, "childElementCount");
 
-  children_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "children");
+  children_Getter_(mthis) native "Blink_Getter_ParentNode_children";
 
-  firstElementChild_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "firstElementChild");
+  firstElementChild_Getter_(mthis)
+      native "Blink_Getter_ParentNode_firstElementChild";
 
-  lastElementChild_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "lastElementChild");
+  lastElementChild_Getter_(mthis)
+      native "Blink_Getter_ParentNode_lastElementChild";
 
   querySelector_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* ParentNode */, "querySelector", []);
@@ -7103,8 +7094,7 @@ class BlinkDocumentType extends BlinkNode {
   systemId_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* DocumentType */, "systemId");
 
-  remove_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* ChildNode */, "remove", []);
+  remove_Callback_0_(mthis) native "Blink_Operation_0_ChildNode_remove";
 }
 
 class BlinkDragEvent extends BlinkMouseEvent {
@@ -7248,20 +7238,16 @@ class BlinkElement extends BlinkNode {
   assignedSlot_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Element */, "assignedSlot");
 
-  attributes_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* Element */, "attributes");
+  attributes_Getter_(mthis) native "Blink_Getter_Element_attributes";
 
   classList_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Element */, "classList");
 
-  className_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Element */, "className");
+  className_Getter_(mthis) native "Blink_Getter_Element_className";
 
-  className_Setter_(mthis, __arg_0) => Blink_JsNative_DomException.setProperty(
-      mthis /* Element */, "className", __arg_0);
+  className_Setter_(mthis, __arg_0) native "Blink_Setter_Element_className";
 
-  clientHeight_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* Element */, "clientHeight");
+  clientHeight_Getter_(mthis) native "Blink_Getter_Element_clientHeight";
 
   clientLeft_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Element */, "clientLeft");
@@ -7269,8 +7255,7 @@ class BlinkElement extends BlinkNode {
   clientTop_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Element */, "clientTop");
 
-  clientWidth_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* Element */, "clientWidth");
+  clientWidth_Getter_(mthis) native "Blink_Getter_Element_clientWidth";
 
   computedName_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Element */, "computedName");
@@ -7278,11 +7263,9 @@ class BlinkElement extends BlinkNode {
   computedRole_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Element */, "computedRole");
 
-  id_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Element */, "id");
+  id_Getter_(mthis) native "Blink_Getter_Element_id";
 
-  id_Setter_(mthis, __arg_0) => Blink_JsNative_DomException.setProperty(
-      mthis /* Element */, "id", __arg_0);
+  id_Setter_(mthis, __arg_0) native "Blink_Setter_Element_id";
 
   innerHTML_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Element */, "innerHTML");
@@ -7399,8 +7382,7 @@ class BlinkElement extends BlinkNode {
   slot_Setter_(mthis, __arg_0) => Blink_JsNative_DomException.setProperty(
       mthis /* Element */, "slot", __arg_0);
 
-  tagName_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Element */, "tagName");
+  tagName_Getter_(mthis) native "Blink_Getter_Element_tagName";
 
   animate_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Element */, "animate", []);
@@ -7429,11 +7411,11 @@ class BlinkElement extends BlinkNode {
   getAnimations_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Element */, "getAnimations", []);
 
-  getAttribute_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* Element */, "getAttribute", []);
+  getAttribute_Callback_0_(mthis)
+      native "Blink_Operation_0_Element_getAttribute";
 
-  getAttribute_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* Element */, "getAttribute", [__arg_0]);
+  getAttribute_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_Element_getAttribute"; /* __arg_0 */
 
   getAttributeNS_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Element */, "getAttributeNS", []);
@@ -7461,8 +7443,8 @@ class BlinkElement extends BlinkNode {
       Blink_JsNative_DomException.callMethod(
           mthis /* Element */, "getAttributeNodeNS", [__arg_0, __arg_1]);
 
-  getBoundingClientRect_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* Element */, "getBoundingClientRect", []);
+  getBoundingClientRect_Callback_0_(mthis)
+      native "Blink_Operation_0_Element_getBoundingClientRect";
 
   getClientRects_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Element */, "getClientRects", []);
@@ -7552,11 +7534,11 @@ class BlinkElement extends BlinkNode {
   matches_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
       .callMethod(mthis /* Element */, "matches", [__arg_0]);
 
-  removeAttribute_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* Element */, "removeAttribute", []);
+  removeAttribute_Callback_0_(mthis)
+      native "Blink_Operation_0_Element_removeAttribute";
 
-  removeAttribute_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* Element */, "removeAttribute", [__arg_0]);
+  removeAttribute_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_Element_removeAttribute"; /* __arg_0 */
 
   removeAttributeNS_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Element */, "removeAttributeNS", []);
@@ -7630,15 +7612,14 @@ class BlinkElement extends BlinkNode {
       Blink_JsNative_DomException.callMethod(
           mthis /* Element */, "setApplyScroll", [__arg_0, __arg_1]);
 
-  setAttribute_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* Element */, "setAttribute", []);
+  setAttribute_Callback_0_(mthis)
+      native "Blink_Operation_0_Element_setAttribute";
 
-  setAttribute_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* Element */, "setAttribute", [__arg_0]);
+  setAttribute_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_Element_setAttribute"; /* __arg_0 */
 
-  setAttribute_Callback_2_(mthis, __arg_0, __arg_1) =>
-      Blink_JsNative_DomException
-          .callMethod(mthis /* Element */, "setAttribute", [__arg_0, __arg_1]);
+  setAttribute_Callback_2_(mthis, __arg_0, __arg_1)
+      native "Blink_Operation_Element_setAttribute"; /* __arg_0, __arg_1 */
 
   setAttributeNS_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
       .callMethod(mthis /* Element */, "setAttributeNS", [__arg_0]);
@@ -7686,14 +7667,13 @@ class BlinkElement extends BlinkNode {
   childElementCount_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* ParentNode */, "childElementCount");
 
-  children_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "children");
+  children_Getter_(mthis) native "Blink_Getter_ParentNode_children";
 
-  firstElementChild_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "firstElementChild");
+  firstElementChild_Getter_(mthis)
+      native "Blink_Getter_ParentNode_firstElementChild";
 
-  lastElementChild_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "lastElementChild");
+  lastElementChild_Getter_(mthis)
+      native "Blink_Getter_ParentNode_lastElementChild";
 
   querySelector_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* ParentNode */, "querySelector", []);
@@ -7707,8 +7687,7 @@ class BlinkElement extends BlinkNode {
   querySelectorAll_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
       .callMethod(mthis /* ParentNode */, "querySelectorAll", [__arg_0]);
 
-  remove_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* ChildNode */, "remove", []);
+  remove_Callback_0_(mthis) native "Blink_Operation_0_ChildNode_remove";
 
   nextElementSibling_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* NonDocumentTypeChildNode */, "nextElementSibling");
@@ -8402,8 +8381,7 @@ class BlinkEvent {
   srcElement_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Event */, "srcElement");
 
-  target_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Event */, "target");
+  target_Getter_(mthis) native "Blink_Getter_Event_target";
 
   timeStamp_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Event */, "timeStamp");
@@ -10423,14 +10401,12 @@ class BlinkHTMLCanvasElement extends BlinkHTMLElement {
 class BlinkHTMLCollection {
   static final instance = new BlinkHTMLCollection();
 
-  length_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* HTMLCollection */, "length");
+  length_Getter_(mthis) native "Blink_Getter_HTMLCollection_length";
 
-  item_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* HTMLCollection */, "item", []);
+  item_Callback_0_(mthis) native "Blink_Operation_0_HTMLCollection_item";
 
-  item_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* HTMLCollection */, "item", [__arg_0]);
+  item_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_HTMLCollection_item"; /* __arg_0 */
 
   namedItem_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* HTMLCollection */, "namedItem", []);
@@ -10609,11 +10585,9 @@ class BlinkHTMLElement extends BlinkElement {
   draggable_Setter_(mthis, __arg_0) => Blink_JsNative_DomException.setProperty(
       mthis /* HTMLElement */, "draggable", __arg_0);
 
-  hidden_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* HTMLElement */, "hidden");
+  hidden_Getter_(mthis) native "Blink_Getter_HTMLElement_hidden";
 
-  hidden_Setter_(mthis, __arg_0) => Blink_JsNative_DomException.setProperty(
-      mthis /* HTMLElement */, "hidden", __arg_0);
+  hidden_Setter_(mthis, __arg_0) native "Blink_Setter_HTMLElement_hidden";
 
   innerText_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* HTMLElement */, "innerText");
@@ -10657,8 +10631,7 @@ class BlinkHTMLElement extends BlinkElement {
   spellcheck_Setter_(mthis, __arg_0) => Blink_JsNative_DomException.setProperty(
       mthis /* HTMLElement */, "spellcheck", __arg_0);
 
-  style_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* HTMLElement */, "style");
+  style_Getter_(mthis) native "Blink_Getter_HTMLElement_style";
 
   tabIndex_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* HTMLElement */, "tabIndex");
@@ -15320,11 +15293,9 @@ class BlinkLocation {
   ancestorOrigins_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Location */, "ancestorOrigins");
 
-  hash_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Location */, "hash");
+  hash_Getter_(mthis) native "Blink_Getter_Location_hash";
 
-  hash_Setter_(mthis, __arg_0) => Blink_JsNative_DomException.setProperty(
-      mthis /* Location */, "hash", __arg_0);
+  hash_Setter_(mthis, __arg_0) native "Blink_Setter_Location_hash";
 
   host_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Location */, "host");
@@ -15338,11 +15309,9 @@ class BlinkLocation {
   hostname_Setter_(mthis, __arg_0) => Blink_JsNative_DomException.setProperty(
       mthis /* Location */, "hostname", __arg_0);
 
-  href_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Location */, "href");
+  href_Getter_(mthis) native "Blink_Getter_Location_href";
 
-  href_Setter_(mthis, __arg_0) => Blink_JsNative_DomException.setProperty(
-      mthis /* Location */, "href", __arg_0);
+  href_Setter_(mthis, __arg_0) native "Blink_Setter_Location_href";
 
   origin_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Location */, "origin");
@@ -16620,11 +16589,9 @@ class BlinkMouseEvent extends BlinkUIEvent {
   buttons_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* MouseEvent */, "buttons");
 
-  clientX_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* MouseEvent */, "clientX");
+  clientX_Getter_(mthis) native "Blink_Getter_MouseEvent_clientX";
 
-  clientY_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* MouseEvent */, "clientY");
+  clientY_Getter_(mthis) native "Blink_Getter_MouseEvent_clientY";
 
   ctrlKey_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* MouseEvent */, "ctrlKey");
@@ -17268,23 +17235,18 @@ class BlinkNode extends BlinkEventTarget {
   baseURI_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Node */, "baseURI");
 
-  childNodes_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Node */, "childNodes");
+  childNodes_Getter_(mthis) native "Blink_Getter_Node_childNodes";
 
-  firstChild_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Node */, "firstChild");
+  firstChild_Getter_(mthis) native "Blink_Getter_Node_firstChild";
 
-  lastChild_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Node */, "lastChild");
+  lastChild_Getter_(mthis) native "Blink_Getter_Node_lastChild";
 
-  nextSibling_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Node */, "nextSibling");
+  nextSibling_Getter_(mthis) native "Blink_Getter_Node_nextSibling";
 
   nodeName_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Node */, "nodeName");
 
-  nodeType_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Node */, "nodeType");
+  nodeType_Getter_(mthis) native "Blink_Getter_Node_nodeType";
 
   nodeValue_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Node */, "nodeValue");
@@ -17295,35 +17257,28 @@ class BlinkNode extends BlinkEventTarget {
   ownerDocument_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Node */, "ownerDocument");
 
-  parentElement_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* Node */, "parentElement");
+  parentElement_Getter_(mthis) native "Blink_Getter_Node_parentElement";
 
-  parentNode_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Node */, "parentNode");
+  parentNode_Getter_(mthis) native "Blink_Getter_Node_parentNode";
 
-  previousSibling_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* Node */, "previousSibling");
+  previousSibling_Getter_(mthis) native "Blink_Getter_Node_previousSibling";
 
-  textContent_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Node */, "textContent");
+  textContent_Getter_(mthis) native "Blink_Getter_Node_textContent";
 
-  textContent_Setter_(mthis, __arg_0) => Blink_JsNative_DomException
-      .setProperty(mthis /* Node */, "textContent", __arg_0);
+  textContent_Setter_(mthis, __arg_0) native "Blink_Setter_Node_textContent";
 
   treeRoot_Getter_(mthis) =>
       Blink_JsNative_DomException.getProperty(mthis /* Node */, "treeRoot");
 
-  appendChild_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* Node */, "appendChild", []);
+  appendChild_Callback_0_(mthis) native "Blink_Operation_0_Node_appendChild";
 
-  appendChild_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* Node */, "appendChild", [__arg_0]);
+  appendChild_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_Node_appendChild"; /* __arg_0 */
 
-  cloneNode_Callback_0_(mthis) =>
-      Blink_JsNative_DomException.callMethod(mthis /* Node */, "cloneNode", []);
+  cloneNode_Callback_0_(mthis) native "Blink_Operation_0_Node_cloneNode";
 
-  cloneNode_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* Node */, "cloneNode", [__arg_0]);
+  cloneNode_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_Node_cloneNode"; /* __arg_0 */
 
   compareDocumentPosition_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Node */, "compareDocumentPosition", []);
@@ -17332,24 +17287,21 @@ class BlinkNode extends BlinkEventTarget {
       Blink_JsNative_DomException
           .callMethod(mthis /* Node */, "compareDocumentPosition", [__arg_0]);
 
-  contains_Callback_0_(mthis) =>
-      Blink_JsNative_DomException.callMethod(mthis /* Node */, "contains", []);
+  contains_Callback_0_(mthis) native "Blink_Operation_0_Node_contains";
 
-  contains_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* Node */, "contains", [__arg_0]);
+  contains_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_Node_contains"; /* __arg_0 */
 
   hasChildNodes_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Node */, "hasChildNodes", []);
 
-  insertBefore_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* Node */, "insertBefore", []);
+  insertBefore_Callback_0_(mthis) native "Blink_Operation_0_Node_insertBefore";
 
-  insertBefore_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* Node */, "insertBefore", [__arg_0]);
+  insertBefore_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_Node_insertBefore"; /* __arg_0 */
 
-  insertBefore_Callback_2_(mthis, __arg_0, __arg_1) =>
-      Blink_JsNative_DomException
-          .callMethod(mthis /* Node */, "insertBefore", [__arg_0, __arg_1]);
+  insertBefore_Callback_2_(mthis, __arg_0, __arg_1)
+      native "Blink_Operation_Node_insertBefore"; /* __arg_0, __arg_1 */
 
   isDefaultNamespace_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Node */, "isDefaultNamespace", []);
@@ -17384,11 +17336,10 @@ class BlinkNode extends BlinkEventTarget {
   normalize_Callback_0_(mthis) =>
       Blink_JsNative_DomException.callMethod(mthis /* Node */, "normalize", []);
 
-  removeChild_Callback_0_(mthis) => Blink_JsNative_DomException
-      .callMethod(mthis /* Node */, "removeChild", []);
+  removeChild_Callback_0_(mthis) native "Blink_Operation_0_Node_removeChild";
 
-  removeChild_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* Node */, "removeChild", [__arg_0]);
+  removeChild_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_Node_removeChild"; /* __arg_0 */
 
   replaceChild_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* Node */, "replaceChild", []);
@@ -17442,14 +17393,13 @@ class BlinkNodeIterator {
 class BlinkNodeList {
   static final instance = new BlinkNodeList();
 
-  length_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* NodeList */, "length");
+  length_Getter_(mthis) native "Blink_Getter_NodeList_length";
 
-  item_Callback_0_(mthis) =>
-      Blink_JsNative_DomException.callMethod(mthis /* NodeList */, "item", []);
+  item_Callback_0_(mthis) native "Blink_Operation_0_NodeList_item";
 
-  item_Callback_1_(mthis, __arg_0) => Blink_JsNative_DomException
-      .callMethod(mthis /* NodeList */, "item", [__arg_0]);
+  item_Callback_1_(mthis, __arg_0)
+      native "Blink_Operation_NodeList_item"; /* __arg_0 */
+
 }
 
 class BlinkNonDocumentTypeChildNode {
@@ -17965,14 +17915,13 @@ class BlinkParentNode {
   childElementCount_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* ParentNode */, "childElementCount");
 
-  children_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "children");
+  children_Getter_(mthis) native "Blink_Getter_ParentNode_children";
 
-  firstElementChild_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "firstElementChild");
+  firstElementChild_Getter_(mthis)
+      native "Blink_Getter_ParentNode_firstElementChild";
 
-  lastElementChild_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
-      mthis /* ParentNode */, "lastElementChild");
+  lastElementChild_Getter_(mthis)
+      native "Blink_Getter_ParentNode_lastElementChild";
 
   querySelector_Callback_0_(mthis) => Blink_JsNative_DomException
       .callMethod(mthis /* ParentNode */, "querySelector", []);
@@ -36962,8 +36911,7 @@ class BlinkWindow extends BlinkEventTarget {
   innerHeight_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Window */, "innerHeight");
 
-  innerWidth_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Window */, "innerWidth");
+  innerWidth_Getter_(mthis) native "Blink_Getter_Window_innerWidth";
 
   isSecureContext_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Window */, "isSecureContext");
@@ -36974,8 +36922,7 @@ class BlinkWindow extends BlinkEventTarget {
   localStorage_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Window */, "localStorage");
 
-  location_Getter_(mthis) =>
-      Blink_JsNative_DomException.getProperty(mthis /* Window */, "location");
+  location_Getter_(mthis) native "Blink_Getter_Window_location";
 
   locationbar_Getter_(mthis) => Blink_JsNative_DomException.getProperty(
       mthis /* Window */, "locationbar");

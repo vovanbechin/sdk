@@ -294,7 +294,6 @@ LayoutTests/fast/css/computed-offset-with-zoom_t01: Skip # co19 issue 732.
 LayoutTests/fast/css/content/content-none_t01: RuntimeError # co19-roll r761: Please triage this failure.
 LayoutTests/fast/css/content/content-normal_t01: RuntimeError # co19-roll r761: Please triage this failure.
 LayoutTests/fast/css/counters/complex-before_t01: RuntimeError, Pass # co19-roll r761: Please triage this failure.
-LayoutTests/fast/css/css-properties-case-insensitive_t01: RuntimeError # co19-roll r761: Please triage this failure.
 LayoutTests/fast/css/css3-nth-tokens-style_t01: RuntimeError # co19-roll r761: Please triage this failure.
 LayoutTests/fast/css/deprecated-flexbox-auto-min-size_t01: Pass, RuntimeError # co19-roll r761: Please triage this failure.
 LayoutTests/fast/css/first-child-display-change-inverse_t01: RuntimeError # co19-roll r761: Please triage this failure.
@@ -1182,66 +1181,57 @@ Language/Metadata/compilation_t08: Timeout # Roll 50  crash
 Language/Metadata/compilation_t09: Timeout # Roll 50  crash
 Language/Metadata/compilation_t10: Timeout # Roll 50  crash
 Language/Metadata/compilation_t11: Timeout # Roll 50  crash
-LayoutTests/fast/borders/border-width-percent_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/css-escaped-identifier_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/font-shorthand-from-longhands_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/getComputedStyle/computed-style-border-image_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/getComputedStyle/computed-style-cross-fade_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css-intrinsic-dimensions/multicol_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/parsing-css-nonascii_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/css/pseudo-valid-unapplied_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/selector-text-escape_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/unicode-bidi-computed-value_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/css/url-with-multi-byte-unicode-escape_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/dom/click-method-on-html-element_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/dom/computed-style-set-property_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/dom/createDocumentType2_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/dom/createElementNS_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/dom/custom/document-register-type-extensions_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/dom/Document/createElement-invalid-names_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/DOMException/dispatch-event-exception_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/dom/getelementsbyname-invalidation-cache_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/dom/DOMException/prototype-object_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/horizontal-scrollbar-in-rtl_t01: Pass, RuntimeError # Roll 50 breakage
-LayoutTests/fast/dom/HTMLObjectElement/children-changed_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/dom/HTMLObjectElement/form/test1_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/dom/HTMLObjectElement/set-type-to-null-crash_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/HTMLScriptElement/remove-source_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/dom/object-plugin-hides-properties_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/dom/HTMLTemplateElement/cycles-in-shadow_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/dom/HTMLTemplateElement/cycles_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/dom/Node/contains-method_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/offset-position-writing-modes_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/shadow/content-pseudo-element-css-text_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/shadow/host-context-pseudo-class-css-text_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/shadow/host-pseudo-class-css-text_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/dom/shadow/shadow-disable_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/dom/shadow/shadow-element-inactive_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/dom/shadow/shadow-hierarchy-exception_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/Window/getMatchedCSSRules-with-pseudo-elements-complex_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/dynamic/insertAdjacentHTML-allowed-parents_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/events/add-event-without-document_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/events/mutation-during-append-child_t01: RuntimeError # Roll 50 breakage
+LayoutTests/fast/events/mutation-during-insert-before_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/files/url-null_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/forms/change-form-element-document-crash_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/forms/checkValidity-001_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/forms/fieldset/fieldset-elements_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/forms/form-attribute_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/forms/menulist-submit-without-selection_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/forms/plaintext-mode-1_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/forms/select-max-length_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/forms/setCustomValidity-existence_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/forms/setrangetext_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/forms/submit-form-attributes_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/forms/validationMessage_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/forms/validity-property_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/forms/ValidityState-tooLong-input_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/forms/ValidityState-tooLong-textarea_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/forms/willvalidate_t01: RuntimeError # Roll 50 breakage
-LayoutTests/fast/html/object-border_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/innerHTML/innerHTML-uri-resolution_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/writing-mode/flipped-blocks-hit-test-overflow-scroll_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/writing-mode/flipped-blocks-hit-test-overflow_t01: RuntimeError # Roll 50 breakage
-LibTest/html/Element/isTagSupported_A01_t01: RuntimeError # Roll 50 breakage
-LibTest/html/Element/tagName_A01_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/custom-elements/instantiating/createElement_A02_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/custom-elements/instantiating/createElement_A03_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/custom-elements/instantiating/createElement_A04_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/custom-elements/instantiating/createElementNS_A02_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/custom-elements/instantiating/createElementNS_A03_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/custom-elements/instantiating/createElementNS_A04_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/custom-elements/instantiating/isAttribute_A01_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/custom-elements/instantiating/isAttribute_A01_t02: RuntimeError # Roll 50 breakage
+LibTest/html/Document/insertAllBefore_A01_t01: RuntimeError # Roll 50 breakage
+LibTest/html/Document/insertBefore_A01_t01: RuntimeError # Roll 50 breakage
+LibTest/html/Document/text_A01_t01: RuntimeError # Roll 50 breakage
+LibTest/html/Element/insertAllBefore_A01_t01: RuntimeError # Roll 50 breakage
+LibTest/html/Element/insertBefore_A01_t01: RuntimeError # Roll 50 breakage
+LibTest/html/Element/text_A01_t01: RuntimeError # Roll 50 breakage
+LibTest/html/IFrameElement/insertAllBefore_A01_t01: RuntimeError # Roll 50 breakage
+LibTest/html/IFrameElement/insertBefore_A01_t01: RuntimeError # Roll 50 breakage
 WebPlatformTest/custom-elements/instantiating/isAttribute_A02_t01: RuntimeError # Roll 50 breakage
+WebPlatformTest/dom/nodes/attributes/setAttribute_A01_t01: RuntimeError # Roll 50 breakage
+WebPlatformTest/dom/nodes/Node-appendChild_t01: RuntimeError # Roll 50 breakage
 WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-001_t01: RuntimeError # Roll 50 breakage
 WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-002_t01: RuntimeError # Roll 50 breakage
 WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-003_t01: RuntimeError # Roll 50 breakage
@@ -1251,10 +1241,6 @@ WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-006_t01: R
 WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-007_t01: RuntimeError # Roll 50 breakage
 WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-008_t01: RuntimeError # Roll 50 breakage
 WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-009_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/html-elements-in-shadow-trees/html-forms/test-001_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/html-elements-in-shadow-trees/html-forms/test-002_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/shadow-trees/upper-boundary-encapsulation/test-005_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/shadow-trees/upper-boundary-encapsulation/test-007_t01: RuntimeError # Roll 50 breakage
 # ---------------------------------------------
 # TODO(terry): End of Dartium 50 roll failures
 
