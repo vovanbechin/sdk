@@ -1124,7 +1124,7 @@ WebPlatformTest/shadow-dom/events/event-dispatch/test-003_t01: RuntimeError # co
 WebPlatformTest/shadow-dom/events/event-retargeting/test-001_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/shadow-dom/events/event-retargeting/test-002_t01: RuntimeError # Not clear that any of this works. Also suppressed in dart2js
 WebPlatformTest/shadow-dom/events/event-retargeting/test-004_t01: RuntimeError # co19-roll r722: Please triage this failure.
-WebPlatformTest/shadow-dom/events/retargeting-focus-events/test-001_t01: Pass, RuntimeError # Flaky with Dartium JsInterop. Seems like timing issues in the test.
+WebPlatformTest/shadow-dom/events/retargeting-focus-events/test-001_t01: Pass, RuntimeError, Timeout # Flaky with Dartium JsInterop. Seems like timing issues in the test.
 WebPlatformTest/shadow-dom/events/retargeting-focus-events/test-001_t02: Skip # co19-roll r722: Please triage this failure.
 WebPlatformTest/shadow-dom/events/retargeting-focus-events/test-001_t05: Skip # co19-roll r722: Please triage this failure.
 WebPlatformTest/shadow-dom/events/retargeting-focus-events/test-001_t06: Skip # co19-roll r722: Please triage this failure.
@@ -1324,8 +1324,6 @@ WebPlatformTest/html/semantics/forms/the-datalist-element/datalistoptions_t01: S
 # TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
 # ---------------------------------------------
 WebPlatformTest/html/semantics/forms/textfieldselection/selection_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/html-templates/template-element/template-content_t01: RuntimeError # Roll 50 breakage
-LibTest/html/Element/Element.tag_A01_t01: RuntimeError # Roll 50 breakage
 # ---------------------------------------------
 # TODO(terry): End of Failing tests with Dartium 50 roll (NEED TO FIX All)
 

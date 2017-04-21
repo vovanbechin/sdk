@@ -11,15 +11,6 @@ allocation_profile: Skip
 vm_connect/element_test: Skip # See issue 27714
 heap_snapshot/element_test: RuntimeError # Issue 27925
 
-[ $runtime == dartium && $checked ]
-# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
-# ---------------------------------------------
-class_tree/element_test: RuntimeError # Roll 50 breakage
-cpu_profile_table/element_test: RuntimeError # Roll 50 breakage
-persistent_handles_page/element_test: RuntimeError # Roll 50 breakage
-# ---------------------------------------------
-# TODO(terry): End of Dartium 50 roll failures
-
 [ $runtime == ff || $runtime == safari ]
 allocation_profile: Skip
 cpu_profile_table: Skip
