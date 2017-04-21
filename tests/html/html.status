@@ -5,32 +5,13 @@
 interactive_test: Skip # Must be run manually.
 cross_frame_test: Skip # Test reloads itself. Issue 18558
 
-
-[ $compiler == none && ($runtime == dartium || $runtime == drt) && $checked ]
-# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
-# ---------------------------------------------
-element_classes_svg_test: RuntimeError # Roll 50 breakage
-events_test: RuntimeError # Roll 50 breakage
-# ---------------------------------------------
-# TODO(terry): End of Dartium 50 roll failures
-
-
 [ $compiler == none && ($runtime == dartium || $runtime == drt) ]
-
-# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
-# ---------------------------------------------
-cssstyledeclaration_test: RuntimeError # Roll 50 breakage
-event_test: RuntimeError # Roll 50 breakage
-history_test/history: RuntimeError # Roll 50 breakage
-svgelement_test/PathElement: RuntimeError # Roll 50 breakage
-# ---------------------------------------------
-# TODO(terry): End of Dartium 50 roll failures
-
 mirrors_js_typed_interop_test: Fail # Missing expected failure (Issue 25044)
 js_typed_interop_side_cast_exp_test: Fail, OK # tests dart2js-specific behavior.
 js_typed_interop_type1_test: Fail, OK # tests dart2js-specific behavior.
 js_typed_interop_type2_test: Fail, OK # tests dart2js-specific behavior.
 js_typed_interop_type3_test: Fail, OK # tests dart2js-specific behavior.
+svgelement_test/PathElement: RuntimeError # Issue 25665
 
 native_gc_test: Skip # Dartium JSInterop failure
 js_interop_constructor_name_test/HTMLDivElement-methods: Fail # Investigate.

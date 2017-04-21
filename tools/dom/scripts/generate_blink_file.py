@@ -87,6 +87,17 @@ _js_custom_members = Set([
 # tightly natively wired.
 # _js_custom_members = Set([])
 
+
+# Expose built-in methods support by an instance that is not shown in the IDL.
+_additional_methods = {
+  # Support propertyIsEnumerable (available on all objects only needed by
+  # CSSStyleDeclaration decides if style property is supported (handling
+  # camelcase and inject hyphens between camelcase).
+  # Format of dictionary is 'operation name', arguments, returns value (True or False)
+  'CSSStyleDeclaration': ('propertyIsEnumerable', 1, True), 
+}
+
+
 HEADER = """/* Copyright (c) 2014, the Dart project authors.  Please see the AUTHORS file
  * for details. All rights reserved. Use of this source code is governed by a
  * BSD-style license that can be found in the LICENSE file.
@@ -320,7 +331,7 @@ OPERATION_0 = ['  %s_Callback_0_(mthis)',
                ' native "Blink_Operation_0_%s_%s";\n\n'
                ]
 
-# getter, setter, deleter and propertyQuery code
+# getter, setter, deleter, propertyQuery code, and propertyIsEnumerable
 OPERATION_1 = ['  $%s_Callback_1_(mthis, __arg_0)',
                ' => Blink_JsNative_DomException.callMethod(mthis /* %s */, "%s", [__arg_0]);\n\n',
                ' native "Blink_Operation_1_%s_%s";\n\n'
@@ -442,6 +453,8 @@ def Generate_Blink(output_dir, database, type_registry):
     _Process_Attributes(blink_file, interface, interface.attributes)
     _Process_Operations(blink_file, interface, interface.operations, True)
 
+    _Emit_Extra_Operations(blink_file, name)
+
     secondary_parents = database.TransitiveSecondaryParents(interface, False)
     for secondary in secondary_parents:
       _Process_Attributes(blink_file, secondary, secondary.attributes)
@@ -452,6 +465,12 @@ def Generate_Blink(output_dir, database, type_registry):
   blink_file.write(BLINK_UTILS)
 
   blink_file.close()
+
+def _Emit_Extra_Operations(blink_file, interface_name):
+  if (interface_name in _additional_methods):
+    (name, arg_count, return_value) = _additional_methods[interface_name]
+    exposed_name = ''.join(['__get', '___', name]) if return_value else name
+    blink_file.write(Select_Stub(OPERATION_1, False) % (exposed_name, interface_name, name))
 
 def _Emit_Blink_Constructors(blink_file, analyzed_constructors):
   (arg_min_count, arg_max_count) = generate_parameter_entries(analyzed_constructors.param_infos)

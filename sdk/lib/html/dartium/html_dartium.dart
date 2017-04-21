@@ -6611,8 +6611,7 @@ class CssStyleDeclaration extends DartHtmlDomObject
 
   bool _hasProperty(String propertyName) =>
       _blink.BlinkCSSStyleDeclaration.instance
-          .$__propertyQuery___Callback_1_(this, propertyName) !=
-      null;
+          .$__get___propertyIsEnumerable_Callback_1_(this, propertyName);
 
   @DomName('CSSStyleDeclaration.setProperty')
   void setProperty(String propertyName, String value, [String priority]) {
@@ -20930,11 +20929,14 @@ class HashChangeEvent extends Event {
       bool cancelable: true,
       String oldUrl,
       String newUrl}) {
-    // TODO(alanknight): This is required while we're on Dartium 39, but will need
-    // to look like dart2js with later versions when initHashChange is removed.
-    var event = document._createEvent("HashChangeEvent");
-    event._initHashChangeEvent(type, canBubble, cancelable, oldUrl, newUrl);
-    return event;
+    var options = {
+      'canBubble': canBubble,
+      'cancelable': cancelable,
+      'oldURL': oldUrl,
+      'newURL': newUrl,
+    };
+    return _blink.BlinkHashChangeEvent.instance
+        .constructorCallback_2_(type, convertDartToNative_Dictionary(options));
   }
 
   @DomName('HashChangeEvent.HashChangeEvent')
@@ -49017,12 +49019,8 @@ class _MultiElementCssClassSet extends CssClassSetImpl {
   Iterable<_ElementCssClassSet> _elementCssClassSetIterable;
 
   _MultiElementCssClassSet(this._elementIterable) {
-    _elementCssClassSetIterable = new List.from(_elementIterable).map((e) {
-      if (e is svg.SvgElement)
-        return new svg.AttributeClassSet(e);
-      else
-        return new _ElementCssClassSet(e);
-    });
+    _elementCssClassSetIterable =
+        new List.from(_elementIterable).map((e) => new _ElementCssClassSet(e));
   }
 
   Set<String> readClasses() {

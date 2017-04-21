@@ -13,12 +13,8 @@ class _MultiElementCssClassSet extends CssClassSetImpl {
   Iterable<_ElementCssClassSet> _elementCssClassSetIterable;
 
   _MultiElementCssClassSet(this._elementIterable) {
-    _elementCssClassSetIterable = new List.from(_elementIterable).map((e) {
-      if (e is svg.SvgElement)
-        return new svg.AttributeClassSet(e);
-      else
-        return new _ElementCssClassSet(e);
-    });
+    _elementCssClassSetIterable = new List.from(_elementIterable).map(
+        (e) => new _ElementCssClassSet(e));
   }
 
   Set<String> readClasses() {

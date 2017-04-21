@@ -2719,6 +2719,9 @@ class BlinkCSSStyleDeclaration {
   setProperty_Callback_3_(mthis, __arg_0, __arg_1, __arg_2)
       native "Blink_Operation_CSSStyleDeclaration_setProperty"; /* __arg_0, __arg_1, __arg_2 */
 
+  $__get___propertyIsEnumerable_Callback_1_(mthis, __arg_0) =>
+      Blink_JsNative_DomException.callMethod(
+          mthis /* CSSStyleDeclaration */, "propertyIsEnumerable", [__arg_0]);
 }
 
 class BlinkCSSStyleRule extends BlinkCSSRule {
