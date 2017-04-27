@@ -8,7 +8,7 @@ execfile(os.path.join(path, 'src', 'dart', 'tools', 'deps', 'dartium.deps', 'DEP
 # Now we need to override some settings and add some new ones.
 
 vars.update({
-  "dartium_chromium_commit": "4fe1aafe1c4605729e07bec8c528e69dc0232cb0",
+  "dartium_chromium_commit": "5f26545962952af7a340bc2112ae0cdda66d888c",
   "chromium_base_revision": "378081",
 
   # We use mirrors of all github repos to guarantee reproducibility and
