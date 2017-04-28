@@ -12101,6 +12101,8 @@ class DomException extends DartHtmlDomObject {
   static const String TIMEOUT = 'TimeoutError';
   static const String INVALID_NODE_TYPE = 'InvalidNodeTypeError';
   static const String DATA_CLONE = 'DataCloneError';
+  // Is TypeError class derived from DomException but name is 'TypeError'
+  static const String TYPE_ERROR = 'TypeError';
 
   String _name;
   String _message;
