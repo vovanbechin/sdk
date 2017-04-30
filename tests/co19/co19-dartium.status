@@ -1270,6 +1270,7 @@ LayoutTests/fast/canvas/webgl/tex-input-validation_t01: RuntimeError # Roll 50 m
 
 [ $compiler == none && $runtime == dartium && $system == windows ]
 LayoutTests/fast/css/MarqueeLayoutTest_t01: Pass, RuntimeError # Please triage this failure
+LayoutTests/fast/writing-mode/auto-sizing-orthogonal-flows_t01: RuntimeError # Please triage this failure.
 LayoutTests/fast/writing-mode/flipped-blocks-hit-test-overflow_t01: Pass, RuntimeError # Issue 21605
 LayoutTests/fast/writing-mode/vertical-inline-block-hittest_t01: Pass, RuntimeError # Issue 21605
 LayoutTests/fast/dom/shadow/shadowhost-keyframes_t01: Pass, RuntimeError # Gardening: please triage this failure.
@@ -1320,13 +1321,6 @@ WebPlatformTest/html/semantics/embedded-content/media-elements/interfaces/TextTr
 WebPlatformTest/html/semantics/forms/the-datalist-element/datalistoptions_t01: Skip # Issue 20540.
 
 [ $compiler == none && $runtime == dartium && $checked ]
-
-# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
-# ---------------------------------------------
-WebPlatformTest/html/semantics/forms/textfieldselection/selection_t01: RuntimeError # Roll 50 breakage
-# ---------------------------------------------
-# TODO(terry): End of Failing tests with Dartium 50 roll (NEED TO FIX All)
-
 Language/Errors_and_Warnings/static_warning_t02: RuntimeError # Please triage this failure.
 Language/Errors_and_Warnings/static_warning_t03: RuntimeError # Please triage this failure.
 Language/Errors_and_Warnings/static_warning_t04: RuntimeError # Please triage this failure.
@@ -1413,3 +1407,9 @@ WebPlatformTest/html-templates/parsing-html-templates/clearing-the-stack-back-to
 WebPlatformTest/html-templates/parsing-html-templates/clearing-the-stack-back-to-a-given-context/clearing-stack-back-to-a-table-row-context_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/html/dom/elements/global-attributes/dataset-enumeration_t01: RuntimeError # co19-roll r738: Please triage this failure.
 WebPlatformTest/shadow-dom/shadow-trees/upper-boundary-encapsulation/ownerdocument-001_t01: RuntimeError # co19-roll r722: Please triage this failure.
+
+# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
+# ---------------------------------------------
+WebPlatformTest/html/semantics/forms/textfieldselection/selection_t01: RuntimeError # Roll 50 breakage
+# ---------------------------------------------
+# TODO(terry): End of Failing tests with Dartium 50 roll (NEED TO FIX All)
