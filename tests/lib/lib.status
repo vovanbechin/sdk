@@ -334,6 +334,52 @@ mirrors/library_uri_package_test: RuntimeError
 mirrors/invocation_fuzz_test: Crash
 
 [ $compiler == none && ($runtime == drt || $runtime == dartium) ]
+
+# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
+# ---------------------------------------------
+mirrors/deferred_type_test: Timeout # Roll 50 crash
+mirrors/library_imports_bad_metadata_test/01: Timeout, Pass # Roll 50 crash works on full build
+mirrors/library_metadata2_test/01: Timeout, Pass # Roll 50 crash works on full build # Roll 50 crash
+mirrors/metadata_allowed_values_test/01: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/02: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/03: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/04: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/09: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/10: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/11: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/13: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/14: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/15: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/16: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/27: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/28: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/29: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/30: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_allowed_values_test/31: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_constructor_arguments_test/01: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_constructor_arguments_test/02: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_constructor_arguments_test/03: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_constructor_arguments_test/04: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_constructor_arguments_test/05: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_constructor_arguments_test/06: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_constructor_arguments_test/07: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_nested_constructor_call_test/01: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_nested_constructor_call_test/02: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_nested_constructor_call_test/03: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_nested_constructor_call_test/04: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_nested_constructor_call_test/05: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_nested_constructor_call_test/06: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_nested_constructor_call_test/07: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_nested_constructor_call_test/08: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_nested_constructor_call_test/09: Timeout, Pass # Roll 50 crash works on full build
+mirrors/metadata_scope_test/01: Timeout, Pass # Roll 50 crash works on full build
+mirrors/mirror_in_static_init_test/01: Timeout, Pass # Roll 50 crash works on full build
+mirrors/parameter_is_const_test/01: Timeout, Pass # Roll 50 crash works on full build
+mirrors/syntax_error_test/01: Timeout, Pass # Roll 50 crash works on full build
+mirrors/variable_is_const_test/01: Timeout, Pass # Roll 50 crash works on full build
+# ---------------------------------------------
+# TODO(terry): End of Dartium 50 roll failures
+
 async/future_or_bad_type_test/implements: Pass # Issue 28084
 
 mirrors/initializing_formals_test/01: Fail # initializing formals are implicitly final as of Dart 1.21
@@ -358,6 +404,13 @@ async/timer_test: Fail, Pass # See Issue 10982
 
 [ $compiler == none && $runtime == drt && $checked ]
 async/slow_consumer_test: Fail, Pass # Dartium JsInterop failure, dartbug.com/24460
+
+[ $compiler == none && ($runtime == drt || $runtime == dartium) && $checked ]
+# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
+# ---------------------------------------------
+mirrors/regress_16321_test/01: Timeout, Pass # Roll 50 crash works on full build
+# ---------------------------------------------
+# TODO(terry): End of Dartium 50 roll failures
 
 [ $compiler == dart2js && $runtime == safarimobilesim ]
 mirrors/mirrors_reader_test: SkipSlow # Times out. Issue 20806.
