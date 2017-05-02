@@ -817,7 +817,10 @@ LibTest/html/CanvasRenderingContext2D/addEventListener_A01_t06: RuntimeError # c
 LibTest/html/Document/childNodes_A01_t01: RuntimeError # co19-roll r706.  Please triage this failure.
 LibTest/html/Document/clone_A01_t01: RuntimeError # co19-roll r706.  Please triage this failure.
 LibTest/html/Document/clone_A01_t02: RuntimeError # co19-roll r706.  Please triage this failure.
+LibTest/html/Document/insertAllBefore_A01_t01: RuntimeError # Please triage this failure.
+LibTest/html/Document/insertBefore_A01_t01: RuntimeError # Please triage this failure.
 LibTest/html/Document/securityPolicy_A01_t01: RuntimeError # co19-roll r706.  Please triage this failure.
+LibTest/html/Document/text_A01_t01: RuntimeError # Please triage this failure.
 LibTest/html/Element/blur_A01_t01: Skip # co19-roll r706.  Please triage this failure.
 LibTest/html/Element/borderEdge_A01_t01: RuntimeError # co19-roll r706.  Issue 16574
 LibTest/html/Element/contentEdge_A01_t01: RuntimeError # co19-roll r706.  Issue 16574
@@ -826,12 +829,15 @@ LibTest/html/Element/focus_A01_t01: Skip # co19-roll r706.  Please triage this f
 LibTest/html/Element/getAttributeNS_A01_t01: RuntimeError # co19-roll r706.  Issue 16395
 LibTest/html/Element/getAttributeNS_A01_t02: RuntimeError # Please triage this failure.
 LibTest/html/Element/getNamespacedAttributes_A01_t01: RuntimeError # co19-roll r706.  Issue 16395
+LibTest/html/Element/insertAllBefore_A01_t01: RuntimeError # Please triage this failure.
+LibTest/html/Element/insertBefore_A01_t01: RuntimeError # Please triage this failure.
 LibTest/html/Element/isContentEditable_A01_t01: RuntimeError # co19-roll r706.  Please triage this failure.
 LibTest/html/Element/isContentEditable_A02_t01: RuntimeError # co19-roll r706.  Please triage this failure.
 LibTest/html/Element/marginEdge_A01_t01: RuntimeError # co19-roll r706.  Issue 16574
 LibTest/html/Element/paddingEdge_A01_t01: RuntimeError # co19-roll r706.  Issue 16574
 LibTest/html/Element/querySelectorAll_A01_t02: RuntimeError # co19-roll r761: Please triage this failure.
 LibTest/html/Element/replaceWith_A01_t02: RuntimeError # co19-roll r706.  Please triage this failure.
+LibTest/html/Element/text_A01_t01: RuntimeError # Please triage this failure.
 LibTest/html/HttpRequest/onError_A01_t02: Skip # co19-roll r706.  Please triage this failure.
 LibTest/html/HttpRequest/responseText_A01_t02: Skip # co19-roll r706.  Please triage this failure.
 LibTest/html/HttpRequest/responseType_A01_t01: RuntimeError # co19-roll r706.  Please triage this failure.
@@ -860,6 +866,8 @@ LibTest/html/IFrameElement/focus_A01_t01: Skip # co19-roll r706.  Please triage 
 LibTest/html/IFrameElement/getNamespacedAttributes_A01_t01: RuntimeError # co19-roll r706.  Please triage this failure.
 LibTest/html/IFrameElement/IFrameElement.created_A01_t01: RuntimeError # Issue 24568
 LibTest/html/IFrameElement/innerHtml_A01_t01: RuntimeError # co19-roll r706.  Please triage this failure.
+LibTest/html/IFrameElement/insertAllBefore_A01_t01: RuntimeError # Please triage this failure.
+LibTest/html/IFrameElement/insertBefore_A01_t01: RuntimeError # Please triage this failure.
 LibTest/html/IFrameElement/isContentEditable_A01_t01: RuntimeError # co19-roll r706.  Please triage this failure.
 LibTest/html/IFrameElement/leftView_A01_t01: Skip # co19-roll r706.  Please triage this failure.
 LibTest/html/IFrameElement/marginEdge_A01_t01: RuntimeError # co19-roll r706.  Issue 16574
@@ -1010,6 +1018,7 @@ WebPlatformTest/dom/events/type_A01_t01: RuntimeError # co19-roll r722: Please t
 WebPlatformTest/dom/EventTarget/dispatchEvent_A02_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/dom/EventTarget/dispatchEvent_A03_t01: Skip # co19-roll r722: Please triage this failure.
 WebPlatformTest/dom/Node-replaceChild_t01: RuntimeError # co19-roll r761: Please triage this failure.
+WebPlatformTest/dom/nodes/attributes/setAttribute_A01_t01: RuntimeError # Please triage this failure.
 WebPlatformTest/dom/nodes/attributes/setAttribute_A03_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/dom/nodes/attributes/setAttributeNS_A05_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/dom/nodes/attributes/setAttributeNS_A06_t03: RuntimeError # co19-roll r722: Please triage this failure.
@@ -1024,6 +1033,7 @@ WebPlatformTest/dom/nodes/DOMImplementation-createDocumentType_t01: RuntimeError
 WebPlatformTest/dom/nodes/DOMImplementation-createHTMLDocument_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/dom/nodes/Element-childElementCount_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/dom/nodes/Element-childElementCount-nochild_t01: RuntimeError # co19-roll r722: Please triage this failure.
+WebPlatformTest/dom/nodes/Node-appendChild_t01: RuntimeError # Please triage this failure.
 WebPlatformTest/dom/nodes/Node-appendChild_t02: RuntimeError, Pass # co19-roll r722: Please triage this failure.
 WebPlatformTest/dom/nodes/Node-insertBefore_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/dom/nodes/Node-isEqualNode_t01: RuntimeError # co19-roll r722: Please triage this failure.
@@ -1160,6 +1170,15 @@ WebPlatformTest/shadow-dom/events/retargeting-relatedtarget/test-003_t01: Runtim
 WebPlatformTest/shadow-dom/html-elements-and-their-shadow-trees/test-001_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/shadow-dom/html-elements-and-their-shadow-trees/test-002_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/shadow-dom/html-elements-and-their-shadow-trees/test-003_t01: RuntimeError # co19-roll r722: Please triage this failure.
+WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-001_t01: RuntimeError # Issue https://github.com/dart-lang/co19/issues/107
+WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-002_t01: RuntimeError # Issue https://github.com/dart-lang/co19/issues/107
+WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-003_t01: RuntimeError # Issue https://github.com/dart-lang/co19/issues/107
+WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-004_t01: RuntimeError # Issue https://github.com/dart-lang/co19/issues/107
+WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-005_t01: RuntimeError # Issue https://github.com/dart-lang/co19/issues/107
+WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-006_t01: RuntimeError # Issue https://github.com/dart-lang/co19/issues/107
+WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-007_t01: RuntimeError # Issue https://github.com/dart-lang/co19/issues/107
+WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-008_t01: RuntimeError # Issue https://github.com/dart-lang/co19/issues/107
+WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-009_t01: RuntimeError # Issue https://github.com/dart-lang/co19/issues/107
 WebPlatformTest/shadow-dom/shadow-trees/custom-pseudo-elements/test-001_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/shadow-dom/shadow-trees/distributed-pseudo-element/test-001_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/shadow-dom/shadow-trees/distributed-pseudo-element/test-002_t01: RuntimeError # co19-roll r722: Please triage this failure.
@@ -1207,6 +1226,7 @@ Language/Metadata/compilation_t08: Timeout # Roll 50  crash
 Language/Metadata/compilation_t09: Timeout # Roll 50  crash
 Language/Metadata/compilation_t10: Timeout # Roll 50  crash
 Language/Metadata/compilation_t11: Timeout # Roll 50  crash
+
 LayoutTests/fast/dom/computed-style-set-property_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/createDocumentType2_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/createElementNS_t01: RuntimeError # Roll 50 breakage
@@ -1220,27 +1240,6 @@ LayoutTests/fast/dom/shadow/shadow-hierarchy-exception_t01: RuntimeError # Roll 
 LayoutTests/fast/events/mutation-during-append-child_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/events/mutation-during-insert-before_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/forms/menulist-submit-without-selection_t01: RuntimeError # Roll 50 breakage
-
-LibTest/html/Document/insertAllBefore_A01_t01: RuntimeError # Roll 50 breakage
-LibTest/html/Document/insertBefore_A01_t01: RuntimeError # Roll 50 breakage
-LibTest/html/Document/text_A01_t01: RuntimeError # Roll 50 breakage
-LibTest/html/Element/insertAllBefore_A01_t01: RuntimeError # Roll 50 breakage
-LibTest/html/Element/insertBefore_A01_t01: RuntimeError # Roll 50 breakage
-LibTest/html/Element/text_A01_t01: RuntimeError # Roll 50 breakage
-LibTest/html/IFrameElement/insertAllBefore_A01_t01: RuntimeError # Roll 50 breakage
-LibTest/html/IFrameElement/insertBefore_A01_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/custom-elements/instantiating/isAttribute_A02_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/dom/nodes/attributes/setAttribute_A01_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/dom/nodes/Node-appendChild_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-001_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-002_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-003_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-004_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-005_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-006_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-007_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-008_t01: RuntimeError # Roll 50 breakage
-WebPlatformTest/shadow-dom/events/events-that-are-always-stopped/test-009_t01: RuntimeError # Roll 50 breakage
 # ---------------------------------------------
 # TODO(terry): End of Dartium 50 roll failures
 
@@ -1283,12 +1282,7 @@ LayoutTests/fast/css/font-face-unicode-range-monospace_t01: Pass, RuntimeError #
 
 [ $compiler == none && $runtime == dartium && $system == linux ]
 language/mixin_illegal_constructor_test/01: Skip # Issue 43
-
-# TODO(terry): Failing Linux ONLY tests with Dartium 50 roll (NEED TO FIX All)
-# ---------------------------------------------
-LayoutTests/fast/text/international/combining-marks-position_t01: RuntimeError # Roll 50 breakage
-# ---------------------------------------------
-# TODO(terry): End of Failing Linux ONLY tests with Dartium 50 roll (NEED TO FIX All)
+LayoutTests/fast/text/international/combining-marks-position_t01: RuntimeError # See Issue https://github.com/dart-lang/co19/issues/109
 
 [ $compiler == none && $runtime == dartium && ($system == windows || $system == linux) ]
 LayoutTests/fast/canvas/webgl/buffer-data-array-buffer_t01: RuntimeError # 45 roll webgl doesn't run on on windows/linux bots.
@@ -1406,10 +1400,5 @@ WebPlatformTest/html-templates/parsing-html-templates/clearing-the-stack-back-to
 WebPlatformTest/html-templates/parsing-html-templates/clearing-the-stack-back-to-a-given-context/clearing-stack-back-to-a-table-context_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/html-templates/parsing-html-templates/clearing-the-stack-back-to-a-given-context/clearing-stack-back-to-a-table-row-context_t01: RuntimeError # co19-roll r722: Please triage this failure.
 WebPlatformTest/html/dom/elements/global-attributes/dataset-enumeration_t01: RuntimeError # co19-roll r738: Please triage this failure.
+WebPlatformTest/html/semantics/forms/textfieldselection/selection_t01: RuntimeError # See Issue https://github.com/dart-lang/co19/issues/108
 WebPlatformTest/shadow-dom/shadow-trees/upper-boundary-encapsulation/ownerdocument-001_t01: RuntimeError # co19-roll r722: Please triage this failure.
-
-# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
-# ---------------------------------------------
-WebPlatformTest/html/semantics/forms/textfieldselection/selection_t01: RuntimeError # Roll 50 breakage
-# ---------------------------------------------
-# TODO(terry): End of Failing tests with Dartium 50 roll (NEED TO FIX All)
