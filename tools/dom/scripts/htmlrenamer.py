@@ -140,6 +140,8 @@ _removed_html_interfaces = [
   'WebKitSourceBufferList',
   'WorkerLocation', # Workers
   'WorkerNavigator', # Workers
+  'Worklet', # Rendering Workers
+  'WorkletGlobalScope', # Rendering Workers
   'XMLHttpRequestProgressEvent',
   # Obsolete event for NaCl.
   'ResourceProgressEvent',
@@ -829,6 +831,37 @@ _library_names = monitored.Dict('htmlrenamer._library_names', {
   'Database': 'web_sql',
   'Navigator': 'html',
   'Window': 'html',
+  'AnalyserNode': 'web_audio',
+  'AudioBufferCallback': 'web_audio',
+  'AudioBuffer': 'web_audio',
+  'AudioBufferSourceNode': 'web_audio',
+  'AudioContext': 'web_audio',
+  'AudioDestinationNode': 'web_audio',
+  'AudioListener': 'web_audio',
+  'AudioNode': 'web_audio',
+  'AudioParam': 'web_audio',
+  'AudioProcessingEvent': 'web_audio',
+  'AudioSourceNode': 'web_audio',
+  'BiquadFilterNode': 'web_audio',
+  'ChannelMergerNode': 'web_audio',
+  'ChannelSplitterNode': 'web_audio',
+  'ConvolverNode': 'web_audio',
+  'DelayNode': 'web_audio',
+  'DynamicsCompressorNode': 'web_audio',
+  'GainNode': 'web_audio',
+  'IIRFilterNode': 'web_audio',
+  'MediaElementAudioSourceNode': 'web_audio',
+  'MediaStreamAudioDestinationNode': 'web_audio',
+  'MediaStreamAudioSourceNode': 'web_audio',
+  'OfflineAudioCompletionEvent': 'web_audio',
+  'OfflineAudioContext': 'web_audio',
+  'OscillatorNode': 'web_audio',
+  'PannerNode': 'web_audio',
+  'PeriodicWave': 'web_audio',
+  'ScriptProcessorNode': 'web_audio',
+  'StereoPannerNode': 'web_audio',
+  'WaveShaperNode': 'web_audio',
+  'WindowWebAudio': 'web_audio',
 })
 
 _library_ids = monitored.Dict('htmlrenamer._library_names', {
@@ -837,6 +870,37 @@ _library_ids = monitored.Dict('htmlrenamer._library_names', {
   'Database': 'WebSql',
   'Navigator': 'Html',
   'Window': 'Html',
+  'AnalyserNode': 'WebAudio',
+  'AudioBufferCallback': 'WebAudio',
+  'AudioBuffer': 'WebAudio',
+  'AudioBufferSourceNode': 'WebAudio',
+  'AudioContext': 'WebAudio',
+  'AudioDestinationNode': 'WebAudio',
+  'AudioListener': 'WebAudio',
+  'AudioNode': 'WebAudio',
+  'AudioParam': 'WebAudio',
+  'AudioProcessingEvent': 'WebAudio',
+  'AudioSourceNode': 'WebAudio',
+  'BiquadFilterNode': 'WebAudio',
+  'ChannelMergerNode': 'WebAudio',
+  'ChannelSplitterNode': 'WebAudio',
+  'ConvolverNode': 'WebAudio',
+  'DelayNode': 'WebAudio',
+  'DynamicsCompressorNode': 'WebAudio',
+  'GainNode': 'WebAudio',
+  'IIRFilterNode': 'WebAudio',
+  'MediaElementAudioSourceNode': 'WebAudio',
+  'MediaStreamAudioDestinationNode': 'WebAudio',
+  'MediaStreamAudioSourceNode': 'WebAudio',
+  'OfflineAudioCompletionEvent': 'WebAudio',
+  'OfflineAudioContext': 'WebAudio',
+  'OscillatorNode': 'WebAudio',
+  'PannerNode': 'WebAudio',
+  'PeriodicWave': 'WebAudio',
+  'ScriptProcessorNode': 'WebAudio',
+  'StereoPannerNode': 'WebAudio',
+  'WaveShaperNode': 'WebAudio',
+  'WindowWebAudio': 'WebAudio',
 })
 
 class HtmlRenamer(object):
@@ -946,8 +1010,10 @@ class HtmlRenamer(object):
     if interface.id in _library_names:
       return _library_names[interface.id]
 
-    # TODO(ager, blois): The conditional has been removed from indexed db,
-    # so we can no longer determine the library based on the conditionals.
+    # Support for IDL conditional has been removed from indexed db, web_sql,
+    # svg and web_gl so we can no longer determine the library based on conditional.
+    # Use interface prefix to do that.  web_audio interfaces have no common prefix
+    # - all audio interfaces added to _library_names/_library_ids.
     if interface.id.startswith("IDB"):
       return 'indexed_db'
     if interface.id.startswith("SQL"):
@@ -957,14 +1023,6 @@ class HtmlRenamer(object):
     if interface.id.startswith("WebGL") or interface.id.startswith("OES") \
         or interface.id.startswith("EXT"):
       return 'web_gl'
-
-    if 'Conditional' in interface.ext_attrs:
-      if 'WEB_AUDIO' in interface.ext_attrs['Conditional']:
-        return 'web_audio'
-      if 'INDEXED_DATABASE' in interface.ext_attrs['Conditional']:
-        return 'indexed_db'
-      if 'SQL_DATABASE' in interface.ext_attrs['Conditional']:
-        return 'web_sql'
 
     if interface.id in typed_array_renames:
       return 'typed_data'
@@ -976,8 +1034,10 @@ class HtmlRenamer(object):
     if interface.id in _library_ids:
       return _library_ids[interface.id]
 
-    # TODO(ager, blois): The conditional has been removed from indexed db,
-    # so we can no longer determine the library based on the conditionals.
+    # Support for IDL conditional has been removed from indexed db, web_sql,
+    # svg and web_gl so we can no longer determine the library based on conditional.
+    # Use interface prefix to do that.  web_audio interfaces have no common prefix
+    # - all audio interfaces added to _library_names/_library_ids.
     if interface.id.startswith("IDB"):
       return 'IndexedDb'
     if interface.id.startswith("SQL"):
@@ -987,14 +1047,6 @@ class HtmlRenamer(object):
     if interface.id.startswith("WebGL") or interface.id.startswith("OES") \
         or interface.id.startswith("EXT"):
       return 'WebGl'
-
-    if 'Conditional' in interface.ext_attrs:
-      if 'WEB_AUDIO' in interface.ext_attrs['Conditional']:
-        return 'WebAudio'
-      if 'INDEXED_DATABASE' in interface.ext_attrs['Conditional']:
-        return 'IndexedDb'
-      if 'SQL_DATABASE' in interface.ext_attrs['Conditional']:
-        return 'WebSql'
 
     if interface.id in typed_array_renames:
       return 'TypedData'
