@@ -457,7 +457,7 @@ class Database extends EventTarget {
   @DocsEditable()
   @Creates('int|String|Null')
   @Returns('int|String|Null')
-  final int version;
+  final Object version;
 
   @DomName('IDBDatabase.close')
   @DocsEditable()
@@ -1301,7 +1301,7 @@ class Request extends EventTarget {
 
   @DomName('IDBRequest.error')
   @DocsEditable()
-  final DomException error;
+  final DomError error;
 
   @DomName('IDBRequest.readyState')
   @DocsEditable()
@@ -1415,7 +1415,7 @@ class Transaction extends EventTarget {
 
   @DomName('IDBTransaction.error')
   @DocsEditable()
-  final DomException error;
+  final DomError error;
 
   @DomName('IDBTransaction.mode')
   @DocsEditable()

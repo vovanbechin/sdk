@@ -16,6 +16,7 @@ import '../constants/expressions.dart';
 import '../elements/resolution_types.dart';
 import '../elements/common.dart';
 import '../elements/elements.dart';
+import '../elements/entities.dart';
 import '../elements/modelx.dart' show FunctionSignatureX;
 import '../elements/visitor.dart';
 import '../io/source_file.dart';
@@ -850,6 +851,9 @@ abstract class ParametersMixin
     }
     return _parameters;
   }
+
+  ParameterStructure get parameterStructure =>
+      functionSignature.parameterStructure;
 }
 
 abstract class FunctionTypedElementMixin
@@ -928,7 +932,7 @@ class ClassElementZ extends DeserializedElementZ
         ClassElementMixin
     implements ClassElement {
   bool _isObject;
-  ResolutionDartType _supertype;
+  ResolutionInterfaceType _supertype;
   OrderedTypeSet _allSupertypesAndSelf;
   Link<ResolutionDartType> _interfaces;
   ResolutionFunctionType _callType;
@@ -961,7 +965,7 @@ class ClassElementZ extends DeserializedElementZ
               .subst(typeVariables, mixinElement.typeVariables);
         }
         _supertype = supertype;
-        _allSupertypesAndSelf = new OrderedTypeSetBuilder(this)
+        _allSupertypesAndSelf = new ResolutionOrderedTypeSetBuilder(this)
             .createOrderedTypeSet(_supertype, _interfaces);
         _callType = _decoder.getType(Key.CALL_TYPE, isOptional: true);
       }
@@ -1169,7 +1173,7 @@ class UnnamedMixinApplicationElementZ extends ElementZ
   @override
   OrderedTypeSet get allSupertypesAndSelf {
     if (_allSupertypesAndSelf == null) {
-      _allSupertypesAndSelf = new OrderedTypeSetBuilder(this)
+      _allSupertypesAndSelf = new ResolutionOrderedTypeSetBuilder(this)
           .createOrderedTypeSet(supertype, interfaces);
     }
     return _allSupertypesAndSelf;
@@ -1470,6 +1474,11 @@ class ForwardingConstructorElementZ extends ElementZ
     // TODO(johnniwinther): Ensure that the function signature (and with it the
     // function type) substitutes type variables correctly.
     return definingConstructor.functionSignature;
+  }
+
+  @override
+  ParameterStructure get parameterStructure {
+    return functionSignature.parameterStructure;
   }
 
   @override
@@ -2398,6 +2407,7 @@ class MetadataAnnotationZ implements MetadataAnnotation {
   @override
   MetadataAnnotation ensureResolved(Resolution resolution) {
     // Do nothing.
+    return this;
   }
 
   @override

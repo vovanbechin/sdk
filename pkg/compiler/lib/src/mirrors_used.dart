@@ -27,6 +27,7 @@ import 'elements/elements.dart'
         LibraryElement,
         MetadataAnnotation,
         ScopeContainerElement;
+import 'elements/entities.dart';
 import 'resolution/tree_elements.dart' show TreeElements;
 import 'tree/tree.dart' show NamedArgument, NewExpression, Node;
 
@@ -91,7 +92,7 @@ class MirrorUsageAnalyzerTask extends CompilerTask {
 
   /// Collect @MirrorsUsed annotations in all libraries.  Called by the
   /// compiler after all libraries are loaded, but before resolution.
-  void analyzeUsage(LibraryElement mainApp) {
+  void analyzeUsage(LibraryEntity mainApp) {
     if (mainApp == null || compiler.commonElements.mirrorsLibrary == null) {
       return;
     }
@@ -423,7 +424,7 @@ class MirrorUsageBuilder {
       ResolutionInterfaceType interface = type;
       ClassElement cls = type.element;
       cls.ensureResolved(compiler.resolution);
-      for (ResolutionDartType supertype in cls.allSupertypes) {
+      for (ResolutionInterfaceType supertype in cls.allSupertypes) {
         if (supertype.isInterfaceType &&
             !supertype.element.library.isInternalLibrary) {
           return interface.asInstanceOf(supertype.element);
@@ -452,32 +453,32 @@ class MirrorUsageBuilder {
         result.add(type.element);
       } else {
         String string = entry;
-        LibraryElement libraryCandiate;
-        String libraryNameCandiate;
+        LibraryElement libraryCandidate;
+        String libraryNameCandidate;
         for (LibraryElement l in compiler.libraryLoader.libraries) {
           if (l.hasLibraryName) {
             String libraryName = l.libraryName;
             if (string == libraryName) {
               // Found an exact match.
-              libraryCandiate = l;
-              libraryNameCandiate = libraryName;
+              libraryCandidate = l;
+              libraryNameCandidate = libraryName;
               break;
             } else if (string.startsWith('$libraryName.')) {
-              if (libraryNameCandiate == null ||
-                  libraryNameCandiate.length < libraryName.length) {
-                // Found a better candiate
-                libraryCandiate = l;
-                libraryNameCandiate = libraryName;
+              if (libraryNameCandidate == null ||
+                  libraryNameCandidate.length < libraryName.length) {
+                // Found a better candidate
+                libraryCandidate = l;
+                libraryNameCandidate = libraryName;
               }
             }
           }
         }
         Element e;
-        if (libraryNameCandiate == string) {
-          e = libraryCandiate;
-        } else if (libraryNameCandiate != null) {
-          e = resolveLocalExpression(libraryCandiate,
-              string.substring(libraryNameCandiate.length + 1).split('.'));
+        if (libraryNameCandidate == string) {
+          e = libraryCandidate;
+        } else if (libraryNameCandidate != null) {
+          e = resolveLocalExpression(libraryCandidate,
+              string.substring(libraryNameCandidate.length + 1).split('.'));
         } else {
           e = resolveExpression(string);
         }

@@ -22,8 +22,6 @@ final web_glBlinkMap = {
   'CHROMIUMSubscribeUniform': () =>
       ChromiumSubscribeUniform.instanceRuntimeType,
   'EXTBlendMinMax': () => ExtBlendMinMax.instanceRuntimeType,
-  'EXTColorBufferFloat': () => ExtColorBufferFloat.instanceRuntimeType,
-  'EXTDisjointTimerQuery': () => ExtDisjointTimerQuery.instanceRuntimeType,
   'EXTFragDepth': () => ExtFragDepth.instanceRuntimeType,
   'EXTShaderTextureLOD': () => ExtShaderTextureLod.instanceRuntimeType,
   'EXTTextureFilterAnisotropic': () =>
@@ -42,7 +40,6 @@ final web_glBlinkMap = {
       _WebGL2RenderingContextBase.instanceRuntimeType,
   'WebGLActiveInfo': () => ActiveInfo.instanceRuntimeType,
   'WebGLBuffer': () => Buffer.instanceRuntimeType,
-  'WebGLCompressedTextureASTC': () => CompressedTextureAstc.instanceRuntimeType,
   'WebGLCompressedTextureATC': () => CompressedTextureAtc.instanceRuntimeType,
   'WebGLCompressedTextureETC1': () => CompressedTextureETC1.instanceRuntimeType,
   'WebGLCompressedTexturePVRTC': () =>
@@ -66,7 +63,6 @@ final web_glBlinkMap = {
   'WebGLShaderPrecisionFormat': () => ShaderPrecisionFormat.instanceRuntimeType,
   'WebGLSync': () => Sync.instanceRuntimeType,
   'WebGLTexture': () => Texture.instanceRuntimeType,
-  'WebGLTimerQueryEXT': () => TimerQueryExt.instanceRuntimeType,
   'WebGLTransformFeedback': () => TransformFeedback.instanceRuntimeType,
   'WebGLUniformLocation': () => UniformLocation.instanceRuntimeType,
   'WebGLVertexArrayObject': () => VertexArrayObject.instanceRuntimeType,
@@ -598,167 +594,6 @@ class ChromiumSubscribeUniform extends DartHtmlDomObject {
 // WARNING: Do not edit - generated code.
 
 @DocsEditable()
-@DomName('WebGLCompressedTextureASTC')
-@Experimental() // untriaged
-class CompressedTextureAstc extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory CompressedTextureAstc._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  CompressedTextureAstc.internal_() {}
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_10x10_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_10x10_KHR = 0x93BB;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_10x5_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_10x5_KHR = 0x93B8;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_10x6_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_10x6_KHR = 0x93B9;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_10x8_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_10x8_KHR = 0x93BA;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_12x10_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_12x10_KHR = 0x93BC;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_12x12_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_12x12_KHR = 0x93BD;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_4x4_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_4x4_KHR = 0x93B0;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_5x4_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_5x4_KHR = 0x93B1;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_5x5_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_5x5_KHR = 0x93B2;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_6x5_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_6x5_KHR = 0x93B3;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_6x6_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_6x6_KHR = 0x93B4;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_8x5_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_8x5_KHR = 0x93B5;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_8x6_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_8x6_KHR = 0x93B6;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_RGBA_ASTC_8x8_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_RGBA_ASTC_8x8_KHR = 0x93B7;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR = 0x93DB;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR = 0x93D8;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR = 0x93D9;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR = 0x93DA;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR = 0x93DC;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR = 0x93DD;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR = 0x93D0;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR = 0x93D1;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR = 0x93D2;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR = 0x93D3;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR = 0x93D4;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR = 0x93D5;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR = 0x93D6;
-
-  @DomName('WebGLCompressedTextureASTC.COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR = 0x93D7;
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
 @DomName('WebGLCompressedTextureATC')
 // http://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_atc/
 @Experimental()
@@ -1245,137 +1080,6 @@ class ExtBlendMinMax extends DartHtmlDomObject {
   @DocsEditable()
   @Experimental() // untriaged
   static const int MIN_EXT = 0x8007;
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('EXTColorBufferFloat')
-@Experimental() // untriaged
-class ExtColorBufferFloat extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory ExtColorBufferFloat._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  ExtColorBufferFloat.internal_() {}
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('EXTDisjointTimerQuery')
-@Experimental() // untriaged
-class ExtDisjointTimerQuery extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory ExtDisjointTimerQuery._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  ExtDisjointTimerQuery.internal_() {}
-
-  @DomName('EXTDisjointTimerQuery.CURRENT_QUERY_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int CURRENT_QUERY_EXT = 0x8865;
-
-  @DomName('EXTDisjointTimerQuery.GPU_DISJOINT_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int GPU_DISJOINT_EXT = 0x8FBB;
-
-  @DomName('EXTDisjointTimerQuery.QUERY_COUNTER_BITS_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int QUERY_COUNTER_BITS_EXT = 0x8864;
-
-  @DomName('EXTDisjointTimerQuery.QUERY_RESULT_AVAILABLE_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int QUERY_RESULT_AVAILABLE_EXT = 0x8867;
-
-  @DomName('EXTDisjointTimerQuery.QUERY_RESULT_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int QUERY_RESULT_EXT = 0x8866;
-
-  @DomName('EXTDisjointTimerQuery.TIMESTAMP_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int TIMESTAMP_EXT = 0x8E28;
-
-  @DomName('EXTDisjointTimerQuery.TIME_ELAPSED_EXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static const int TIME_ELAPSED_EXT = 0x88BF;
-
-  @DomName('EXTDisjointTimerQuery.beginQueryEXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void beginQueryExt(int target, TimerQueryExt query) =>
-      _blink.BlinkEXTDisjointTimerQuery.instance
-          .beginQueryEXT_Callback_2_(this, target, query);
-
-  @DomName('EXTDisjointTimerQuery.createQueryEXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  TimerQueryExt createQueryExt() => _blink.BlinkEXTDisjointTimerQuery.instance
-      .createQueryEXT_Callback_0_(this);
-
-  @DomName('EXTDisjointTimerQuery.deleteQueryEXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void deleteQueryExt(TimerQueryExt query) =>
-      _blink.BlinkEXTDisjointTimerQuery.instance
-          .deleteQueryEXT_Callback_1_(this, query);
-
-  @DomName('EXTDisjointTimerQuery.endQueryEXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void endQueryExt(int target) => _blink.BlinkEXTDisjointTimerQuery.instance
-      .endQueryEXT_Callback_1_(this, target);
-
-  @DomName('EXTDisjointTimerQuery.getQueryEXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Object getQueryExt(int target, int pname) =>
-      (_blink.BlinkEXTDisjointTimerQuery.instance
-          .getQueryEXT_Callback_2_(this, target, pname));
-
-  @DomName('EXTDisjointTimerQuery.getQueryObjectEXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Object getQueryObjectExt(TimerQueryExt query, int pname) =>
-      (_blink.BlinkEXTDisjointTimerQuery.instance
-          .getQueryObjectEXT_Callback_2_(this, query, pname));
-
-  @DomName('EXTDisjointTimerQuery.isQueryEXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool isQueryExt(TimerQueryExt query) =>
-      _blink.BlinkEXTDisjointTimerQuery.instance
-          .isQueryEXT_Callback_1_(this, query);
-
-  @DomName('EXTDisjointTimerQuery.queryCounterEXT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void queryCounterExt(TimerQueryExt query, int target) =>
-      _blink.BlinkEXTDisjointTimerQuery.instance
-          .queryCounterEXT_Callback_2_(this, query, target);
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -3609,14 +3313,14 @@ class RenderingContext extends DartHtmlDomObject
       int internalformat,
       int format_OR_width,
       int height_OR_type,
-      bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video,
+      border_OR_canvas_OR_image_OR_pixels_OR_video,
       [int format,
       int type,
       TypedData pixels]) {
     if ((pixels is TypedData || pixels == null) &&
         (type is int) &&
         (format is int) &&
-        (bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is int) &&
+        (border_OR_canvas_OR_image_OR_pixels_OR_video is int) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (internalformat is int) &&
@@ -3629,14 +3333,14 @@ class RenderingContext extends DartHtmlDomObject
           internalformat,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video,
+          border_OR_canvas_OR_image_OR_pixels_OR_video,
           format,
           type,
           pixels);
       return;
     }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is ImageData ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
+    if ((border_OR_canvas_OR_image_OR_pixels_OR_video is ImageData ||
+            border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (internalformat is int) &&
@@ -3652,11 +3356,10 @@ class RenderingContext extends DartHtmlDomObject
           internalformat,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video);
+          border_OR_canvas_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-            is ImageElement) &&
+    if ((border_OR_canvas_OR_image_OR_pixels_OR_video is ImageElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (internalformat is int) &&
@@ -3672,11 +3375,10 @@ class RenderingContext extends DartHtmlDomObject
           internalformat,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video);
+          border_OR_canvas_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-            is CanvasElement) &&
+    if ((border_OR_canvas_OR_image_OR_pixels_OR_video is CanvasElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (internalformat is int) &&
@@ -3692,11 +3394,10 @@ class RenderingContext extends DartHtmlDomObject
           internalformat,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video);
+          border_OR_canvas_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-            is VideoElement) &&
+    if ((border_OR_canvas_OR_image_OR_pixels_OR_video is VideoElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (internalformat is int) &&
@@ -3712,27 +3413,7 @@ class RenderingContext extends DartHtmlDomObject
           internalformat,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video);
-      return;
-    }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-            is ImageBitmap) &&
-        (height_OR_type is int) &&
-        (format_OR_width is int) &&
-        (internalformat is int) &&
-        (level is int) &&
-        (target is int) &&
-        format == null &&
-        type == null &&
-        pixels == null) {
-      _blink.BlinkWebGLRenderingContext.instance.texImage2D_Callback_6_(
-          this,
-          target,
-          level,
-          internalformat,
-          format_OR_width,
-          height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video);
+          border_OR_canvas_OR_image_OR_pixels_OR_video);
       return;
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -3757,12 +3438,12 @@ class RenderingContext extends DartHtmlDomObject
       int yoffset,
       int format_OR_width,
       int height_OR_type,
-      bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video,
+      canvas_OR_format_OR_image_OR_pixels_OR_video,
       [int type,
       TypedData pixels]) {
     if ((pixels is TypedData || pixels == null) &&
         (type is int) &&
-        (bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is int) &&
+        (canvas_OR_format_OR_image_OR_pixels_OR_video is int) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (yoffset is int) &&
@@ -3777,13 +3458,13 @@ class RenderingContext extends DartHtmlDomObject
           yoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video,
+          canvas_OR_format_OR_image_OR_pixels_OR_video,
           type,
           pixels);
       return;
     }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is ImageData ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
+    if ((canvas_OR_format_OR_image_OR_pixels_OR_video is ImageData ||
+            canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (yoffset is int) &&
@@ -3800,11 +3481,10 @@ class RenderingContext extends DartHtmlDomObject
           yoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video);
+          canvas_OR_format_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-            is ImageElement) &&
+    if ((canvas_OR_format_OR_image_OR_pixels_OR_video is ImageElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (yoffset is int) &&
@@ -3821,11 +3501,10 @@ class RenderingContext extends DartHtmlDomObject
           yoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video);
+          canvas_OR_format_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-            is CanvasElement) &&
+    if ((canvas_OR_format_OR_image_OR_pixels_OR_video is CanvasElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (yoffset is int) &&
@@ -3842,11 +3521,10 @@ class RenderingContext extends DartHtmlDomObject
           yoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video);
+          canvas_OR_format_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-            is VideoElement) &&
+    if ((canvas_OR_format_OR_image_OR_pixels_OR_video is VideoElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (yoffset is int) &&
@@ -3863,28 +3541,7 @@ class RenderingContext extends DartHtmlDomObject
           yoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-            is ImageBitmap) &&
-        (height_OR_type is int) &&
-        (format_OR_width is int) &&
-        (yoffset is int) &&
-        (xoffset is int) &&
-        (level is int) &&
-        (target is int) &&
-        type == null &&
-        pixels == null) {
-      _blink.BlinkWebGLRenderingContext.instance.texSubImage2D_Callback_7_(
-          this,
-          target,
-          level,
-          xoffset,
-          yoffset,
-          format_OR_width,
-          height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video);
+          canvas_OR_format_OR_image_OR_pixels_OR_video);
       return;
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -6103,10 +5760,10 @@ class RenderingContext2 extends DartHtmlDomObject
   @DomName('WebGL2RenderingContext.getActiveUniforms')
   @DocsEditable()
   @Experimental() // untriaged
-  Object getActiveUniforms(
+  List<int> getActiveUniforms(
           Program program, List<int> uniformIndices, int pname) =>
-      (_blink.BlinkWebGL2RenderingContext.instance
-          .getActiveUniforms_Callback_3_(this, program, uniformIndices, pname));
+      _blink.BlinkWebGL2RenderingContext.instance
+          .getActiveUniforms_Callback_3_(this, program, uniformIndices, pname);
 
   @DomName('WebGL2RenderingContext.getBufferSubData')
   @DocsEditable()
@@ -6247,14 +5904,6 @@ class RenderingContext2 extends DartHtmlDomObject
   void readBuffer(int mode) => _blink.BlinkWebGL2RenderingContext.instance
       .readBuffer_Callback_1_(this, mode);
 
-  @DomName('WebGL2RenderingContext.readPixels2')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void readPixels2(int x, int y, int width, int height, int format, int type,
-          int offset) =>
-      _blink.BlinkWebGL2RenderingContext.instance.readPixels_Callback_7_(
-          this, x, y, width, height, format, type, offset);
-
   @DomName('WebGL2RenderingContext.renderbufferStorageMultisample')
   @DocsEditable()
   @Experimental() // untriaged
@@ -6284,44 +5933,20 @@ class RenderingContext2 extends DartHtmlDomObject
       _blink.BlinkWebGL2RenderingContext.instance
           .samplerParameteri_Callback_3_(this, sampler, pname, param);
 
-  @DomName('WebGL2RenderingContext.texImage2D2')
+  @DomName('WebGL2RenderingContext.texImage3D')
   @DocsEditable()
   @Experimental() // untriaged
-  void texImage2D2(int target, int level, int internalformat, int width,
-          int height, int border, int format, int type, int offset) =>
-      _blink.BlinkWebGL2RenderingContext.instance.texImage2D_Callback_9_(
-          this,
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          border,
-          format,
-          type,
-          offset);
-
   void texImage3D(
-      int target,
-      int level,
-      int internalformat,
-      int width,
-      int height,
-      int depth,
-      int border,
-      int format,
-      int type,
-      offset_OR_pixels) {
-    if ((offset_OR_pixels is TypedData || offset_OR_pixels == null) &&
-        (type is int) &&
-        (format is int) &&
-        (border is int) &&
-        (depth is int) &&
-        (height is int) &&
-        (width is int) &&
-        (internalformat is int) &&
-        (level is int) &&
-        (target is int)) {
+          int target,
+          int level,
+          int internalformat,
+          int width,
+          int height,
+          int depth,
+          int border,
+          int format,
+          int type,
+          TypedData pixels) =>
       _blink.BlinkWebGL2RenderingContext.instance.texImage3D_Callback_10_(
           this,
           target,
@@ -6333,35 +5958,7 @@ class RenderingContext2 extends DartHtmlDomObject
           border,
           format,
           type,
-          offset_OR_pixels);
-      return;
-    }
-    if ((offset_OR_pixels is int) &&
-        (type is int) &&
-        (format is int) &&
-        (border is int) &&
-        (depth is int) &&
-        (height is int) &&
-        (width is int) &&
-        (internalformat is int) &&
-        (level is int) &&
-        (target is int)) {
-      _blink.BlinkWebGL2RenderingContext.instance.texImage3D_Callback_10_(
-          this,
-          target,
-          level,
-          internalformat,
-          width,
-          height,
-          depth,
-          border,
-          format,
-          type,
-          offset_OR_pixels);
-      return;
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
+          pixels);
 
   @DomName('WebGL2RenderingContext.texStorage2D')
   @DocsEditable()
@@ -6387,14 +5984,14 @@ class RenderingContext2 extends DartHtmlDomObject
       int zoffset,
       int format_OR_width,
       int height_OR_type,
-      bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video,
+      canvas_OR_data_OR_depth_OR_image_OR_video,
       [int format,
       int type,
       TypedData pixels]) {
     if ((pixels is TypedData || pixels == null) &&
         (type is int) &&
         (format is int) &&
-        (bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is int) &&
+        (canvas_OR_data_OR_depth_OR_image_OR_video is int) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (zoffset is int) &&
@@ -6411,14 +6008,14 @@ class RenderingContext2 extends DartHtmlDomObject
           zoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video,
+          canvas_OR_data_OR_depth_OR_image_OR_video,
           format,
           type,
           pixels);
       return;
     }
-    if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is ImageData ||
-            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
+    if ((canvas_OR_data_OR_depth_OR_image_OR_video is ImageData ||
+            canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (zoffset is int) &&
@@ -6438,11 +6035,11 @@ class RenderingContext2 extends DartHtmlDomObject
           zoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video);
+          canvas_OR_data_OR_depth_OR_image_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is ImageElement ||
-            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
+    if ((canvas_OR_data_OR_depth_OR_image_OR_video is ImageElement ||
+            canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (zoffset is int) &&
@@ -6462,11 +6059,11 @@ class RenderingContext2 extends DartHtmlDomObject
           zoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video);
+          canvas_OR_data_OR_depth_OR_image_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is CanvasElement ||
-            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
+    if ((canvas_OR_data_OR_depth_OR_image_OR_video is CanvasElement ||
+            canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (zoffset is int) &&
@@ -6486,11 +6083,11 @@ class RenderingContext2 extends DartHtmlDomObject
           zoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video);
+          canvas_OR_data_OR_depth_OR_image_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is VideoElement ||
-            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
+    if ((canvas_OR_data_OR_depth_OR_image_OR_video is VideoElement ||
+            canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (zoffset is int) &&
@@ -6510,31 +6107,7 @@ class RenderingContext2 extends DartHtmlDomObject
           zoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video is ImageBitmap ||
-            bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video == null) &&
-        (height_OR_type is int) &&
-        (format_OR_width is int) &&
-        (zoffset is int) &&
-        (yoffset is int) &&
-        (xoffset is int) &&
-        (level is int) &&
-        (target is int) &&
-        format == null &&
-        type == null &&
-        pixels == null) {
-      _blink.BlinkWebGL2RenderingContext.instance.texSubImage3D_Callback_8_(
-          this,
-          target,
-          level,
-          xoffset,
-          yoffset,
-          zoffset,
-          format_OR_width,
-          height_OR_type,
-          bitmap_OR_canvas_OR_data_OR_depth_OR_image_OR_video);
+          canvas_OR_data_OR_depth_OR_image_OR_video);
       return;
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -6556,20 +6129,12 @@ class RenderingContext2 extends DartHtmlDomObject
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform1ui_Callback_2_(this, location, v0);
 
-  void uniform1uiv(UniformLocation location, v) {
-    if ((v is Uint32List) &&
-        (location is UniformLocation || location == null)) {
+  @DomName('WebGL2RenderingContext.uniform1uiv')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void uniform1uiv(UniformLocation location, List<int> value) =>
       _blink.BlinkWebGL2RenderingContext.instance
-          .uniform1uiv_Callback_2_(this, location, v);
-      return;
-    }
-    if ((v is List<int>) && (location is UniformLocation || location == null)) {
-      _blink.BlinkWebGL2RenderingContext.instance
-          .uniform1uiv_Callback_2_(this, location, v);
-      return;
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
+          .uniform1uiv_Callback_2_(this, location, value);
 
   @DomName('WebGL2RenderingContext.uniform2ui')
   @DocsEditable()
@@ -6578,20 +6143,12 @@ class RenderingContext2 extends DartHtmlDomObject
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform2ui_Callback_3_(this, location, v0, v1);
 
-  void uniform2uiv(UniformLocation location, v) {
-    if ((v is Uint32List) &&
-        (location is UniformLocation || location == null)) {
+  @DomName('WebGL2RenderingContext.uniform2uiv')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void uniform2uiv(UniformLocation location, List<int> value) =>
       _blink.BlinkWebGL2RenderingContext.instance
-          .uniform2uiv_Callback_2_(this, location, v);
-      return;
-    }
-    if ((v is List<int>) && (location is UniformLocation || location == null)) {
-      _blink.BlinkWebGL2RenderingContext.instance
-          .uniform2uiv_Callback_2_(this, location, v);
-      return;
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
+          .uniform2uiv_Callback_2_(this, location, value);
 
   @DomName('WebGL2RenderingContext.uniform3ui')
   @DocsEditable()
@@ -6600,20 +6157,12 @@ class RenderingContext2 extends DartHtmlDomObject
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform3ui_Callback_4_(this, location, v0, v1, v2);
 
-  void uniform3uiv(UniformLocation location, v) {
-    if ((v is Uint32List) &&
-        (location is UniformLocation || location == null)) {
+  @DomName('WebGL2RenderingContext.uniform3uiv')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void uniform3uiv(UniformLocation location, List<int> value) =>
       _blink.BlinkWebGL2RenderingContext.instance
-          .uniform3uiv_Callback_2_(this, location, v);
-      return;
-    }
-    if ((v is List<int>) && (location is UniformLocation || location == null)) {
-      _blink.BlinkWebGL2RenderingContext.instance
-          .uniform3uiv_Callback_2_(this, location, v);
-      return;
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
+          .uniform3uiv_Callback_2_(this, location, value);
 
   @DomName('WebGL2RenderingContext.uniform4ui')
   @DocsEditable()
@@ -6622,20 +6171,12 @@ class RenderingContext2 extends DartHtmlDomObject
       _blink.BlinkWebGL2RenderingContext.instance
           .uniform4ui_Callback_5_(this, location, v0, v1, v2, v3);
 
-  void uniform4uiv(UniformLocation location, v) {
-    if ((v is Uint32List) &&
-        (location is UniformLocation || location == null)) {
+  @DomName('WebGL2RenderingContext.uniform4uiv')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void uniform4uiv(UniformLocation location, List<int> value) =>
       _blink.BlinkWebGL2RenderingContext.instance
-          .uniform4uiv_Callback_2_(this, location, v);
-      return;
-    }
-    if ((v is List<int>) && (location is UniformLocation || location == null)) {
-      _blink.BlinkWebGL2RenderingContext.instance
-          .uniform4uiv_Callback_2_(this, location, v);
-      return;
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
+          .uniform4uiv_Callback_2_(this, location, value);
 
   @DomName('WebGL2RenderingContext.uniformBlockBinding')
   @DocsEditable()
@@ -6768,19 +6309,12 @@ class RenderingContext2 extends DartHtmlDomObject
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttribI4i_Callback_5_(this, index, x, y, z, w);
 
-  void vertexAttribI4iv(int index, v) {
-    if ((v is Int32List) && (index is int)) {
+  @DomName('WebGL2RenderingContext.vertexAttribI4iv')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void vertexAttribI4iv(int index, List<int> v) =>
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttribI4iv_Callback_2_(this, index, v);
-      return;
-    }
-    if ((v is List<int>) && (index is int)) {
-      _blink.BlinkWebGL2RenderingContext.instance
-          .vertexAttribI4iv_Callback_2_(this, index, v);
-      return;
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
 
   @DomName('WebGL2RenderingContext.vertexAttribI4ui')
   @DocsEditable()
@@ -6789,19 +6323,12 @@ class RenderingContext2 extends DartHtmlDomObject
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttribI4ui_Callback_5_(this, index, x, y, z, w);
 
-  void vertexAttribI4uiv(int index, v) {
-    if ((v is Uint32List) && (index is int)) {
+  @DomName('WebGL2RenderingContext.vertexAttribI4uiv')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void vertexAttribI4uiv(int index, List<int> v) =>
       _blink.BlinkWebGL2RenderingContext.instance
           .vertexAttribI4uiv_Callback_2_(this, index, v);
-      return;
-    }
-    if ((v is List<int>) && (index is int)) {
-      _blink.BlinkWebGL2RenderingContext.instance
-          .vertexAttribI4uiv_Callback_2_(this, index, v);
-      return;
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
 
   @DomName('WebGL2RenderingContext.vertexAttribIPointer')
   @DocsEditable()
@@ -7560,14 +7087,14 @@ class RenderingContext2 extends DartHtmlDomObject
       int internalformat,
       int format_OR_width,
       int height_OR_type,
-      bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video,
+      border_OR_canvas_OR_image_OR_pixels_OR_video,
       [int format,
       int type,
       TypedData pixels]) {
     if ((pixels is TypedData || pixels == null) &&
         (type is int) &&
         (format is int) &&
-        (bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is int) &&
+        (border_OR_canvas_OR_image_OR_pixels_OR_video is int) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (internalformat is int) &&
@@ -7580,14 +7107,14 @@ class RenderingContext2 extends DartHtmlDomObject
           internalformat,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video,
+          border_OR_canvas_OR_image_OR_pixels_OR_video,
           format,
           type,
           pixels);
       return;
     }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video is ImageData ||
-            bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
+    if ((border_OR_canvas_OR_image_OR_pixels_OR_video is ImageData ||
+            border_OR_canvas_OR_image_OR_pixels_OR_video == null) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (internalformat is int) &&
@@ -7603,11 +7130,10 @@ class RenderingContext2 extends DartHtmlDomObject
           internalformat,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video);
+          border_OR_canvas_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-            is ImageElement) &&
+    if ((border_OR_canvas_OR_image_OR_pixels_OR_video is ImageElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (internalformat is int) &&
@@ -7623,11 +7149,10 @@ class RenderingContext2 extends DartHtmlDomObject
           internalformat,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video);
+          border_OR_canvas_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-            is CanvasElement) &&
+    if ((border_OR_canvas_OR_image_OR_pixels_OR_video is CanvasElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (internalformat is int) &&
@@ -7643,11 +7168,10 @@ class RenderingContext2 extends DartHtmlDomObject
           internalformat,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video);
+          border_OR_canvas_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-            is VideoElement) &&
+    if ((border_OR_canvas_OR_image_OR_pixels_OR_video is VideoElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (internalformat is int) &&
@@ -7663,27 +7187,7 @@ class RenderingContext2 extends DartHtmlDomObject
           internalformat,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video);
-      return;
-    }
-    if ((bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video
-            is ImageBitmap) &&
-        (height_OR_type is int) &&
-        (format_OR_width is int) &&
-        (internalformat is int) &&
-        (level is int) &&
-        (target is int) &&
-        format == null &&
-        type == null &&
-        pixels == null) {
-      _blink.BlinkWebGL2RenderingContext.instance.texImage2D_Callback_6_(
-          this,
-          target,
-          level,
-          internalformat,
-          format_OR_width,
-          height_OR_type,
-          bitmap_OR_border_OR_canvas_OR_image_OR_pixels_OR_video);
+          border_OR_canvas_OR_image_OR_pixels_OR_video);
       return;
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -7710,12 +7214,12 @@ class RenderingContext2 extends DartHtmlDomObject
       int yoffset,
       int format_OR_width,
       int height_OR_type,
-      bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video,
+      canvas_OR_format_OR_image_OR_pixels_OR_video,
       [int type,
       TypedData pixels]) {
     if ((pixels is TypedData || pixels == null) &&
         (type is int) &&
-        (bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is int) &&
+        (canvas_OR_format_OR_image_OR_pixels_OR_video is int) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (yoffset is int) &&
@@ -7730,13 +7234,13 @@ class RenderingContext2 extends DartHtmlDomObject
           yoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video,
+          canvas_OR_format_OR_image_OR_pixels_OR_video,
           type,
           pixels);
       return;
     }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video is ImageData ||
-            bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
+    if ((canvas_OR_format_OR_image_OR_pixels_OR_video is ImageData ||
+            canvas_OR_format_OR_image_OR_pixels_OR_video == null) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (yoffset is int) &&
@@ -7753,11 +7257,10 @@ class RenderingContext2 extends DartHtmlDomObject
           yoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video);
+          canvas_OR_format_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-            is ImageElement) &&
+    if ((canvas_OR_format_OR_image_OR_pixels_OR_video is ImageElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (yoffset is int) &&
@@ -7774,11 +7277,10 @@ class RenderingContext2 extends DartHtmlDomObject
           yoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video);
+          canvas_OR_format_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-            is CanvasElement) &&
+    if ((canvas_OR_format_OR_image_OR_pixels_OR_video is CanvasElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (yoffset is int) &&
@@ -7795,11 +7297,10 @@ class RenderingContext2 extends DartHtmlDomObject
           yoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video);
+          canvas_OR_format_OR_image_OR_pixels_OR_video);
       return;
     }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-            is VideoElement) &&
+    if ((canvas_OR_format_OR_image_OR_pixels_OR_video is VideoElement) &&
         (height_OR_type is int) &&
         (format_OR_width is int) &&
         (yoffset is int) &&
@@ -7816,28 +7317,7 @@ class RenderingContext2 extends DartHtmlDomObject
           yoffset,
           format_OR_width,
           height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video);
-      return;
-    }
-    if ((bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video
-            is ImageBitmap) &&
-        (height_OR_type is int) &&
-        (format_OR_width is int) &&
-        (yoffset is int) &&
-        (xoffset is int) &&
-        (level is int) &&
-        (target is int) &&
-        type == null &&
-        pixels == null) {
-      _blink.BlinkWebGL2RenderingContext.instance.texSubImage2D_Callback_7_(
-          this,
-          target,
-          level,
-          xoffset,
-          yoffset,
-          format_OR_width,
-          height_OR_type,
-          bitmap_OR_canvas_OR_format_OR_image_OR_pixels_OR_video);
+          canvas_OR_format_OR_image_OR_pixels_OR_video);
       return;
     }
     throw new ArgumentError("Incorrect number or type of arguments");
@@ -8299,27 +7779,6 @@ class Texture extends DartHtmlDomObject {
 
   @Deprecated("Internal Use Only")
   Texture.internal_() {}
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('WebGLTimerQueryEXT')
-@Experimental() // untriaged
-class TimerQueryExt extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory TimerQueryExt._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  TimerQueryExt.internal_() {}
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a

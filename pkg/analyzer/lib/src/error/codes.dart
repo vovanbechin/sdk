@@ -51,6 +51,14 @@ class CheckedModeCompileTimeErrorCode extends ErrorCode {
           "'{1}'.");
 
   /**
+   * 16.12.2 Const: It is a compile-time error if evaluation of a constant
+   * object results in an uncaught exception being thrown.
+   */
+  static const CheckedModeCompileTimeErrorCode CONST_EVAL_THROWS_EXCEPTION =
+      const CheckedModeCompileTimeErrorCode('CONST_EVAL_THROWS_EXCEPTION',
+          "Evaluation of this constant expression throws an exception.");
+
+  /**
    * 7.6.1 Generative Constructors: In checked mode, it is a dynamic type error
    * if o is not <b>null</b> and the interface of the class of <i>o</i> is not a
    * subtype of the static type of the field <i>v</i>.
@@ -980,8 +988,28 @@ class CompileTimeErrorCode extends ErrorCode {
   static const CompileTimeErrorCode EXTRA_POSITIONAL_ARGUMENTS =
       const CompileTimeErrorCode(
           'EXTRA_POSITIONAL_ARGUMENTS',
-          "{0} positional arguments expected, but {1} found.",
+          "Too many positional arguments: {0} expected, but {1} found.",
           "Try removing the extra arguments.");
+
+  /**
+   * 12.14.2 Binding Actuals to Formals: It is a static warning if <i>m &lt;
+   * h</i> or if <i>m &gt; n</i>.
+   *
+   * 16.12.2 Const: It is a compile-time error if evaluation of a constant
+   * object results in an uncaught exception being thrown.
+   *
+   * Parameters:
+   * 0: the maximum number of positional arguments
+   * 1: the actual number of positional arguments given
+   *
+   * See [NOT_ENOUGH_REQUIRED_ARGUMENTS].
+   */
+  static const CompileTimeErrorCode EXTRA_POSITIONAL_ARGUMENTS_COULD_BE_NAMED =
+      const CompileTimeErrorCode(
+          'EXTRA_POSITIONAL_ARGUMENTS_COULD_BE_NAMED',
+          "Too many positional arguments: {0} expected, but {1} found.",
+          "Try removing the extra positional arguments, "
+          "or specifying the name for named arguments.");
 
   /**
    * 7.6.1 Generative Constructors: Let <i>k</i> be a generative constructor. It
@@ -1107,7 +1135,7 @@ class CompileTimeErrorCode extends ErrorCode {
           "This class can't implement the deferred class '{0}'.",
           "Try specifying a different interface, "
           "removing the class from the list, or "
-          "changing the import to not be deferred..");
+          "changing the import to not be deferred.");
 
   /**
    * 12.2 Null: It is a compile-time error for a class to attempt to extend or
@@ -2967,7 +2995,7 @@ class StaticTypeWarningCode extends ErrorCode {
       const StaticTypeWarningCode(
           'UNDEFINED_METHOD_WITH_CONSTRUCTOR',
           "The method '{0}' isn't defined for the class '{1}', but a constructor with that name is defined.",
-          "Try adding 'new' or 'const' to invoke the constuctor, or "
+          "Try adding 'new' or 'const' to invoke the constructor, or "
           "correcting the name to the name of an existing method.");
 
   /**
@@ -3507,8 +3535,25 @@ class StaticWarningCode extends ErrorCode {
   static const StaticWarningCode EXTRA_POSITIONAL_ARGUMENTS =
       const StaticWarningCode(
           'EXTRA_POSITIONAL_ARGUMENTS',
-          "{0} positional arguments expected, but {1} found.",
+          "Too many positional arguments: {0} expected, but {1} found.",
           "Try removing the extra positional arguments.");
+
+  /**
+   * 12.14.2 Binding Actuals to Formals: It is a static warning if <i>m &lt;
+   * h</i> or if <i>m &gt; n</i>.
+   *
+   * Parameters:
+   * 0: the maximum number of positional arguments
+   * 1: the actual number of positional arguments given
+   *
+   * See [NOT_ENOUGH_REQUIRED_ARGUMENTS].
+   */
+  static const StaticWarningCode EXTRA_POSITIONAL_ARGUMENTS_COULD_BE_NAMED =
+      const StaticWarningCode(
+          'EXTRA_POSITIONAL_ARGUMENTS_COULD_BE_NAMED',
+          "Too many positional arguments: {0} expected, but {1} found.",
+          "Try removing the extra positional arguments, "
+          "or specifying the name for named arguments.");
 
   /**
    * 5. Variables: It is a static warning if a final instance variable that has
@@ -3572,7 +3617,7 @@ class StaticWarningCode extends ErrorCode {
   static const StaticWarningCode FIELD_INITIALIZING_FORMAL_NOT_ASSIGNABLE =
       const StaticWarningCode(
           'FIELD_INITIALIZING_FORMAL_NOT_ASSIGNABLE',
-          "The parameter type '{0}' is incompatable with the field type '{1}'.",
+          "The parameter type '{0}' is incompatible with the field type '{1}'.",
           "Try changing or removing the parameter's type, or "
           "changing the field's type.");
 
@@ -4951,46 +4996,51 @@ class StrongModeCode extends ErrorCode {
       "Type parameter bound types must be instantiated.",
       "Try adding type arguments.");
 
+  /*
+   * TODO(brianwilkerson) Make the TOP_LEVEL_ error codes be errors rather than
+   * hints and then clean up the function _errorSeverity in
+   * test/src/task/strong/strong_test_helper.dart.
+   */
   static const StrongModeCode TOP_LEVEL_CYCLE = const StrongModeCode(
-      ErrorType.COMPILE_TIME_ERROR,
+      ErrorType.HINT,
       'TOP_LEVEL_CYCLE',
       "The type of '{0}' can't be inferred because it depends on itself through the cycle: {1}.",
       "Try adding an explicit type to one or more of the variables in the cycle in order to break the cycle.");
 
   static const StrongModeCode TOP_LEVEL_FUNCTION_LITERAL_BLOCK =
       const StrongModeCode(
-          ErrorType.COMPILE_TIME_ERROR,
+          ErrorType.HINT,
           'TOP_LEVEL_FUNCTION_LITERAL_BLOCK',
           "The type of the function literal can't be inferred because the literal has a block as its body.",
           "Try adding an explicit type to the variable.");
 
   static const StrongModeCode TOP_LEVEL_FUNCTION_LITERAL_PARAMETER =
       const StrongModeCode(
-          ErrorType.COMPILE_TIME_ERROR,
+          ErrorType.HINT,
           'TOP_LEVEL_FUNCTION_LITERAL_PARAMETER',
           "The type of '{0}' can't be inferred because the parameter '{1}' does not have an explicit type.",
           "Try adding an explicit type to the parameter '{1}', or add an explicit type for '{0}'.");
 
   static const StrongModeCode TOP_LEVEL_IDENTIFIER_NO_TYPE = const StrongModeCode(
-      ErrorType.COMPILE_TIME_ERROR,
+      ErrorType.HINT,
       'TOP_LEVEL_IDENTIFIER_NO_TYPE',
       "The type of '{0}' can't be inferred because the type of '{1}' couldn't be inferred.",
       "Try adding an explicit type to either the variable '{0}' or the variable '{1}'.");
 
   static const StrongModeCode TOP_LEVEL_INSTANCE_GETTER = const StrongModeCode(
-      ErrorType.COMPILE_TIME_ERROR,
+      ErrorType.HINT,
       'TOP_LEVEL_INSTANCE_GETTER',
       "The type of '{0}' can't be inferred because of the use of the instance getter '{1}'.",
       "Try removing the use of the instance getter {1}, or add an explicit type for '{0}'.");
 
   static const StrongModeCode TOP_LEVEL_TYPE_ARGUMENTS = const StrongModeCode(
-      ErrorType.COMPILE_TIME_ERROR,
+      ErrorType.HINT,
       'TOP_LEVEL_TYPE_ARGUMENTS',
       "The type of '{0}' can't be inferred because type arguments were not given for '{1}'.",
       "Try adding type arguments for '{1}', or add an explicit type for '{0}'.");
 
   static const StrongModeCode TOP_LEVEL_UNSUPPORTED = const StrongModeCode(
-      ErrorType.COMPILE_TIME_ERROR,
+      ErrorType.HINT,
       'TOP_LEVEL_UNSUPPORTED',
       "The type of '{0}' can't be inferred because {1} expressions aren't supported.",
       "Try adding an explicit type for '{0}'.");

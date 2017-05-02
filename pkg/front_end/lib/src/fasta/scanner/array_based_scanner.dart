@@ -6,15 +6,11 @@ library fasta.scanner.array_based_scanner;
 
 import 'error_token.dart' show ErrorToken, UnmatchedToken;
 
-import 'keyword.dart' show Keyword;
-
-import 'precedence.dart' show PrecedenceInfo;
+import '../../scanner/token.dart' show Keyword, TokenType;
 
 import 'token.dart'
     show
         BeginGroupToken,
-        CommentToken,
-        DartDocToken,
         KeywordToken,
         StringToken,
         SymbolToken,
@@ -37,8 +33,10 @@ import '../util/link.dart' show Link;
 abstract class ArrayBasedScanner extends AbstractScanner {
   bool hasErrors = false;
 
-  ArrayBasedScanner(bool includeComments, {int numberOfBytesHint})
-      : super(includeComments, numberOfBytesHint: numberOfBytesHint);
+  ArrayBasedScanner(bool includeComments, bool scanGenericMethodComments,
+      {int numberOfBytesHint})
+      : super(includeComments, scanGenericMethodComments,
+            numberOfBytesHint: numberOfBytesHint);
 
   /**
    * The stack of open groups, e.g [: { ... ( .. :]
@@ -48,27 +46,13 @@ abstract class ArrayBasedScanner extends AbstractScanner {
   Link<BeginGroupToken> groupingStack = const Link<BeginGroupToken>();
 
   /**
-   * Append the given token to the [tail] of the current stream of tokens.
-   */
-  void appendToken(Token token) {
-    tail.next = token;
-    tail.next.previousToken = tail;
-    tail = tail.next;
-    if (comments != null) {
-      tail.precedingCommentTokens = comments;
-      comments = null;
-      commentsTail = null;
-    }
-  }
-
-  /**
    * Appends a fixed token whose kind and content is determined by [info].
    * Appends an *operator* token from [info].
    *
    * An operator token represent operators like ':', '.', ';', '&&', '==', '--',
    * '=>', etc.
    */
-  void appendPrecedenceToken(PrecedenceInfo info) {
+  void appendPrecedenceToken(TokenType info) {
     appendToken(new SymbolToken(info, tokenStart));
   }
 
@@ -78,7 +62,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
    * is determined by [yes] is appended, otherwise a fixed token whose kind
    * and content is determined by [no] is appended.
    */
-  int select(int choice, PrecedenceInfo yes, PrecedenceInfo no) {
+  int select(int choice, TokenType yes, TokenType no) {
     int next = advance();
     if (identical(next, choice)) {
       appendPrecedenceToken(yes);
@@ -93,7 +77,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
    * Appends a keyword token whose kind is determined by [keyword].
    */
   void appendKeywordToken(Keyword keyword) {
-    String syntax = keyword.syntax;
+    String syntax = keyword.lexeme;
     // Type parameters and arguments cannot contain 'this'.
     if (identical(syntax, 'this')) {
       discardOpenLt();
@@ -138,7 +122,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
    * Appends a token that begins a new group, represented by [info].
    * Group begin tokens are '{', '(', '[' and '${'.
    */
-  void appendBeginGroup(PrecedenceInfo info) {
+  void appendBeginGroup(TokenType info) {
     Token token = new BeginGroupToken(info, tokenStart);
     appendToken(token);
 
@@ -155,7 +139,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
    * It handles the group end tokens '}', ')' and ']'. The tokens '>' and
    * '>>' are handled separately bo [appendGt] and [appendGtGt].
    */
-  int appendEndGroup(PrecedenceInfo info, int openKind) {
+  int appendEndGroup(TokenType info, int openKind) {
     assert(!identical(openKind, LT_TOKEN)); // openKind is < for > and >>
     discardBeginGroupUntil(openKind);
     appendPrecedenceToken(info);
@@ -202,7 +186,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
    * This method does not issue unmatched errors, because > is also the
    * greater-than operator. It does not necessarily have to close a group.
    */
-  void appendGt(PrecedenceInfo info) {
+  void appendGt(TokenType info) {
     appendPrecedenceToken(info);
     if (groupingStack.isEmpty) return;
     if (identical(groupingStack.head.kind, LT_TOKEN)) {
@@ -216,7 +200,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
    * This method does not issue unmatched errors, because >> is also the
    * shift operator. It does not necessarily have to close a group.
    */
-  void appendGtGt(PrecedenceInfo info) {
+  void appendGtGt(TokenType info) {
     appendPrecedenceToken(info);
     if (groupingStack.isEmpty) return;
     if (identical(groupingStack.head.kind, LT_TOKEN)) {
@@ -231,35 +215,12 @@ abstract class ArrayBasedScanner extends AbstractScanner {
     }
   }
 
-  void appendComment(start, PrecedenceInfo info, bool asciiOnly) {
-    if (!includeComments) return;
-    Token newComment = createCommentToken(info, start, asciiOnly);
-    _appendToCommentStream(newComment);
-  }
-
-  void appendDartDoc(start, PrecedenceInfo info, bool asciiOnly) {
-    if (!includeComments) return;
-    Token newComment = createDartDocToken(info, start, asciiOnly);
-    _appendToCommentStream(newComment);
-  }
-
-  void _appendToCommentStream(Token newComment) {
-    if (comments == null) {
-      comments = newComment;
-      commentsTail = comments;
-    } else {
-      commentsTail.next = newComment;
-      commentsTail.next.previousToken = commentsTail;
-      commentsTail = commentsTail.next;
-    }
-  }
-
   void appendErrorToken(ErrorToken token) {
     hasErrors = true;
     appendToken(token);
   }
 
-  void appendSubstringToken(PrecedenceInfo info, int start, bool asciiOnly,
+  void appendSubstringToken(TokenType info, int start, bool asciiOnly,
       [int extraOffset = 0]) {
     appendToken(createSubstringToken(info, start, asciiOnly, extraOffset));
   }
@@ -273,34 +234,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
    * Note that [extraOffset] can only be used if the covered character(s) are
    * known to be ASCII.
    */
-  StringToken createSubstringToken(
-      PrecedenceInfo info, int start, bool asciiOnly,
-      [int extraOffset = 0]);
-
-  /**
-   * Returns a new comment from the scan offset [start] to the current
-   * [scanOffset] plus the [extraOffset]. For example, if the current
-   * scanOffset is 10, then [appendSubstringToken(5, -1)] will append the
-   * substring string [5,9).
-   *
-   * Note that [extraOffset] can only be used if the covered character(s) are
-   * known to be ASCII.
-   */
-  CommentToken createCommentToken(
-      PrecedenceInfo info, int start, bool asciiOnly,
-      [int extraOffset = 0]);
-
-  /**
-   * Returns a new dartdoc from the scan offset [start] to the current
-   * [scanOffset] plus the [extraOffset]. For example, if the current
-   * scanOffset is 10, then [appendSubstringToken(5, -1)] will append the
-   * substring string [5,9).
-   *
-   * Note that [extraOffset] can only be used if the covered character(s) are
-   * known to be ASCII.
-   */
-  DartDocToken createDartDocToken(
-      PrecedenceInfo info, int start, bool asciiOnly,
+  StringToken createSubstringToken(TokenType info, int start, bool asciiOnly,
       [int extraOffset = 0]);
 
   /**
@@ -366,7 +300,7 @@ abstract class ArrayBasedScanner extends AbstractScanner {
     //     next
     //      v
     //     EOF
-    PrecedenceInfo info = closeBraceInfoFor(begin);
+    TokenType info = closeBraceInfoFor(begin);
     appendToken(new SyntheticSymbolToken(info, tokenStart));
     begin.endGroup = tail;
     appendErrorToken(new UnmatchedToken(begin));

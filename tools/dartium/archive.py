@@ -19,10 +19,9 @@ if HOST_OS == 'mac':
   CHROMEDRIVER_FILES = ['chromedriver']
 elif HOST_OS == 'linux':
   CONTENTSHELL_FILES = ['content_shell', 'content_shell.pak', 'fonts.conf',
-                        'libblink_test_plugin.so', 'libffmpegsumo.so',
-                        'libosmesa.so', 'lib', 'icudtl.dat', 'AHEM____.TTF',
-                        'GardinerModBug.ttf', 'GardinerModCat.ttf',
-                        'natives_blob.bin']
+                        'libffmpegsumo.so', 'libosmesa.so', 'lib',
+                        'icudtl.dat', 'AHEM____.TTF', 'GardinerModBug.ttf',
+                        'GardinerModCat.ttf', 'natives_blob.bin']
   CHROMEDRIVER_FILES = ['chromedriver']
 elif HOST_OS == 'win':
   # TODO: provide proper list.

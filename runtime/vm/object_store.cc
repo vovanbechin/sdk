@@ -25,6 +25,7 @@ ObjectStore::ObjectStore()
       number_type_(Type::null()),
       int_type_(Type::null()),
       integer_implementation_class_(Class::null()),
+      int64_type_(Type::null()),
       smi_class_(Class::null()),
       smi_type_(Type::null()),
       mint_class_(Class::null()),
@@ -83,7 +84,6 @@ ObjectStore::ObjectStore()
       resume_capabilities_(GrowableObjectArray::null()),
       exit_listeners_(GrowableObjectArray::null()),
       error_listeners_(GrowableObjectArray::null()),
-      empty_context_(Context::null()),
       stack_overflow_(Instance::null()),
       out_of_memory_(Instance::null()),
       preallocated_unhandled_exception_(UnhandledException::null()),
@@ -273,7 +273,7 @@ void ObjectStore::InitKnownObjects() {
                                       function_name, 2, Object::null_array());
   ASSERT(!function.IsNull());
   set_complete_on_async_return(function);
-  if (FLAG_async_debugger_stepping) {
+  if (FLAG_async_debugger) {
     // Disable debugging and inlining the _CompleteOnAsyncReturn function.
     function.set_is_debuggable(false);
     function.set_is_inlinable(false);
@@ -284,7 +284,7 @@ void ObjectStore::InitKnownObjects() {
   ASSERT(!cls.IsNull());
   set_async_star_stream_controller(cls);
 
-  if (FLAG_async_debugger_stepping) {
+  if (FLAG_async_debugger) {
     // Disable debugging and inlining of all functions on the
     // _AsyncStarStreamController class.
     const Array& functions = Array::Handle(cls.functions());

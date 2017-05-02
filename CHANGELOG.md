@@ -2,50 +2,75 @@
 
 ### Language
 
+#### Strong Mode
+
 ### Core library changes
 
-### Dart VM
+* `dart:io`
+  * Added `Platform.localeName`, needed for accessing the locale on platforms
+    that don't store it in an environment variable.
+  * Added `ProcessInfo.currentRss` and `ProcessInfo.maxRss` for inspecting
+    the Dart VM process current and peak resident set size.
+  * Added 'RawSynchronousSocket', a basic synchronous socket implementation.
+* `dart:convert`
+  * Removed deprecated `ChunkedConverter` class.
+  * JSON maps are now typed as `Map<String, dynamic>` instead of
+    `Map<dynamic, dynamic>`. A JSON-map is not a `HashMap` or `LinkedHashMap`
+    anymore (but just a `Map`).
 
-### Strong Mode
+### Dart VM
 
 ### Tool Changes
 
+* Pub
+    * `pub build` will use a failing exit code if there are errors in any
+      transformer.
+    * Allow publishing packages that depend on the Flutter SDK.
+
+* dartfmt
+    * Preserve type parameters in new generic function typedef syntax.
+    * Add self-test validation to ensure formatter bugs do not cause user code
+      to be lost.
+
 ## 1.23.0
 
-### Language
-* Allow using URI strings in `part of` declarations to refer to the
-  importing library.
-  A library part now can declare its library either as:
-  `part of name.of.library;` or as `part of "uriReferenceOfLibrary.dart";`.
-  This allows libraries with no library declarations (and therefore no name)
-  to have parts, and it allows tools to easily find the library of a part file.
+#### Strong Mode
 
-### Core library changes
+* Breaking change - it is now a strong mode error if a mixin causes a name
+  conflict between two private members (field/getter/setter/method) from a
+  different library. (SDK
+  issue [28809](https://github.com/dart-lang/sdk/issues/28809)).
 
-* `dart:core`
-  * Added `Uri.isScheme` function to check the scheme of a URI.
-    Example: `uri.isScheme("http")`. Ignores case when comparing.
-  * Make `UriData.parse` validate its input better.
-    If the data is base-64 encoded, the data is normalized wrt.
-    alphabet and padding, and it contains invalid base-64 data,
-    parsing fails. Also normalizes non-base-64 data.
-* `dart:io`
-  * Added functions `File.lastAccessed`, `File.lastAccessedSync`,
-    `File.setLastModified`, `File.setLastModifiedSync`, `File.setLastAccessed`,
-    and `File.setLastAccessedSync`.
-  * Added `{Stdin,Stdout}.supportsAnsiEscapes`.
+lib1.dart:
 
-### Dart VM
 
-* Calls to `print()` and `Stdout.write*()` now correctly print unicode
-  characters to the console on Windows. Calls to `Stdout.add*()` behave as
-  before.
+```dart
+class A {
+  int _x;
+}
 
-### Strong Mode
+class B {
+  int _x;
+}
+```
 
-* Strong mode will prefer the expected type to infer generic types,
-  functions, and methods
-  (SDK issue [27586](https://github.com/dart-lang/sdk/issues/27586)).
+lib2.dart:
+
+
+```dart
+import 'lib1.dart';
+
+class C extends A with B {}
+```
+
+```
+    error • The private name _x, defined by B, conflicts with the same name defined by A at tmp/lib2.dart:3:24 • private_collision_in_mixin_application
+```
+
+
+* Breaking change - strong mode will prefer the expected type to infer generic
+  types, functions, and methods (SDK
+  issue [27586](https://github.com/dart-lang/sdk/issues/27586)).
 
   ```dart
   main() {
@@ -82,14 +107,58 @@
       int x = 42;
     }
     class D extends C {
-      int x = 123;
-      get y => super.x;
+      get x {
+        print("x got called");
+        return super.x;
+      }
     }
     main() {
       print(new D().x);
-      print(new D().y);
     }
     ```
+
+* Strong mode down cast composite warnings are no longer issued by default.
+  (SDK issue [28588](https://github.com/dart-lang/sdk/issues/28588)).
+
+```dart
+void test() {
+  List untyped = [];
+  List<int> typed = untyped; // No down cast composite warning
+}
+```
+
+To opt back into the warnings, add the following to
+the
+[.analysis_options](https://www.dartlang.org/guides/language/analysis-options)
+file for your project.
+
+```
+analyzer:
+  errors:
+    strong_mode_down_cast_composite: warning
+```
+
+
+### Core library changes
+
+* `dart:core`
+  * Added `Uri.isScheme` function to check the scheme of a URI.
+    Example: `uri.isScheme("http")`. Ignores case when comparing.
+  * Make `UriData.parse` validate its input better.
+    If the data is base-64 encoded, the data is normalized wrt.
+    alphabet and padding, and it contains invalid base-64 data,
+    parsing fails. Also normalizes non-base-64 data.
+* `dart:io`
+  * Added functions `File.lastAccessed`, `File.lastAccessedSync`,
+    `File.setLastModified`, `File.setLastModifiedSync`, `File.setLastAccessed`,
+    and `File.setLastAccessedSync`.
+  * Added `{Stdin,Stdout}.supportsAnsiEscapes`.
+
+### Dart VM
+
+* Calls to `print()` and `Stdout.write*()` now correctly print unicode
+  characters to the console on Windows. Calls to `Stdout.add*()` behave as
+  before.
 
 ### Tool changes
 

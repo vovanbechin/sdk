@@ -4,9 +4,9 @@
 
 library dart2js.scanner.string_scanner;
 
-import 'array_based_scanner.dart' show ArrayBasedScanner;
+import '../../scanner/token.dart' show TokenType;
 
-import 'precedence.dart' show PrecedenceInfo;
+import 'array_based_scanner.dart' show ArrayBasedScanner;
 
 import 'token.dart' show CommentToken, DartDocToken, StringToken;
 
@@ -21,9 +21,10 @@ class StringScanner extends ArrayBasedScanner {
   /** The current offset in [string]. */
   int scanOffset = -1;
 
-  StringScanner(String string, {bool includeComments: false})
+  StringScanner(String string,
+      {bool includeComments: false, bool scanGenericMethodComments: false})
       : string = ensureZeroTermination(string),
-        super(includeComments);
+        super(includeComments, scanGenericMethodComments);
 
   static String ensureZeroTermination(String string) {
     return (string.isEmpty || string.codeUnitAt(string.length - 1) != 0)
@@ -42,8 +43,7 @@ class StringScanner extends ArrayBasedScanner {
   void handleUnicode(int startScanOffset) {}
 
   @override
-  StringToken createSubstringToken(
-      PrecedenceInfo info, int start, bool asciiOnly,
+  StringToken createSubstringToken(TokenType info, int start, bool asciiOnly,
       [int extraOffset = 0]) {
     return new StringToken.fromSubstring(
         info, string, start, scanOffset + extraOffset, tokenStart,
@@ -51,8 +51,7 @@ class StringScanner extends ArrayBasedScanner {
   }
 
   @override
-  CommentToken createCommentToken(
-      PrecedenceInfo info, int start, bool asciiOnly,
+  CommentToken createCommentToken(TokenType info, int start, bool asciiOnly,
       [int extraOffset = 0]) {
     return new CommentToken.fromSubstring(
         info, string, start, scanOffset + extraOffset, tokenStart,
@@ -60,8 +59,7 @@ class StringScanner extends ArrayBasedScanner {
   }
 
   @override
-  DartDocToken createDartDocToken(
-      PrecedenceInfo info, int start, bool asciiOnly,
+  DartDocToken createDartDocToken(TokenType info, int start, bool asciiOnly,
       [int extraOffset = 0]) {
     return new DartDocToken.fromSubstring(
         info, string, start, scanOffset + extraOffset, tokenStart,
@@ -69,4 +67,21 @@ class StringScanner extends ArrayBasedScanner {
   }
 
   bool atEndOfFile() => scanOffset >= string.length - 1;
+}
+
+/**
+ * Scanner that creates tokens for a part of a larger [String], where the part
+ * starts at the [baseOffset].
+ */
+class SubStringScanner extends StringScanner {
+  final int baseOffset;
+
+  SubStringScanner(this.baseOffset, String string,
+      {bool includeComments: false})
+      : super(string, includeComments: includeComments);
+
+  @override
+  void beginToken() {
+    tokenStart = baseOffset + stringOffset;
+  }
 }

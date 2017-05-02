@@ -18,7 +18,20 @@ void VisitList(List<T>* list, Visitor* visitor) {
 }
 
 
-CanonicalName::CanonicalName() : is_referenced_(false) {}
+Source::~Source() {
+  delete[] uri_;
+  delete[] source_code_;
+  delete[] line_starts_;
+}
+
+
+SourceTable::~SourceTable() {
+  delete[] sources_;
+}
+
+
+CanonicalName::CanonicalName()
+    : parent_(NULL), name_index_(-1), is_referenced_(false) {}
 
 
 CanonicalName::~CanonicalName() {
@@ -33,162 +46,12 @@ CanonicalName* CanonicalName::NewRoot() {
 }
 
 
-CanonicalName* CanonicalName::AddChild(String* name) {
+CanonicalName* CanonicalName::AddChild(intptr_t name_index) {
   CanonicalName* child = new CanonicalName();
   child->parent_ = this;
-  child->name_ = name;
+  child->name_index_ = name_index;
   children_.Add(child);
   return child;
-}
-
-
-bool CanonicalName::IsAdministrative() {
-  // Administrative names start with '@'.
-  return (name()->size() > 0) && (name()->buffer()[0] == '@');
-}
-
-
-bool CanonicalName::IsPrivate() {
-  // Private names start with '_'.
-  return (name()->size() > 0) && (name()->buffer()[0] == '_');
-}
-
-
-bool CanonicalName::IsRoot() {
-  // The root is the only canonical name with no parent.
-  return parent() == NULL;
-}
-
-
-bool CanonicalName::IsLibrary() {
-  // Libraries are the only canonical names with the root as their parent.
-  return !IsRoot() && parent()->IsRoot();
-}
-
-
-bool CanonicalName::IsClass() {
-  // Classes have the library as their parent and are not an administrative
-  // name starting with @.
-  return !IsAdministrative() && !IsRoot() && parent()->IsLibrary();
-}
-
-
-bool CanonicalName::IsMember() {
-  return IsConstructor() || IsField() || IsProcedure();
-}
-
-
-// Note the two occurrences of the parameter 'literal'.
-#define COMPARE_NAME(canonical_name, literal)                                  \
-  memcmp((canonical_name)->name()->buffer(), (literal), strlen(literal)) == 0
-
-bool CanonicalName::IsField() {
-  // Fields with private names have the import URI of the library where they are
-  // visible as the parent and the string "@fields" as the parent's parent.
-  // Fields with non-private names have the string "@fields' as the parent.
-  if (IsRoot()) {
-    return false;
-  }
-  CanonicalName* kind = this->parent();
-  if (IsPrivate()) {
-    kind = kind->parent();
-  }
-  return COMPARE_NAME(kind, "@fields");
-}
-
-
-bool CanonicalName::IsConstructor() {
-  // Constructors with private names have the import URI of the library where
-  // they are visible as the parent and the string "@constructors" as the
-  // parent's parent.  Constructors with non-private names have the string
-  // "@constructors" as the parent.
-  if (IsRoot()) {
-    return false;
-  }
-  CanonicalName* kind = this->parent();
-  if (IsPrivate()) {
-    kind = kind->parent();
-  }
-  return COMPARE_NAME(kind, "@constructors");
-}
-
-
-bool CanonicalName::IsProcedure() {
-  return IsMethod() || IsGetter() || IsSetter() || IsFactory();
-}
-
-
-bool CanonicalName::IsMethod() {
-  // Methods with private names have the import URI of the library where they
-  // are visible as the parent and the string "@methods" as the parent's parent.
-  // Methods with non-private names have the string "@methods" as the parent.
-  if (IsRoot()) {
-    return false;
-  }
-  CanonicalName* kind = this->parent();
-  if (IsPrivate()) {
-    kind = kind->parent();
-  }
-  return COMPARE_NAME(kind, "@methods");
-}
-
-
-bool CanonicalName::IsGetter() {
-  // Getters with private names have the import URI of the library where they
-  // are visible as the parent and the string "@getters" as the parent's parent.
-  // Getters with non-private names have the string "@getters" as the parent.
-  if (IsRoot()) {
-    return false;
-  }
-  CanonicalName* kind = this->parent();
-  if (IsPrivate()) {
-    kind = kind->parent();
-  }
-  return COMPARE_NAME(kind, "@getters");
-}
-
-
-bool CanonicalName::IsSetter() {
-  // Setters with private names have the import URI of the library where they
-  // are visible as the parent and the string "@setters" as the parent's parent.
-  // Setters with non-private names have the string "@setters" as the parent.
-  if (IsRoot()) {
-    return false;
-  }
-  CanonicalName* kind = this->parent();
-  if (IsPrivate()) {
-    kind = kind->parent();
-  }
-  return COMPARE_NAME(kind, "@setters");
-}
-
-
-bool CanonicalName::IsFactory() {
-  // Factories with private names have the import URI of the library where they
-  // are visible as the parent and the string "@factories" as the parent's
-  // parent.  Factories with non-private names have the string "@factories" as
-  // the parent.
-  if (IsRoot()) {
-    return false;
-  }
-  CanonicalName* kind = this->parent();
-  if (IsPrivate()) {
-    kind = kind->parent();
-  }
-  return COMPARE_NAME(kind, "@factories");
-}
-
-#undef COMPARE_NAME
-
-
-CanonicalName* CanonicalName::EnclosingName() {
-  ASSERT(IsField() || IsConstructor() || IsProcedure());
-  CanonicalName* enclosing = parent()->parent();
-  if (IsPrivate()) {
-    enclosing = enclosing->parent();
-  }
-  ASSERT(enclosing->IsLibrary() || enclosing->IsClass());
-  return enclosing;
 }
 
 
@@ -218,6 +81,20 @@ void Library::VisitChildren(Visitor* visitor) {
   VisitList(&classes(), visitor);
   VisitList(&procedures(), visitor);
   VisitList(&fields(), visitor);
+}
+
+
+Typedef::~Typedef() {}
+
+
+void Typedef::AcceptTreeVisitor(TreeVisitor* visitor) {
+  visitor->VisitTypedef(this);
+}
+
+
+void Typedef::VisitChildren(Visitor* visitor) {
+  VisitList(&type_parameters(), visitor);
+  type()->AcceptDartTypeVisitor(visitor);
 }
 
 
@@ -893,6 +770,71 @@ void Let::VisitChildren(Visitor* visitor) {
 }
 
 
+VectorCreation::~VectorCreation() {}
+
+
+void VectorCreation::AcceptExpressionVisitor(ExpressionVisitor* visitor) {
+  visitor->VisitVectorCreation(this);
+}
+
+
+void VectorCreation::VisitChildren(Visitor* visitor) {}
+
+
+VectorGet::~VectorGet() {}
+
+
+void VectorGet::AcceptExpressionVisitor(ExpressionVisitor* visitor) {
+  visitor->VisitVectorGet(this);
+}
+
+
+void VectorGet::VisitChildren(Visitor* visitor) {
+  vector_expression()->AcceptExpressionVisitor(visitor);
+}
+
+
+VectorSet::~VectorSet() {}
+
+
+void VectorSet::AcceptExpressionVisitor(ExpressionVisitor* visitor) {
+  visitor->VisitVectorSet(this);
+}
+
+
+void VectorSet::VisitChildren(Visitor* visitor) {
+  vector_expression()->AcceptExpressionVisitor(visitor);
+  value()->AcceptExpressionVisitor(visitor);
+}
+
+
+VectorCopy::~VectorCopy() {}
+
+
+void VectorCopy::AcceptExpressionVisitor(ExpressionVisitor* visitor) {
+  visitor->VisitVectorCopy(this);
+}
+
+
+void VectorCopy::VisitChildren(Visitor* visitor) {
+  vector_expression()->AcceptExpressionVisitor(visitor);
+}
+
+
+ClosureCreation::~ClosureCreation() {}
+
+
+void ClosureCreation::AcceptExpressionVisitor(ExpressionVisitor* visitor) {
+  visitor->VisitClosureCreation(this);
+}
+
+
+void ClosureCreation::VisitChildren(Visitor* visitor) {
+  context_vector()->AcceptExpressionVisitor(visitor);
+  function_type()->AcceptDartTypeVisitor(visitor);
+}
+
+
 Statement::~Statement() {}
 
 
@@ -1264,6 +1206,19 @@ void InterfaceType::VisitChildren(Visitor* visitor) {
 }
 
 
+TypedefType::~TypedefType() {}
+
+
+void TypedefType::AcceptDartTypeVisitor(DartTypeVisitor* visitor) {
+  visitor->VisitTypedefType(this);
+}
+
+
+void TypedefType::VisitChildren(Visitor* visitor) {
+  VisitList(&type_arguments(), visitor);
+}
+
+
 FunctionType::~FunctionType() {}
 
 
@@ -1276,7 +1231,7 @@ void FunctionType::VisitChildren(Visitor* visitor) {
   VisitList(&type_parameters(), visitor);
   VisitList(&positional_parameters(), visitor);
   for (int i = 0; i < named_parameters().length(); ++i) {
-    named_parameters()[i]->second()->AcceptDartTypeVisitor(visitor);
+    named_parameters()[i]->type()->AcceptDartTypeVisitor(visitor);
   }
   return_type()->AcceptDartTypeVisitor(visitor);
 }
@@ -1291,6 +1246,17 @@ void TypeParameterType::AcceptDartTypeVisitor(DartTypeVisitor* visitor) {
 
 
 void TypeParameterType::VisitChildren(Visitor* visitor) {}
+
+
+VectorType::~VectorType() {}
+
+
+void VectorType::AcceptDartTypeVisitor(DartTypeVisitor* visitor) {
+  visitor->VisitVectorType(this);
+}
+
+
+void VectorType::VisitChildren(Visitor* visitor) {}
 
 
 TypeParameter::~TypeParameter() {}

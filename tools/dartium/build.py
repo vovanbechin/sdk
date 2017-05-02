@@ -12,7 +12,6 @@ ALL_TARGETS = [
     'content_shell',
     'chrome',
     'blink_tests',
-    'chromedriver'
 ]
 
 def main():

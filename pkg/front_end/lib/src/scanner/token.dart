@@ -9,9 +9,26 @@
 import 'dart:collection';
 
 import 'package:front_end/src/base/syntactic_entity.dart';
+import 'package:front_end/src/fasta/scanner/token_constants.dart';
 import 'package:front_end/src/scanner/string_utilities.dart';
-import 'package:front_end/src/fasta/scanner/keyword.dart' as fasta;
-import 'package:front_end/src/fasta/scanner/precedence.dart' as fasta;
+
+const int NO_PRECEDENCE = 0;
+const int ASSIGNMENT_PRECEDENCE = 1;
+const int CASCADE_PRECEDENCE = 2;
+const int CONDITIONAL_PRECEDENCE = 3;
+const int IF_NULL_PRECEDENCE = 4;
+const int LOGICAL_OR_PRECEDENCE = 5;
+const int LOGICAL_AND_PRECEDENCE = 6;
+const int EQUALITY_PRECEDENCE = 7;
+const int RELATIONAL_PRECEDENCE = 8;
+const int BITWISE_OR_PRECEDENCE = 9;
+const int BITWISE_XOR_PRECEDENCE = 10;
+const int BITWISE_AND_PRECEDENCE = 11;
+const int SHIFT_PRECEDENCE = 12;
+const int ADDITIVE_PRECEDENCE = 13;
+const int MULTIPLICATIVE_PRECEDENCE = 14;
+const int PREFIX_PRECEDENCE = 15;
+const int POSTFIX_PRECEDENCE = 16;
 
 /**
  * The opening half of a grouping pair of tokens. This is used for curly
@@ -149,111 +166,139 @@ class DocumentationCommentToken extends CommentToken {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-abstract class Keyword {
-  static const Keyword ABSTRACT = fasta.Keyword.ABSTRACT;
+class Keyword {
+  static const Keyword ABSTRACT = const Keyword("abstract", isBuiltIn: true);
 
-  static const Keyword AS = fasta.Keyword.AS;
+  static const Keyword AS =
+      const Keyword("as", info: TokenType.AS, isBuiltIn: true);
 
-  static const Keyword ASSERT = fasta.Keyword.ASSERT;
+  static const Keyword ASSERT = const Keyword("assert");
 
-  static const Keyword BREAK = fasta.Keyword.BREAK;
+  static const Keyword ASYNC = const Keyword("async", isPseudo: true);
 
-  static const Keyword CASE = fasta.Keyword.CASE;
+  static const Keyword AWAIT = const Keyword("await", isPseudo: true);
 
-  static const Keyword CATCH = fasta.Keyword.CATCH;
+  static const Keyword BREAK = const Keyword("break");
 
-  static const Keyword CLASS = fasta.Keyword.CLASS;
+  static const Keyword CASE = const Keyword("case");
 
-  static const Keyword CONST = fasta.Keyword.CONST;
+  static const Keyword CATCH = const Keyword("catch");
 
-  static const Keyword CONTINUE = fasta.Keyword.CONTINUE;
+  static const Keyword CLASS = const Keyword("class");
 
-  static const Keyword COVARIANT = fasta.Keyword.COVARIANT;
+  static const Keyword CONST = const Keyword("const");
 
-  static const Keyword DEFAULT = fasta.Keyword.DEFAULT;
+  static const Keyword CONTINUE = const Keyword("continue");
 
-  static const Keyword DEFERRED = fasta.Keyword.DEFERRED;
+  static const Keyword COVARIANT = const Keyword("covariant", isBuiltIn: true);
 
-  static const Keyword DO = fasta.Keyword.DO;
+  static const Keyword DEFAULT = const Keyword("default");
 
-  static const Keyword DYNAMIC = fasta.Keyword.DYNAMIC;
+  static const Keyword DEFERRED = const Keyword("deferred", isBuiltIn: true);
 
-  static const Keyword ELSE = fasta.Keyword.ELSE;
+  static const Keyword DO = const Keyword("do");
 
-  static const Keyword ENUM = fasta.Keyword.ENUM;
+  static const Keyword DYNAMIC = const Keyword("dynamic", isBuiltIn: true);
 
-  static const Keyword EXPORT = fasta.Keyword.EXPORT;
+  static const Keyword ELSE = const Keyword("else");
 
-  static const Keyword EXTENDS = fasta.Keyword.EXTENDS;
+  static const Keyword ENUM = const Keyword("enum");
 
-  static const Keyword EXTERNAL = fasta.Keyword.EXTERNAL;
+  static const Keyword EXPORT = const Keyword("export", isBuiltIn: true);
 
-  static const Keyword FACTORY = fasta.Keyword.FACTORY;
+  static const Keyword EXTENDS = const Keyword("extends");
 
-  static const Keyword FALSE = fasta.Keyword.FALSE;
+  static const Keyword EXTERNAL = const Keyword("external", isBuiltIn: true);
 
-  static const Keyword FINAL = fasta.Keyword.FINAL;
+  static const Keyword FACTORY = const Keyword("factory", isBuiltIn: true);
 
-  static const Keyword FINALLY = fasta.Keyword.FINALLY;
+  static const Keyword FALSE = const Keyword("false");
 
-  static const Keyword FOR = fasta.Keyword.FOR;
+  static const Keyword FINAL = const Keyword("final");
 
-  static const Keyword GET = fasta.Keyword.GET;
+  static const Keyword FINALLY = const Keyword("finally");
 
-  static const Keyword IF = fasta.Keyword.IF;
+  static const Keyword FOR = const Keyword("for");
 
-  static const Keyword IMPLEMENTS = fasta.Keyword.IMPLEMENTS;
+  static const Keyword FUNCTION = const Keyword("Function", isPseudo: true);
 
-  static const Keyword IMPORT = fasta.Keyword.IMPORT;
+  static const Keyword GET = const Keyword("get", isBuiltIn: true);
 
-  static const Keyword IN = fasta.Keyword.IN;
+  static const Keyword HIDE = const Keyword("hide", isPseudo: true);
 
-  static const Keyword IS = fasta.Keyword.IS;
+  static const Keyword IF = const Keyword("if");
 
-  static const Keyword LIBRARY = fasta.Keyword.LIBRARY;
+  static const Keyword IMPLEMENTS =
+      const Keyword("implements", isBuiltIn: true);
 
-  static const Keyword NEW = fasta.Keyword.NEW;
+  static const Keyword IMPORT = const Keyword("import", isBuiltIn: true);
 
-  static const Keyword NULL = fasta.Keyword.NULL;
+  static const Keyword IN = const Keyword("in");
 
-  static const Keyword OPERATOR = fasta.Keyword.OPERATOR;
+  static const Keyword IS = const Keyword("is", info: TokenType.IS);
 
-  static const Keyword PART = fasta.Keyword.PART;
+  static const Keyword LIBRARY = const Keyword("library", isBuiltIn: true);
 
-  static const Keyword RETHROW = fasta.Keyword.RETHROW;
+  static const Keyword NATIVE = const Keyword("native", isPseudo: true);
 
-  static const Keyword RETURN = fasta.Keyword.RETURN;
+  static const Keyword NEW = const Keyword("new");
 
-  static const Keyword SET = fasta.Keyword.SET;
+  static const Keyword NULL = const Keyword("null");
 
-  static const Keyword STATIC = fasta.Keyword.STATIC;
+  static const Keyword OF = const Keyword("of", isPseudo: true);
 
-  static const Keyword SUPER = fasta.Keyword.SUPER;
+  static const Keyword ON = const Keyword("on", isPseudo: true);
 
-  static const Keyword SWITCH = fasta.Keyword.SWITCH;
+  static const Keyword OPERATOR = const Keyword("operator", isBuiltIn: true);
 
-  static const Keyword THIS = fasta.Keyword.THIS;
+  static const Keyword PART = const Keyword("part", isBuiltIn: true);
 
-  static const Keyword THROW = fasta.Keyword.THROW;
+  static const Keyword PATCH = const Keyword("patch", isPseudo: true);
 
-  static const Keyword TRUE = fasta.Keyword.TRUE;
+  static const Keyword RETHROW = const Keyword("rethrow");
 
-  static const Keyword TRY = fasta.Keyword.TRY;
+  static const Keyword RETURN = const Keyword("return");
 
-  static const Keyword TYPEDEF = fasta.Keyword.TYPEDEF;
+  static const Keyword SET = const Keyword("set", isBuiltIn: true);
 
-  static const Keyword VAR = fasta.Keyword.VAR;
+  static const Keyword SHOW = const Keyword("show", isPseudo: true);
 
-  static const Keyword VOID = fasta.Keyword.VOID;
+  static const Keyword SOURCE = const Keyword("source", isPseudo: true);
 
-  static const Keyword WHILE = fasta.Keyword.WHILE;
+  static const Keyword STATIC = const Keyword("static", isBuiltIn: true);
 
-  static const Keyword WITH = fasta.Keyword.WITH;
+  static const Keyword SUPER = const Keyword("super");
+
+  static const Keyword SWITCH = const Keyword("switch");
+
+  static const Keyword SYNC = const Keyword("sync", isPseudo: true);
+
+  static const Keyword THIS = const Keyword("this");
+
+  static const Keyword THROW = const Keyword("throw");
+
+  static const Keyword TRUE = const Keyword("true");
+
+  static const Keyword TRY = const Keyword("try");
+
+  static const Keyword TYPEDEF = const Keyword("typedef", isBuiltIn: true);
+
+  static const Keyword VAR = const Keyword("var");
+
+  static const Keyword VOID = const Keyword("void");
+
+  static const Keyword WHILE = const Keyword("while");
+
+  static const Keyword WITH = const Keyword("with");
+
+  static const Keyword YIELD = const Keyword("yield", isPseudo: true);
 
   static const List<Keyword> values = const <Keyword>[
     ABSTRACT,
     AS,
     ASSERT,
+    ASYNC,
+    AWAIT,
     BREAK,
     CASE,
     CATCH,
@@ -275,23 +320,32 @@ abstract class Keyword {
     FINAL,
     FINALLY,
     FOR,
+    FUNCTION,
     GET,
+    HIDE,
     IF,
     IMPLEMENTS,
     IMPORT,
     IN,
     IS,
     LIBRARY,
+    NATIVE,
     NEW,
     NULL,
+    OF,
+    ON,
     OPERATOR,
     PART,
+    PATCH,
     RETHROW,
     RETURN,
     SET,
+    SHOW,
+    SOURCE,
     STATIC,
     SUPER,
     SWITCH,
+    SYNC,
     THIS,
     THROW,
     TRUE,
@@ -301,6 +355,7 @@ abstract class Keyword {
     VOID,
     WHILE,
     WITH,
+    YIELD,
   ];
 
   /**
@@ -308,21 +363,57 @@ abstract class Keyword {
    */
   static final Map<String, Keyword> keywords = _createKeywordMap();
 
+  final TokenType info;
+
   /**
-   * The name of the keyword type.
+   * A flag indicating whether the keyword is "built-in" identifier.
    */
-  String get name;
+  final bool isBuiltIn;
+
+  /**
+   * A flag indicating whether the keyword can be used as an identifier
+   * in some situations.
+   */
+  final bool isPseudo;
 
   /**
    * The lexeme for the keyword.
    */
-  String get syntax;
+  final String lexeme;
 
   /**
-   * A flag indicating whether the keyword is a pseudo-keyword. Pseudo keywords
-   * can be used as identifiers.
+   * Initialize a newly created keyword.
    */
-  bool get isPseudoKeyword;
+  const Keyword(this.lexeme,
+      {this.isBuiltIn: false,
+      this.isPseudo: false,
+      this.info: TokenType.KEYWORD});
+
+  bool get isBuiltInOrPseudo => isBuiltIn || isPseudo;
+
+  /**
+   * A flag indicating whether the keyword is "built-in" identifier.
+   * This method exists for backward compatibility and will be removed.
+   * Use [isBuiltIn] instead.
+   */
+  @deprecated
+  bool get isPseudoKeyword => isBuiltIn; // TODO (danrubel): remove this
+
+  /**
+   * The name of the keyword type.
+   */
+  String get name => lexeme.toUpperCase();
+
+  /**
+   * The lexeme for the keyword.
+   *
+   * Deprecated - use [lexeme] instead.
+   */
+  @deprecated
+  String get syntax => lexeme;
+
+  @override
+  String toString() => name;
 
   /**
    * Create a table mapping the lexemes of keywords to the corresponding keyword
@@ -332,7 +423,7 @@ abstract class Keyword {
     LinkedHashMap<String, Keyword> result =
         new LinkedHashMap<String, Keyword>();
     for (Keyword keyword in values) {
-      result[keyword.syntax] = keyword;
+      result[keyword.lexeme] = keyword;
     }
     return result;
   }
@@ -352,13 +443,15 @@ class KeywordToken extends SimpleToken {
   KeywordToken(this.keyword, int offset) : super(TokenType.KEYWORD, offset);
 
   @override
-  String get lexeme => keyword.syntax;
+  String get lexeme => keyword.lexeme;
 
   @override
   Token copy() => new KeywordToken(keyword, offset);
 
   @override
-  Keyword value() => keyword;
+  // Changed return type from Keyword to Object because
+  // fasta considers pseudo-keywords to be keywords rather than identifiers
+  Object value() => keyword;
 }
 
 /**
@@ -597,6 +690,38 @@ class StringTokenWithComment extends StringToken implements TokenWithComment {
   @override
   Token copy() => new StringTokenWithComment(
       type, lexeme, offset, copyComments(precedingComments));
+}
+
+/**
+ * A synthetic keyword token.
+ */
+class SyntheticKeywordToken extends KeywordToken {
+  /**
+   * Initialize a newly created token to represent the given [keyword] at the
+   * given [offset].
+   */
+  SyntheticKeywordToken(Keyword keyword, int offset) : super(keyword, offset);
+
+  @override
+  int get length => 0;
+
+  @override
+  Token copy() => new SyntheticKeywordToken(keyword, offset);
+}
+
+/**
+ * A token whose value is independent of it's type.
+ */
+class SyntheticStringToken extends StringToken {
+  /**
+   * Initialize a newly created token to represent a token of the given [type]
+   * with the given [value] at the given [offset].
+   */
+  SyntheticStringToken(TokenType type, String value, int offset)
+      : super(type, value, offset);
+
+  @override
+  bool get isSynthetic => true;
 }
 
 /**
@@ -883,184 +1008,448 @@ class TokenClass {
  *
  * Clients may not extend, implement or mix-in this class.
  */
-abstract class TokenType {
+class TokenType {
   /**
    * The type of the token that marks the start or end of the input.
    */
-  static const TokenType EOF = fasta.EOF_INFO;
+  static const TokenType EOF =
+      const TokenType('', 'EOF', NO_PRECEDENCE, EOF_TOKEN);
 
-  static const TokenType DOUBLE = fasta.DOUBLE_INFO;
+  static const TokenType DOUBLE =
+      const TokenType('double', 'DOUBLE', NO_PRECEDENCE, DOUBLE_TOKEN);
 
-  static const TokenType HEXADECIMAL = fasta.HEXADECIMAL_INFO;
+  static const TokenType HEXADECIMAL = const TokenType(
+      'hexadecimal', 'HEXADECIMAL', NO_PRECEDENCE, HEXADECIMAL_TOKEN);
 
-  static const TokenType IDENTIFIER = fasta.IDENTIFIER_INFO;
+  static const TokenType IDENTIFIER = const TokenType(
+      'identifier', 'STRING_INT', NO_PRECEDENCE, IDENTIFIER_TOKEN);
 
-  static const TokenType INT = fasta.INT_INFO;
+  static const TokenType INT =
+      const TokenType('int', 'INT', NO_PRECEDENCE, INT_TOKEN);
 
-  static const TokenType KEYWORD = fasta.KEYWORD_INFO;
+  static const TokenType KEYWORD =
+      const TokenType('keyword', 'KEYWORD', NO_PRECEDENCE, KEYWORD_TOKEN);
 
-  static const TokenType MULTI_LINE_COMMENT = fasta.MULTI_LINE_COMMENT_INFO;
+  static const TokenType MULTI_LINE_COMMENT = const TokenType(
+      'comment', 'MULTI_LINE_COMMENT', NO_PRECEDENCE, COMMENT_TOKEN);
 
-  static const TokenType SCRIPT_TAG = fasta.SCRIPT_INFO;
+  static const TokenType SCRIPT_TAG =
+      const TokenType('script', 'SCRIPT_TAG', NO_PRECEDENCE, SCRIPT_TOKEN);
 
-  static const TokenType SINGLE_LINE_COMMENT = fasta.SINGLE_LINE_COMMENT_INFO;
+  static const TokenType SINGLE_LINE_COMMENT = const TokenType(
+      'comment', 'SINGLE_LINE_COMMENT', NO_PRECEDENCE, COMMENT_TOKEN);
 
-  static const TokenType STRING = fasta.STRING_INFO;
+  static const TokenType STRING =
+      const TokenType('string', 'STRING', NO_PRECEDENCE, STRING_TOKEN);
 
-  static const TokenType AMPERSAND = fasta.AMPERSAND_INFO;
+  static const TokenType AMPERSAND = const TokenType(
+      '&', 'AMPERSAND', BITWISE_AND_PRECEDENCE, AMPERSAND_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType AMPERSAND_AMPERSAND = fasta.AMPERSAND_AMPERSAND_INFO;
+  static const TokenType AMPERSAND_AMPERSAND = const TokenType('&&',
+      'AMPERSAND_AMPERSAND', LOGICAL_AND_PRECEDENCE, AMPERSAND_AMPERSAND_TOKEN,
+      isOperator: true);
 
+  // This is not yet part of the language and not supported by fasta
   static const TokenType AMPERSAND_AMPERSAND_EQ =
-      const fasta.PrecedenceInfo('&&=', 'AMPERSAND_AMPERSAND_EQ', 1, -1);
+      const TokenType('&&=', 'AMPERSAND_AMPERSAND_EQ', 1, -1);
 
-  static const TokenType AMPERSAND_EQ = fasta.AMPERSAND_EQ_INFO;
+  static const TokenType AMPERSAND_EQ = const TokenType(
+      '&=', 'AMPERSAND_EQ', ASSIGNMENT_PRECEDENCE, AMPERSAND_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType AT = fasta.AT_INFO;
+  static const TokenType AT =
+      const TokenType('@', 'AT', NO_PRECEDENCE, AT_TOKEN);
 
-  static const TokenType BANG = fasta.BANG_INFO;
+  static const TokenType BANG = const TokenType(
+      '!', 'BANG', PREFIX_PRECEDENCE, BANG_TOKEN,
+      isOperator: true);
 
-  static const TokenType BANG_EQ = fasta.BANG_EQ_INFO;
+  static const TokenType BANG_EQ = const TokenType(
+      '!=', 'BANG_EQ', EQUALITY_PRECEDENCE, BANG_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType BAR = fasta.BAR_INFO;
+  static const TokenType BANG_EQ_EQ = const TokenType(
+      '!==', 'BANG_EQ_EQ', EQUALITY_PRECEDENCE, BANG_EQ_EQ_TOKEN);
 
-  static const TokenType BAR_BAR = fasta.BAR_BAR_INFO;
+  static const TokenType BAR = const TokenType(
+      '|', 'BAR', BITWISE_OR_PRECEDENCE, BAR_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
+  static const TokenType BAR_BAR = const TokenType(
+      '||', 'BAR_BAR', LOGICAL_OR_PRECEDENCE, BAR_BAR_TOKEN,
+      isOperator: true);
+
+  // This is not yet part of the language and not supported by fasta
   static const TokenType BAR_BAR_EQ =
-      const fasta.PrecedenceInfo('||=', 'BAR_BAR_EQ', 1, -1);
+      const TokenType('||=', 'BAR_BAR_EQ', 1, -1);
 
-  static const TokenType BAR_EQ = fasta.BAR_EQ_INFO;
+  static const TokenType BAR_EQ = const TokenType(
+      '|=', 'BAR_EQ', ASSIGNMENT_PRECEDENCE, BAR_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType COLON = fasta.COLON_INFO;
+  static const TokenType COLON =
+      const TokenType(':', 'COLON', NO_PRECEDENCE, COLON_TOKEN);
 
-  static const TokenType COMMA = fasta.COMMA_INFO;
+  static const TokenType COMMA =
+      const TokenType(',', 'COMMA', NO_PRECEDENCE, COMMA_TOKEN);
 
-  static const TokenType CARET = fasta.CARET_INFO;
+  static const TokenType CARET = const TokenType(
+      '^', 'CARET', BITWISE_XOR_PRECEDENCE, CARET_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType CARET_EQ = fasta.CARET_EQ_INFO;
+  static const TokenType CARET_EQ = const TokenType(
+      '^=', 'CARET_EQ', ASSIGNMENT_PRECEDENCE, CARET_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType CLOSE_CURLY_BRACKET = fasta.CLOSE_CURLY_BRACKET_INFO;
+  static const TokenType CLOSE_CURLY_BRACKET = const TokenType(
+      '}', 'CLOSE_CURLY_BRACKET', NO_PRECEDENCE, CLOSE_CURLY_BRACKET_TOKEN);
 
-  static const TokenType CLOSE_PAREN = fasta.CLOSE_PAREN_INFO;
+  static const TokenType CLOSE_PAREN =
+      const TokenType(')', 'CLOSE_PAREN', NO_PRECEDENCE, CLOSE_PAREN_TOKEN);
 
-  static const TokenType CLOSE_SQUARE_BRACKET = fasta.CLOSE_SQUARE_BRACKET_INFO;
+  static const TokenType CLOSE_SQUARE_BRACKET = const TokenType(
+      ']', 'CLOSE_SQUARE_BRACKET', NO_PRECEDENCE, CLOSE_SQUARE_BRACKET_TOKEN);
 
-  static const TokenType EQ = fasta.EQ_INFO;
+  static const TokenType EQ = const TokenType(
+      '=', 'EQ', ASSIGNMENT_PRECEDENCE, EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType EQ_EQ = fasta.EQ_EQ_INFO;
+  static const TokenType EQ_EQ = const TokenType(
+      '==', 'EQ_EQ', EQUALITY_PRECEDENCE, EQ_EQ_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType FUNCTION = fasta.FUNCTION_INFO;
+  static const TokenType EQ_EQ_EQ =
+      const TokenType('===', 'EQ_EQ_EQ', EQUALITY_PRECEDENCE, EQ_EQ_EQ_TOKEN);
 
-  static const TokenType GT = fasta.GT_INFO;
+  static const TokenType FUNCTION =
+      const TokenType('=>', 'FUNCTION', NO_PRECEDENCE, FUNCTION_TOKEN);
 
-  static const TokenType GT_EQ = fasta.GT_EQ_INFO;
+  static const TokenType GT = const TokenType(
+      '>', 'GT', RELATIONAL_PRECEDENCE, GT_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType GT_GT = fasta.GT_GT_INFO;
+  static const TokenType GT_EQ = const TokenType(
+      '>=', 'GT_EQ', RELATIONAL_PRECEDENCE, GT_EQ_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType GT_GT_EQ = fasta.GT_GT_EQ_INFO;
+  static const TokenType GT_GT = const TokenType(
+      '>>', 'GT_GT', SHIFT_PRECEDENCE, GT_GT_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType HASH = fasta.HASH_INFO;
+  static const TokenType GT_GT_EQ = const TokenType(
+      '>>=', 'GT_GT_EQ', ASSIGNMENT_PRECEDENCE, GT_GT_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType INDEX = fasta.INDEX_INFO;
+  static const TokenType HASH =
+      const TokenType('#', 'HASH', NO_PRECEDENCE, HASH_TOKEN);
 
-  static const TokenType INDEX_EQ = fasta.INDEX_EQ_INFO;
+  static const TokenType INDEX = const TokenType(
+      '[]', 'INDEX', NO_PRECEDENCE, INDEX_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType LT = fasta.LT_INFO;
+  static const TokenType INDEX_EQ = const TokenType(
+      '[]=', 'INDEX_EQ', NO_PRECEDENCE, INDEX_EQ_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType LT_EQ = fasta.LT_EQ_INFO;
+  static const TokenType LT = const TokenType(
+      '<', 'LT', RELATIONAL_PRECEDENCE, LT_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType LT_LT = fasta.LT_LT_INFO;
+  static const TokenType LT_EQ = const TokenType(
+      '<=', 'LT_EQ', RELATIONAL_PRECEDENCE, LT_EQ_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType LT_LT_EQ = fasta.LT_LT_EQ_INFO;
+  static const TokenType LT_LT = const TokenType(
+      '<<', 'LT_LT', SHIFT_PRECEDENCE, LT_LT_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType MINUS = fasta.MINUS_INFO;
+  static const TokenType LT_LT_EQ = const TokenType(
+      '<<=', 'LT_LT_EQ', ASSIGNMENT_PRECEDENCE, LT_LT_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType MINUS_EQ = fasta.MINUS_EQ_INFO;
+  static const TokenType MINUS = const TokenType(
+      '-', 'MINUS', ADDITIVE_PRECEDENCE, MINUS_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType MINUS_MINUS = fasta.MINUS_MINUS_INFO;
+  static const TokenType MINUS_EQ = const TokenType(
+      '-=', 'MINUS_EQ', ASSIGNMENT_PRECEDENCE, MINUS_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType OPEN_CURLY_BRACKET = fasta.OPEN_CURLY_BRACKET_INFO;
+  static const TokenType MINUS_MINUS = const TokenType(
+      '--', 'MINUS_MINUS', POSTFIX_PRECEDENCE, MINUS_MINUS_TOKEN,
+      isOperator: true);
 
-  static const TokenType OPEN_PAREN = fasta.OPEN_PAREN_INFO;
+  static const TokenType OPEN_CURLY_BRACKET = const TokenType(
+      '{', 'OPEN_CURLY_BRACKET', NO_PRECEDENCE, OPEN_CURLY_BRACKET_TOKEN);
 
-  static const TokenType OPEN_SQUARE_BRACKET = fasta.OPEN_SQUARE_BRACKET_INFO;
+  static const TokenType OPEN_PAREN =
+      const TokenType('(', 'OPEN_PAREN', POSTFIX_PRECEDENCE, OPEN_PAREN_TOKEN);
 
-  static const TokenType PERCENT = fasta.PERCENT_INFO;
+  static const TokenType OPEN_SQUARE_BRACKET = const TokenType('[',
+      'OPEN_SQUARE_BRACKET', POSTFIX_PRECEDENCE, OPEN_SQUARE_BRACKET_TOKEN);
 
-  static const TokenType PERCENT_EQ = fasta.PERCENT_EQ_INFO;
+  static const TokenType PERCENT = const TokenType(
+      '%', 'PERCENT', MULTIPLICATIVE_PRECEDENCE, PERCENT_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType PERIOD = fasta.PERIOD_INFO;
+  static const TokenType PERCENT_EQ = const TokenType(
+      '%=', 'PERCENT_EQ', ASSIGNMENT_PRECEDENCE, PERCENT_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType PERIOD_PERIOD = fasta.PERIOD_PERIOD_INFO;
+  static const TokenType PERIOD =
+      const TokenType('.', 'PERIOD', POSTFIX_PRECEDENCE, PERIOD_TOKEN);
 
-  static const TokenType PLUS = fasta.PLUS_INFO;
+  static const TokenType PERIOD_PERIOD = const TokenType(
+      '..', 'PERIOD_PERIOD', CASCADE_PRECEDENCE, PERIOD_PERIOD_TOKEN,
+      isOperator: true);
 
-  static const TokenType PLUS_EQ = fasta.PLUS_EQ_INFO;
+  static const TokenType PLUS = const TokenType(
+      '+', 'PLUS', ADDITIVE_PRECEDENCE, PLUS_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType PLUS_PLUS = fasta.PLUS_PLUS_INFO;
+  static const TokenType PLUS_EQ = const TokenType(
+      '+=', 'PLUS_EQ', ASSIGNMENT_PRECEDENCE, PLUS_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType QUESTION = fasta.QUESTION_INFO;
+  static const TokenType PLUS_PLUS = const TokenType(
+      '++', 'PLUS_PLUS', POSTFIX_PRECEDENCE, PLUS_PLUS_TOKEN,
+      isOperator: true);
 
-  static const TokenType QUESTION_PERIOD = fasta.QUESTION_PERIOD_INFO;
+  static const TokenType QUESTION = const TokenType(
+      '?', 'QUESTION', CONDITIONAL_PRECEDENCE, QUESTION_TOKEN,
+      isOperator: true);
 
-  static const TokenType QUESTION_QUESTION = fasta.QUESTION_QUESTION_INFO;
+  static const TokenType QUESTION_PERIOD = const TokenType(
+      '?.', 'QUESTION_PERIOD', POSTFIX_PRECEDENCE, QUESTION_PERIOD_TOKEN,
+      isOperator: true);
 
-  static const TokenType QUESTION_QUESTION_EQ = fasta.QUESTION_QUESTION_EQ_INFO;
+  static const TokenType QUESTION_QUESTION = const TokenType(
+      '??', 'QUESTION_QUESTION', IF_NULL_PRECEDENCE, QUESTION_QUESTION_TOKEN,
+      isOperator: true);
 
-  static const TokenType SEMICOLON = fasta.SEMICOLON_INFO;
+  static const TokenType QUESTION_QUESTION_EQ = const TokenType('??=',
+      'QUESTION_QUESTION_EQ', ASSIGNMENT_PRECEDENCE, QUESTION_QUESTION_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType SLASH = fasta.SLASH_INFO;
+  static const TokenType SEMICOLON =
+      const TokenType(';', 'SEMICOLON', NO_PRECEDENCE, SEMICOLON_TOKEN);
 
-  static const TokenType SLASH_EQ = fasta.SLASH_EQ_INFO;
+  static const TokenType SLASH = const TokenType(
+      '/', 'SLASH', MULTIPLICATIVE_PRECEDENCE, SLASH_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType STAR = fasta.STAR_INFO;
+  static const TokenType SLASH_EQ = const TokenType(
+      '/=', 'SLASH_EQ', ASSIGNMENT_PRECEDENCE, SLASH_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType STAR_EQ = fasta.STAR_EQ_INFO;
+  static const TokenType STAR = const TokenType(
+      '*', 'STAR', MULTIPLICATIVE_PRECEDENCE, STAR_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType STRING_INTERPOLATION_EXPRESSION =
-      fasta.STRING_INTERPOLATION_INFO;
+  static const TokenType STAR_EQ = const TokenType(
+      '*=', 'STAR_EQ', ASSIGNMENT_PRECEDENCE, STAR_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType STRING_INTERPOLATION_IDENTIFIER =
-      fasta.STRING_INTERPOLATION_IDENTIFIER_INFO;
+  static const TokenType STRING_INTERPOLATION_EXPRESSION = const TokenType(
+      '\${',
+      'STRING_INTERPOLATION_EXPRESSION',
+      NO_PRECEDENCE,
+      STRING_INTERPOLATION_TOKEN);
 
-  static const TokenType TILDE = fasta.TILDE_INFO;
+  static const TokenType STRING_INTERPOLATION_IDENTIFIER = const TokenType(
+      '\$',
+      'STRING_INTERPOLATION_IDENTIFIER',
+      NO_PRECEDENCE,
+      STRING_INTERPOLATION_IDENTIFIER_TOKEN);
 
-  static const TokenType TILDE_SLASH = fasta.TILDE_SLASH_INFO;
+  static const TokenType TILDE = const TokenType(
+      '~', 'TILDE', PREFIX_PRECEDENCE, TILDE_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType TILDE_SLASH_EQ = fasta.TILDE_SLASH_EQ_INFO;
+  static const TokenType TILDE_SLASH = const TokenType(
+      '~/', 'TILDE_SLASH', MULTIPLICATIVE_PRECEDENCE, TILDE_SLASH_TOKEN,
+      isOperator: true, isUserDefinableOperator: true);
 
-  static const TokenType BACKPING = fasta.BACKPING_INFO;
+  static const TokenType TILDE_SLASH_EQ = const TokenType(
+      '~/=', 'TILDE_SLASH_EQ', ASSIGNMENT_PRECEDENCE, TILDE_SLASH_EQ_TOKEN,
+      isOperator: true);
 
-  static const TokenType BACKSLASH = fasta.BACKSLASH_INFO;
+  static const TokenType BACKPING =
+      const TokenType('`', 'BACKPING', NO_PRECEDENCE, BACKPING_TOKEN);
 
-  static const TokenType PERIOD_PERIOD_PERIOD = fasta.PERIOD_PERIOD_PERIOD_INFO;
+  static const TokenType BACKSLASH =
+      const TokenType('\\', 'BACKSLASH', NO_PRECEDENCE, BACKSLASH_TOKEN);
 
-  static const TokenType GENERIC_METHOD_TYPE_LIST =
-      const fasta.PrecedenceInfo(null, 'GENERIC_METHOD_TYPE_LIST', 0, -1);
+  static const TokenType PERIOD_PERIOD_PERIOD = const TokenType(
+      '...', 'PERIOD_PERIOD_PERIOD', NO_PRECEDENCE, PERIOD_PERIOD_PERIOD_TOKEN);
 
-  static const TokenType GENERIC_METHOD_TYPE_ASSIGN =
-      const fasta.PrecedenceInfo(null, 'GENERIC_METHOD_TYPE_ASSIGN', 0, -1);
+  static const TokenType GENERIC_METHOD_TYPE_LIST = const TokenType(
+      'generic_comment_list',
+      'GENERIC_METHOD_TYPE_LIST',
+      NO_PRECEDENCE,
+      GENERIC_METHOD_TYPE_LIST_TOKEN);
+
+  static const TokenType GENERIC_METHOD_TYPE_ASSIGN = const TokenType(
+      'generic_comment_assign',
+      'GENERIC_METHOD_TYPE_ASSIGN',
+      NO_PRECEDENCE,
+      GENERIC_METHOD_TYPE_ASSIGN_TOKEN);
+
+  static const TokenType AS =
+      const TokenType('as', 'AS', RELATIONAL_PRECEDENCE, KEYWORD_TOKEN);
+
+  static const TokenType IS =
+      const TokenType('is', 'IS', RELATIONAL_PRECEDENCE, KEYWORD_TOKEN);
+
+  /**
+   * Token type used by error tokens.
+   */
+  static const TokenType BAD_INPUT = const TokenType(
+      'malformed input', 'BAD_INPUT', NO_PRECEDENCE, BAD_INPUT_TOKEN);
+
+  /**
+   * Token type used by synthetic tokens that are created during parser
+   * recovery (non-analyzer use case).
+   */
+  static const TokenType RECOVERY =
+      const TokenType('recovery', 'RECOVERY', NO_PRECEDENCE, RECOVERY_TOKEN);
+
+  // TODO(danrubel): "all" is misleading
+  // because this list does not include all TokenType instances.
+  static const List<TokenType> all = const <TokenType>[
+    TokenType.EOF,
+    TokenType.DOUBLE,
+    TokenType.HEXADECIMAL,
+    TokenType.IDENTIFIER,
+    TokenType.INT,
+    TokenType.KEYWORD,
+    TokenType.MULTI_LINE_COMMENT,
+    TokenType.SCRIPT_TAG,
+    TokenType.SINGLE_LINE_COMMENT,
+    TokenType.STRING,
+    TokenType.AMPERSAND,
+    TokenType.AMPERSAND_AMPERSAND,
+    TokenType.AMPERSAND_EQ,
+    TokenType.AT,
+    TokenType.BANG,
+    TokenType.BANG_EQ,
+    TokenType.BAR,
+    TokenType.BAR_BAR,
+    TokenType.BAR_EQ,
+    TokenType.COLON,
+    TokenType.COMMA,
+    TokenType.CARET,
+    TokenType.CARET_EQ,
+    TokenType.CLOSE_CURLY_BRACKET,
+    TokenType.CLOSE_PAREN,
+    TokenType.CLOSE_SQUARE_BRACKET,
+    TokenType.EQ,
+    TokenType.EQ_EQ,
+    TokenType.FUNCTION,
+    TokenType.GT,
+    TokenType.GT_EQ,
+    TokenType.GT_GT,
+    TokenType.GT_GT_EQ,
+    TokenType.HASH,
+    TokenType.INDEX,
+    TokenType.INDEX_EQ,
+    TokenType.LT,
+    TokenType.LT_EQ,
+    TokenType.LT_LT,
+    TokenType.LT_LT_EQ,
+    TokenType.MINUS,
+    TokenType.MINUS_EQ,
+    TokenType.MINUS_MINUS,
+    TokenType.OPEN_CURLY_BRACKET,
+    TokenType.OPEN_PAREN,
+    TokenType.OPEN_SQUARE_BRACKET,
+    TokenType.PERCENT,
+    TokenType.PERCENT_EQ,
+    TokenType.PERIOD,
+    TokenType.PERIOD_PERIOD,
+    TokenType.PLUS,
+    TokenType.PLUS_EQ,
+    TokenType.PLUS_PLUS,
+    TokenType.QUESTION,
+    TokenType.QUESTION_PERIOD,
+    TokenType.QUESTION_QUESTION,
+    TokenType.QUESTION_QUESTION_EQ,
+    TokenType.SEMICOLON,
+    TokenType.SLASH,
+    TokenType.SLASH_EQ,
+    TokenType.STAR,
+    TokenType.STAR_EQ,
+    TokenType.STRING_INTERPOLATION_EXPRESSION,
+    TokenType.STRING_INTERPOLATION_IDENTIFIER,
+    TokenType.TILDE,
+    TokenType.TILDE_SLASH,
+    TokenType.TILDE_SLASH_EQ,
+    TokenType.BACKPING,
+    TokenType.BACKSLASH,
+    TokenType.PERIOD_PERIOD_PERIOD,
+    TokenType.GENERIC_METHOD_TYPE_LIST,
+    TokenType.GENERIC_METHOD_TYPE_ASSIGN,
+
+    // TODO(danrubel): Should these be added to the "all" list?
+    //TokenType.IS,
+    //TokenType.AS,
+
+    // These are not yet part of the language and not supported by fasta
+    //TokenType.AMPERSAND_AMPERSAND_EQ,
+    //TokenType.BAR_BAR_EQ,
+
+    // Supported by fasta but not part of the language
+    //TokenType.BANG_EQ_EQ,
+    //TokenType.EQ_EQ_EQ,
+
+    // Used by synthetic tokens generated during recovery
+    //TokenType.BAD_INPUT,
+    //TokenType.RECOVERY,
+  ];
+
+  final int kind;
+
+  /**
+   * `true` if this token type represents an operator.
+   */
+  final bool isOperator;
+
+  /**
+   * `true` if this token type represents an operator
+   * that can be defined by users.
+   */
+  final bool isUserDefinableOperator;
+
+  /**
+   * The lexeme that defines this type of token,
+   * or `null` if there is more than one possible lexeme for this type of token.
+   */
+  final String lexeme;
 
   /**
    * The name of the token type.
    */
-  String get name;
+  final String name;
 
   /**
-   * The lexeme that defines this type of token, or `null` if there is more than
-   * one possible lexeme for this type of token.
+   * The precedence of this type of token,
+   * or `0` if the token does not represent an operator.
    */
-  String get lexeme;
+  final int precedence;
+
+  const TokenType(this.lexeme, this.name, this.precedence, this.kind,
+      {this.isOperator: false, this.isUserDefinableOperator: false});
 
   /**
    * Return `true` if this type of token represents an additive operator.
    */
-  bool get isAdditiveOperator;
+  bool get isAdditiveOperator => precedence == ADDITIVE_PRECEDENCE;
 
   /**
    * Return `true` if this type of token represents an assignment operator.
    */
-  bool get isAssignmentOperator;
+  bool get isAssignmentOperator => precedence == ASSIGNMENT_PRECEDENCE;
 
   /**
    * Return `true` if this type of token represents an associative operator. An
@@ -1074,62 +1463,72 @@ abstract class TokenType {
    * operators can have an effect because evaluation of the right-hand operand
    * is conditional.
    */
-  bool get isAssociativeOperator;
+  bool get isAssociativeOperator =>
+      this == TokenType.AMPERSAND ||
+      this == TokenType.AMPERSAND_AMPERSAND ||
+      this == TokenType.BAR ||
+      this == TokenType.BAR_BAR ||
+      this == TokenType.CARET ||
+      this == TokenType.PLUS ||
+      this == TokenType.STAR;
 
   /**
    * Return `true` if this type of token represents an equality operator.
    */
-  bool get isEqualityOperator;
+  bool get isEqualityOperator =>
+      this == TokenType.BANG_EQ || this == TokenType.EQ_EQ;
 
   /**
    * Return `true` if this type of token represents an increment operator.
    */
-  bool get isIncrementOperator;
+  bool get isIncrementOperator =>
+      this == TokenType.PLUS_PLUS || this == TokenType.MINUS_MINUS;
+
+  /**
+   * Return `true` if this type of token is a keyword.
+   */
+  bool get isKeyword => kind == KEYWORD_TOKEN;
 
   /**
    * Return `true` if this type of token represents a multiplicative operator.
    */
-  bool get isMultiplicativeOperator;
-
-  /**
-   * Return `true` if this token type represents an operator.
-   */
-  bool get isOperator;
+  bool get isMultiplicativeOperator => precedence == MULTIPLICATIVE_PRECEDENCE;
 
   /**
    * Return `true` if this type of token represents a relational operator.
    */
-  bool get isRelationalOperator;
+  bool get isRelationalOperator =>
+      this == TokenType.LT ||
+      this == TokenType.LT_EQ ||
+      this == TokenType.GT ||
+      this == TokenType.GT_EQ;
 
   /**
    * Return `true` if this type of token represents a shift operator.
    */
-  bool get isShiftOperator;
+  bool get isShiftOperator => precedence == SHIFT_PRECEDENCE;
 
   /**
    * Return `true` if this type of token represents a unary postfix operator.
    */
-  bool get isUnaryPostfixOperator;
+  bool get isUnaryPostfixOperator => precedence == POSTFIX_PRECEDENCE;
 
   /**
    * Return `true` if this type of token represents a unary prefix operator.
    */
-  bool get isUnaryPrefixOperator;
-
-  /**
-   * Return `true` if this token type represents an operator that can be defined
-   * by users.
-   */
-  bool get isUserDefinableOperator;
-
-  /**
-   * Return the precedence of the token, or `0` if the token does not represent
-   * an operator.
-   */
-  int get precedence;
+  bool get isUnaryPrefixOperator =>
+      precedence == PREFIX_PRECEDENCE ||
+      this == TokenType.PLUS_PLUS ||
+      this == TokenType.MINUS_MINUS;
 
   @override
   String toString() => name;
+
+  /**
+   * Use [lexeme] instead of this method
+   */
+  @deprecated
+  String get value => lexeme;
 }
 
 /**

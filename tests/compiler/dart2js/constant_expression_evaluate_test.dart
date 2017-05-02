@@ -71,9 +71,6 @@ class MemoryEnvironment implements Environment {
 
   @override
   CommonElements get commonElements => _compiler.commonElements;
-
-  @override
-  BackendClasses get backendClasses => _compiler.backend.backendClasses;
 }
 
 const List<TestData> DATA = const [
@@ -291,7 +288,7 @@ Future testData(TestData data) async {
       Expect.equals(
           expectedText,
           valueText,
-          "Unexpected value '${valueText}' for contant "
+          "Unexpected value '${valueText}' for constant "
           "`${constant.toDartText()}`, expected '${expectedText}'.");
     });
   });

@@ -2036,6 +2036,19 @@ class C extends A with B {}
     verify([source]);
   }
 
+  test_mustBeImmutable_instance() async {
+    Source source = addSource(r'''
+import 'package:meta/meta.dart';
+@immutable
+class A {
+  static int x;
+}
+''');
+    await computeAnalysisResult(source);
+    assertErrors(source, []);
+    verify([source]);
+  }
+
   test_mustCallSuper() async {
     Source source = addSource(r'''
 import 'package:meta/meta.dart';
@@ -2499,22 +2512,6 @@ class C {
     verify([source]);
   }
 
-  test_strongMode_downCastCompositeNoHint() async {
-    AnalysisOptionsImpl options = new AnalysisOptionsImpl();
-    options.strongMode = true;
-    options.strongModeHints = false;
-    resetWith(options: options);
-    Source source = addSource(r'''
-main() {
-  List dynamicList = [ ];
-  List<int> list = dynamicList;
-  print(list);
-}''');
-    await computeAnalysisResult(source);
-    assertNoErrors(source);
-    verify([source]);
-  }
-
   test_strongMode_downCastCompositeHint() async {
     AnalysisOptionsImpl options = new AnalysisOptionsImpl();
     options.strongMode = true;
@@ -2528,6 +2525,22 @@ main() {
 }''');
     await computeAnalysisResult(source);
     assertErrors(source, [StrongModeCode.DOWN_CAST_COMPOSITE]);
+    verify([source]);
+  }
+
+  test_strongMode_downCastCompositeNoHint() async {
+    AnalysisOptionsImpl options = new AnalysisOptionsImpl();
+    options.strongMode = true;
+    options.strongModeHints = false;
+    resetWith(options: options);
+    Source source = addSource(r'''
+main() {
+  List dynamicList = [ ];
+  List<int> list = dynamicList;
+  print(list);
+}''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
     verify([source]);
   }
 
@@ -2551,6 +2564,20 @@ main() {
 }''');
     await computeAnalysisResult(source);
     assertErrors(source, [StrongModeCode.DOWN_CAST_COMPOSITE]);
+    verify([source]);
+  }
+
+  test_strongMode_topLevelInstanceGetter() async {
+    resetWith(options: new AnalysisOptionsImpl()..strongMode = true);
+    Source source = addSource(r'''
+class A {
+  int get g => 0;
+}
+var a = new A();
+var b = a.g;
+''');
+    await computeAnalysisResult(source);
+    assertErrors(source, [StrongModeCode.TOP_LEVEL_INSTANCE_GETTER]);
     verify([source]);
   }
 
@@ -3715,6 +3742,22 @@ class A {
     verify([source]);
   }
 
+  test_unusedField_notUsed_nullAssign() async {
+    enableUnusedElement = true;
+    Source source = addSource(r'''
+class A {
+  var _f;
+  m() {
+    _f ??= doSomething();
+  }
+}
+doSomething() => 0;
+''');
+    await computeAnalysisResult(source);
+    assertNoErrors(source);
+    verify([source]);
+  }
+
   test_unusedField_notUsed_postfixExpr() async {
     enableUnusedElement = true;
     Source source = addSource(r'''
@@ -3982,6 +4025,21 @@ main() {
   Foo foo;
   foo();
 }''');
+    await computeAnalysisResult(source);
+    assertErrors(source);
+    verify([source]);
+  }
+
+  test_unusedLocalVariable_isNullAssigned() async {
+    enableUnusedLocalVariable = true;
+    Source source = addSource(r'''
+typedef Foo();
+main() {
+  var v;
+  v ??= doSomething();
+}
+doSomething() => 42;
+''');
     await computeAnalysisResult(source);
     assertErrors(source);
     verify([source]);

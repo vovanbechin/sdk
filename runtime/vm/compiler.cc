@@ -10,14 +10,11 @@
 #include "vm/block_scheduler.h"
 #include "vm/branch_optimizer.h"
 #include "vm/cha.h"
-#include "vm/code_generator.h"
 #include "vm/code_patcher.h"
 #include "vm/constant_propagator.h"
 #include "vm/dart_entry.h"
 #include "vm/debugger.h"
 #include "vm/deopt_instructions.h"
-#include "vm/kernel.h"
-#include "vm/kernel_to_il.h"
 #include "vm/disassembler.h"
 #include "vm/exceptions.h"
 #include "vm/flags.h"
@@ -30,6 +27,8 @@
 #include "vm/flow_graph_type_propagator.h"
 #include "vm/il_printer.h"
 #include "vm/jit_optimizer.h"
+#include "vm/kernel.h"
+#include "vm/kernel_to_il.h"
 #include "vm/longjump.h"
 #include "vm/object.h"
 #include "vm/object_store.h"
@@ -37,8 +36,9 @@
 #include "vm/parser.h"
 #include "vm/precompiler.h"
 #include "vm/redundancy_elimination.h"
-#include "vm/regexp_parser.h"
 #include "vm/regexp_assembler.h"
+#include "vm/regexp_parser.h"
+#include "vm/runtime_entry.h"
 #include "vm/symbols.h"
 #include "vm/tags.h"
 #include "vm/thread_registry.h"
@@ -565,7 +565,7 @@ RawCode* CompileParsedFunctionHelper::FinalizeCompilation(
           }
           await_to_token_map.SetAt(i, token_pos_value);
         }
-        code.SetAwaitTokenPositions(await_to_token_map);
+        code.set_await_token_positions(await_to_token_map);
       }
     }
   }
@@ -838,7 +838,12 @@ RawCode* CompileParsedFunctionHelper::Compile(CompilationPipeline* pipeline) {
 
         JitOptimizer optimizer(flow_graph);
 
-        optimizer.ApplyICData();
+        {
+          NOT_IN_PRODUCT(TimelineDurationScope tds(thread(), compiler_timeline,
+                                                   "ApplyICData"));
+          optimizer.ApplyICData();
+          thread()->CheckForSafepoint();
+        }
         DEBUG_ASSERT(flow_graph->VerifyUseLists());
 
         // Optimize (a << b) & c patterns, merge operations.
@@ -869,6 +874,7 @@ RawCode* CompileParsedFunctionHelper::Compile(CompilationPipeline* pipeline) {
           inliner.Inline();
           // Use lists are maintained and validated by the inliner.
           DEBUG_ASSERT(flow_graph->VerifyUseLists());
+          thread()->CheckForSafepoint();
         }
 
         // Propagate types and eliminate more type tests.
@@ -918,6 +924,7 @@ RawCode* CompileParsedFunctionHelper::Compile(CompilationPipeline* pipeline) {
           // propagation.
           ConstantPropagator::Optimize(flow_graph);
           DEBUG_ASSERT(flow_graph->VerifyUseLists());
+          thread()->CheckForSafepoint();
         }
 
         // Optimistically convert loop phis that have a single non-smi input
@@ -981,6 +988,7 @@ RawCode* CompileParsedFunctionHelper::Compile(CompilationPipeline* pipeline) {
             DEBUG_ASSERT(flow_graph->VerifyUseLists());
           }
           flow_graph->RemoveRedefinitions();
+          thread()->CheckForSafepoint();
         }
 
         // Optimize (a << b) & c patterns, merge operations.
@@ -1060,6 +1068,7 @@ RawCode* CompileParsedFunctionHelper::Compile(CompilationPipeline* pipeline) {
           // TODO(fschneider): Support allocation sinking with try-catch.
           sinking = new AllocationSinking(flow_graph);
           sinking->Optimize();
+          thread()->CheckForSafepoint();
         }
         DEBUG_ASSERT(flow_graph->VerifyUseLists());
 
@@ -1109,6 +1118,7 @@ RawCode* CompileParsedFunctionHelper::Compile(CompilationPipeline* pipeline) {
           // Perform register allocation on the SSA graph.
           FlowGraphAllocator allocator(*flow_graph);
           allocator.AllocateRegisters();
+          thread()->CheckForSafepoint();
         }
 
         if (reorder_blocks) {
@@ -1339,10 +1349,10 @@ static RawObject* CompileFunctionHelper(CompilationPipeline* pipeline,
     }
 
     if (FLAG_disassemble && FlowGraphPrinter::ShouldPrint(function)) {
-      Disassembler::DisassembleCode(function, optimized);
+      Disassembler::DisassembleCode(function, result, optimized);
     } else if (FLAG_disassemble_optimized && optimized &&
                FlowGraphPrinter::ShouldPrint(function)) {
-      Disassembler::DisassembleCode(function, true);
+      Disassembler::DisassembleCode(function, result, true);
     }
 
     return result.raw();
@@ -1549,7 +1559,8 @@ RawError* Compiler::CompileParsedFunction(ParsedFunction* parsed_function) {
     CompileParsedFunctionHelper helper(parsed_function, false, kNoOSRDeoptId);
     helper.Compile(&pipeline);
     if (FLAG_disassemble) {
-      Disassembler::DisassembleCode(parsed_function->function(), false);
+      Code& code = Code::Handle(parsed_function->function().CurrentCode());
+      Disassembler::DisassembleCode(parsed_function->function(), code, false);
     }
     return Error::null();
   } else {
@@ -1682,7 +1693,6 @@ RawObject* Compiler::EvaluateStaticInitializer(const Field& field) {
     // Under lazy compilation initializer has not yet been created, so create
     // it now, but don't bother remembering it because it won't be used again.
     ASSERT(!field.HasPrecompiledInitializer());
-    Function& initializer = Function::Handle(thread->zone());
     {
 #if !defined(PRODUCT)
       VMTagScope tagScope(thread, VMTag::kCompileUnoptimizedTagId);
@@ -1710,22 +1720,21 @@ RawObject* Compiler::EvaluateStaticInitializer(const Field& field) {
       // Non-optimized code generator.
       DartCompilationPipeline pipeline;
       CompileParsedFunctionHelper helper(parsed_function, false, kNoOSRDeoptId);
-      helper.Compile(&pipeline);
-      initializer = parsed_function->function().raw();
-      Code::Handle(initializer.unoptimized_code())
-          .set_var_descriptors(Object::empty_var_descriptors());
+      const Code& code = Code::Handle(helper.Compile(&pipeline));
+      if (!code.IsNull()) {
+        const Function& initializer = parsed_function->function();
+        code.set_var_descriptors(Object::empty_var_descriptors());
+        // Invoke the function to evaluate the expression.
+        return DartEntry::InvokeFunction(initializer, Object::empty_array());
+      }
     }
-    // Invoke the function to evaluate the expression.
-    return DartEntry::InvokeFunction(initializer, Object::empty_array());
-  } else {
-    Thread* const thread = Thread::Current();
-    StackZone zone(thread);
-    const Error& error = Error::Handle(thread->zone(), thread->sticky_error());
-    thread->clear_sticky_error();
-    return error.raw();
   }
-  UNREACHABLE();
-  return Object::null();
+
+  Thread* const thread = Thread::Current();
+  StackZone zone(thread);
+  const Error& error = Error::Handle(thread->zone(), thread->sticky_error());
+  thread->clear_sticky_error();
+  return error.raw();
 }
 
 
@@ -1788,21 +1797,19 @@ RawObject* Compiler::ExecuteOnce(SequenceNode* fragment) {
     // Non-optimized code generator.
     DartCompilationPipeline pipeline;
     CompileParsedFunctionHelper helper(parsed_function, false, kNoOSRDeoptId);
-    helper.Compile(&pipeline);
-    Code::Handle(func.unoptimized_code())
-        .set_var_descriptors(Object::empty_var_descriptors());
-
-    const Object& result = PassiveObject::Handle(
-        DartEntry::InvokeFunction(func, Object::empty_array()));
-    return result.raw();
-  } else {
-    Thread* const thread = Thread::Current();
-    const Object& result = PassiveObject::Handle(thread->sticky_error());
-    thread->clear_sticky_error();
-    return result.raw();
+    const Code& code = Code::Handle(helper.Compile(&pipeline));
+    if (!code.IsNull()) {
+      code.set_var_descriptors(Object::empty_var_descriptors());
+      const Object& result = PassiveObject::Handle(
+          DartEntry::InvokeFunction(func, Object::empty_array()));
+      return result.raw();
+    }
   }
-  UNREACHABLE();
-  return Object::null();
+
+  Thread* const thread = Thread::Current();
+  const Object& result = PassiveObject::Handle(thread->sticky_error());
+  thread->clear_sticky_error();
+  return result.raw();
 }
 
 
@@ -2192,32 +2199,32 @@ bool Compiler::CanOptimizeFunction(Thread* thread, const Function& function) {
 
 
 RawError* Compiler::Compile(const Library& library, const Script& script) {
-  UNREACHABLE();
+  FATAL1("Attempt to compile script %s", script.ToCString());
   return Error::null();
 }
 
 
 RawError* Compiler::CompileClass(const Class& cls) {
-  UNREACHABLE();
+  FATAL1("Attempt to compile class %s", cls.ToCString());
   return Error::null();
 }
 
 
 RawObject* Compiler::CompileFunction(Thread* thread, const Function& function) {
-  UNREACHABLE();
+  FATAL1("Attempt to compile function %s", function.ToCString());
   return Error::null();
 }
 
 
 RawError* Compiler::ParseFunction(Thread* thread, const Function& function) {
-  UNREACHABLE();
+  FATAL1("Attempt to parse function %s", function.ToCString());
   return Error::null();
 }
 
 
 RawError* Compiler::EnsureUnoptimizedCode(Thread* thread,
                                           const Function& function) {
-  UNREACHABLE();
+  FATAL1("Attempt to compile function %s", function.ToCString());
   return Error::null();
 }
 
@@ -2225,13 +2232,14 @@ RawError* Compiler::EnsureUnoptimizedCode(Thread* thread,
 RawObject* Compiler::CompileOptimizedFunction(Thread* thread,
                                               const Function& function,
                                               intptr_t osr_id) {
-  UNREACHABLE();
+  FATAL1("Attempt to compile function %s", function.ToCString());
   return Error::null();
 }
 
 
 RawError* Compiler::CompileParsedFunction(ParsedFunction* parsed_function) {
-  UNREACHABLE();
+  FATAL1("Attempt to compile function %s",
+         parsed_function->function().ToCString());
   return Error::null();
 }
 
@@ -2242,13 +2250,13 @@ void Compiler::ComputeLocalVarDescriptors(const Code& code) {
 
 
 RawError* Compiler::CompileAllFunctions(const Class& cls) {
-  UNREACHABLE();
+  FATAL1("Attempt to compile class %s", cls.ToCString());
   return Error::null();
 }
 
 
 RawError* Compiler::ParseAllFunctions(const Class& cls) {
-  UNREACHABLE();
+  FATAL1("Attempt to parse class %s", cls.ToCString());
   return Error::null();
 }
 

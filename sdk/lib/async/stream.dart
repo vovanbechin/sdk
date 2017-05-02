@@ -871,8 +871,8 @@ abstract class Stream<T> {
    * In case of a `done` event the future completes with the given
    * [futureValue].
    */
-  Future<E> drain<E>([E futureValue]) => listen(null, cancelOnError: true)
-      .asFuture<E>(futureValue);
+  Future<E> drain<E>([E futureValue]) =>
+      listen(null, cancelOnError: true).asFuture<E>(futureValue);
 
   /**
    * Provides at most the first [count] data events of this stream.
@@ -1315,8 +1315,7 @@ abstract class Stream<T> {
         // should be inferred.
         var registeredOnTimeout =
             zone.registerUnaryCallback<dynamic, EventSink<T>>(onTimeout);
-        _ControllerEventSinkWrapper wrapper =
-            new _ControllerEventSinkWrapper(null);
+        var wrapper = new _ControllerEventSinkWrapper<T>(null);
         timeout = () {
           wrapper._sink = controller; // Only valid during call.
           zone.runUnaryGuarded(registeredOnTimeout, wrapper);

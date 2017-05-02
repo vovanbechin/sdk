@@ -10,6 +10,7 @@ import '../common/codegen.dart' show CodegenWorkItem;
 import '../common/tasks.dart' show CompilerTask;
 import '../common/work.dart' show WorkItem;
 import '../common.dart';
+import '../common_elements.dart' show ElementEnvironment;
 import '../elements/resolution_types.dart'
     show ResolutionDartType, ResolutionInterfaceType;
 import '../elements/elements.dart' show MemberElement;
@@ -51,7 +52,7 @@ class CodegenEnqueuer extends EnqueuerImpl {
   final Queue<WorkItem> _queue = new Queue<WorkItem>();
 
   /// All declaration elements that have been processed by codegen.
-  final Set<Entity> _processedEntities = new Set<Entity>();
+  final Set<MemberEntity> _processedEntities = new Set<MemberEntity>();
 
   static const ImpactUseCase IMPACT_USE =
       const ImpactUseCase('CodegenEnqueuer');
@@ -109,8 +110,9 @@ class CodegenEnqueuer extends EnqueuerImpl {
     });
   }
 
-  bool checkNoEnqueuedInvokedInstanceMethods() {
-    return strategy.checkEnqueuerConsistency(this);
+  bool checkNoEnqueuedInvokedInstanceMethods(
+      ElementEnvironment elementEnvironment) {
+    return strategy.checkEnqueuerConsistency(this, elementEnvironment);
   }
 
   void checkClass(ClassEntity cls) {
@@ -259,7 +261,7 @@ class CodegenEnqueuer extends EnqueuerImpl {
   ImpactUseCase get impactUse => IMPACT_USE;
 
   @override
-  Iterable<Entity> get processedEntities => _processedEntities;
+  Iterable<MemberEntity> get processedEntities => _processedEntities;
 
   @override
   Iterable<ClassEntity> get processedClasses => _worldBuilder.processedClasses;

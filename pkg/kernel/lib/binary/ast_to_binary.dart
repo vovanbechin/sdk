@@ -74,16 +74,17 @@ class BinaryPrinter extends Visitor {
     writeBytes(utf8Bytes);
   }
 
-  void writeStringTableEntry(String string) {
-    List<int> utf8Bytes = const Utf8Encoder().convert(string);
-    writeUInt30(utf8Bytes.length);
-    writeBytes(utf8Bytes);
-  }
-
   void writeStringTable(StringIndexer indexer) {
+    // Write the end offsets.
     writeUInt30(indexer.numberOfStrings);
+    int endOffset = 0;
     for (var entry in indexer.entries) {
-      writeStringTableEntry(entry.value);
+      endOffset += entry.utf8Bytes.length;
+      writeUInt30(endOffset);
+    }
+    // Write the UTF-8 encoded strings.
+    for (var entry in indexer.entries) {
+      writeBytes(entry.utf8Bytes);
     }
   }
 
@@ -250,6 +251,7 @@ class BinaryPrinter extends Visitor {
     // TODO(jensj): We save (almost) the same URI twice.
     writeUriReference(node.fileUri ?? '');
     writeDeferredImports(node);
+    writeNodeList(node.typedefs);
     writeNodeList(node.classes);
     writeNodeList(node.fields);
     writeNodeList(node.procedures);
@@ -270,6 +272,15 @@ class BinaryPrinter extends Visitor {
   void writeDeferredImport(DeferredImport node) {
     writeLibraryReference(node.importedLibrary);
     writeStringReference(node.name);
+  }
+
+  void visitTypedef(Typedef node) {
+    writeCanonicalNameReference(getCanonicalNameOfTypedef(node));
+    writeOffset(node.fileOffset);
+    writeStringReference(node.name);
+    writeUriReference(node.fileUri ?? '');
+    writeNodeList(node.typeParameters);
+    writeNode(node.type);
   }
 
   void writeAnnotation(Expression annotation) {
@@ -751,6 +762,13 @@ class BinaryPrinter extends Visitor {
     writeNode(node.vectorExpression);
   }
 
+  visitClosureCreation(ClosureCreation node) {
+    writeByte(Tag.ClosureCreation);
+    writeReference(node.topLevelFunctionReference);
+    writeNode(node.contextVector);
+    writeNode(node.functionType);
+  }
+
   writeStatementOrEmpty(Statement node) {
     if (node == null) {
       writeByte(Tag.EmptyStatement);
@@ -1001,6 +1019,12 @@ class BinaryPrinter extends Visitor {
     writeByte(Tag.VectorType);
   }
 
+  visitTypedefType(TypedefType node) {
+    writeByte(Tag.TypedefType);
+    writeReference(node.typedefReference);
+    writeNodeList(node.typeArguments);
+  }
+
   visitTypeParameter(TypeParameter node) {
     writeStringReference(node.name ?? '');
     writeNode(node.bound);
@@ -1008,6 +1032,33 @@ class BinaryPrinter extends Visitor {
 
   defaultNode(Node node) {
     throw 'Unsupported node: $node';
+  }
+}
+
+typedef bool LibraryFilter(Library _);
+
+/// A [LibraryFilteringBinaryPrinter] can write a subset of libraries.
+///
+/// This printer writes a Kernel binary but includes only libraries that match a
+/// predicate.
+class LibraryFilteringBinaryPrinter extends BinaryPrinter {
+  final LibraryFilter predicate;
+
+  LibraryFilteringBinaryPrinter(
+      Sink<List<int>> sink, bool predicate(Library library))
+      : predicate = predicate,
+        super(sink);
+
+  void writeProgramFile(Program program) {
+    program.computeCanonicalNames();
+    writeMagicWord(Tag.ProgramFile);
+    _stringIndexer.scanProgram(program);
+    writeStringTable(_stringIndexer);
+    writeUriToSource(program);
+    writeLinkTable(program);
+    writeList(program.libraries.where(predicate).toList(), writeNode);
+    writeMemberReference(program.mainMethod, allowNull: true);
+    _flush();
   }
 }
 
@@ -1089,9 +1140,12 @@ class TypeParameterIndexer {
 
 class StringTableEntry implements Comparable<StringTableEntry> {
   final String value;
+  final List<int> utf8Bytes;
   int frequency = 0;
 
-  StringTableEntry(this.value);
+  StringTableEntry(String value)
+      : value = value,
+        utf8Bytes = const Utf8Encoder().convert(value);
 
   int compareTo(StringTableEntry other) => other.frequency - frequency;
 }

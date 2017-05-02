@@ -158,7 +158,11 @@ $endif
 
 $if DARTIUM
   bool _hasProperty(String propertyName) =>
-      _blink.BlinkCSSStyleDeclaration.instance.$__get___propertyIsEnumerable_Callback_1_(this, propertyName);
+  $if JSINTEROP
+      _blink.BlinkCSSStyleDeclaration.instance.$__propertyQuery___Callback_1_(this, propertyName);
+  $else
+      _blink.BlinkCSSStyleDeclaration.$__propertyQuery___Callback_1(this, propertyName);
+  $endif
 $endif
 
   @DomName('CSSStyleDeclaration.setProperty')

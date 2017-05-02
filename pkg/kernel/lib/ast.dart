@@ -50,6 +50,8 @@
 ///
 library kernel.ast;
 
+import 'dart:convert' show UTF8;
+
 import 'visitor.dart';
 export 'visitor.dart';
 
@@ -226,6 +228,13 @@ class Reference {
     }
     return node as Procedure;
   }
+
+  Typedef get asTypedef {
+    if (node == null) {
+      throw '$this is not bound to an AST node. A typedef was expected';
+    }
+    return node as Typedef;
+  }
 }
 
 // ------------------------------------------------------------------------
@@ -256,6 +265,7 @@ class Library extends NamedNode implements Comparable<Library> {
 
   String name;
   final List<DeferredImport> deferredImports;
+  final List<Typedef> typedefs;
   final List<Class> classes;
   final List<Procedure> procedures;
   final List<Field> fields;
@@ -264,16 +274,20 @@ class Library extends NamedNode implements Comparable<Library> {
       {this.name,
       this.isExternal: false,
       List<DeferredImport> imports,
+      List<Typedef> typedefs,
       List<Class> classes,
       List<Procedure> procedures,
       List<Field> fields,
       this.fileUri,
       Reference reference})
       : this.deferredImports = imports ?? <DeferredImport>[],
+        this.typedefs = typedefs ?? <Typedef>[],
         this.classes = classes ?? <Class>[],
         this.procedures = procedures ?? <Procedure>[],
         this.fields = fields ?? <Field>[],
         super(reference) {
+    setParents(this.deferredImports, this);
+    setParents(this.typedefs, this);
     setParents(this.classes, this);
     setParents(this.procedures, this);
     setParents(this.fields, this);
@@ -302,8 +316,16 @@ class Library extends NamedNode implements Comparable<Library> {
     classes.add(class_);
   }
 
+  void addTypedef(Typedef typedef_) {
+    typedef_.parent = this;
+    typedefs.add(typedef_);
+  }
+
   void computeCanonicalNames() {
     assert(canonicalName != null);
+    for (var typedef_ in typedefs) {
+      canonicalName.getChildFromTypedef(typedef_).bindTo(typedef_.reference);
+    }
     for (var field in fields) {
       canonicalName.getChildFromMember(field).bindTo(field.reference);
     }
@@ -319,12 +341,16 @@ class Library extends NamedNode implements Comparable<Library> {
   accept(TreeVisitor v) => v.visitLibrary(this);
 
   visitChildren(Visitor v) {
+    visitList(deferredImports, v);
+    visitList(typedefs, v);
     visitList(classes, v);
     visitList(procedures, v);
     visitList(fields, v);
   }
 
   transformChildren(Transformer v) {
+    transformList(deferredImports, v, this);
+    transformList(typedefs, v, this);
     transformList(classes, v, this);
     transformList(procedures, v, this);
     transformList(fields, v, this);
@@ -362,6 +388,51 @@ class DeferredImport extends TreeNode {
   visitChildren(Visitor v) {}
 
   transformChildren(Transformer v) {}
+}
+
+/// Declaration of a type alias.
+class Typedef extends NamedNode {
+  /// The uri of the source file that contains the declaration of this typedef.
+  String fileUri;
+  List<Expression> annotations = const <Expression>[];
+  String name;
+  final List<TypeParameter> typeParameters;
+  DartType type;
+
+  Typedef(this.name, this.type,
+      {Reference reference, this.fileUri, List<TypeParameter> typeParameters})
+      : this.typeParameters = typeParameters ?? <TypeParameter>[],
+        super(reference) {
+    setParents(this.typeParameters, this);
+  }
+
+  Library get enclosingLibrary => parent;
+
+  accept(TreeVisitor v) {
+    return v.visitTypedef(this);
+  }
+
+  transformChildren(Transformer v) {
+    transformList(annotations, v, this);
+    transformList(typeParameters, v, this);
+    if (type != null) {
+      type = v.visitDartType(type);
+    }
+  }
+
+  visitChildren(Visitor v) {
+    visitList(annotations, v);
+    visitList(typeParameters, v);
+    type?.accept(v);
+  }
+
+  void addAnnotation(Expression node) {
+    if (annotations.isEmpty) {
+      annotations = <Expression>[];
+    }
+    annotations.add(node);
+    node.parent = this;
+  }
 }
 
 /// The degree to which the contents of a class have been loaded into memory.
@@ -784,7 +855,7 @@ class Field extends Member {
   /// setter is not necessarily final, as it may be mutated by direct field
   /// access.
   ///
-  /// By default, all non-static, non-final fields have implicit getters.
+  /// By default, all non-static, non-final fields have implicit setters.
   bool get hasImplicitSetter => flags & FlagHasImplicitSetter != 0;
 
   void set isFinal(bool value) {
@@ -1934,8 +2005,8 @@ class NamedExpression extends TreeNode {
   }
 }
 
-/// Common super class for [MethodInvocation], [SuperMethodInvocation],
-/// [StaticInvocation], and [ConstructorInvocation].
+/// Common super class for [DirectMethodInvocation], [MethodInvocation],
+/// [SuperMethodInvocation], [StaticInvocation], and [ConstructorInvocation].
 abstract class InvocationExpression extends Expression {
   Arguments get arguments;
   set arguments(Arguments value);
@@ -2855,6 +2926,49 @@ class VectorCopy extends Expression {
   }
 }
 
+/// Expression of the form `MakeClosure(f, c, t)` where `f` is a name of a
+/// closed top-level function, `c` is a Vector representing closure context, and
+/// `t` is the type of the resulting closure.
+class ClosureCreation extends Expression {
+  Reference topLevelFunctionReference;
+  Expression contextVector;
+  FunctionType functionType;
+
+  ClosureCreation(Member topLevelFunction, Expression contextVector,
+      FunctionType functionType)
+      : this.byReference(
+            getMemberReference(topLevelFunction), contextVector, functionType);
+
+  ClosureCreation.byReference(
+      this.topLevelFunctionReference, this.contextVector, this.functionType) {
+    contextVector?.parent = this;
+  }
+
+  Procedure get topLevelFunction => topLevelFunctionReference?.asProcedure;
+
+  void set topLevelFunction(Member topLevelFunction) {
+    topLevelFunctionReference = getMemberReference(topLevelFunction);
+  }
+
+  accept(ExpressionVisitor v) => v.visitClosureCreation(this);
+  accept1(ExpressionVisitor1 v, arg) => v.visitClosureCreation(this, arg);
+
+  visitChildren(Visitor v) {
+    contextVector?.accept(v);
+  }
+
+  transformChildren(Transformer v) {
+    if (contextVector != null) {
+      contextVector = contextVector.accept(v);
+      contextVector?.parent = this;
+    }
+  }
+
+  DartType getStaticType(TypeEnvironment types) {
+    return functionType;
+  }
+}
+
 // ------------------------------------------------------------------------
 //                              STATEMENTS
 // ------------------------------------------------------------------------
@@ -3650,6 +3764,16 @@ abstract class DartType extends Node {
   accept(DartTypeVisitor v);
 
   bool operator ==(Object other);
+
+  /// If this is a typedef type, repeatedly unfolds its type definition until
+  /// the root term is not a typedef type, otherwise returns the type itself.
+  ///
+  /// Will never return a typedef type.
+  DartType get unalias => this;
+
+  /// If this is a typedef type, unfolds its type definition once, otherwise
+  /// returns the type itself.
+  DartType get unaliasOnce => this;
 }
 
 /// The type arising from invalid type annotations.
@@ -3879,6 +4003,60 @@ class FunctionType extends DartType {
   }
 }
 
+/// A use of a [Typedef] as a type.
+///
+/// The underlying type can be extracted using [unalias].
+class TypedefType extends DartType {
+  final Reference typedefReference;
+  final List<DartType> typeArguments;
+
+  TypedefType(Typedef typedefNode, [List<DartType> typeArguments])
+      : this.byReference(
+            typedefNode.reference, typeArguments ?? const <DartType>[]);
+
+  TypedefType.byReference(this.typedefReference, this.typeArguments);
+
+  Typedef get typedefNode => typedefReference.asTypedef;
+
+  accept(DartTypeVisitor v) => v.visitTypedefType(this);
+
+  visitChildren(Visitor v) {
+    visitList(typeArguments, v);
+    v.visitTypedefReference(typedefNode);
+  }
+
+  DartType get unaliasOnce {
+    return Substitution.fromTypedefType(this).substituteType(typedefNode.type);
+  }
+
+  DartType get unalias {
+    return unaliasOnce.unalias;
+  }
+
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    if (other is TypedefType) {
+      if (typedefReference != other.typedefReference ||
+          typeArguments.length != other.typeArguments.length) {
+        return false;
+      }
+      for (int i = 0; i < typeArguments.length; ++i) {
+        if (typeArguments[i] != other.typeArguments[i]) return false;
+      }
+      return true;
+    }
+    return false;
+  }
+
+  int get hashCode {
+    int hash = 0x3fffffff & typedefNode.hashCode;
+    for (int i = 0; i < typeArguments.length; ++i) {
+      hash = 0x3fffffff & (hash * 31 + (hash ^ typeArguments[i].hashCode));
+    }
+    return hash;
+  }
+}
+
 /// A named parameter in [FunctionType].
 class NamedType extends Node implements Comparable<NamedType> {
   final String name;
@@ -4064,22 +4242,7 @@ class Program extends TreeNode {
 
   /// Translates an offset to line and column numbers in the given file.
   Location getLocation(String file, int offset) {
-    List<int> lines = uriToSource[file].lineStarts;
-    int low = 0, high = lines.length - 1;
-    while (low < high) {
-      int mid = high - ((high - low) >> 1); // Get middle, rounding up.
-      int pivot = lines[mid];
-      if (pivot <= offset) {
-        low = mid;
-      } else {
-        high = mid - 1;
-      }
-    }
-    int lineIndex = low;
-    int lineStart = lines[lineIndex];
-    int lineNumber = 1 + lineIndex;
-    int columnNumber = 1 + offset - lineStart;
-    return new Location(file, lineNumber, columnNumber);
+    return uriToSource[file]?.getLocation(file, offset);
   }
 }
 
@@ -4185,9 +4348,63 @@ class _ChildReplacer extends Transformer {
 
 class Source {
   final List<int> lineStarts;
+
   final List<int> source;
 
+  String cachedText;
+
   Source(this.lineStarts, this.source);
+
+  /// Return the text corresponding to [line] which is a 1-based line
+  /// number. The returned line contains no line separators.
+  String getTextLine(int line) {
+    _rangeCheck(line, 1, lineStarts.length, "line");
+    if (source == null) return null;
+
+    cachedText ??= UTF8.decode(source, allowMalformed: true);
+    // -1 as line numbers start at 1.
+    int index = line - 1;
+    if (index + 1 == lineStarts.length) {
+      // Last line.
+      return cachedText.substring(lineStarts[index]);
+    } else if (index < lineStarts.length) {
+      // We subtract 1 from the next line for two reasons:
+      // 1. If the file isn't terminated by a newline, that index is invalid.
+      // 2. To remove the newline at the end of the line.
+      int endOfLine = lineStarts[index + 1] - 1;
+      if (endOfLine > index && cachedText[endOfLine - 1] == "\r") {
+        --endOfLine; // Windows line endings.
+      }
+      return cachedText.substring(lineStarts[index], endOfLine);
+    }
+    // This shouldn't happen: should have been caught by the range check above.
+    throw "Internal error";
+  }
+
+  /// Translates an offset to line and column numbers in the given file.
+  Location getLocation(String file, int offset) {
+    _rangeCheck(offset, 0, lineStarts.last, "offset");
+    int low = 0, high = lineStarts.length - 1;
+    while (low < high) {
+      int mid = high - ((high - low) >> 1); // Get middle, rounding up.
+      int pivot = lineStarts[mid];
+      if (pivot <= offset) {
+        low = mid;
+      } else {
+        high = mid - 1;
+      }
+    }
+    int lineIndex = low;
+    int lineStart = lineStarts[lineIndex];
+    int lineNumber = 1 + lineIndex;
+    int columnNumber = 1 + offset - lineStart;
+    return new Location(file, lineNumber, columnNumber);
+  }
+}
+
+void _rangeCheck(int value, int min, int max, String name) {
+  RangeError.checkValueInInterval(value, min, max, name,
+      "The value of '$name' ($value) must be between $min and $max.");
 }
 
 /// Returns the [Reference] object for the given member.
@@ -4238,4 +4455,16 @@ CanonicalName getCanonicalNameOfLibrary(Library library) {
     throw '$library has no canonical name';
   }
   return library.canonicalName;
+}
+
+/// Returns the canonical name of [typedef_], or throws an exception if the
+/// typedef has not been assigned a canonical name yet.
+///
+/// Returns `null` if the typedef is `null`.
+CanonicalName getCanonicalNameOfTypedef(Typedef typedef_) {
+  if (typedef_ == null) return null;
+  if (typedef_.canonicalName == null) {
+    throw '$typedef_ has no canonical name';
+  }
+  return typedef_.canonicalName;
 }

@@ -37,16 +37,15 @@ vars = {
   "gperftools_revision": "@02eeed29df112728564a5dde6417fa4622b57a06",
 
   # Revisions of /third_party/* dependencies.
-  "angular_analyzer_plugin_tag": "@v0.0.5",
   "args_tag": "@0.13.7",
   "async_tag": "@1.13.0",
   "barback-0.13.0_rev": "@34853",
   "barback-0.14.0_rev": "@36398",
   "barback-0.14.1_rev": "@38525",
   "barback_tag" : "@0.15.2+9",
-  "bazel_worker_tag": "@0.1.2",
+  "bazel_worker_tag": "@v0.1.4",
   "boolean_selector_tag" : "@1.0.2",
-  "boringssl_gen_rev": "@1a810313a0290e1caace9da73fa3ab89995ad2c7",
+  "boringssl_gen_rev": "@753224969dbe43dad29343146529727b5066c0f3",
   "boringssl_rev" : "@d519bf6be0b447fb80fbc539d4bff4479b5482a2",
   "charcode_tag": "@v1.1.1",
   "chrome_rev" : "@19997",
@@ -56,12 +55,12 @@ vars = {
   "convert_tag": "@2.0.1",
   "crypto_tag" : "@2.0.1",
   "csslib_tag" : "@0.13.3+1",
-  "dart2js_info_tag" : "@0.5.3+1",
+  "dart2js_info_tag" : "@0.5.4+2",
   "dart_services_rev" : "@7aea2574e6f3924bf409a80afb8ad52aa2be4f97",
-  "dart_style_tag": "@1.0.2+1",
-  "dartdoc_tag" : "@v0.9.12",
+  "dart_style_tag": "@1.0.4",
+  "dartdoc_tag" : "@v0.9.14-dev",
   "fixnum_tag": "@0.10.5",
-  "func_tag": "@0.1.1",
+  "func_tag": "@1.0.0",
   "glob_tag": "@1.1.3",
   "html_tag" : "@0.13.1",
   "http_multi_server_tag" : "@2.0.3",
@@ -74,7 +73,7 @@ vars = {
   "isolate_tag": "@1.0.0",
   "jinja2_rev": "@2222b31554f03e62600cd7e383376a7c187967a1",
   "json_rpc_2_tag": "@2.0.4",
-  "linter_rev": "@89f93362c5b48ef5192d77e9a28cf9590542669b", # prerelease 1.30
+  "linter_tag": "@0.1.30",
   "logging_tag": "@0.11.3+1",
   "markdown_tag": "@0.11.2",
   "matcher_tag": "@0.12.0+2",
@@ -91,13 +90,13 @@ vars = {
   "plugin_tag": "@0.2.0",
   "ply_rev": "@604b32590ffad5cbb82e4afef1d305512d06ae93",
   "pool_tag": "@1.3.0",
-  "protobuf_tag": "@0.5.3",
-  "pub_rev": "@1218853e57594c2117b8acaf6a65a43f8698d8c7",
+  "protobuf_tag": "@0.5.4",
+  "pub_rev": "@69be47ed84c3ced304047aaa885c8f8f48dad4e6",
   "pub_semver_tag": "@1.3.2",
   "quiver_tag": "@0.22.0",
   "resource_rev":"@a49101ba2deb29c728acba6fb86000a8f730f4b1",
   "root_certificates_rev": "@a4c7c6f23a664a37bc1b6f15a819e3f2a292791a",
-  "scheduled_test_tag": "@0.12.9",
+  "scheduled_test_tag": "@0.12.11",
   "shelf_static_tag": "@0.2.4",
   "shelf_packages_handler_tag": "@1.0.0",
   "shelf_tag": "@0.6.7+2",
@@ -105,7 +104,7 @@ vars = {
   "smoke_tag" : "@v0.3.6+2",
   "source_map_stack_trace_tag": "@1.1.4",
   "source_maps-0.9.4_rev": "@38524",
-  "source_maps_tag": "@0.10.3",
+  "source_maps_tag": "@0.10.4",
   "source_span_tag": "@1.3.1",
   "stack_trace_tag": "@1.7.2",
   "stream_channel_tag": "@1.6.1",
@@ -175,9 +174,6 @@ deps = {
       Var('chromium_git') + '/external/github.com/gperftools/gperftools.git' +
       Var("gperftools_revision"),
 
-  Var("dart_root") + "/third_party/pkg/angular_analyzer_plugin":
-      (Var("github_mirror") % "angular_analyzer_plugin") +
-      Var("angular_analyzer_plugin_tag"),
   Var("dart_root") + "/third_party/pkg/args":
       (Var("github_mirror") % "args") + Var("args_tag"),
   Var("dart_root") + "/third_party/pkg/async":
@@ -240,7 +236,7 @@ deps = {
   Var("dart_root") + "/third_party/pkg/json_rpc_2":
       (Var("github_mirror") % "json_rpc_2") + Var("json_rpc_2_tag"),
   Var("dart_root") + "/third_party/pkg/linter":
-      (Var("github_mirror") % "linter") + Var("linter_rev"),
+      (Var("github_mirror") % "linter") + Var("linter_tag"),
   Var("dart_root") + "/third_party/pkg/logging":
       (Var("github_mirror") % "logging") + Var("logging_tag"),
   Var("dart_root") + "/third_party/pkg/markdown":
@@ -276,7 +272,10 @@ deps = {
   Var("dart_root") + "/third_party/pkg/pool":
       (Var("github_mirror") % "pool") + Var("pool_tag"),
   Var("dart_root") + "/third_party/pkg/protobuf":
-      (Var("github_mirror") % "dart-protobuf") + Var("protobuf_tag"),
+      # Restore the github mirror once it's corrected to point to protobuf
+      # instead of dart-protobuf
+      # (Var("github_mirror") % "dart-protobuf") + Var("protobuf_tag"),
+      (Var("github_dartlang") % "protobuf") + Var("protobuf_tag"),
   Var("dart_root") + "/third_party/pkg/pub_semver":
       (Var("github_mirror") % "pub_semver") + Var("pub_semver_tag"),
   Var("dart_root") + "/third_party/pkg/pub":

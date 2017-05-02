@@ -362,7 +362,7 @@ const String directAccessTestExpression = r'''
     var object = new cls();
     if (!(object.__proto__ && object.__proto__.p === cls.prototype.p))
       return false;
-    
+
     try {
       // Are we running on a platform where the performance is good?
       // (i.e. Chrome or d8).
@@ -468,9 +468,10 @@ class FragmentEmitter {
       'directAccessTestExpression': js.js(directAccessTestExpression),
       'typeNameProperty': js.string(ModelEmitter.typeNameProperty),
       'cyclicThrow': backend.emitter
-          .staticFunctionAccess(backend.helpers.cyclicThrowHelper),
+          .staticFunctionAccess(compiler.commonElements.cyclicThrowHelper),
       'operatorIsPrefix': js.string(namer.operatorIsPrefix),
-      'tearOffCode': new js.Block(buildTearOffCode(backend)),
+      'tearOffCode': new js.Block(buildTearOffCode(compiler.options,
+          backend.emitter.emitter, backend.namer, compiler.commonElements)),
       'embeddedTypes': generateEmbeddedGlobalAccess(TYPES),
       'embeddedInterceptorTags':
           generateEmbeddedGlobalAccess(INTERCEPTORS_BY_TAG),
@@ -652,23 +653,44 @@ class FragmentEmitter {
       return js.js('function #() { }', name);
     }
 
-    List<js.Name> fieldNames =
-        cls.fields.map((Field field) => field.name).toList();
-    if (cls.hasRtiField) {
-      fieldNames.add(namer.rtiFieldJsName);
+    var statements = <js.Statement>[];
+    var parameters = <js.Name>[];
+    var thisRef;
+
+    // If there are many references to `this`, cache it in a local.
+    if (cls.fields.length + (cls.hasRtiField ? 1 : 0) >= 4) {
+      // TODO(29455): Fix js_ast printer and minifier to avoid conflicts between
+      // js.Name and string-named variables, then use '_' in the js template
+      // text.
+
+      // We pick '_' in minified mode because no field minifies to '_'. This
+      // avoids a conflict with one of the parameters which are named the same
+      // as the fields.  Unminified, a field might have the name '_', so we pick
+      // '$_', which is an impossible member name since we escape '$'s in names.
+      js.Name underscore = compiler.options.enableMinification
+          ? new StringBackedName('_')
+          : new StringBackedName(r'$_');
+      statements.add(js.js.statement('var # = this;', underscore));
+      thisRef = underscore;
+    } else {
+      thisRef = js.js('this');
     }
 
-    Iterable<js.Name> assignments = fieldNames.map((js.Name field) {
-      return js.js("this.#field = #field", {"field": field});
-    });
+    for (Field field in cls.fields) {
+      js.Name paramName = field.name;
+      parameters.add(paramName);
+      statements
+          .add(js.js.statement('#.# = #', [thisRef, field.name, paramName]));
+    }
 
-    // TODO(sra): Cache 'this' in a one-character local for 4 or more uses of
-    // 'this'. i.e. "var _=this;_.a=a;_.b=b;..."
+    if (cls.hasRtiField) {
+      js.Name paramName = namer.rtiFieldJsName;
+      parameters.add(paramName);
+      statements.add(js.js
+          .statement('#.# = #', [thisRef, namer.rtiFieldJsName, paramName]));
+    }
 
-    // TODO(sra): Separate field and field initializer parameter names so the
-    // latter may be fully minified.
-
-    return js.js('function #(#) { # }', [name, fieldNames, assignments]);
+    return js.js('function #(#) { # }', [name, parameters, statements]);
   }
 
   /// Emits the prototype-section of the fragment.
@@ -716,6 +738,7 @@ class FragmentEmitter {
     List<js.Property> properties = <js.Property>[];
 
     if (cls.superclass == null) {
+      // TODO(sra): What is this doing? Document or remove.
       properties
           .add(new js.Property(js.string("constructor"), classReference(cls)));
       properties
@@ -730,6 +753,15 @@ class FragmentEmitter {
         properties.add(prop);
       });
     });
+
+    if (cls.isClosureBaseClass) {
+      // Closures extend a common base class, so we can put properties on the
+      // prototype for common values.
+
+      // Most closures have no optional arguments.
+      properties.add(new js.Property(
+          js.string(namer.defaultValuesField), new js.LiteralNull()));
+    }
 
     return new js.ObjectInitializer(properties);
   }
@@ -805,12 +837,23 @@ class FragmentEmitter {
       }
 
       if (method.isClosureCallMethod && method.canBeApplied) {
+        // TODO(sra): We should also add these properties for the user-defined
+        // `call` method on classes. Function.apply is currently broken for
+        // complex cases. [forceAdd] might be true when this is fixed.
+        bool forceAdd = !method.isClosureCallMethod;
+
         properties[js.string(namer.callCatchAllName)] =
             js.quoteName(method.name);
         properties[js.string(namer.requiredParameterField)] =
             js.number(method.requiredParameterCount);
-        properties[js.string(namer.defaultValuesField)] =
+
+        js.Expression defaultValues =
             _encodeOptionalParameterDefaultValues(method);
+        // Default values property of `null` is stored on the common JS
+        // superclass.
+        if (defaultValues is! js.LiteralNull || forceAdd) {
+          properties[js.string(namer.defaultValuesField)] = defaultValues;
+        }
       }
     }
 
@@ -822,52 +865,72 @@ class FragmentEmitter {
   /// In this section prototype chains are updated and mixin functions are
   /// copied.
   js.Statement emitInheritance(Fragment fragment) {
-    List<js.Expression> inheritCalls = <js.Expression>[];
-    List<js.Expression> mixinCalls = <js.Expression>[];
+    List<js.Statement> inheritCalls = <js.Statement>[];
+    List<js.Statement> mixinCalls = <js.Statement>[];
 
     Set<Class> classesInFragment = new Set<Class>();
     for (Library library in fragment.libraries) {
       classesInFragment.addAll(library.classes);
     }
 
-    Set<Class> emittedClasses = new Set<Class>();
+    Map<Class, List<Class>> subclasses = <Class, List<Class>>{};
+    Set<Class> seen = new Set<Class>();
 
-    void emitInheritanceForClass(cls) {
-      if (cls == null || emittedClasses.contains(cls)) return;
+    void collect(cls) {
+      if (cls == null || seen.contains(cls)) return;
 
       Class superclass = cls.superclass;
       if (classesInFragment.contains(superclass)) {
-        emitInheritanceForClass(superclass);
+        collect(superclass);
       }
 
-      js.Expression superclassReference = (superclass == null)
-          ? new js.LiteralNull()
-          : classReference(superclass);
+      subclasses.putIfAbsent(superclass, () => <Class>[]).add(cls);
 
-      inheritCalls.add(
-          js.js('inherit(#, #)', [classReference(cls), superclassReference]));
-
-      emittedClasses.add(cls);
+      seen.add(cls);
     }
 
     for (Library library in fragment.libraries) {
       for (Class cls in library.classes) {
-        emitInheritanceForClass(cls);
+        collect(cls);
 
         if (cls.isMixinApplication) {
           MixinApplication mixin = cls;
-          mixinCalls.add(js.js('mixin(#, #)',
+          mixinCalls.add(js.js.statement('mixin(#, #)',
               [classReference(cls), classReference(mixin.mixinClass)]));
         }
       }
     }
 
+    js.Expression temp = null;
+    for (Class superclass in subclasses.keys) {
+      List<Class> list = subclasses[superclass];
+      js.Expression superclassReference = (superclass == null)
+          ? new js.LiteralNull()
+          : classReference(superclass);
+      if (list.length == 1) {
+        inheritCalls.add(js.js.statement('inherit(#, #)',
+            [classReference(list.single), superclassReference]));
+      } else {
+        // Hold common superclass in temporary for sequence of calls.
+        if (temp == null) {
+          String tempName = '_';
+          temp = new js.VariableUse(tempName);
+          var declaration = new js.VariableDeclaration(tempName);
+          inheritCalls.add(
+              js.js.statement('var # = #', [declaration, superclassReference]));
+        } else {
+          inheritCalls
+              .add(js.js.statement('# = #', [temp, superclassReference]));
+        }
+        for (Class cls in list) {
+          inheritCalls.add(
+              js.js.statement('inherit(#, #)', [classReference(cls), temp]));
+        }
+      }
+    }
+
     return wrapPhase(
-        'inheritance',
-        js.js.statement('{#; #;}', [
-          inheritCalls.map((e) => new js.ExpressionStatement(e)),
-          mixinCalls.map((e) => new js.ExpressionStatement(e))
-        ]));
+        'inheritance', js.js.statement('{#; #;}', [inheritCalls, mixinCalls]));
   }
 
   /// Emits the setup of method aliases.
@@ -984,8 +1047,9 @@ class FragmentEmitter {
         {
           "container": container,
           "getterName": js.quoteName(method.tearOffName),
-          "isStatic": new js.LiteralBool(method.isStatic),
-          "isIntercepted": new js.LiteralBool(isIntercepted),
+          // 'Truthy' values are ok for `isStatic` and `isIntercepted`.
+          "isStatic": js.number(method.isStatic ? 1 : 0),
+          "isIntercepted": js.number(isIntercepted ? 1 : 0),
           "requiredParameterCount": js.number(requiredParameterCount),
           "optionalParameterDefaultValues": optionalParameterDefaultValues,
           "callNames": callNameArray,
@@ -1004,6 +1068,7 @@ class FragmentEmitter {
   /// Emits the section that installs tear-off getters.
   js.Statement emitInstallTearOffs(Fragment fragment) {
     List<js.Statement> inits = <js.Statement>[];
+    js.Expression temp;
 
     for (Library library in fragment.libraries) {
       for (StaticMethod method in library.statics) {
@@ -1017,11 +1082,20 @@ class FragmentEmitter {
         }
       }
       for (Class cls in library.classes) {
-        for (InstanceMethod method in cls.methods) {
-          if (method.needsTearOff) {
-            js.Expression container = js.js("#.prototype", classReference(cls));
-            inits.add(emitInstallTearOff(container, method));
+        var methods = cls.methods.where((m) => m.needsTearOff).toList();
+        js.Expression container = js.js("#.prototype", classReference(cls));
+        js.Expression reference = container;
+        if (methods.length > 1) {
+          if (temp == null) {
+            inits.add(js.js.statement('var _;'));
+            temp = js.js('_');
           }
+          // First call uses assignment to temp to cache the container.
+          reference = js.js('# = #', [temp, container]);
+        }
+        for (InstanceMethod method in methods) {
+          inits.add(emitInstallTearOff(reference, method));
+          reference = temp; // Second and subsequent calls use temp.
         }
       }
     }

@@ -2,9 +2,9 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:kernel/ast.dart' show DartType, TreeNode;
-
-import 'shadow_ast.dart';
+import 'package:front_end/src/fasta/scanner.dart' show Token;
+import 'package:front_end/src/fasta/type_inference/type_promotion.dart';
+import 'package:kernel/ast.dart';
 
 /// An abstract class containing factory methods that create AST objects.
 ///
@@ -34,25 +34,55 @@ import 'shadow_ast.dart';
 /// TODO(paulberry): in order to interface with analyzer, we'll need to
 /// shadow-ify [DartType], since analyzer ASTs need to be able to record the
 /// exact tokens that were used to specify a type.
-abstract class AstFactory {
+abstract class AstFactory<V> {
   /// Creates a statement block.
-  ShadowBlock block(List<ShadowStatement> statements, int charOffset);
+  Block block(List<Statement> statements, Token beginToken);
+
+  /// Creates a boolean literal.
+  BoolLiteral boolLiteral(bool value, Token token);
+
+  /// Creates a double literal.
+  DoubleLiteral doubleLiteral(double value, Token token);
+
+  /// Creates an expression statement.
+  ExpressionStatement expressionStatement(Expression expression);
+
+  /// Creates a function expression.
+  FunctionExpression functionExpression(FunctionNode function, Token token);
+
+  /// Creates an `if` statement.
+  Statement ifStatement(
+      Expression condition, Statement thenPart, Statement elsePart);
 
   /// Creates an integer literal.
-  ShadowIntLiteral intLiteral(value, int charOffset);
+  IntLiteral intLiteral(int value, Token token);
+
+  /// Creates an `is` expression.
+  Expression isExpression(
+      Expression expression, DartType type, Token token, bool isInverted);
 
   /// Creates a list literal expression.
   ///
   /// If the list literal did not have an explicitly declared type argument,
   /// [typeArgument] should be `null`.
-  ShadowListLiteral listLiteral(List<ShadowExpression> expressions,
-      DartType typeArgument, bool isConst, int charOffset);
+  ListLiteral listLiteral(List<Expression> expressions, DartType typeArgument,
+      bool isConst, Token token);
 
   /// Creates a null literal expression.
-  ShadowNullLiteral nullLiteral(int charOffset);
+  NullLiteral nullLiteral(Token token);
 
   /// Creates a return statement.
-  ShadowStatement returnStatement(ShadowExpression expression, int charOffset);
+  Statement returnStatement(Expression expression, Token token);
+
+  /// Creates a read of a static variable.
+  StaticGet staticGet(Member readTarget, Token token);
+
+  /// Creates a string concatenation.
+  StringConcatenation stringConcatenation(
+      List<Expression> expressions, Token token);
+
+  /// Creates a string literal.
+  StringLiteral stringLiteral(String value, Token token);
 
   /// Creates a variable declaration statement declaring one variable.
   ///
@@ -63,10 +93,15 @@ abstract class AstFactory {
   ///
   /// If the variable declaration did not have an explicitly declared type,
   /// [type] should be `null`.
-  ShadowVariableDeclaration variableDeclaration(String name,
+  VariableDeclaration variableDeclaration(
+      String name, Token token, int functionNestingLevel,
       {DartType type,
-      ShadowExpression initializer,
-      int charOffset: TreeNode.noOffset,
+      Expression initializer,
+      Token equalsToken,
       bool isFinal: false,
       bool isConst: false});
+
+  /// Creates a read of a local variable.
+  variableGet(VariableDeclaration variable, TypePromotionFact<V> fact,
+      TypePromotionScope scope, Token token);
 }

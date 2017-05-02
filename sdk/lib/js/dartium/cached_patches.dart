@@ -226,15 +226,6 @@ class BlobImpl extends Blob implements js_library.JSObjectInterfacesDom {
   get runtimeType => Blob;
   toString() => super.toString();
 }
-@patch class BlobEvent {
-  static Type get instanceRuntimeType => BlobEventImpl;
-
-}
-class BlobEventImpl extends BlobEvent implements js_library.JSObjectInterfacesDom {
-  BlobEventImpl.internal_() : super.internal_();
-  get runtimeType => BlobEvent;
-  toString() => super.toString();
-}
 @patch class Bluetooth {
   static Type get instanceRuntimeType => BluetoothImpl;
 
@@ -242,24 +233,6 @@ class BlobEventImpl extends BlobEvent implements js_library.JSObjectInterfacesDo
 class BluetoothImpl extends Bluetooth implements js_library.JSObjectInterfacesDom {
   BluetoothImpl.internal_() : super.internal_();
   get runtimeType => Bluetooth;
-  toString() => super.toString();
-}
-@patch class BluetoothAdvertisingData {
-  static Type get instanceRuntimeType => BluetoothAdvertisingDataImpl;
-
-}
-class BluetoothAdvertisingDataImpl extends BluetoothAdvertisingData implements js_library.JSObjectInterfacesDom {
-  BluetoothAdvertisingDataImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothAdvertisingData;
-  toString() => super.toString();
-}
-@patch class BluetoothCharacteristicProperties {
-  static Type get instanceRuntimeType => BluetoothCharacteristicPropertiesImpl;
-
-}
-class BluetoothCharacteristicPropertiesImpl extends BluetoothCharacteristicProperties implements js_library.JSObjectInterfacesDom {
-  BluetoothCharacteristicPropertiesImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothCharacteristicProperties;
   toString() => super.toString();
 }
 @patch class BluetoothDevice {
@@ -271,31 +244,31 @@ class BluetoothDeviceImpl extends BluetoothDevice implements js_library.JSObject
   get runtimeType => BluetoothDevice;
   toString() => super.toString();
 }
-@patch class BluetoothRemoteGattCharacteristic {
-  static Type get instanceRuntimeType => BluetoothRemoteGattCharacteristicImpl;
+@patch class BluetoothGattCharacteristic {
+  static Type get instanceRuntimeType => BluetoothGattCharacteristicImpl;
 
 }
-class BluetoothRemoteGattCharacteristicImpl extends BluetoothRemoteGattCharacteristic implements js_library.JSObjectInterfacesDom {
-  BluetoothRemoteGattCharacteristicImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothRemoteGattCharacteristic;
+class BluetoothGattCharacteristicImpl extends BluetoothGattCharacteristic implements js_library.JSObjectInterfacesDom {
+  BluetoothGattCharacteristicImpl.internal_() : super.internal_();
+  get runtimeType => BluetoothGattCharacteristic;
   toString() => super.toString();
 }
-@patch class BluetoothRemoteGattServer {
-  static Type get instanceRuntimeType => BluetoothRemoteGattServerImpl;
+@patch class BluetoothGattRemoteServer {
+  static Type get instanceRuntimeType => BluetoothGattRemoteServerImpl;
 
 }
-class BluetoothRemoteGattServerImpl extends BluetoothRemoteGattServer implements js_library.JSObjectInterfacesDom {
-  BluetoothRemoteGattServerImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothRemoteGattServer;
+class BluetoothGattRemoteServerImpl extends BluetoothGattRemoteServer implements js_library.JSObjectInterfacesDom {
+  BluetoothGattRemoteServerImpl.internal_() : super.internal_();
+  get runtimeType => BluetoothGattRemoteServer;
   toString() => super.toString();
 }
-@patch class BluetoothRemoteGattService {
-  static Type get instanceRuntimeType => BluetoothRemoteGattServiceImpl;
+@patch class BluetoothGattService {
+  static Type get instanceRuntimeType => BluetoothGattServiceImpl;
 
 }
-class BluetoothRemoteGattServiceImpl extends BluetoothRemoteGattService implements js_library.JSObjectInterfacesDom {
-  BluetoothRemoteGattServiceImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothRemoteGattService;
+class BluetoothGattServiceImpl extends BluetoothGattService implements js_library.JSObjectInterfacesDom {
+  BluetoothGattServiceImpl.internal_() : super.internal_();
+  get runtimeType => BluetoothGattService;
   toString() => super.toString();
 }
 @patch class BluetoothUuid {
@@ -350,24 +323,6 @@ class CDataSectionImpl extends CDataSection implements js_library.JSObjectInterf
 class CacheStorageImpl extends CacheStorage implements js_library.JSObjectInterfacesDom {
   CacheStorageImpl.internal_() : super.internal_();
   get runtimeType => CacheStorage;
-  toString() => super.toString();
-}
-@patch class CalcLength {
-  static Type get instanceRuntimeType => CalcLengthImpl;
-
-}
-class CalcLengthImpl extends CalcLength implements js_library.JSObjectInterfacesDom {
-  CalcLengthImpl.internal_() : super.internal_();
-  get runtimeType => CalcLength;
-  toString() => super.toString();
-}
-@patch class CanvasCaptureMediaStreamTrack {
-  static Type get instanceRuntimeType => CanvasCaptureMediaStreamTrackImpl;
-
-}
-class CanvasCaptureMediaStreamTrackImpl extends CanvasCaptureMediaStreamTrack implements js_library.JSObjectInterfacesDom {
-  CanvasCaptureMediaStreamTrackImpl.internal_() : super.internal_();
-  get runtimeType => CanvasCaptureMediaStreamTrack;
   toString() => super.toString();
 }
 @patch class CanvasElement {
@@ -577,6 +532,15 @@ class CredentialsContainerImpl extends CredentialsContainer implements js_librar
   get runtimeType => CredentialsContainer;
   toString() => super.toString();
 }
+@patch class CrossOriginConnectEvent {
+  static Type get instanceRuntimeType => CrossOriginConnectEventImpl;
+
+}
+class CrossOriginConnectEventImpl extends CrossOriginConnectEvent implements js_library.JSObjectInterfacesDom {
+  CrossOriginConnectEventImpl.internal_() : super.internal_();
+  get runtimeType => CrossOriginConnectEvent;
+  toString() => super.toString();
+}
 @patch class CrossOriginServiceWorkerClient {
   static Type get instanceRuntimeType => CrossOriginServiceWorkerClientImpl;
 
@@ -674,15 +638,6 @@ class CssKeyframesRuleImpl extends CssKeyframesRule implements js_library.JSObje
 class CssMediaRuleImpl extends CssMediaRule implements js_library.JSObjectInterfacesDom {
   CssMediaRuleImpl.internal_() : super.internal_();
   get runtimeType => CssMediaRule;
-  toString() => super.toString();
-}
-@patch class CssNamespaceRule {
-  static Type get instanceRuntimeType => CssNamespaceRuleImpl;
-
-}
-class CssNamespaceRuleImpl extends CssNamespaceRule implements js_library.JSObjectInterfacesDom {
-  CssNamespaceRuleImpl.internal_() : super.internal_();
-  get runtimeType => CssNamespaceRule;
   toString() => super.toString();
 }
 @patch class CssPageRule {
@@ -809,6 +764,15 @@ class DataTransferItemListImpl extends DataTransferItemList implements js_librar
 class DedicatedWorkerGlobalScopeImpl extends DedicatedWorkerGlobalScope implements js_library.JSObjectInterfacesDom {
   DedicatedWorkerGlobalScopeImpl.internal_() : super.internal_();
   get runtimeType => DedicatedWorkerGlobalScope;
+  toString() => super.toString();
+}
+@patch class DefaultSessionStartEvent {
+  static Type get instanceRuntimeType => DefaultSessionStartEventImpl;
+
+}
+class DefaultSessionStartEventImpl extends DefaultSessionStartEvent implements js_library.JSObjectInterfacesDom {
+  DefaultSessionStartEventImpl.internal_() : super.internal_();
+  get runtimeType => DefaultSessionStartEvent;
   toString() => super.toString();
 }
 @patch class DeprecatedStorageInfo {
@@ -1027,6 +991,15 @@ class DomRectReadOnlyImpl extends DomRectReadOnly implements js_library.JSObject
   get runtimeType => DomRectReadOnly;
   toString() => super.toString();
 }
+@patch class DomSettableTokenList {
+  static Type get instanceRuntimeType => DomSettableTokenListImpl;
+
+}
+class DomSettableTokenListImpl extends DomSettableTokenList implements js_library.JSObjectInterfacesDom {
+  DomSettableTokenListImpl.internal_() : super.internal_();
+  get runtimeType => DomSettableTokenList;
+  toString() => super.toString();
+}
 @patch class DomStringList {
   static Type get instanceRuntimeType => DomStringListImpl;
 
@@ -1052,15 +1025,6 @@ class DomStringMapImpl extends DomStringMap implements js_library.JSObjectInterf
 class DomTokenListImpl extends DomTokenList implements js_library.JSObjectInterfacesDom {
   DomTokenListImpl.internal_() : super.internal_();
   get runtimeType => DomTokenList;
-  toString() => super.toString();
-}
-@patch class DragEvent {
-  static Type get instanceRuntimeType => DragEventImpl;
-
-}
-class DragEventImpl extends DragEvent implements js_library.JSObjectInterfacesDom {
-  DragEventImpl.internal_() : super.internal_();
-  get runtimeType => DragEvent;
   toString() => super.toString();
 }
 @patch class EffectModel {
@@ -1142,15 +1106,6 @@ class EventTargetImpl extends EventTarget implements js_library.JSObjectInterfac
 class ExtendableEventImpl extends ExtendableEvent implements js_library.JSObjectInterfacesDom {
   ExtendableEventImpl.internal_() : super.internal_();
   get runtimeType => ExtendableEvent;
-  toString() => super.toString();
-}
-@patch class ExtendableMessageEvent {
-  static Type get instanceRuntimeType => ExtendableMessageEventImpl;
-
-}
-class ExtendableMessageEventImpl extends ExtendableMessageEvent implements js_library.JSObjectInterfacesDom {
-  ExtendableMessageEventImpl.internal_() : super.internal_();
-  get runtimeType => ExtendableMessageEvent;
   toString() => super.toString();
 }
 @patch class FederatedCredential {
@@ -1540,15 +1495,6 @@ class IFrameElementImpl extends IFrameElement implements js_library.JSObjectInte
   get runtimeType => IFrameElement;
   toString() => super.toString();
 }
-@patch class IdleDeadline {
-  static Type get instanceRuntimeType => IdleDeadlineImpl;
-
-}
-class IdleDeadlineImpl extends IdleDeadline implements js_library.JSObjectInterfacesDom {
-  IdleDeadlineImpl.internal_() : super.internal_();
-  get runtimeType => IdleDeadline;
-  toString() => super.toString();
-}
 @patch class ImageBitmap {
   static Type get instanceRuntimeType => ImageBitmapImpl;
 
@@ -1556,15 +1502,6 @@ class IdleDeadlineImpl extends IdleDeadline implements js_library.JSObjectInterf
 class ImageBitmapImpl extends ImageBitmap implements js_library.JSObjectInterfacesDom {
   ImageBitmapImpl.internal_() : super.internal_();
   get runtimeType => ImageBitmap;
-  toString() => super.toString();
-}
-@patch class ImageBitmapRenderingContext {
-  static Type get instanceRuntimeType => ImageBitmapRenderingContextImpl;
-
-}
-class ImageBitmapRenderingContextImpl extends ImageBitmapRenderingContext implements js_library.JSObjectInterfacesDom {
-  ImageBitmapRenderingContextImpl.internal_() : super.internal_();
-  get runtimeType => ImageBitmapRenderingContext;
   toString() => super.toString();
 }
 @patch class ImageData {
@@ -1594,13 +1531,13 @@ class InjectedScriptHostImpl extends InjectedScriptHost implements js_library.JS
   get runtimeType => InjectedScriptHost;
   toString() => super.toString();
 }
-@patch class InputDeviceCapabilities {
-  static Type get instanceRuntimeType => InputDeviceCapabilitiesImpl;
+@patch class InputDevice {
+  static Type get instanceRuntimeType => InputDeviceImpl;
 
 }
-class InputDeviceCapabilitiesImpl extends InputDeviceCapabilities implements js_library.JSObjectInterfacesDom {
-  InputDeviceCapabilitiesImpl.internal_() : super.internal_();
-  get runtimeType => InputDeviceCapabilities;
+class InputDeviceImpl extends InputDevice implements js_library.JSObjectInterfacesDom {
+  InputDeviceImpl.internal_() : super.internal_();
+  get runtimeType => InputDevice;
   toString() => super.toString();
 }
 @patch class InputElement {
@@ -1610,42 +1547,6 @@ class InputDeviceCapabilitiesImpl extends InputDeviceCapabilities implements js_
 class InputElementImpl extends InputElement implements js_library.JSObjectInterfacesDom {
   InputElementImpl.internal_() : super.internal_();
   get runtimeType => InputElement;
-  toString() => super.toString();
-}
-@patch class InputEvent {
-  static Type get instanceRuntimeType => InputEventImpl;
-
-}
-class InputEventImpl extends InputEvent implements js_library.JSObjectInterfacesDom {
-  InputEventImpl.internal_() : super.internal_();
-  get runtimeType => InputEvent;
-  toString() => super.toString();
-}
-@patch class InstallEvent {
-  static Type get instanceRuntimeType => InstallEventImpl;
-
-}
-class InstallEventImpl extends InstallEvent implements js_library.JSObjectInterfacesDom {
-  InstallEventImpl.internal_() : super.internal_();
-  get runtimeType => InstallEvent;
-  toString() => super.toString();
-}
-@patch class IntersectionObserver {
-  static Type get instanceRuntimeType => IntersectionObserverImpl;
-
-}
-class IntersectionObserverImpl extends IntersectionObserver implements js_library.JSObjectInterfacesDom {
-  IntersectionObserverImpl.internal_() : super.internal_();
-  get runtimeType => IntersectionObserver;
-  toString() => super.toString();
-}
-@patch class IntersectionObserverEntry {
-  static Type get instanceRuntimeType => IntersectionObserverEntryImpl;
-
-}
-class IntersectionObserverEntryImpl extends IntersectionObserverEntry implements js_library.JSObjectInterfacesDom {
-  IntersectionObserverEntryImpl.internal_() : super.internal_();
-  get runtimeType => IntersectionObserverEntry;
   toString() => super.toString();
 }
 @patch class KeyboardEvent {
@@ -1675,15 +1576,6 @@ class KeygenElementImpl extends KeygenElement implements js_library.JSObjectInte
   get runtimeType => KeygenElement;
   toString() => super.toString();
 }
-@patch class KeywordValue {
-  static Type get instanceRuntimeType => KeywordValueImpl;
-
-}
-class KeywordValueImpl extends KeywordValue implements js_library.JSObjectInterfacesDom {
-  KeywordValueImpl.internal_() : super.internal_();
-  get runtimeType => KeywordValue;
-  toString() => super.toString();
-}
 @patch class LIElement {
   static Type get instanceRuntimeType => LIElementImpl;
 
@@ -1709,15 +1601,6 @@ class LabelElementImpl extends LabelElement implements js_library.JSObjectInterf
 class LegendElementImpl extends LegendElement implements js_library.JSObjectInterfacesDom {
   LegendElementImpl.internal_() : super.internal_();
   get runtimeType => LegendElement;
-  toString() => super.toString();
-}
-@patch class LengthValue {
-  static Type get instanceRuntimeType => LengthValueImpl;
-
-}
-class LengthValueImpl extends LengthValue implements js_library.JSObjectInterfacesDom {
-  LengthValueImpl.internal_() : super.internal_();
-  get runtimeType => LengthValue;
   toString() => super.toString();
 }
 @patch class LinkElement {
@@ -1747,13 +1630,13 @@ class MapElementImpl extends MapElement implements js_library.JSObjectInterfaces
   get runtimeType => MapElement;
   toString() => super.toString();
 }
-@patch class Matrix {
-  static Type get instanceRuntimeType => MatrixImpl;
+@patch class MediaController {
+  static Type get instanceRuntimeType => MediaControllerImpl;
 
 }
-class MatrixImpl extends Matrix implements js_library.JSObjectInterfacesDom {
-  MatrixImpl.internal_() : super.internal_();
-  get runtimeType => Matrix;
+class MediaControllerImpl extends MediaController implements js_library.JSObjectInterfacesDom {
+  MediaControllerImpl.internal_() : super.internal_();
+  get runtimeType => MediaController;
   toString() => super.toString();
 }
 @patch class MediaDeviceInfo {
@@ -1799,6 +1682,24 @@ class MediaEncryptedEventImpl extends MediaEncryptedEvent implements js_library.
 class MediaErrorImpl extends MediaError implements js_library.JSObjectInterfacesDom {
   MediaErrorImpl.internal_() : super.internal_();
   get runtimeType => MediaError;
+  toString() => super.toString();
+}
+@patch class MediaKeyError {
+  static Type get instanceRuntimeType => MediaKeyErrorImpl;
+
+}
+class MediaKeyErrorImpl extends MediaKeyError implements js_library.JSObjectInterfacesDom {
+  MediaKeyErrorImpl.internal_() : super.internal_();
+  get runtimeType => MediaKeyError;
+  toString() => super.toString();
+}
+@patch class MediaKeyEvent {
+  static Type get instanceRuntimeType => MediaKeyEventImpl;
+
+}
+class MediaKeyEventImpl extends MediaKeyEvent implements js_library.JSObjectInterfacesDom {
+  MediaKeyEventImpl.internal_() : super.internal_();
+  get runtimeType => MediaKeyEvent;
   toString() => super.toString();
 }
 @patch class MediaKeyMessageEvent {
@@ -1855,15 +1756,6 @@ class MediaListImpl extends MediaList implements js_library.JSObjectInterfacesDo
   get runtimeType => MediaList;
   toString() => super.toString();
 }
-@patch class MediaMetadata {
-  static Type get instanceRuntimeType => MediaMetadataImpl;
-
-}
-class MediaMetadataImpl extends MediaMetadata implements js_library.JSObjectInterfacesDom {
-  MediaMetadataImpl.internal_() : super.internal_();
-  get runtimeType => MediaMetadata;
-  toString() => super.toString();
-}
 @patch class MediaQueryList {
   static Type get instanceRuntimeType => MediaQueryListImpl;
 
@@ -1880,15 +1772,6 @@ class MediaQueryListImpl extends MediaQueryList implements js_library.JSObjectIn
 class MediaQueryListEventImpl extends MediaQueryListEvent implements js_library.JSObjectInterfacesDom {
   MediaQueryListEventImpl.internal_() : super.internal_();
   get runtimeType => MediaQueryListEvent;
-  toString() => super.toString();
-}
-@patch class MediaRecorder {
-  static Type get instanceRuntimeType => MediaRecorderImpl;
-
-}
-class MediaRecorderImpl extends MediaRecorder implements js_library.JSObjectInterfacesDom {
-  MediaRecorderImpl.internal_() : super.internal_();
-  get runtimeType => MediaRecorder;
   toString() => super.toString();
 }
 @patch class MediaSession {
@@ -2224,15 +2107,6 @@ class NetworkInformationImpl extends NetworkInformation implements js_library.JS
   get runtimeType => NetworkInformation;
   toString() => super.toString();
 }
-@patch class Nfc {
-  static Type get instanceRuntimeType => NfcImpl;
-
-}
-class NfcImpl extends Nfc implements js_library.JSObjectInterfacesDom {
-  NfcImpl.internal_() : super.internal_();
-  get runtimeType => Nfc;
-  toString() => super.toString();
-}
 @patch class Node {
   static Type get instanceRuntimeType => NodeImpl;
 
@@ -2305,15 +2179,6 @@ class NotificationEventImpl extends NotificationEvent implements js_library.JSOb
   get runtimeType => NotificationEvent;
   toString() => super.toString();
 }
-@patch class NumberValue {
-  static Type get instanceRuntimeType => NumberValueImpl;
-
-}
-class NumberValueImpl extends NumberValue implements js_library.JSObjectInterfacesDom {
-  NumberValueImpl.internal_() : super.internal_();
-  get runtimeType => NumberValue;
-  toString() => super.toString();
-}
 @patch class OListElement {
   static Type get instanceRuntimeType => OListElementImpl;
 
@@ -2330,15 +2195,6 @@ class OListElementImpl extends OListElement implements js_library.JSObjectInterf
 class ObjectElementImpl extends ObjectElement implements js_library.JSObjectInterfacesDom {
   ObjectElementImpl.internal_() : super.internal_();
   get runtimeType => ObjectElement;
-  toString() => super.toString();
-}
-@patch class OffscreenCanvas {
-  static Type get instanceRuntimeType => OffscreenCanvasImpl;
-
-}
-class OffscreenCanvasImpl extends OffscreenCanvas implements js_library.JSObjectInterfacesDom {
-  OffscreenCanvasImpl.internal_() : super.internal_();
-  get runtimeType => OffscreenCanvas;
   toString() => super.toString();
 }
 @patch class OptGroupElement {
@@ -2476,24 +2332,6 @@ class PerformanceNavigationImpl extends PerformanceNavigation implements js_libr
   get runtimeType => PerformanceNavigation;
   toString() => super.toString();
 }
-@patch class PerformanceObserver {
-  static Type get instanceRuntimeType => PerformanceObserverImpl;
-
-}
-class PerformanceObserverImpl extends PerformanceObserver implements js_library.JSObjectInterfacesDom {
-  PerformanceObserverImpl.internal_() : super.internal_();
-  get runtimeType => PerformanceObserver;
-  toString() => super.toString();
-}
-@patch class PerformanceObserverEntryList {
-  static Type get instanceRuntimeType => PerformanceObserverEntryListImpl;
-
-}
-class PerformanceObserverEntryListImpl extends PerformanceObserverEntryList implements js_library.JSObjectInterfacesDom {
-  PerformanceObserverEntryListImpl.internal_() : super.internal_();
-  get runtimeType => PerformanceObserverEntryList;
-  toString() => super.toString();
-}
 @patch class PerformanceRenderTiming {
   static Type get instanceRuntimeType => PerformanceRenderTimingImpl;
 
@@ -2521,6 +2359,33 @@ class PerformanceTimingImpl extends PerformanceTiming implements js_library.JSOb
   get runtimeType => PerformanceTiming;
   toString() => super.toString();
 }
+@patch class PeriodicSyncEvent {
+  static Type get instanceRuntimeType => PeriodicSyncEventImpl;
+
+}
+class PeriodicSyncEventImpl extends PeriodicSyncEvent implements js_library.JSObjectInterfacesDom {
+  PeriodicSyncEventImpl.internal_() : super.internal_();
+  get runtimeType => PeriodicSyncEvent;
+  toString() => super.toString();
+}
+@patch class PeriodicSyncManager {
+  static Type get instanceRuntimeType => PeriodicSyncManagerImpl;
+
+}
+class PeriodicSyncManagerImpl extends PeriodicSyncManager implements js_library.JSObjectInterfacesDom {
+  PeriodicSyncManagerImpl.internal_() : super.internal_();
+  get runtimeType => PeriodicSyncManager;
+  toString() => super.toString();
+}
+@patch class PeriodicSyncRegistration {
+  static Type get instanceRuntimeType => PeriodicSyncRegistrationImpl;
+
+}
+class PeriodicSyncRegistrationImpl extends PeriodicSyncRegistration implements js_library.JSObjectInterfacesDom {
+  PeriodicSyncRegistrationImpl.internal_() : super.internal_();
+  get runtimeType => PeriodicSyncRegistration;
+  toString() => super.toString();
+}
 @patch class PermissionStatus {
   static Type get instanceRuntimeType => PermissionStatusImpl;
 
@@ -2537,15 +2402,6 @@ class PermissionStatusImpl extends PermissionStatus implements js_library.JSObje
 class PermissionsImpl extends Permissions implements js_library.JSObjectInterfacesDom {
   PermissionsImpl.internal_() : super.internal_();
   get runtimeType => Permissions;
-  toString() => super.toString();
-}
-@patch class Perspective {
-  static Type get instanceRuntimeType => PerspectiveImpl;
-
-}
-class PerspectiveImpl extends Perspective implements js_library.JSObjectInterfacesDom {
-  PerspectiveImpl.internal_() : super.internal_();
-  get runtimeType => Perspective;
   toString() => super.toString();
 }
 @patch class PictureElement {
@@ -2573,6 +2429,15 @@ class PluginImpl extends Plugin implements js_library.JSObjectInterfacesDom {
 class PluginArrayImpl extends PluginArray implements js_library.JSObjectInterfacesDom {
   PluginArrayImpl.internal_() : super.internal_();
   get runtimeType => PluginArray;
+  toString() => super.toString();
+}
+@patch class PluginPlaceholderElement {
+  static Type get instanceRuntimeType => PluginPlaceholderElementImpl;
+
+}
+class PluginPlaceholderElementImpl extends PluginPlaceholderElement implements js_library.JSObjectInterfacesDom {
+  PluginPlaceholderElementImpl.internal_() : super.internal_();
+  get runtimeType => PluginPlaceholderElement;
   toString() => super.toString();
 }
 @patch class PointerEvent {
@@ -2611,15 +2476,6 @@ class PositionSensorVRDeviceImpl extends PositionSensorVRDevice implements js_li
   get runtimeType => PositionSensorVRDevice;
   toString() => super.toString();
 }
-@patch class PositionValue {
-  static Type get instanceRuntimeType => PositionValueImpl;
-
-}
-class PositionValueImpl extends PositionValue implements js_library.JSObjectInterfacesDom {
-  PositionValueImpl.internal_() : super.internal_();
-  get runtimeType => PositionValue;
-  toString() => super.toString();
-}
 @patch class PreElement {
   static Type get instanceRuntimeType => PreElementImpl;
 
@@ -2647,49 +2503,13 @@ class PresentationAvailabilityImpl extends PresentationAvailability implements j
   get runtimeType => PresentationAvailability;
   toString() => super.toString();
 }
-@patch class PresentationConnection {
-  static Type get instanceRuntimeType => PresentationConnectionImpl;
+@patch class PresentationSession {
+  static Type get instanceRuntimeType => PresentationSessionImpl;
 
 }
-class PresentationConnectionImpl extends PresentationConnection implements js_library.JSObjectInterfacesDom {
-  PresentationConnectionImpl.internal_() : super.internal_();
-  get runtimeType => PresentationConnection;
-  toString() => super.toString();
-}
-@patch class PresentationConnectionAvailableEvent {
-  static Type get instanceRuntimeType => PresentationConnectionAvailableEventImpl;
-
-}
-class PresentationConnectionAvailableEventImpl extends PresentationConnectionAvailableEvent implements js_library.JSObjectInterfacesDom {
-  PresentationConnectionAvailableEventImpl.internal_() : super.internal_();
-  get runtimeType => PresentationConnectionAvailableEvent;
-  toString() => super.toString();
-}
-@patch class PresentationConnectionCloseEvent {
-  static Type get instanceRuntimeType => PresentationConnectionCloseEventImpl;
-
-}
-class PresentationConnectionCloseEventImpl extends PresentationConnectionCloseEvent implements js_library.JSObjectInterfacesDom {
-  PresentationConnectionCloseEventImpl.internal_() : super.internal_();
-  get runtimeType => PresentationConnectionCloseEvent;
-  toString() => super.toString();
-}
-@patch class PresentationReceiver {
-  static Type get instanceRuntimeType => PresentationReceiverImpl;
-
-}
-class PresentationReceiverImpl extends PresentationReceiver implements js_library.JSObjectInterfacesDom {
-  PresentationReceiverImpl.internal_() : super.internal_();
-  get runtimeType => PresentationReceiver;
-  toString() => super.toString();
-}
-@patch class PresentationRequest {
-  static Type get instanceRuntimeType => PresentationRequestImpl;
-
-}
-class PresentationRequestImpl extends PresentationRequest implements js_library.JSObjectInterfacesDom {
-  PresentationRequestImpl.internal_() : super.internal_();
-  get runtimeType => PresentationRequest;
+class PresentationSessionImpl extends PresentationSession implements js_library.JSObjectInterfacesDom {
+  PresentationSessionImpl.internal_() : super.internal_();
+  get runtimeType => PresentationSession;
   toString() => super.toString();
 }
 @patch class ProcessingInstruction {
@@ -2800,6 +2620,15 @@ class ReadableByteStreamReaderImpl extends ReadableByteStreamReader implements j
   get runtimeType => ReadableByteStreamReader;
   toString() => super.toString();
 }
+@patch class ReadableStream {
+  static Type get instanceRuntimeType => ReadableStreamImpl;
+
+}
+class ReadableStreamImpl extends ReadableStream implements js_library.JSObjectInterfacesDom {
+  ReadableStreamImpl.internal_() : super.internal_();
+  get runtimeType => ReadableStream;
+  toString() => super.toString();
+}
 @patch class ReadableStreamReader {
   static Type get instanceRuntimeType => ReadableStreamReaderImpl;
 
@@ -2816,24 +2645,6 @@ class ReadableStreamReaderImpl extends ReadableStreamReader implements js_librar
 class RelatedEventImpl extends RelatedEvent implements js_library.JSObjectInterfacesDom {
   RelatedEventImpl.internal_() : super.internal_();
   get runtimeType => RelatedEvent;
-  toString() => super.toString();
-}
-@patch class Rotation {
-  static Type get instanceRuntimeType => RotationImpl;
-
-}
-class RotationImpl extends Rotation implements js_library.JSObjectInterfacesDom {
-  RotationImpl.internal_() : super.internal_();
-  get runtimeType => Rotation;
-  toString() => super.toString();
-}
-@patch class RtcCertificate {
-  static Type get instanceRuntimeType => RtcCertificateImpl;
-
-}
-class RtcCertificateImpl extends RtcCertificate implements js_library.JSObjectInterfacesDom {
-  RtcCertificateImpl.internal_() : super.internal_();
-  get runtimeType => RtcCertificate;
   toString() => super.toString();
 }
 @patch class RtcDataChannel {
@@ -2924,15 +2735,6 @@ class RtcStatsReportImpl extends RtcStatsReport implements js_library.JSObjectIn
 class RtcStatsResponseImpl extends RtcStatsResponse implements js_library.JSObjectInterfacesDom {
   RtcStatsResponseImpl.internal_() : super.internal_();
   get runtimeType => RtcStatsResponse;
-  toString() => super.toString();
-}
-@patch class Scale {
-  static Type get instanceRuntimeType => ScaleImpl;
-
-}
-class ScaleImpl extends Scale implements js_library.JSObjectInterfacesDom {
-  ScaleImpl.internal_() : super.internal_();
-  get runtimeType => Scale;
   toString() => super.toString();
 }
 @patch class Screen {
@@ -3106,33 +2908,6 @@ class SharedWorkerGlobalScopeImpl extends SharedWorkerGlobalScope implements js_
   get runtimeType => SharedWorkerGlobalScope;
   toString() => super.toString();
 }
-@patch class SimpleLength {
-  static Type get instanceRuntimeType => SimpleLengthImpl;
-
-}
-class SimpleLengthImpl extends SimpleLength implements js_library.JSObjectInterfacesDom {
-  SimpleLengthImpl.internal_() : super.internal_();
-  get runtimeType => SimpleLength;
-  toString() => super.toString();
-}
-@patch class Skew {
-  static Type get instanceRuntimeType => SkewImpl;
-
-}
-class SkewImpl extends Skew implements js_library.JSObjectInterfacesDom {
-  SkewImpl.internal_() : super.internal_();
-  get runtimeType => Skew;
-  toString() => super.toString();
-}
-@patch class SlotElement {
-  static Type get instanceRuntimeType => SlotElementImpl;
-
-}
-class SlotElementImpl extends SlotElement implements js_library.JSObjectInterfacesDom {
-  SlotElementImpl.internal_() : super.internal_();
-  get runtimeType => SlotElement;
-  toString() => super.toString();
-}
 @patch class SourceBuffer {
   static Type get instanceRuntimeType => SourceBufferImpl;
 
@@ -3277,6 +3052,24 @@ class SpeechSynthesisVoiceImpl extends SpeechSynthesisVoice implements js_librar
   get runtimeType => SpeechSynthesisVoice;
   toString() => super.toString();
 }
+@patch class StashedMessagePort {
+  static Type get instanceRuntimeType => StashedMessagePortImpl;
+
+}
+class StashedMessagePortImpl extends StashedMessagePort implements js_library.JSObjectInterfacesDom {
+  StashedMessagePortImpl.internal_() : super.internal_();
+  get runtimeType => StashedMessagePort;
+  toString() => super.toString();
+}
+@patch class StashedPortCollection {
+  static Type get instanceRuntimeType => StashedPortCollectionImpl;
+
+}
+class StashedPortCollectionImpl extends StashedPortCollection implements js_library.JSObjectInterfacesDom {
+  StashedPortCollectionImpl.internal_() : super.internal_();
+  get runtimeType => StashedPortCollection;
+  toString() => super.toString();
+}
 @patch class Storage {
   static Type get instanceRuntimeType => StorageImpl;
 
@@ -3302,15 +3095,6 @@ class StorageEventImpl extends StorageEvent implements js_library.JSObjectInterf
 class StorageInfoImpl extends StorageInfo implements js_library.JSObjectInterfacesDom {
   StorageInfoImpl.internal_() : super.internal_();
   get runtimeType => StorageInfo;
-  toString() => super.toString();
-}
-@patch class StorageManager {
-  static Type get instanceRuntimeType => StorageManagerImpl;
-
-}
-class StorageManagerImpl extends StorageManager implements js_library.JSObjectInterfacesDom {
-  StorageManagerImpl.internal_() : super.internal_();
-  get runtimeType => StorageManager;
   toString() => super.toString();
 }
 @patch class StorageQuota {
@@ -3340,15 +3124,6 @@ class StyleMediaImpl extends StyleMedia implements js_library.JSObjectInterfaces
   get runtimeType => StyleMedia;
   toString() => super.toString();
 }
-@patch class StylePropertyMap {
-  static Type get instanceRuntimeType => StylePropertyMapImpl;
-
-}
-class StylePropertyMapImpl extends StylePropertyMap implements js_library.JSObjectInterfacesDom {
-  StylePropertyMapImpl.internal_() : super.internal_();
-  get runtimeType => StylePropertyMap;
-  toString() => super.toString();
-}
 @patch class StyleSheet {
   static Type get instanceRuntimeType => StyleSheetImpl;
 
@@ -3356,15 +3131,6 @@ class StylePropertyMapImpl extends StylePropertyMap implements js_library.JSObje
 class StyleSheetImpl extends StyleSheet implements js_library.JSObjectInterfacesDom {
   StyleSheetImpl.internal_() : super.internal_();
   get runtimeType => StyleSheet;
-  toString() => super.toString();
-}
-@patch class StyleValue {
-  static Type get instanceRuntimeType => StyleValueImpl;
-
-}
-class StyleValueImpl extends StyleValue implements js_library.JSObjectInterfacesDom {
-  StyleValueImpl.internal_() : super.internal_();
-  get runtimeType => StyleValue;
   toString() => super.toString();
 }
 @patch class SyncEvent {
@@ -3383,6 +3149,15 @@ class SyncEventImpl extends SyncEvent implements js_library.JSObjectInterfacesDo
 class SyncManagerImpl extends SyncManager implements js_library.JSObjectInterfacesDom {
   SyncManagerImpl.internal_() : super.internal_();
   get runtimeType => SyncManager;
+  toString() => super.toString();
+}
+@patch class SyncRegistration {
+  static Type get instanceRuntimeType => SyncRegistrationImpl;
+
+}
+class SyncRegistrationImpl extends SyncRegistration implements js_library.JSObjectInterfacesDom {
+  SyncRegistrationImpl.internal_() : super.internal_();
+  get runtimeType => SyncRegistration;
   toString() => super.toString();
 }
 @patch class TableCaptionElement {
@@ -3601,24 +3376,6 @@ class TrackEventImpl extends TrackEvent implements js_library.JSObjectInterfaces
   get runtimeType => TrackEvent;
   toString() => super.toString();
 }
-@patch class TransformComponent {
-  static Type get instanceRuntimeType => TransformComponentImpl;
-
-}
-class TransformComponentImpl extends TransformComponent implements js_library.JSObjectInterfacesDom {
-  TransformComponentImpl.internal_() : super.internal_();
-  get runtimeType => TransformComponent;
-  toString() => super.toString();
-}
-@patch class TransformValue {
-  static Type get instanceRuntimeType => TransformValueImpl;
-
-}
-class TransformValueImpl extends TransformValue implements js_library.JSObjectInterfacesDom {
-  TransformValueImpl.internal_() : super.internal_();
-  get runtimeType => TransformValue;
-  toString() => super.toString();
-}
 @patch class TransitionEvent {
   static Type get instanceRuntimeType => TransitionEventImpl;
 
@@ -3626,15 +3383,6 @@ class TransformValueImpl extends TransformValue implements js_library.JSObjectIn
 class TransitionEventImpl extends TransitionEvent implements js_library.JSObjectInterfacesDom {
   TransitionEventImpl.internal_() : super.internal_();
   get runtimeType => TransitionEvent;
-  toString() => super.toString();
-}
-@patch class Translation {
-  static Type get instanceRuntimeType => TranslationImpl;
-
-}
-class TranslationImpl extends Translation implements js_library.JSObjectInterfacesDom {
-  TranslationImpl.internal_() : super.internal_();
-  get runtimeType => Translation;
   toString() => super.toString();
 }
 @patch class TreeWalker {
@@ -3664,15 +3412,6 @@ class UListElementImpl extends UListElement implements js_library.JSObjectInterf
   get runtimeType => UListElement;
   toString() => super.toString();
 }
-@patch class UnderlyingSourceBase {
-  static Type get instanceRuntimeType => UnderlyingSourceBaseImpl;
-
-}
-class UnderlyingSourceBaseImpl extends UnderlyingSourceBase implements js_library.JSObjectInterfacesDom {
-  UnderlyingSourceBaseImpl.internal_() : super.internal_();
-  get runtimeType => UnderlyingSourceBase;
-  toString() => super.toString();
-}
 @patch class UnknownElement {
   static Type get instanceRuntimeType => UnknownElementImpl;
 
@@ -3691,15 +3430,6 @@ class UrlImpl extends Url implements js_library.JSObjectInterfacesDom {
   get runtimeType => Url;
   toString() => super.toString();
 }
-@patch class UrlSearchParams {
-  static Type get instanceRuntimeType => UrlSearchParamsImpl;
-
-}
-class UrlSearchParamsImpl extends UrlSearchParams implements js_library.JSObjectInterfacesDom {
-  UrlSearchParamsImpl.internal_() : super.internal_();
-  get runtimeType => UrlSearchParams;
-  toString() => super.toString();
-}
 @patch class UrlUtils {
   static Type get instanceRuntimeType => UrlUtilsImpl;
 
@@ -3716,123 +3446,6 @@ class UrlUtilsImpl extends UrlUtils implements js_library.JSObjectInterfacesDom 
 class UrlUtilsReadOnlyImpl extends UrlUtilsReadOnly implements js_library.JSObjectInterfacesDom {
   UrlUtilsReadOnlyImpl.internal_() : super.internal_();
   get runtimeType => UrlUtilsReadOnly;
-  toString() => super.toString();
-}
-@patch class Usb {
-  static Type get instanceRuntimeType => UsbImpl;
-
-}
-class UsbImpl extends Usb implements js_library.JSObjectInterfacesDom {
-  UsbImpl.internal_() : super.internal_();
-  get runtimeType => Usb;
-  toString() => super.toString();
-}
-@patch class UsbAlternateInterface {
-  static Type get instanceRuntimeType => UsbAlternateInterfaceImpl;
-
-}
-class UsbAlternateInterfaceImpl extends UsbAlternateInterface implements js_library.JSObjectInterfacesDom {
-  UsbAlternateInterfaceImpl.internal_() : super.internal_();
-  get runtimeType => UsbAlternateInterface;
-  toString() => super.toString();
-}
-@patch class UsbConfiguration {
-  static Type get instanceRuntimeType => UsbConfigurationImpl;
-
-}
-class UsbConfigurationImpl extends UsbConfiguration implements js_library.JSObjectInterfacesDom {
-  UsbConfigurationImpl.internal_() : super.internal_();
-  get runtimeType => UsbConfiguration;
-  toString() => super.toString();
-}
-@patch class UsbConnectionEvent {
-  static Type get instanceRuntimeType => UsbConnectionEventImpl;
-
-}
-class UsbConnectionEventImpl extends UsbConnectionEvent implements js_library.JSObjectInterfacesDom {
-  UsbConnectionEventImpl.internal_() : super.internal_();
-  get runtimeType => UsbConnectionEvent;
-  toString() => super.toString();
-}
-@patch class UsbDevice {
-  static Type get instanceRuntimeType => UsbDeviceImpl;
-
-}
-class UsbDeviceImpl extends UsbDevice implements js_library.JSObjectInterfacesDom {
-  UsbDeviceImpl.internal_() : super.internal_();
-  get runtimeType => UsbDevice;
-  toString() => super.toString();
-}
-@patch class UsbEndpoint {
-  static Type get instanceRuntimeType => UsbEndpointImpl;
-
-}
-class UsbEndpointImpl extends UsbEndpoint implements js_library.JSObjectInterfacesDom {
-  UsbEndpointImpl.internal_() : super.internal_();
-  get runtimeType => UsbEndpoint;
-  toString() => super.toString();
-}
-@patch class UsbInTransferResult {
-  static Type get instanceRuntimeType => UsbInTransferResultImpl;
-
-}
-class UsbInTransferResultImpl extends UsbInTransferResult implements js_library.JSObjectInterfacesDom {
-  UsbInTransferResultImpl.internal_() : super.internal_();
-  get runtimeType => UsbInTransferResult;
-  toString() => super.toString();
-}
-@patch class UsbInterface {
-  static Type get instanceRuntimeType => UsbInterfaceImpl;
-
-}
-class UsbInterfaceImpl extends UsbInterface implements js_library.JSObjectInterfacesDom {
-  UsbInterfaceImpl.internal_() : super.internal_();
-  get runtimeType => UsbInterface;
-  toString() => super.toString();
-}
-@patch class UsbIsochronousInTransferPacket {
-  static Type get instanceRuntimeType => UsbIsochronousInTransferPacketImpl;
-
-}
-class UsbIsochronousInTransferPacketImpl extends UsbIsochronousInTransferPacket implements js_library.JSObjectInterfacesDom {
-  UsbIsochronousInTransferPacketImpl.internal_() : super.internal_();
-  get runtimeType => UsbIsochronousInTransferPacket;
-  toString() => super.toString();
-}
-@patch class UsbIsochronousInTransferResult {
-  static Type get instanceRuntimeType => UsbIsochronousInTransferResultImpl;
-
-}
-class UsbIsochronousInTransferResultImpl extends UsbIsochronousInTransferResult implements js_library.JSObjectInterfacesDom {
-  UsbIsochronousInTransferResultImpl.internal_() : super.internal_();
-  get runtimeType => UsbIsochronousInTransferResult;
-  toString() => super.toString();
-}
-@patch class UsbIsochronousOutTransferPacket {
-  static Type get instanceRuntimeType => UsbIsochronousOutTransferPacketImpl;
-
-}
-class UsbIsochronousOutTransferPacketImpl extends UsbIsochronousOutTransferPacket implements js_library.JSObjectInterfacesDom {
-  UsbIsochronousOutTransferPacketImpl.internal_() : super.internal_();
-  get runtimeType => UsbIsochronousOutTransferPacket;
-  toString() => super.toString();
-}
-@patch class UsbIsochronousOutTransferResult {
-  static Type get instanceRuntimeType => UsbIsochronousOutTransferResultImpl;
-
-}
-class UsbIsochronousOutTransferResultImpl extends UsbIsochronousOutTransferResult implements js_library.JSObjectInterfacesDom {
-  UsbIsochronousOutTransferResultImpl.internal_() : super.internal_();
-  get runtimeType => UsbIsochronousOutTransferResult;
-  toString() => super.toString();
-}
-@patch class UsbOutTransferResult {
-  static Type get instanceRuntimeType => UsbOutTransferResultImpl;
-
-}
-class UsbOutTransferResultImpl extends UsbOutTransferResult implements js_library.JSObjectInterfacesDom {
-  UsbOutTransferResultImpl.internal_() : super.internal_();
-  get runtimeType => UsbOutTransferResult;
   toString() => super.toString();
 }
 @patch class VRDevice {
@@ -4249,6 +3862,15 @@ class _HTMLAllCollectionImpl extends _HTMLAllCollection implements js_library.JS
   get runtimeType => _HTMLAllCollection;
   toString() => super.toString();
 }
+@patch class _HTMLAppletElement {
+  static Type get instanceRuntimeType => _HTMLAppletElementImpl;
+
+}
+class _HTMLAppletElementImpl extends _HTMLAppletElement implements js_library.JSObjectInterfacesDom {
+  _HTMLAppletElementImpl.internal_() : super.internal_();
+  get runtimeType => _HTMLAppletElement;
+  toString() => super.toString();
+}
 @patch class _HTMLDirectoryElement {
   static Type get instanceRuntimeType => _HTMLDirectoryElementImpl;
 
@@ -4420,22 +4042,13 @@ class _WorkerNavigatorImpl extends _WorkerNavigator implements js_library.JSObje
   get runtimeType => _WorkerNavigator;
   toString() => super.toString();
 }
-@patch class _Worklet {
-  static Type get instanceRuntimeType => _WorkletImpl;
+@patch class _XMLHttpRequestProgressEvent {
+  static Type get instanceRuntimeType => _XMLHttpRequestProgressEventImpl;
 
 }
-class _WorkletImpl extends _Worklet implements js_library.JSObjectInterfacesDom {
-  _WorkletImpl.internal_() : super.internal_();
-  get runtimeType => _Worklet;
-  toString() => super.toString();
-}
-@patch class _WorkletGlobalScope {
-  static Type get instanceRuntimeType => _WorkletGlobalScopeImpl;
-
-}
-class _WorkletGlobalScopeImpl extends _WorkletGlobalScope implements js_library.JSObjectInterfacesDom {
-  _WorkletGlobalScopeImpl.internal_() : super.internal_();
-  get runtimeType => _WorkletGlobalScope;
+class _XMLHttpRequestProgressEventImpl extends _XMLHttpRequestProgressEvent implements js_library.JSObjectInterfacesDom {
+  _XMLHttpRequestProgressEventImpl.internal_() : super.internal_();
+  get runtimeType => _XMLHttpRequestProgressEvent;
   toString() => super.toString();
 }
 
@@ -4601,15 +4214,6 @@ class ChromiumSubscribeUniformImpl extends ChromiumSubscribeUniform implements j
   get runtimeType => ChromiumSubscribeUniform;
   toString() => super.toString();
 }
-@patch class CompressedTextureAstc {
-  static Type get instanceRuntimeType => CompressedTextureAstcImpl;
-
-}
-class CompressedTextureAstcImpl extends CompressedTextureAstc implements js_library.JSObjectInterfacesDom {
-  CompressedTextureAstcImpl.internal_() : super.internal_();
-  get runtimeType => CompressedTextureAstc;
-  toString() => super.toString();
-}
 @patch class CompressedTextureAtc {
   static Type get instanceRuntimeType => CompressedTextureAtcImpl;
 
@@ -4707,24 +4311,6 @@ class EXTsRgbImpl extends EXTsRgb implements js_library.JSObjectInterfacesDom {
 class ExtBlendMinMaxImpl extends ExtBlendMinMax implements js_library.JSObjectInterfacesDom {
   ExtBlendMinMaxImpl.internal_() : super.internal_();
   get runtimeType => ExtBlendMinMax;
-  toString() => super.toString();
-}
-@patch class ExtColorBufferFloat {
-  static Type get instanceRuntimeType => ExtColorBufferFloatImpl;
-
-}
-class ExtColorBufferFloatImpl extends ExtColorBufferFloat implements js_library.JSObjectInterfacesDom {
-  ExtColorBufferFloatImpl.internal_() : super.internal_();
-  get runtimeType => ExtColorBufferFloat;
-  toString() => super.toString();
-}
-@patch class ExtDisjointTimerQuery {
-  static Type get instanceRuntimeType => ExtDisjointTimerQueryImpl;
-
-}
-class ExtDisjointTimerQueryImpl extends ExtDisjointTimerQuery implements js_library.JSObjectInterfacesDom {
-  ExtDisjointTimerQueryImpl.internal_() : super.internal_();
-  get runtimeType => ExtDisjointTimerQuery;
   toString() => super.toString();
 }
 @patch class ExtFragDepth {
@@ -4923,15 +4509,6 @@ class SyncImpl extends Sync implements js_library.JSObjectInterfacesDom {
 class TextureImpl extends Texture implements js_library.JSObjectInterfacesDom {
   TextureImpl.internal_() : super.internal_();
   get runtimeType => Texture;
-  toString() => super.toString();
-}
-@patch class TimerQueryExt {
-  static Type get instanceRuntimeType => TimerQueryExtImpl;
-
-}
-class TimerQueryExtImpl extends TimerQueryExt implements js_library.JSObjectInterfacesDom {
-  TimerQueryExtImpl.internal_() : super.internal_();
-  get runtimeType => TimerQueryExt;
   toString() => super.toString();
 }
 @patch class TransformFeedback {
@@ -5664,6 +5241,195 @@ class PathElementImpl extends PathElement implements js_library.JSObjectInterfac
   get runtimeType => PathElement;
   toString() => super.toString();
 }
+@patch class PathSeg {
+  static Type get instanceRuntimeType => PathSegImpl;
+
+}
+class PathSegImpl extends PathSeg implements js_library.JSObjectInterfacesDom {
+  PathSegImpl.internal_() : super.internal_();
+  get runtimeType => PathSeg;
+  toString() => super.toString();
+}
+@patch class PathSegArcAbs {
+  static Type get instanceRuntimeType => PathSegArcAbsImpl;
+
+}
+class PathSegArcAbsImpl extends PathSegArcAbs implements js_library.JSObjectInterfacesDom {
+  PathSegArcAbsImpl.internal_() : super.internal_();
+  get runtimeType => PathSegArcAbs;
+  toString() => super.toString();
+}
+@patch class PathSegArcRel {
+  static Type get instanceRuntimeType => PathSegArcRelImpl;
+
+}
+class PathSegArcRelImpl extends PathSegArcRel implements js_library.JSObjectInterfacesDom {
+  PathSegArcRelImpl.internal_() : super.internal_();
+  get runtimeType => PathSegArcRel;
+  toString() => super.toString();
+}
+@patch class PathSegClosePath {
+  static Type get instanceRuntimeType => PathSegClosePathImpl;
+
+}
+class PathSegClosePathImpl extends PathSegClosePath implements js_library.JSObjectInterfacesDom {
+  PathSegClosePathImpl.internal_() : super.internal_();
+  get runtimeType => PathSegClosePath;
+  toString() => super.toString();
+}
+@patch class PathSegCurvetoCubicAbs {
+  static Type get instanceRuntimeType => PathSegCurvetoCubicAbsImpl;
+
+}
+class PathSegCurvetoCubicAbsImpl extends PathSegCurvetoCubicAbs implements js_library.JSObjectInterfacesDom {
+  PathSegCurvetoCubicAbsImpl.internal_() : super.internal_();
+  get runtimeType => PathSegCurvetoCubicAbs;
+  toString() => super.toString();
+}
+@patch class PathSegCurvetoCubicRel {
+  static Type get instanceRuntimeType => PathSegCurvetoCubicRelImpl;
+
+}
+class PathSegCurvetoCubicRelImpl extends PathSegCurvetoCubicRel implements js_library.JSObjectInterfacesDom {
+  PathSegCurvetoCubicRelImpl.internal_() : super.internal_();
+  get runtimeType => PathSegCurvetoCubicRel;
+  toString() => super.toString();
+}
+@patch class PathSegCurvetoCubicSmoothAbs {
+  static Type get instanceRuntimeType => PathSegCurvetoCubicSmoothAbsImpl;
+
+}
+class PathSegCurvetoCubicSmoothAbsImpl extends PathSegCurvetoCubicSmoothAbs implements js_library.JSObjectInterfacesDom {
+  PathSegCurvetoCubicSmoothAbsImpl.internal_() : super.internal_();
+  get runtimeType => PathSegCurvetoCubicSmoothAbs;
+  toString() => super.toString();
+}
+@patch class PathSegCurvetoCubicSmoothRel {
+  static Type get instanceRuntimeType => PathSegCurvetoCubicSmoothRelImpl;
+
+}
+class PathSegCurvetoCubicSmoothRelImpl extends PathSegCurvetoCubicSmoothRel implements js_library.JSObjectInterfacesDom {
+  PathSegCurvetoCubicSmoothRelImpl.internal_() : super.internal_();
+  get runtimeType => PathSegCurvetoCubicSmoothRel;
+  toString() => super.toString();
+}
+@patch class PathSegCurvetoQuadraticAbs {
+  static Type get instanceRuntimeType => PathSegCurvetoQuadraticAbsImpl;
+
+}
+class PathSegCurvetoQuadraticAbsImpl extends PathSegCurvetoQuadraticAbs implements js_library.JSObjectInterfacesDom {
+  PathSegCurvetoQuadraticAbsImpl.internal_() : super.internal_();
+  get runtimeType => PathSegCurvetoQuadraticAbs;
+  toString() => super.toString();
+}
+@patch class PathSegCurvetoQuadraticRel {
+  static Type get instanceRuntimeType => PathSegCurvetoQuadraticRelImpl;
+
+}
+class PathSegCurvetoQuadraticRelImpl extends PathSegCurvetoQuadraticRel implements js_library.JSObjectInterfacesDom {
+  PathSegCurvetoQuadraticRelImpl.internal_() : super.internal_();
+  get runtimeType => PathSegCurvetoQuadraticRel;
+  toString() => super.toString();
+}
+@patch class PathSegCurvetoQuadraticSmoothAbs {
+  static Type get instanceRuntimeType => PathSegCurvetoQuadraticSmoothAbsImpl;
+
+}
+class PathSegCurvetoQuadraticSmoothAbsImpl extends PathSegCurvetoQuadraticSmoothAbs implements js_library.JSObjectInterfacesDom {
+  PathSegCurvetoQuadraticSmoothAbsImpl.internal_() : super.internal_();
+  get runtimeType => PathSegCurvetoQuadraticSmoothAbs;
+  toString() => super.toString();
+}
+@patch class PathSegCurvetoQuadraticSmoothRel {
+  static Type get instanceRuntimeType => PathSegCurvetoQuadraticSmoothRelImpl;
+
+}
+class PathSegCurvetoQuadraticSmoothRelImpl extends PathSegCurvetoQuadraticSmoothRel implements js_library.JSObjectInterfacesDom {
+  PathSegCurvetoQuadraticSmoothRelImpl.internal_() : super.internal_();
+  get runtimeType => PathSegCurvetoQuadraticSmoothRel;
+  toString() => super.toString();
+}
+@patch class PathSegLinetoAbs {
+  static Type get instanceRuntimeType => PathSegLinetoAbsImpl;
+
+}
+class PathSegLinetoAbsImpl extends PathSegLinetoAbs implements js_library.JSObjectInterfacesDom {
+  PathSegLinetoAbsImpl.internal_() : super.internal_();
+  get runtimeType => PathSegLinetoAbs;
+  toString() => super.toString();
+}
+@patch class PathSegLinetoHorizontalAbs {
+  static Type get instanceRuntimeType => PathSegLinetoHorizontalAbsImpl;
+
+}
+class PathSegLinetoHorizontalAbsImpl extends PathSegLinetoHorizontalAbs implements js_library.JSObjectInterfacesDom {
+  PathSegLinetoHorizontalAbsImpl.internal_() : super.internal_();
+  get runtimeType => PathSegLinetoHorizontalAbs;
+  toString() => super.toString();
+}
+@patch class PathSegLinetoHorizontalRel {
+  static Type get instanceRuntimeType => PathSegLinetoHorizontalRelImpl;
+
+}
+class PathSegLinetoHorizontalRelImpl extends PathSegLinetoHorizontalRel implements js_library.JSObjectInterfacesDom {
+  PathSegLinetoHorizontalRelImpl.internal_() : super.internal_();
+  get runtimeType => PathSegLinetoHorizontalRel;
+  toString() => super.toString();
+}
+@patch class PathSegLinetoRel {
+  static Type get instanceRuntimeType => PathSegLinetoRelImpl;
+
+}
+class PathSegLinetoRelImpl extends PathSegLinetoRel implements js_library.JSObjectInterfacesDom {
+  PathSegLinetoRelImpl.internal_() : super.internal_();
+  get runtimeType => PathSegLinetoRel;
+  toString() => super.toString();
+}
+@patch class PathSegLinetoVerticalAbs {
+  static Type get instanceRuntimeType => PathSegLinetoVerticalAbsImpl;
+
+}
+class PathSegLinetoVerticalAbsImpl extends PathSegLinetoVerticalAbs implements js_library.JSObjectInterfacesDom {
+  PathSegLinetoVerticalAbsImpl.internal_() : super.internal_();
+  get runtimeType => PathSegLinetoVerticalAbs;
+  toString() => super.toString();
+}
+@patch class PathSegLinetoVerticalRel {
+  static Type get instanceRuntimeType => PathSegLinetoVerticalRelImpl;
+
+}
+class PathSegLinetoVerticalRelImpl extends PathSegLinetoVerticalRel implements js_library.JSObjectInterfacesDom {
+  PathSegLinetoVerticalRelImpl.internal_() : super.internal_();
+  get runtimeType => PathSegLinetoVerticalRel;
+  toString() => super.toString();
+}
+@patch class PathSegList {
+  static Type get instanceRuntimeType => PathSegListImpl;
+
+}
+class PathSegListImpl extends PathSegList implements js_library.JSObjectInterfacesDom {
+  PathSegListImpl.internal_() : super.internal_();
+  get runtimeType => PathSegList;
+  toString() => super.toString();
+}
+@patch class PathSegMovetoAbs {
+  static Type get instanceRuntimeType => PathSegMovetoAbsImpl;
+
+}
+class PathSegMovetoAbsImpl extends PathSegMovetoAbs implements js_library.JSObjectInterfacesDom {
+  PathSegMovetoAbsImpl.internal_() : super.internal_();
+  get runtimeType => PathSegMovetoAbs;
+  toString() => super.toString();
+}
+@patch class PathSegMovetoRel {
+  static Type get instanceRuntimeType => PathSegMovetoRelImpl;
+
+}
+class PathSegMovetoRelImpl extends PathSegMovetoRel implements js_library.JSObjectInterfacesDom {
+  PathSegMovetoRelImpl.internal_() : super.internal_();
+  get runtimeType => PathSegMovetoRel;
+  toString() => super.toString();
+}
 @patch class PatternElement {
   static Type get instanceRuntimeType => PatternElementImpl;
 
@@ -6180,15 +5946,6 @@ class DynamicsCompressorNodeImpl extends DynamicsCompressorNode implements js_li
 class GainNodeImpl extends GainNode implements js_library.JSObjectInterfacesDom {
   GainNodeImpl.internal_() : super.internal_();
   get runtimeType => GainNode;
-  toString() => super.toString();
-}
-@patch class IirFilterNode {
-  static Type get instanceRuntimeType => IirFilterNodeImpl;
-
-}
-class IirFilterNodeImpl extends IirFilterNode implements js_library.JSObjectInterfacesDom {
-  IirFilterNodeImpl.internal_() : super.internal_();
-  get runtimeType => IirFilterNode;
   toString() => super.toString();
 }
 @patch class MediaElementAudioSourceNode {

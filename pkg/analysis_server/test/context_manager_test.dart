@@ -4,10 +4,12 @@
 
 library test.context.directory.manager;
 
+import 'dart:async';
 import 'dart:collection';
 
 import 'package:analysis_server/src/context_manager.dart';
 import 'package:analysis_server/src/utilities/null_string_sink.dart';
+import 'package:analyzer/context/context_root.dart';
 import 'package:analyzer/error/error.dart';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/file_system/memory_file_system.dart';
@@ -32,6 +34,7 @@ import 'package:plugin/manager.dart';
 import 'package:plugin/plugin.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
+import 'package:watcher/watcher.dart';
 
 import 'mock_sdk.dart';
 import 'mocks.dart';
@@ -439,9 +442,8 @@ test_pack:lib/''');
       expect(contextsInAnalysisRoot, hasLength(1));
       expect(contextsInAnalysisRoot[0], isNotNull);
     }
-    Source result = sourceFactory.forUri('package:foo/foo.dart');
+    Source result = sourceFactory.forUri('dart:async');
     expect(result, isNotNull);
-    expect(result.exists(), isFalse);
   }
 
   void test_setRoots_addFolderWithDartFileInSubfolder() {
@@ -2598,6 +2600,14 @@ analyzer:
     // Verify that analysis options was parsed and strong-mode set.
     expect(analysisOptions.strongMode, true);
   }
+
+  test_watchEvents() async {
+    String libPath = newFolder([projPath, ContextManagerTest.LIB_NAME]);
+    manager.setRoots(<String>[projPath], <String>[], <String, String>{});
+    newFile([libPath, 'main.dart']);
+    await new Future.delayed(new Duration(milliseconds: 1));
+    expect(callbacks.watchEvents, hasLength(1));
+  }
 }
 
 class TestContextManagerCallbacks extends ContextManagerCallbacks {
@@ -2664,6 +2674,11 @@ class TestContextManagerCallbacks extends ContextManagerCallbacks {
    */
   List<String> lastFlushedFiles;
 
+  /**
+   * The watch events that have been broadcast.
+   */
+  List<WatchEvent> watchEvents = <WatchEvent>[];
+
   TestContextManagerCallbacks(
       this.resourceProvider, this.sdkManager, this.logger, this.scheduler);
 
@@ -2706,9 +2721,12 @@ class TestContextManagerCallbacks extends ContextManagerCallbacks {
       : currentDriver.sourceFactory;
 
   @override
-  AnalysisDriver addAnalysisDriver(Folder folder, AnalysisOptions options) {
+  AnalysisDriver addAnalysisDriver(
+      Folder folder, ContextRoot contextRoot, AnalysisOptions options) {
     String path = folder.path;
     expect(currentContextRoots, isNot(contains(path)));
+    expect(contextRoot, isNotNull);
+    expect(contextRoot.root, path);
     currentContextTimestamps[path] = now;
 
     ContextBuilder builder =
@@ -2724,7 +2742,7 @@ class TestContextManagerCallbacks extends ContextManagerCallbacks {
         resourceProvider,
         new MemoryByteStore(),
         new FileContentOverlay(),
-        path,
+        contextRoot,
         sourceFactory,
         analysisOptions);
     driverMap[path] = currentDriver;
@@ -2796,6 +2814,11 @@ class TestContextManagerCallbacks extends ContextManagerCallbacks {
 
   void assertContextPaths(List<String> expected) {
     expect(currentContextRoots, unorderedEquals(expected));
+  }
+
+  @override
+  void broadcastWatchEvent(WatchEvent event) {
+    watchEvents.add(event);
   }
 
   @override

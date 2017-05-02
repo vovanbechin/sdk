@@ -53,7 +53,8 @@ class KernelReader {
  public:
   explicit KernelReader(Program* program);
 
-  // Returns either a library or a failure object.
+  // Returns the library containing the main procedure, null if there
+  // was no main procedure, or a failure object if there was an error.
   dart::Object& ReadProgram();
 
   static void SetupFunctionParameters(TranslationHelper translation_helper_,
@@ -65,6 +66,12 @@ class KernelReader {
                                       bool is_closure);
 
   void ReadLibrary(Library* kernel_library);
+
+  const dart::String& DartSymbol(intptr_t string_index) {
+    return translation_helper_.DartSymbol(string_index);
+  }
+
+  uint8_t CharacterAt(intptr_t string_index, intptr_t index);
 
  private:
   friend class BuildingTranslationHelper;
@@ -85,7 +92,7 @@ class KernelReader {
   // Otherwise return klass.
   const Object& ClassForScriptAt(const dart::Class& klass,
                                  intptr_t source_uri_index);
-  Script& ScriptAt(intptr_t source_uri_index, String* import_uri = NULL);
+  Script& ScriptAt(intptr_t source_uri_index, intptr_t import_uri = -1);
 
   void GenerateFieldAccessors(const dart::Class& klass,
                               const dart::Field& field,

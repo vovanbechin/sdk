@@ -21,12 +21,14 @@
       <excludeFolder url="file://$MODULE_DIR$/test/integration/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/integration/search/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/integration/server/packages" />
+      <excludeFolder url="file://$MODULE_DIR$/test/integration/support/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/operation/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/plugin/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/search/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/services/completion/dart/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/services/completion/packages" />
+      <excludeFolder url="file://$MODULE_DIR$/test/services/completion/statement/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/services/correction/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/services/dependencies/packages" />
       <excludeFolder url="file://$MODULE_DIR$/test/services/index/packages" />
@@ -56,5 +58,6 @@
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="Dart SDK" level="application" />
     <orderEntry type="library" name="Dart SDK" level="project" />
+    <orderEntry type="library" name="Dart Packages" level="project" />
   </component>
 </module>

@@ -155,7 +155,7 @@ Grammar productions are given in a common variant of EBNF.  The left hand side o
 % ~. ~ does not actually parse stuff - it just looks ahead and checks. To get the effect of
 % parsing anything but X, one needs ~X ANYTHING, not just ~X. There are bugs in the
 % grammar related to this.
-% The alternative is to define ~X as anything but X, or to introduce an anthingBut(X)
+% The alternative is to define ~X as anything but X, or to introduce an anythingBut(X)
 % combinator, such as !X
 
 \LMHash{}
@@ -3501,8 +3501,11 @@ If $T$ is a deferred type with prefix $p$, then if $p$ has not been successfully
 Then, if $q$ is a non-factory constructor of an abstract class then an \code{AbstractClassInstantiationError} is thrown.
 
 \LMHash{}
-If $T$  is malformed or if $T$ is a type variable a dynamic error occurs. In checked mode, if $T$ or any of its superclasses is malbounded a dynamic error occurs.
-Otherwise, if $q$ is not defined or not accessible, a \code{NoSuchMethodError} is thrown.  If $q$ has fewer than $n$ positional parameters or more than $n$ required parameters, or if $q$ lacks any of the keyword parameters $\{ x_{n+1}, \ldots, x_{n+k}\}$ a \code{NoSuchMethodError} is thrown.
+If $T$ is malformed or if $T$ is a type variable a dynamic error occurs.
+In checked mode, if $T$ or any of its superclasses is malbounded a dynamic error occurs.
+Otherwise, if $q$ is not defined or not accessible, a \code{NoSuchMethodError} is thrown.
+If $q$ has fewer than $n$ positional parameters or more than $n$ required parameters,
+or if $q$ lacks any of the named parameters $\{ x_{n+1}, \ldots, x_{n+k}\}$ a \code{NoSuchMethodError} is thrown.
 
 \LMHash{}
 Otherwise, if $q$ is a generative constructor (\ref{generativeConstructors}), then:
@@ -7791,8 +7794,18 @@ Let $T$ be the declared type of a declaration $d$, as it appears in the program 
 
 \LMHash{}
 % does this diverge in some cases?
-Given two interfaces $I$ and $J$, let $S_I$ be the set of superinterfaces of $I$,  let $S_J$ be the set of superinterfaces of $J$ and let $S =  (I \cup S_I) \cap (J \cup S_J)$.  Furthermore, we define $S_n = \{T | T \in S  \wedge depth(T) =n\}$ for any finite $n$ %, and $k=max(depth(T_1), \ldots, depth(T_m)), T_i \in S, i \in 1..m$,
-where $depth(T)$ is the number of steps in the longest inheritance path from $T$ to \code{Object}. Let $q$ be the largest number such that $S_q$ has cardinality one. The least upper bound of $I$ and $J$ is the sole element of  $S_q$.
+Given two interfaces $I$ and $J$,
+let $S_I$ be the set of superinterfaces of $I$,
+let $S_J$ be the set of superinterfaces of $J$
+and let $S = (\{I\} \cup S_I) \cap (\{J\} \cup S_J)$.
+Furthermore,
+we define $S_n = \{T | T \in S \wedge depth(T) = n\}$ for any finite $n$
+where $depth(T)$ is the number of steps in the longest inheritance path
+from $T$ to \code{Object}.
+%TODO(lrn): Specify that "inheritance path" is a path in the superinterface graph.
+Let $q$ be the largest number such that $S_q$ has cardinality one,
+which must exist because $S_0$ is $\{\code{Object}\}$.
+The least upper bound of $I$ and $J$ is the sole element of $S_q$.
 
 \LMHash{}
 The least upper bound of \DYNAMIC{} and any type $T$ is \DYNAMIC{}.
@@ -7801,7 +7814,8 @@ The least upper bound of $\bot$ and any type $T$ is $T$.
 Let $U$ be a type variable with upper bound $B$. The least upper bound of $U$ and a type $T \ne \bot$ is the least upper bound of $B$ and $T$.
 
 \LMHash{}
-The least upper bound relation is symmetric and reflexive.
+The least upper bound operation is commutative and idempotent,
+but it is not associative.
 
 % Function types
 

@@ -10,11 +10,11 @@ import 'common/resolution.dart' show Resolution;
 import 'common/tasks.dart' show CompilerTask;
 import 'common/work.dart' show WorkItem;
 import 'common.dart';
+import 'common_elements.dart' show ElementEnvironment;
 import 'constants/values.dart';
 import 'compiler.dart' show Compiler;
 import 'options.dart';
-import 'elements/elements.dart'
-    show AnalyzableElement, ClassElement, MemberElement;
+import 'elements/elements.dart' show AnalyzableElement, MemberElement;
 import 'elements/entities.dart';
 import 'elements/resolution_types.dart' show ResolutionTypedefType;
 import 'elements/types.dart';
@@ -85,13 +85,14 @@ abstract class Enqueuer {
   /// provided the impact strategy will remove it from the element impact cache,
   /// if it is no longer needed.
   void applyImpact(WorldImpact worldImpact, {var impactSource});
-  bool checkNoEnqueuedInvokedInstanceMethods();
+  bool checkNoEnqueuedInvokedInstanceMethods(
+      ElementEnvironment elementEnvironment);
 
   /// Check the enqueuer queue is empty or fail otherwise.
   void checkQueueIsEmpty();
   void logSummary(void log(String message));
 
-  Iterable<Entity> get processedEntities;
+  Iterable<MemberEntity> get processedEntities;
 
   Iterable<ClassEntity> get processedClasses;
 }
@@ -205,7 +206,7 @@ class ResolutionEnqueuer extends EnqueuerImpl {
   WorldImpactVisitor _impactVisitor;
 
   /// All declaration elements that have been processed by the resolver.
-  final Set<Entity> _processedEntities = new Set<Entity>();
+  final Set<MemberEntity> _processedEntities = new Set<MemberEntity>();
 
   final Queue<WorkItem> _queue = new Queue<WorkItem>();
 
@@ -255,8 +256,9 @@ class ResolutionEnqueuer extends EnqueuerImpl {
     });
   }
 
-  bool checkNoEnqueuedInvokedInstanceMethods() {
-    return strategy.checkEnqueuerConsistency(this);
+  bool checkNoEnqueuedInvokedInstanceMethods(
+      ElementEnvironment elementEnvironment) {
+    return strategy.checkEnqueuerConsistency(this, elementEnvironment);
   }
 
   void checkClass(ClassEntity cls) {
@@ -278,7 +280,8 @@ class ResolutionEnqueuer extends EnqueuerImpl {
       _registerClosurizedMember(member);
     }
     if (useSet.contains(MemberUse.CLOSURIZE_STATIC)) {
-      applyImpact(listener.registerGetOfStaticFunction());
+      applyImpact(listener.registerGetOfStaticFunction(),
+          impactSource: 'get of static function');
     }
   }
 
@@ -290,10 +293,12 @@ class ResolutionEnqueuer extends EnqueuerImpl {
       // We only tell the backend once that [cls] was instantiated, so
       // any additional dependencies must be treated as global
       // dependencies.
-      applyImpact(listener.registerInstantiatedClass(cls));
+      applyImpact(listener.registerInstantiatedClass(cls),
+          impactSource: 'instantiated class');
     }
     if (useSet.contains(ClassUse.IMPLEMENTED)) {
-      applyImpact(listener.registerImplementedClass(cls));
+      applyImpact(listener.registerImplementedClass(cls),
+          impactSource: 'implemented class');
     }
   }
 
@@ -306,7 +311,8 @@ class ResolutionEnqueuer extends EnqueuerImpl {
   void processConstantUse(ConstantUse constantUse) {
     task.measure(() {
       if (_worldBuilder.registerConstantUse(constantUse)) {
-        applyImpact(listener.registerUsedConstant(constantUse.value));
+        applyImpact(listener.registerUsedConstant(constantUse.value),
+            impactSource: 'constant use');
         _recentConstants = true;
       }
     });
@@ -372,7 +378,8 @@ class ResolutionEnqueuer extends EnqueuerImpl {
 
   void _registerClosurizedMember(MemberEntity element) {
     assert(element.isInstanceMember);
-    applyImpact(listener.registerClosurizedMember(element));
+    applyImpact(listener.registerClosurizedMember(element),
+        impactSource: 'closurized member');
     _worldBuilder.registerClosurizedMember(element);
   }
 
@@ -405,7 +412,7 @@ class ResolutionEnqueuer extends EnqueuerImpl {
 
   String toString() => 'Enqueuer($name)';
 
-  Iterable<Entity> get processedEntities => _processedEntities;
+  Iterable<MemberEntity> get processedEntities => _processedEntities;
 
   ImpactUseCase get impactUse => IMPACT_USE;
 
@@ -421,7 +428,7 @@ class ResolutionEnqueuer extends EnqueuerImpl {
 
   /// Registers [entity] as processed by the resolution enqueuer. Used only for
   /// testing.
-  void registerProcessedElementInternal(Entity entity) {
+  void registerProcessedElementInternal(MemberEntity entity) {
     _processedEntities.add(entity);
   }
 
@@ -437,7 +444,8 @@ class ResolutionEnqueuer extends EnqueuerImpl {
           entity, "Resolution work list is closed. Trying to add $entity.");
     }
 
-    applyImpact(listener.registerUsedElement(entity));
+    applyImpact(listener.registerUsedElement(entity),
+        impactSource: 'used element');
     _worldBuilder.registerUsedElement(entity);
     _queue.add(workItem);
   }
@@ -500,7 +508,9 @@ class EnqueuerStrategy {
   void processConstantUse(EnqueuerImpl enqueuer, ConstantUse constantUse) {}
 
   /// Check enqueuer consistency after the queue has been closed.
-  bool checkEnqueuerConsistency(EnqueuerImpl enqueuer) => true;
+  bool checkEnqueuerConsistency(
+          EnqueuerImpl enqueuer, ElementEnvironment elementEnvironment) =>
+      true;
 
   /// Process [work] using [f].
   void processWorkItem(void f(WorkItem work), WorkItem work) {
@@ -543,14 +553,15 @@ class TreeShakingEnqueuerStrategy extends EnqueuerStrategy {
   }
 
   /// Check enqueuer consistency after the queue has been closed.
-  bool checkEnqueuerConsistency(EnqueuerImpl enqueuer) {
+  bool checkEnqueuerConsistency(
+      EnqueuerImpl enqueuer, ElementEnvironment elementEnvironment) {
     enqueuer.task.measure(() {
       // Run through the classes and see if we need to enqueue more methods.
-      for (ClassElement classElement
+      for (ClassEntity classElement
           in enqueuer.worldBuilder.directlyInstantiatedClasses) {
-        for (ClassElement currentClass = classElement;
+        for (ClassEntity currentClass = classElement;
             currentClass != null;
-            currentClass = currentClass.superclass) {
+            currentClass = elementEnvironment.getSuperClass(currentClass)) {
           enqueuer.checkClass(currentClass);
         }
       }
