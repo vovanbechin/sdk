@@ -274,7 +274,8 @@ class AmdModuleBuilder extends _ModuleBuilder {
       var moduleVar =
           new TemporaryId(pathToJSIdentifier(import.from.valueWithoutQuotes));
       fnParams.add(moduleVar);
-      dependencies.add(import.from);
+      dependencies.add(new LiteralString(
+          '"${path.url.joinAll(path.split(import.from.valueWithoutQuotes))}"'));
 
       // TODO(jmesserly): optimize for the common case of a single import.
       for (var importName in import.namedImports) {
@@ -320,8 +321,7 @@ class AmdModuleBuilder extends _ModuleBuilder {
 
 /// Escape [name] to make it into a valid identifier.
 String pathToJSIdentifier(String name) {
-  return toJSIdentifier(
-      path.url.joinAll(path.split(path.basenameWithoutExtension(name))));
+  return toJSIdentifier(path.basenameWithoutExtension(name));
 }
 
 /// Escape [name] to make it into a valid identifier.
