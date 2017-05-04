@@ -320,7 +320,8 @@ class AmdModuleBuilder extends _ModuleBuilder {
 
 /// Escape [name] to make it into a valid identifier.
 String pathToJSIdentifier(String name) {
-  return toJSIdentifier(path.basenameWithoutExtension(name));
+  return toJSIdentifier(
+      path.url.joinAll(path.split(path.basenameWithoutExtension(name))));
 }
 
 /// Escape [name] to make it into a valid identifier.
