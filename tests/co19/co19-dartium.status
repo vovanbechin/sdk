@@ -1204,30 +1204,6 @@ html/cross_domain_iframe_test: RuntimeError # Issue 26134
 
 # TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
 # ---------------------------------------------
-Language/Classes/Constructors/Constant_Constructors/invalid_constant_initializer_t03: Timeout # Roll 50 crash
-Language/Expressions/Constants/bitwise_operators_t03: Timeout # Roll 50  crash
-Language/Expressions/Constants/bitwise_operators_t04: Timeout # Roll 50  crash
-Language/Expressions/Constants/bitwise_operators_t05: Timeout # Roll 50  crash
-Language/Expressions/Constants/bitwise_operators_t06: Timeout # Roll 50  crash
-Language/Expressions/Constants/constant_constructor_t03: Timeout # Roll 50  crash
-Language/Expressions/Constants/equals_expression_t03: Timeout # Roll 50  crash
-Language/Expressions/Constants/identical_t02: Timeout # Roll 50  crash
-Language/Expressions/Constants/logical_expression_t04: Timeout # Roll 50  crash
-Language/Expressions/Constants/math_operators_t05: Timeout # Roll 50  crash
-Language/Expressions/Method_Invocation/Super_Invocation/invocation_t05: Timeout # Roll 50  crash
-Language/Expressions/Method_Invocation/Super_Invocation/invocation_t06: Timeout # Roll 50  crash
-Language/Expressions/This/placement_t03: Timeout # Roll 50  crash
-Language/Expressions/This/placement_t05: Timeout # Roll 50  crash
-Language/Expressions/This/placement_t08: Timeout # Roll 50  crash
-Language/Metadata/compilation_t01: Timeout # Roll 50  crash
-Language/Metadata/compilation_t02: Timeout # Roll 50  crash
-Language/Metadata/compilation_t03: Timeout # Roll 50  crash
-Language/Metadata/compilation_t04: Timeout # Roll 50  crash
-Language/Metadata/compilation_t08: Timeout # Roll 50  crash
-Language/Metadata/compilation_t09: Timeout # Roll 50  crash
-Language/Metadata/compilation_t10: Timeout # Roll 50  crash
-Language/Metadata/compilation_t11: Timeout # Roll 50  crash
-
 LayoutTests/fast/dom/computed-style-set-property_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/createDocumentType2_t01: RuntimeError # Roll 50 breakage
 LayoutTests/fast/dom/createElementNS_t01: RuntimeError # Roll 50 breakage

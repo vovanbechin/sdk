@@ -92,34 +92,7 @@ positional_parameters_type_test/02: Fail # Issue 14651.
 type_checks_in_factory_method_test: Fail # Issue 14651.
 vm/type_vm_test: Fail # Issue 14651.
 
-[ $compiler == none && ($runtime == dartium || $runtime == drt) && $checked ]
-# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
-# ---------------------------------------------
-compile_time_constant_checked3_test/01: Timeout, Pass # Roll 50 crash works on full build
-compile_time_constant_checked3_test/02: Timeout, Pass # Roll 50 crash works on full build
-compile_time_constant_checked3_test/03: Timeout, Pass # Roll 50 crash works on full build
-compile_time_constant_checked3_test/04: Timeout, Pass # Roll 50 crash works on full build
-compile_time_constant_checked3_test/05: Timeout, Pass # Roll 50 crash works on full build
-compile_time_constant_checked3_test/06: Timeout, Pass # Roll 50 crash works on full build
-# ---------------------------------------------
-# TODO(terry): End of Dartium 50 roll failures
-
 [ $compiler == none && ($runtime == dartium || $runtime == drt)]
-
-# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
-# ---------------------------------------------
-compile_time_constant13_test/02: Timeout, Pass # Roll 50 crash works on full build
-compile_time_constant13_test/03: Timeout, Pass # Roll 50 crash works on full build
-compile_time_constant13_test/04: Timeout, Pass # Roll 50 crash works on full build
-compile_time_constant13_test/05: Timeout, Pass # Roll 50 crash works on full build
-compile_time_constant_p_test/01: Timeout, Pass # Roll 50 crash works on full build
-final_syntax_test/09: Timeout, Pass # Roll 50 crash works on full build
-missing_const_constructor_test/02: Timeout, Pass # Roll 50 crash works on full build
-missing_const_constructor_test/03: Timeout, Pass # Roll 50 crash works on full build
-missing_const_constructor_test/05: Timeout, Pass # Roll 50 crash works on full build
-# ---------------------------------------------
-# TODO(terry): End of Dartium 50 roll failures
-
 abstract_beats_arguments2_test/01: Skip # Issue 29171
 # Other issues.
 issue13474_test: Pass, Fail # Issue 14651.
