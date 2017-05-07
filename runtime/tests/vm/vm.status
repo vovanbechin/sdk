@@ -307,11 +307,3 @@ dart/data_uri_spawn_test: RuntimeError
 dart/redirection_type_shuffling_test/00: Crash # Issue 29201
 dart/redirection_type_shuffling_test/none: Crash # Issue 29201
 dart/spawn_shutdown_test: Timeout
-
-[ $runtime == dartium && $checked ]
-# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
-# ---------------------------------------------
-dart/redirection_type_shuffling_test/00: Timeout # Roll 50 failure
-# ---------------------------------------------
-# TODO(terry): End of Dartium 50 roll failures
-
