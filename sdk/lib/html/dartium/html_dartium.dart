@@ -252,7 +252,6 @@ final htmlBlinkMap = {
   'Document': () => Document.instanceRuntimeType,
   'DocumentFragment': () => DocumentFragment.instanceRuntimeType,
   'DocumentType': () => _DocumentType.instanceRuntimeType,
-  'DragEvent': () => DragEvent.instanceRuntimeType,
   'EffectModel': () => EffectModel.instanceRuntimeType,
   'Element': () => Element.instanceRuntimeType,
   'Entry': () => Entry.instanceRuntimeType,
@@ -379,7 +378,6 @@ final htmlBlinkMap = {
   'ImageData': () => ImageData.instanceRuntimeType,
   'InjectedScriptHost': () => InjectedScriptHost.instanceRuntimeType,
   'InputDeviceCapabilities': () => InputDeviceCapabilities.instanceRuntimeType,
-  'InputEvent': () => InputEvent.instanceRuntimeType,
   'InstallEvent': () => InstallEvent.instanceRuntimeType,
   'IntersectionObserver': () => IntersectionObserver.instanceRuntimeType,
   'IntersectionObserverEntry': () =>
@@ -861,6 +859,15 @@ _createCustomUpgrader(Type customElementClass, $this) {
   return _blink.Blink_Utils
       .setInstanceInterceptor($this, customElementClass, customElement: true);
 }
+
+/**
+ * Emitted for any setlike IDL entry needs a callback signature.
+ * Today there is only one.
+ */
+@DomName('FontFaceSetForEachCallback')
+@Experimental() // untriaged
+typedef void FontFaceSetForEachCallback(
+    FontFace fontFace, FontFace fontFaceAgain, FontFaceSet set);
 
 // Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -13341,44 +13348,6 @@ class DomTokenList extends DartHtmlDomObject {
 // WARNING: Do not edit - generated code.
 
 @DocsEditable()
-@DomName('DragEvent')
-@Experimental() // untriaged
-class DragEvent extends MouseEvent {
-  // To suppress missing implicit constructor warnings.
-  factory DragEvent._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('DragEvent.DragEvent')
-  @DocsEditable()
-  factory DragEvent(String type, [Map eventInitDict]) {
-    if (eventInitDict != null) {
-      var eventInitDict_1 = convertDartToNative_Dictionary(eventInitDict);
-      return _blink.BlinkDragEvent.instance
-          .constructorCallback_2_(type, eventInitDict_1);
-    }
-    return _blink.BlinkDragEvent.instance.constructorCallback_1_(type);
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  DragEvent.internal_() : super.internal_();
-
-  @DomName('DragEvent.dataTransfer')
-  @DocsEditable()
-  @Experimental() // untriaged
-  DataTransfer get dataTransfer =>
-      _blink.BlinkDragEvent.instance.dataTransfer_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
 @DomName('EffectModel')
 @Experimental() // untriaged
 class EffectModel extends DartHtmlDomObject {
@@ -19544,7 +19513,7 @@ class FontFaceSet extends EventTarget {
   bool delete(FontFace arg) =>
       _blink.BlinkFontFaceSet.instance.delete_Callback_1_(this, arg);
 
-  void forEach(Object callback, [Object thisArg]) {
+  void forEach(FontFaceSetForEachCallback callback, [Object thisArg]) {
     if (thisArg != null) {
       _blink.BlinkFontFaceSet.instance
           .forEach_Callback_2_(this, callback, thisArg);
@@ -25270,38 +25239,6 @@ abstract class ResetButtonInputElement implements InputElementBase {
  */
 abstract class ButtonInputElement implements InputElementBase {
   factory ButtonInputElement() => new InputElement(type: 'button');
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('InputEvent')
-@Experimental() // untriaged
-class InputEvent extends UIEvent {
-  // To suppress missing implicit constructor warnings.
-  factory InputEvent._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('InputEvent.InputEvent')
-  @DocsEditable()
-  factory InputEvent(String type, [Map eventInitDict]) {
-    if (eventInitDict != null) {
-      var eventInitDict_1 = convertDartToNative_Dictionary(eventInitDict);
-      return _blink.BlinkInputEvent.instance
-          .constructorCallback_2_(type, eventInitDict_1);
-    }
-    return _blink.BlinkInputEvent.instance.constructorCallback_1_(type);
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  InputEvent.internal_() : super.internal_();
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -35081,6 +35018,13 @@ class RtcPeerConnection extends EventTarget {
     return completer.future;
   }
 
+  @DomName('RTCPeerConnection.generateCertificate')
+  @DocsEditable()
+  @Experimental() // untriaged
+  static Future generateCertificate(/*AlgorithmIdentifier*/ keygenAlgorithm) =>
+      convertNativePromiseToDartFuture(_blink.BlinkRTCPeerConnection.instance
+          .generateCertificate_Callback_1_(keygenAlgorithm));
+
   // To suppress missing implicit constructor warnings.
   factory RtcPeerConnection._() {
     throw new UnsupportedError("Not supported");
@@ -35288,13 +35232,6 @@ class RtcPeerConnection extends EventTarget {
         .createOffer_Callback_2_(this, successCallback, failureCallback);
     return;
   }
-
-  @DomName('RTCPeerConnection.generateCertificate')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static Future generateCertificate(/*AlgorithmIdentifier*/ keygenAlgorithm) =>
-      convertNativePromiseToDartFuture(_blink.BlinkRTCPeerConnection.instance
-          .generateCertificate_Callback_1_(keygenAlgorithm));
 
   @DomName('RTCPeerConnection.getLocalStreams')
   @DocsEditable()

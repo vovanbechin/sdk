@@ -126,6 +126,16 @@ Future<Isolate> spawnDomUri(Uri uri, List<String> args, message) {
 }
 
 createCustomUpgrader(Type customElementClass, $this) => $this;
+
+/**
+ * Emitted for any setlike IDL entry needs a callback signature.
+ * Today there is only one.
+ */
+@DomName('FontFaceSetForEachCallback')
+@Experimental() // untriaged
+typedef void FontFaceSetForEachCallback(
+    FontFace fontFace, FontFace fontFaceAgain, FontFaceSet set);
+
 // Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -12142,38 +12152,6 @@ class DomTokenList extends Interceptor {
 // BSD-style license that can be found in the LICENSE file.
 
 @DocsEditable()
-@DomName('DragEvent')
-@Experimental() // untriaged
-@Native("DragEvent")
-class DragEvent extends MouseEvent {
-  // To suppress missing implicit constructor warnings.
-  factory DragEvent._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('DragEvent.DragEvent')
-  @DocsEditable()
-  factory DragEvent(String type, [Map eventInitDict]) {
-    if (eventInitDict != null) {
-      var eventInitDict_1 = convertDartToNative_Dictionary(eventInitDict);
-      return DragEvent._create_1(type, eventInitDict_1);
-    }
-    return DragEvent._create_2(type);
-  }
-  static DragEvent _create_1(type, eventInitDict) =>
-      JS('DragEvent', 'new DragEvent(#,#)', type, eventInitDict);
-  static DragEvent _create_2(type) => JS('DragEvent', 'new DragEvent(#)', type);
-
-  @DomName('DragEvent.dataTransfer')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final DataTransfer dataTransfer;
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
 @DomName('EffectModel')
 @Experimental() // untriaged
 @Native("EffectModel")
@@ -18248,7 +18226,7 @@ class FontFaceSet extends EventTarget {
   @DomName('FontFaceSet.forEach')
   @DocsEditable()
   @Experimental() // untriaged
-  void forEach(Object callback, [Object thisArg]) native;
+  void forEach(FontFaceSetForEachCallback callback, [Object thisArg]) native;
 
   @DomName('FontFaceSet.has')
   @DocsEditable()
@@ -22267,34 +22245,6 @@ abstract class ResetButtonInputElement implements InputElementBase {
  */
 abstract class ButtonInputElement implements InputElementBase {
   factory ButtonInputElement() => new InputElement(type: 'button');
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
-@DomName('InputEvent')
-@Experimental() // untriaged
-@Native("InputEvent")
-class InputEvent extends UIEvent {
-  // To suppress missing implicit constructor warnings.
-  factory InputEvent._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('InputEvent.InputEvent')
-  @DocsEditable()
-  factory InputEvent(String type, [Map eventInitDict]) {
-    if (eventInitDict != null) {
-      var eventInitDict_1 = convertDartToNative_Dictionary(eventInitDict);
-      return InputEvent._create_1(type, eventInitDict_1);
-    }
-    return InputEvent._create_2(type);
-  }
-  static InputEvent _create_1(type, eventInitDict) =>
-      JS('InputEvent', 'new InputEvent(#,#)', type, eventInitDict);
-  static InputEvent _create_2(type) =>
-      JS('InputEvent', 'new InputEvent(#)', type);
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -30456,6 +30406,12 @@ class RtcPeerConnection extends EventTarget {
     return completer.future;
   }
 
+  @DomName('RTCPeerConnection.generateCertificate')
+  @DocsEditable()
+  @Experimental() // untriaged
+  static Future generateCertificate(/*AlgorithmIdentifier*/ keygenAlgorithm) =>
+      JS('dynamic', 'generateCertificate(#)', keygenAlgorithm);
+
   // To suppress missing implicit constructor warnings.
   factory RtcPeerConnection._() {
     throw new UnsupportedError("Not supported");
@@ -30662,12 +30618,6 @@ class RtcPeerConnection extends EventTarget {
   @DocsEditable()
   void _createOffer_2(_RtcSessionDescriptionCallback successCallback,
       RtcPeerConnectionErrorCallback failureCallback) native;
-
-  @DomName('RTCPeerConnection.generateCertificate')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static Future generateCertificate(/*AlgorithmIdentifier*/ keygenAlgorithm)
-      native;
 
   @DomName('RTCPeerConnection.getLocalStreams')
   @DocsEditable()
