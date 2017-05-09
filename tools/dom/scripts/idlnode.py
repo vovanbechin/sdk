@@ -760,8 +760,19 @@ def generate_setLike_operations_properties(interface, set_like):
            void clear();
   """
   setlike_ops = []
+  """
+  Need to create a typedef for a function callback e.g.,
+  a setlike will need a callback that has the proper args in FontFaceSet that is
+  three arguments, etc.
+  
+      typedef void FontFaceSetForEachCallback(
+        FontFace fontFace, FontFace fontFaceAgain, FontFaceSet set);
+    
+      void forEach(FontFaceSetForEachCallback callback, [Object thisArg]);
+  """
+  callback_name = '%sForEachCallback' % interface.id
   set_op = generate_operation(interface.id, 'void', 'forEach',
-                              [[IDLType(None, 'any'), 'callback'],
+                              [[IDLType(None, callback_name), 'callback'],
                                [IDLType(None, 'any'), 'thisArg', True]])
   setlike_ops.append(set_op)
 

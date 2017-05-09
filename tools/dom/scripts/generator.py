@@ -651,6 +651,9 @@ class OperationInfo(object):
         dart_type = 'dynamic'
       else:
         dart_type = rename_type(param.type_id) if param.type_id else 'dynamic'
+      # Special handling for setlike IDL forEach operation.
+      if dart_type is None and param.type_id.endswith('ForEachCallback'):
+        dart_type = param.type_id
       return (TypeOrNothing(dart_type, param.type_id), param.name)
     required = []
     optional = []
@@ -1572,6 +1575,8 @@ _idl_type_registry = monitored.Dict('generator._idl_type_registry', {
     'SVGTransform': TypeData(clazz='SVGTearOff', native_type="SVGPropertyTearOff<SVGTransform>"),
     'SVGTransformList': TypeData(clazz='SVGTearOff', item_type='SVGTransform',
         native_type='SVGTransformListPropertyTearOff'),
+     # Add any setlike forEach Callback types here.
+    'FontFaceSetForEachCallback': TypeData(clazz='Interface', item_type='FontFaceSetForEachCallback'),
 })
 
 _svg_supplemental_includes = [

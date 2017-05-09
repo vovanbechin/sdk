@@ -1054,15 +1054,6 @@ class DomTokenListImpl extends DomTokenList implements js_library.JSObjectInterf
   get runtimeType => DomTokenList;
   toString() => super.toString();
 }
-@patch class DragEvent {
-  static Type get instanceRuntimeType => DragEventImpl;
-
-}
-class DragEventImpl extends DragEvent implements js_library.JSObjectInterfacesDom {
-  DragEventImpl.internal_() : super.internal_();
-  get runtimeType => DragEvent;
-  toString() => super.toString();
-}
 @patch class EffectModel {
   static Type get instanceRuntimeType => EffectModelImpl;
 
@@ -1610,15 +1601,6 @@ class InputDeviceCapabilitiesImpl extends InputDeviceCapabilities implements js_
 class InputElementImpl extends InputElement implements js_library.JSObjectInterfacesDom {
   InputElementImpl.internal_() : super.internal_();
   get runtimeType => InputElement;
-  toString() => super.toString();
-}
-@patch class InputEvent {
-  static Type get instanceRuntimeType => InputEventImpl;
-
-}
-class InputEventImpl extends InputEvent implements js_library.JSObjectInterfacesDom {
-  InputEventImpl.internal_() : super.internal_();
-  get runtimeType => InputEvent;
   toString() => super.toString();
 }
 @patch class InstallEvent {

@@ -462,6 +462,12 @@ interface RTCPeerConnection {
     [DartSuppress] Promise<void> setRemoteDescription(RTCSessionDescriptionInit description);
 };
 
+[DartSuppress]
+interface DragEvent {};
+
+[DartSuppress]
+interface InputEvent {};
+
 Element implements GlobalEventHandlers;
 
 

@@ -804,6 +804,7 @@ removed_html_members = monitored.Set('htmlrenamer.removed_html_members', [
     'NodeList.item',
     'ParentNode.append',
     'ParentNode.prepend',
+    'RTCPeerConnection.generateCertificate',
     'ServiceWorkerMessageEvent.data',
     'ShadowRoot.getElementsByTagNameNS',
     'SVGElement.getPresentationAttribute',
