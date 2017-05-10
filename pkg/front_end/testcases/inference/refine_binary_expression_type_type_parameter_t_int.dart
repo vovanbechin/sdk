@@ -9,14 +9,16 @@ class C<T extends num> {
   T a;
 
   void op(int b) {
-    T r1 = a + b;
-    T r2 = a - b;
-    T r3 = a * b;
+    T r1 = a + /*@promotedType=none*/ b;
+    T r2 = a - /*@promotedType=none*/ b;
+    T r3 = a * /*@promotedType=none*/ b;
   }
 
   void opEq(int b) {
-    a += b;
-    a -= b;
-    a *= b;
+    a += /*@promotedType=none*/ b;
+    a -= /*@promotedType=none*/ b;
+    a *= /*@promotedType=none*/ b;
   }
 }
+
+main() {}

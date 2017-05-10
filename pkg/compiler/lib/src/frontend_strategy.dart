@@ -14,6 +14,7 @@ import 'enqueue.dart';
 import 'js_backend/backend.dart';
 import 'js_backend/backend_usage.dart';
 import 'js_backend/custom_elements_analysis.dart';
+import 'js_backend/interceptor_data.dart';
 import 'js_backend/mirrors_analysis.dart';
 import 'js_backend/mirrors_data.dart';
 import 'js_backend/native_data.dart';
@@ -59,6 +60,8 @@ abstract class FrontEndStrategy {
   /// used in this strategy.
   ResolutionWorldBuilder createResolutionWorldBuilder(
       NativeBasicData nativeBasicData,
+      NativeDataBuilder nativeDataBuilder,
+      InterceptorDataBuilder interceptorDataBuilder,
       SelectorConstraintsStrategy selectorConstraintsStrategy);
 
   /// Creates the [WorkItemBuilder] corresponding to how a resolved model for
@@ -96,4 +99,7 @@ abstract class AnnotationProcessor {
 
   void extractJsInteropAnnotations(
       LibraryEntity library, NativeBasicDataBuilder nativeBasicDataBuilder);
+
+  void processJsInteropAnnotations(
+      NativeBasicData nativeBasicData, NativeDataBuilder nativeDataBuilder);
 }

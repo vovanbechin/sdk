@@ -14,7 +14,7 @@ import '../parser/identifier_context.dart' show IdentifierContext;
 import 'package:front_end/src/fasta/builder/ast_factory.dart' show AstFactory;
 
 import 'package:front_end/src/fasta/kernel/kernel_shadow_ast.dart'
-    show KernelField;
+    show KernelArguments, KernelField;
 
 import 'package:front_end/src/fasta/kernel/utils.dart' show offsetForToken;
 
@@ -474,7 +474,8 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
         bool hasMore = formalBuilders.moveNext();
         assert(hasMore);
         VariableDeclaration realParameter = formalBuilders.current.target;
-        Expression initializer = parameter.initializer ?? new NullLiteral();
+        Expression initializer =
+            parameter.initializer ?? astFactory.nullLiteral(null);
         realParameter.initializer = initializer..parent = realParameter;
       }
     }
@@ -566,9 +567,9 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
           arguments.getRange(0, firstNamedArgumentIndex));
       List<NamedExpression> named = new List<NamedExpression>.from(
           arguments.getRange(firstNamedArgumentIndex, arguments.length));
-      push(new Arguments(positional, named: named));
+      push(astFactory.arguments(positional, named: named));
     } else {
-      push(new Arguments(arguments));
+      push(astFactory.arguments(arguments));
     }
   }
 
@@ -620,7 +621,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
       return receiver.doInvocation(charOffset, arguments);
     } else {
       return buildMethodInvocation(
-          toValue(receiver), callName, arguments, charOffset);
+          astFactory, toValue(receiver), callName, arguments, charOffset);
     }
   }
 
@@ -664,8 +665,9 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     var receiver = pop();
     bool isSuper = false;
     if (receiver is ThisAccessor && receiver.isSuper) {
+      ThisAccessor thisAccessorReceiver = receiver;
       isSuper = true;
-      receiver = new ThisExpression();
+      receiver = astFactory.thisExpression(thisAccessorReceiver.token);
     }
     push(buildBinaryOperator(toValue(receiver), token, argument, isSuper));
   }
@@ -682,19 +684,19 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
       return buildCompileTimeError(
           "Not an operator: '$operator'.", token.charOffset);
     } else {
-      Expression result =
-          makeBinary(a, new Name(operator), null, b, offset: token.charOffset);
+      Expression result = makeBinary(astFactory, a, new Name(operator), null, b,
+          offset: token.charOffset);
       if (isSuper) {
         result = toSuperMethodInvocation(result);
       }
-      return negate ? new Not(result) : result;
+      return negate ? astFactory.not(null, result) : result;
     }
   }
 
   void doLogicalExpression(Token token) {
     Expression argument = popForValue();
     Expression receiver = popForValue();
-    push(new LogicalExpression(receiver, token.stringValue, argument));
+    push(astFactory.logicalExpression(receiver, token.stringValue, argument));
   }
 
   /// Handle `a ?? b`.
@@ -704,8 +706,11 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     VariableDeclaration variable = new VariableDeclaration.forValue(a);
     push(makeLet(
         variable,
-        new ConditionalExpression(buildIsNull(new VariableGet(variable)), b,
-            new VariableGet(variable), const DynamicType())));
+        new ConditionalExpression(
+            buildIsNull(astFactory, new VariableGet(variable)),
+            b,
+            new VariableGet(variable),
+            const DynamicType())));
   }
 
   /// Handle `a?.b(...)`.
@@ -729,9 +734,10 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
       if (!target.isAccessor) {
         if (areArgumentsCompatible(target.function, node.arguments)) {
           // TODO(ahe): Use [DirectMethodInvocation] when possible.
-          Expression result = new DirectMethodInvocation(
+          Expression result = astFactory.directMethodInvocation(
               new ThisExpression(), target, node.arguments);
-          result = new SuperMethodInvocation(node.name, node.arguments, null);
+          result = astFactory.superMethodInvocation(
+              null, node.name, node.arguments, null);
           return result;
         } else {
           isNoSuchMethod = true;
@@ -744,10 +750,11 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
           isSuper: true);
     }
     // TODO(ahe): Use [DirectPropertyGet] when possible.
-    Expression receiver = new DirectPropertyGet(new ThisExpression(), target);
-    receiver = new SuperPropertyGet(node.name, target);
+    Expression receiver =
+        astFactory.directPropertyGet(new ThisExpression(), target);
+    receiver = astFactory.superPropertyGet(node.name, target);
     return buildMethodInvocation(
-        receiver, callName, node.arguments, node.fileOffset);
+        astFactory, receiver, callName, node.arguments, node.fileOffset);
   }
 
   bool areArgumentsCompatible(FunctionNode function, Arguments arguments) {
@@ -776,14 +783,14 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
         coreTypes.getClass("dart:core", "NoSuchMethodError").constructors.first;
     return new Throw(new ConstructorInvocation(
         constructor,
-        new Arguments(<Expression>[
-          new NullLiteral(),
+        astFactory.arguments(<Expression>[
+          astFactory.nullLiteral(null),
           new SymbolLiteral(name),
           new ListLiteral(arguments.positional),
           new MapLiteral(arguments.named.map((arg) {
             return new MapEntry(new SymbolLiteral(arg.name), arg.value);
           }).toList()),
-          new NullLiteral()
+          astFactory.nullLiteral(null)
         ])));
   }
 
@@ -865,7 +872,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
           library.uri.path == "_builtin" &&
           member?.name == "_getMainClosure") {
         // TODO(ahe): https://github.com/dart-lang/sdk/issues/28989
-        return new NullLiteral()..fileOffset = offsetForToken(token);
+        return astFactory.nullLiteral(token);
       } else {
         return new UnresolvedAccessor(this, n, token);
       }
@@ -1019,7 +1026,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
         }
       }
     }
-    push(new StringConcatenation(expressions ?? parts));
+    push(astFactory.stringConcatenation(expressions ?? parts, null));
   }
 
   @override
@@ -1118,7 +1125,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
       addCompileTimeError(
           token.charOffset, "const field must have initializer.");
       // Creating a null value to prevent the Dart VM from crashing.
-      push(new NullLiteral()..fileOffset = token.charOffset);
+      push(astFactory.nullLiteral(token));
     } else {
       push(NullValue.FieldInitializer);
     }
@@ -1177,8 +1184,8 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     Expression value = popForValue();
     var accessor = pop();
     if (accessor is TypeDeclarationBuilder) {
-      push(wrapInvalid(new TypeLiteral(
-          accessor.buildTypesWithBuiltArguments(library, null))));
+      push(wrapInvalid(astFactory
+          .typeLiteral(accessor.buildTypesWithBuiltArguments(library, null))));
     } else if (accessor is! FastaAccessor) {
       push(buildCompileTimeError("Can't assign to this.", token.charOffset));
     } else {
@@ -1259,10 +1266,9 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   }
 
   @override
-  void endAwaitExpression(Token beginToken, Token endToken) {
+  void endAwaitExpression(Token keyword, Token endToken) {
     debugEvent("AwaitExpression");
-    push(
-        new AwaitExpression(popForValue())..fileOffset = beginToken.charOffset);
+    push(astFactory.awaitExpression(keyword, popForValue()));
   }
 
   @override
@@ -1277,18 +1283,17 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     debugEvent("LiteralList");
     List<Expression> expressions = popListForValue(count);
     List<DartType> typeArguments = pop();
-    DartType typeArgument = const DynamicType();
+    DartType typeArgument;
     if (typeArguments != null) {
       typeArgument = typeArguments.first;
       if (typeArguments.length > 1) {
-        typeArgument = const DynamicType();
+        typeArgument = null;
         warningNotError(
             "Too many type arguments on List literal.", beginToken.charOffset);
       }
     }
-    push(new ListLiteral(expressions,
-        typeArgument: typeArgument, isConst: constKeyword != null)
-      ..fileOffset = constKeyword?.charOffset ?? beginToken.charOffset);
+    push(astFactory.listLiteral(expressions, typeArgument, constKeyword != null,
+        constKeyword ?? beginToken));
   }
 
   @override
@@ -1308,7 +1313,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   @override
   void handleLiteralNull(Token token) {
     debugEvent("LiteralNull");
-    push(new NullLiteral()..fileOffset = token.charOffset);
+    push(astFactory.nullLiteral(token));
   }
 
   @override
@@ -1330,9 +1335,8 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
         valueType = typeArguments[1];
       }
     }
-    push(new MapLiteral(entries,
-        keyType: keyType, valueType: valueType, isConst: constKeyword != null)
-      ..fileOffset = constKeyword?.charOffset ?? beginToken.charOffset);
+    push(astFactory.mapLiteral(beginToken, constKeyword, entries,
+        keyType: keyType, valueType: valueType));
   }
 
   @override
@@ -1366,7 +1370,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
         value += ".${symbolPartToString(parts[i])}";
       }
     }
-    push(new SymbolLiteral(value));
+    push(astFactory.symbolLiteral(hashToken, value));
   }
 
   DartType kernelTypeFromString(
@@ -1478,7 +1482,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     debugEvent("AsOperator");
     DartType type = pop();
     Expression expression = popForValue();
-    push(new AsExpression(expression, type)..fileOffset = operator.charOffset);
+    push(astFactory.asExpression(expression, operator, type));
   }
 
   @override
@@ -1502,8 +1506,8 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     Expression elseExpression = popForValue();
     Expression thenExpression = popForValue();
     Expression condition = popForValue();
-    push(new ConditionalExpression(
-        condition, thenExpression, elseExpression, const DynamicType()));
+    push(astFactory.conditionalExpression(
+        condition, thenExpression, elseExpression));
   }
 
   @override
@@ -1514,7 +1518,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
       push(buildCompileTimeError(
           "Not a constant expression.", throwToken.charOffset));
     } else {
-      push(new Throw(expression)..fileOffset = throwToken.charOffset);
+      push(astFactory.throwExpression(throwToken, expression));
     }
   }
 
@@ -1733,7 +1737,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     debugEvent("UnaryPrefixExpression");
     var receiver = pop();
     if (optional("!", token)) {
-      push(new Not(toValue(receiver)));
+      push(astFactory.not(token, toValue(receiver)));
     } else {
       String operator = token.stringValue;
       if (optional("-", token)) {
@@ -1741,13 +1745,14 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
       }
       if (receiver is ThisAccessor && receiver.isSuper) {
         push(toSuperMethodInvocation(buildMethodInvocation(
-            new ThisExpression()..fileOffset = offsetForToken(receiver.token),
+            astFactory,
+            astFactory.thisExpression(receiver.token),
             new Name(operator),
             new Arguments.empty(),
             token.charOffset)));
       } else {
-        push(buildMethodInvocation(toValue(receiver), new Name(operator),
-            new Arguments.empty(), token.charOffset));
+        push(buildMethodInvocation(astFactory, toValue(receiver),
+            new Name(operator), new Arguments.empty(), token.charOffset));
       }
     }
   }
@@ -1849,12 +1854,11 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
       return throwNoSuchMethodError(target.name.name, arguments, charOffset);
     }
     if (target is Constructor) {
-      return new ConstructorInvocation(target, arguments)
-        ..isConst = isConst
+      return astFactory.constructorInvocation(target, arguments,
+          isConst: isConst)
         ..fileOffset = charOffset;
     } else {
-      return new StaticInvocation(target, arguments)
-        ..isConst = isConst
+      return astFactory.staticInvocation(target, arguments, isConst: isConst)
         ..fileOffset = charOffset;
     }
   }
@@ -1928,7 +1932,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   void endNewExpression(Token token) {
     debugEvent("NewExpression");
     Token nameToken = token.next;
-    Arguments arguments = pop();
+    KernelArguments arguments = pop();
     String name = pop();
     List<DartType> typeArguments = pop();
     var type = pop();
@@ -1941,7 +1945,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
 
       if (typeArguments != null) {
         assert(arguments.types.isEmpty);
-        arguments.types.addAll(typeArguments);
+        astFactory.setExplicitArgumentTypes(arguments, typeArguments);
       }
 
       String errorName;
@@ -2242,15 +2246,15 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   }
 
   @override
-  void endRethrowStatement(Token throwToken, Token endToken) {
+  void endRethrowStatement(Token rethrowToken, Token endToken) {
     debugEvent("RethrowStatement");
     if (inCatchBlock) {
-      push(astFactory.expressionStatement(
-          new Rethrow()..fileOffset = throwToken.charOffset));
+      push(astFactory
+          .expressionStatement(astFactory.rethrowExpression(rethrowToken)));
     } else {
       push(buildCompileTimeErrorStatement(
           "'rethrow' can only be used in catch clauses.",
-          throwToken.charOffset));
+          rethrowToken.charOffset));
     }
   }
 
@@ -2541,7 +2545,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     String message = formatUnexpected(uri, charOffset, error);
     Builder constructor = library.loader.getCompileTimeError();
     return new Throw(buildStaticInvocation(constructor.target,
-        new Arguments(<Expression>[new StringLiteral(message)])));
+        astFactory.arguments(<Expression>[new StringLiteral(message)])));
   }
 
   Expression buildAbstractClassInstantiationError(String className,
@@ -2550,7 +2554,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
         charOffset);
     Builder constructor = library.loader.getAbstractClassInstantiationError();
     return new Throw(buildStaticInvocation(constructor.target,
-        new Arguments(<Expression>[new StringLiteral(className)])));
+        astFactory.arguments(<Expression>[new StringLiteral(className)])));
   }
 
   Statement buildCompileTimeErrorStatement(error, [int charOffset = -1]) {

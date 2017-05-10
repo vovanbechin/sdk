@@ -12,12 +12,12 @@ class C<T> {
 
   factory C(T t) {
     var /*@type=C<T>*/ x = new C<T>._();
-    /*@promotedType=none*/ x.t = t;
+    /*@promotedType=none*/ x.t = /*@promotedType=none*/ t;
     return /*@promotedType=none*/ x;
   }
 }
 
 main() {
-  var /*@type=C<int>*/ x = /*@typeArgs=int*/ new C(42);
+  var /*@type=C<int>*/ x = new /*@typeArgs=int*/ C(42);
   /*@promotedType=none*/ x.t = /*error:INVALID_ASSIGNMENT*/ 'hello';
 }

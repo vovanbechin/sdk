@@ -60,8 +60,7 @@ Instance& StreamingConstantEvaluator::EvaluateExpression() {
 
 void StreamingConstantEvaluator::EvaluateStaticGet() {
   builder_->ReadPosition();
-  int canonical_name_index = builder_->ReadUInt();
-  CanonicalName* target = builder_->GetCanonicalName(canonical_name_index);
+  NameIndex target = builder_->ReadCanonicalNameReference();
 
   if (H.IsField(target)) {
     const dart::Field& field =
@@ -95,7 +94,7 @@ void StreamingConstantEvaluator::EvaluateStaticGet() {
 
 
 void StreamingConstantEvaluator::EvaluateSymbolLiteral() {
-  int str_index = builder_->ReadUInt();
+  StringIndex str_index(builder_->ReadUInt());
   const dart::String& symbol_value = H.DartSymbol(str_index);
 
   const dart::Class& symbol_class =
@@ -110,7 +109,7 @@ void StreamingConstantEvaluator::EvaluateSymbolLiteral() {
 
 
 void StreamingConstantEvaluator::EvaluateDoubleLiteral() {
-  int str_index = builder_->ReadUInt();
+  StringIndex str_index(builder_->ReadUInt());
   result_ = dart::Double::New(H.DartString(str_index), Heap::kOld);
   result_ = H.Canonicalize(result_);
 }
@@ -311,84 +310,6 @@ Fragment StreamingFlowGraphBuilder::BuildAt(intptr_t kernel_offset) {
 }
 
 
-CanonicalName* StreamingFlowGraphBuilder::GetCanonicalName(intptr_t index) {
-  if (index == 0) return NULL;
-  --index;
-
-  if (canonical_names_ != NULL && canonical_names_entries_read_ > index) {
-    return canonical_names_[index];
-  }
-
-  intptr_t saved_offset = ReaderOffset();
-  if (canonical_names_ == NULL) {
-    // Find offset from where to read canonical names table.
-
-    // Skip the magic number.
-    reader_->set_offset(4);
-
-    // Skip the string table.  The last offset is the end offset of the last
-    // string which gives the length of the string data.
-    intptr_t list_length = ReadListLength();
-    intptr_t end_offset = 0;
-    for (intptr_t i = 0; i < list_length; ++i) {
-      end_offset = ReadUInt();
-    }
-    SkipBytes(end_offset);
-
-    // There is another string table for the source URIs.  Skip it as well.
-    list_length = ReadListLength();
-    end_offset = 0;
-    for (intptr_t i = 0; i < list_length; ++i) {
-      end_offset = ReadUInt();
-    }
-    SkipBytes(end_offset);
-
-    // Source code table
-    for (intptr_t i = 0; i < list_length; ++i) {
-      // Source code
-      intptr_t bytes = ReadUInt();
-      SkipBytes(bytes);
-
-      // Line starts table
-      intptr_t line_count = ReadUInt();
-      for (intptr_t j = 0; j < line_count; ++j) {
-        ReadUInt();
-      }
-    }
-
-    // Now at canonical names table.
-    canonical_names_size_ = ReadUInt();
-    canonical_names_ = new CanonicalName*[canonical_names_size_];
-    canonical_names_next_offset_ = ReaderOffset();
-  }
-
-  SetOffset(canonical_names_next_offset_);
-  for (; canonical_names_entries_read_ <= index;
-       ++canonical_names_entries_read_) {
-    intptr_t biased_parent_index = ReadUInt();
-    CanonicalName* parent;
-    if (biased_parent_index != 0) {
-      parent = canonical_names_[biased_parent_index - 1];
-    } else {
-      if (canonical_names_entries_read_ == 0) {
-        parent = CanonicalName::NewRoot();
-      } else {
-        parent = canonical_names_[0]->parent();
-      }
-    }
-    ASSERT(parent != NULL);
-    intptr_t name_index = ReadUInt();
-    CanonicalName* canonical_name = parent->AddChild(name_index);
-    canonical_names_[canonical_names_entries_read_] = canonical_name;
-  }
-
-  canonical_names_next_offset_ = ReaderOffset();
-
-  SetOffset(saved_offset);
-  return canonical_names_[index];
-}
-
-
 intptr_t StreamingFlowGraphBuilder::ReaderOffset() {
   return reader_->offset();
 }
@@ -411,6 +332,11 @@ uint32_t StreamingFlowGraphBuilder::ReadUInt() {
 
 intptr_t StreamingFlowGraphBuilder::ReadListLength() {
   return reader_->ReadListLength();
+}
+
+
+NameIndex StreamingFlowGraphBuilder::ReadCanonicalNameReference() {
+  return reader_->ReadCanonicalNameReference();
 }
 
 
@@ -498,8 +424,7 @@ Fragment StreamingFlowGraphBuilder::BuildInvalidExpression() {
 Fragment StreamingFlowGraphBuilder::BuildStaticGet() {
   intptr_t saved_offset = ReaderOffset() - 1;  // Include the tag.
   TokenPosition position = ReadPosition();
-  int canonical_name_index = ReadUInt();
-  CanonicalName* target = GetCanonicalName(canonical_name_index);
+  NameIndex target = ReadCanonicalNameReference();
 
   if (H.IsField(target)) {
     const dart::Field& field =
@@ -562,13 +487,13 @@ Fragment StreamingFlowGraphBuilder::BuildRethrow() {
 
 
 Fragment StreamingFlowGraphBuilder::BuildBigIntLiteral() {
-  const dart::String& value = H.DartString(ReadUInt());
+  const dart::String& value = H.DartString(StringIndex(ReadUInt()));
   return Constant(Integer::ZoneHandle(Z, Integer::New(value, Heap::kOld)));
 }
 
 
 Fragment StreamingFlowGraphBuilder::BuildStringLiteral() {
-  intptr_t str_index = ReadUInt();
+  StringIndex str_index(ReadUInt());
   return Constant(H.DartSymbol(str_index));
 }
 

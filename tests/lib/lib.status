@@ -359,13 +359,6 @@ async/timer_test: Fail, Pass # See Issue 10982
 [ $compiler == none && $runtime == drt && $checked ]
 async/slow_consumer_test: Fail, Pass # Dartium JsInterop failure, dartbug.com/24460
 
-[ $compiler == none && ($runtime == drt || $runtime == dartium) && $checked ]
-# TODO(terry): Failing tests with Dartium 50 roll (NEED TO FIX All)
-# ---------------------------------------------
-mirrors/regress_16321_test/01: Timeout, Pass # Roll 50 crash works on full build
-# ---------------------------------------------
-# TODO(terry): End of Dartium 50 roll failures
-
 [ $compiler == dart2js && $runtime == safarimobilesim ]
 mirrors/mirrors_reader_test: SkipSlow # Times out. Issue 20806.
 mirrors/null_test: Fail # Issue 16831
@@ -504,6 +497,8 @@ mirrors/function_type_mirror_test: RuntimeError
 mirrors/generic_class_declaration_test: RuntimeError
 mirrors/generic_f_bounded_mixin_application_test: RuntimeError
 mirrors/generic_function_typedef_test: RuntimeError
+mirrors/generic_interface_test/01: RuntimeError
+mirrors/generic_interface_test/none: RuntimeError
 mirrors/generic_local_function_test: RuntimeError
 mirrors/generic_mixin_applications_test: RuntimeError
 mirrors/generic_mixin_test: RuntimeError
@@ -609,8 +604,6 @@ mirrors/parameter_annotation_mirror_test: RuntimeError
 mirrors/parameter_is_const_test/01: MissingCompileTimeError
 mirrors/parameter_metadata_test: RuntimeError
 mirrors/parameter_of_mixin_app_constructor_test: RuntimeError
-mirrors/parameter_test/none: Crash # Issue 29425
-mirrors/immutable_collections_test: Crash # Issue 29425
 mirrors/private_class_field_test: RuntimeError
 mirrors/private_symbol_mangling_test: RuntimeError
 mirrors/private_symbol_test: RuntimeError
@@ -677,4 +670,4 @@ mirrors/library_import_deferred_loading_test: CompileTimeError # Deferred loadin
 mirrors/typedef_deferred_library_test: CompileTimeError # Deferred loading kernel issue 28335.
 
 [ $compiler == dartk && $runtime == vm && $mode == debug && $arch == x64 ]
-mirrors/invocation_fuzz_test: Crash #29439
+mirrors/invocation_fuzz_test: Skip # Because it times out, issue 29439.

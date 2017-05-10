@@ -502,10 +502,7 @@ class HtmlDartInterfaceGenerator(object):
     if IsCustomType(self._interface.id):
       pass
     elif 'Callback' in self._interface.ext_attrs:
-      if len(GetCallbackHandlers(self._interface)) > 0:
-        self.GenerateCallback()
-      else:
-        return
+      self.GenerateCallback()
     else:
       self.GenerateInterface()
 
@@ -905,8 +902,6 @@ class Dart2JSBackend(HtmlDartGenerator):
       indexed_getter = 'this.getItem(index)'
     elif any(op.id == 'item' for op in self._interface.operations):
       indexed_getter = 'this.item(index)'
-    else:
-      indexed_getter = False
 
     if indexed_getter:
       self._members_emitter.Emit(
@@ -1247,7 +1242,7 @@ class Dart2JSBackend(HtmlDartGenerator):
 
       if native_type != return_type:
         anns = anns + [
-          "@Returns('%s')" % native_type,
+          "@Returns('%s|Null')" % native_type,
           "@Creates('%s')" % native_type,
         ]
     if dart_type == 'dynamic' or dart_type == 'Object':

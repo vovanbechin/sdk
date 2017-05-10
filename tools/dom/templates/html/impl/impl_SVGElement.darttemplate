@@ -4,16 +4,13 @@
 
 part of $LIBRARYNAME;
 
-class AttributeClassSet extends CssClassSetImpl {
+class _AttributeClassSet extends CssClassSetImpl {
   final Element _element;
 
-  AttributeClassSet(this._element);
+  _AttributeClassSet(this._element);
 
   Set<String> readClasses() {
     var classname = _element.attributes['class'];
-    if (classname is AnimatedString) {
-      classname = classname.baseVal;
-    }
 
     Set<String> s = new LinkedHashSet<String>();
     if (classname == null) {
@@ -29,7 +26,7 @@ class AttributeClassSet extends CssClassSetImpl {
   }
 
   void writeClasses(Set s) {
-    _element.setAttribute('class', s.join(' '));
+    _element.attributes['class'] = s.join(' ');
   }
 }
 
@@ -57,7 +54,7 @@ $(ANNOTATIONS)$(NATIVESPEC)$(CLASS_MODIFIERS)class $CLASSNAME$EXTENDS$IMPLEMENTS
     return fragment.nodes.where((e) => e is SvgElement).single;
   }
 
-  CssClassSet get classes => new AttributeClassSet(this);
+  CssClassSet get classes => new _AttributeClassSet(this);
 
   List<Element> get children => new FilteredElementList(this);
 

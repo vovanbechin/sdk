@@ -8,6 +8,7 @@ import 'dart:async' show Future;
 
 import 'dart:typed_data' show Uint8List;
 
+import 'package:front_end/file_system.dart';
 import 'package:front_end/src/base/instrumentation.dart' show Instrumentation;
 
 import 'package:front_end/src/fasta/builder/ast_factory.dart' show AstFactory;
@@ -30,7 +31,14 @@ import 'package:kernel/class_hierarchy.dart' show ClassHierarchy;
 
 import 'package:kernel/core_types.dart' show CoreTypes;
 
-import '../builder/builder.dart' show Builder, ClassBuilder, LibraryBuilder;
+import '../builder/builder.dart'
+    show
+        Builder,
+        ClassBuilder,
+        EnumBuilder,
+        LibraryBuilder,
+        NamedTypeBuilder,
+        TypeBuilder;
 
 import '../compiler_context.dart' show CompilerContext;
 
@@ -44,8 +52,6 @@ import '../parser/class_member_parser.dart' show ClassMemberParser;
 
 import '../scanner.dart' show ErrorToken, ScannerResult, Token, scan;
 
-import '../io.dart' show readBytesFromFile;
-
 import 'diet_listener.dart' show DietListener;
 
 import 'diet_parser.dart' show DietParser;
@@ -57,6 +63,9 @@ import 'source_class_builder.dart' show SourceClassBuilder;
 import 'source_library_builder.dart' show SourceLibraryBuilder;
 
 class SourceLoader<L> extends Loader<L> {
+  /// The [FileSystem] which should be used to access files.
+  final FileSystem fileSystem;
+
   final Map<Uri, List<int>> sourceBytes = <Uri, List<int>>{};
   final bool excludeSource = CompilerContext.current.options.excludeSource;
 
@@ -70,7 +79,7 @@ class SourceLoader<L> extends Loader<L> {
 
   Instrumentation instrumentation;
 
-  SourceLoader(KernelTarget target) : super(target);
+  SourceLoader(this.fileSystem, KernelTarget target) : super(target);
 
   Future<Token> tokenize(SourceLibraryBuilder library,
       {bool suppressLexicalErrors: false}) async {
@@ -78,10 +87,21 @@ class SourceLoader<L> extends Loader<L> {
     if (uri == null || uri.scheme != "file") {
       return inputError(library.uri, -1, "Not found: ${library.uri}.");
     }
+
+    // Get the library text from the cache, or read from the file system.
     List<int> bytes = sourceBytes[uri];
     if (bytes == null) {
-      bytes = sourceBytes[uri] = await readBytesFromFile(uri);
+      try {
+        List<int> rawBytes = await fileSystem.entityForUri(uri).readAsBytes();
+        Uint8List zeroTerminatedBytes = new Uint8List(rawBytes.length + 1);
+        zeroTerminatedBytes.setRange(0, rawBytes.length, rawBytes);
+        bytes = zeroTerminatedBytes;
+        sourceBytes[uri] = bytes;
+      } on FileSystemException catch (e) {
+        return inputError(uri, -1, e.message);
+      }
     }
+
     byteCount += bytes.length - 1;
     ScannerResult result = scan(bytes);
     Token token = result.tokens;
@@ -345,13 +365,68 @@ class SourceLoader<L> extends Loader<L> {
             reported.add(cls);
           }
         }
+        String involvedString =
+            involved.map((c) => c.fullNameForErrors).join("', '");
         cls.addCompileTimeError(
             cls.charOffset,
-            "'${cls.name}' is a supertype of "
-            "itself via '${involved.map((c) => c.name).join(' ')}'.");
+            "'${cls.fullNameForErrors}' is a supertype of itself via "
+            "'$involvedString'.");
       }
     });
     ticker.logMs("Found cycles");
+    Set<ClassBuilder> blackListedClasses = new Set<ClassBuilder>.from([
+      coreLibrary["bool"],
+      coreLibrary["int"],
+      coreLibrary["num"],
+      coreLibrary["double"],
+      coreLibrary["String"],
+    ]);
+    for (ClassBuilder cls in allClasses) {
+      if (cls.library.loader != this) continue;
+      Set<ClassBuilder> directSupertypes = new Set<ClassBuilder>();
+      target.addDirectSupertype(cls, directSupertypes);
+      for (ClassBuilder supertype in directSupertypes) {
+        if (supertype is EnumBuilder) {
+          cls.addCompileTimeError(
+              cls.charOffset,
+              "'${supertype.name}' is an enum and can't be extended or "
+              "implemented.");
+        } else if (cls.library != coreLibrary &&
+            blackListedClasses.contains(supertype)) {
+          cls.addCompileTimeError(
+              cls.charOffset,
+              "'${supertype.name}' is restricted and can't be extended or "
+              "implemented.");
+        }
+      }
+      TypeBuilder mixedInType = cls.mixedInType;
+      if (mixedInType != null) {
+        bool isClassBuilder = false;
+        if (mixedInType is NamedTypeBuilder) {
+          var builder = mixedInType.builder;
+          if (builder is ClassBuilder) {
+            isClassBuilder = true;
+            for (Builder constructory in builder.constructors.local.values) {
+              if (constructory.isConstructor && !constructory.isSynthetic) {
+                cls.addCompileTimeError(
+                    cls.charOffset,
+                    "Can't use '${builder.fullNameForErrors}' as a mixin "
+                    "because it has constructors.");
+                builder.addCompileTimeError(
+                    constructory.charOffset,
+                    "This constructor prevents using "
+                    "'${builder.fullNameForErrors}' as a mixin.");
+              }
+            }
+          }
+        }
+        if (!isClassBuilder) {
+          cls.addCompileTimeError(cls.charOffset,
+              "The type '${mixedInType.fullNameForErrors}' can't be mixed in.");
+        }
+      }
+    }
+    ticker.logMs("Checked restricted supertypes");
   }
 
   void buildProgram() {
@@ -391,7 +466,7 @@ class SourceLoader<L> extends Loader<L> {
     typeInferenceEngine.prepareTopLevel(coreTypes, hierarchy);
     builders.forEach((Uri uri, LibraryBuilder library) {
       if (library is SourceLibraryBuilder) {
-        library.prepareInitializerInference(typeInferenceEngine, library, null);
+        library.prepareInitializerInference(library, null);
       }
     });
     ticker.logMs("Prepared initializer inference");

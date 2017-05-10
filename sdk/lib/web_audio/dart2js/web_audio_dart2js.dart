@@ -126,7 +126,7 @@ class AudioBuffer extends Interceptor {
 @DomName('AudioBufferCallback')
 // https://dvcs.w3.org/hg/audio/raw-file/tip/webaudio/specification.html#AudioBuffer-section
 @Experimental()
-typedef void AudioBufferCallback(audioBuffer_OR_exception);
+typedef void AudioBufferCallback(AudioBuffer audioBuffer);
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -299,13 +299,6 @@ class AudioContext extends EventTarget {
   @DocsEditable()
   DynamicsCompressorNode createDynamicsCompressor() native;
 
-  @JSName('createIIRFilter')
-  @DomName('AudioContext.createIIRFilter')
-  @DocsEditable()
-  @Experimental() // untriaged
-  IirFilterNode createIirFilter(List<num> feedForward, List<num> feedBack)
-      native;
-
   @DomName('AudioContext.createMediaElementSource')
   @DocsEditable()
   MediaElementAudioSourceNode createMediaElementSource(
@@ -331,26 +324,7 @@ class AudioContext extends EventTarget {
   @DomName('AudioContext.createPeriodicWave')
   @DocsEditable()
   @Experimental() // untriaged
-  PeriodicWave createPeriodicWave(Float32List real, Float32List imag,
-      [Map options]) {
-    if (options != null) {
-      var options_1 = convertDartToNative_Dictionary(options);
-      return _createPeriodicWave_1(real, imag, options_1);
-    }
-    return _createPeriodicWave_2(real, imag);
-  }
-
-  @JSName('createPeriodicWave')
-  @DomName('AudioContext.createPeriodicWave')
-  @DocsEditable()
-  @Experimental() // untriaged
-  PeriodicWave _createPeriodicWave_1(
-      Float32List real, Float32List imag, options) native;
-  @JSName('createPeriodicWave')
-  @DomName('AudioContext.createPeriodicWave')
-  @DocsEditable()
-  @Experimental() // untriaged
-  PeriodicWave _createPeriodicWave_2(Float32List real, Float32List imag) native;
+  PeriodicWave createPeriodicWave(Float32List real, Float32List imag) native;
 
   @DomName('AudioContext.createStereoPanner')
   @DocsEditable()
@@ -364,9 +338,9 @@ class AudioContext extends EventTarget {
   @JSName('decodeAudioData')
   @DomName('AudioContext.decodeAudioData')
   @DocsEditable()
-  Future _decodeAudioData(ByteBuffer audioData,
-      [AudioBufferCallback successCallback,
-      AudioBufferCallback errorCallback]) native;
+  void _decodeAudioData(
+      ByteBuffer audioData, AudioBufferCallback successCallback,
+      [AudioBufferCallback errorCallback]) native;
 
   @DomName('AudioContext.resume')
   @DocsEditable()
@@ -519,7 +493,7 @@ class AudioNode extends EventTarget {
   @JSName('connect')
   @DomName('AudioNode.connect')
   @DocsEditable()
-  AudioNode _connect(destination, [int output, int input]) native;
+  void _connect(destination, [int output, int input]) native;
 
   @DomName('AudioNode.disconnect')
   @DocsEditable()
@@ -560,28 +534,27 @@ class AudioParam extends Interceptor {
 
   @DomName('AudioParam.cancelScheduledValues')
   @DocsEditable()
-  AudioParam cancelScheduledValues(num startTime) native;
+  void cancelScheduledValues(num startTime) native;
 
   @DomName('AudioParam.exponentialRampToValueAtTime')
   @DocsEditable()
-  AudioParam exponentialRampToValueAtTime(num value, num time) native;
+  void exponentialRampToValueAtTime(num value, num time) native;
 
   @DomName('AudioParam.linearRampToValueAtTime')
   @DocsEditable()
-  AudioParam linearRampToValueAtTime(num value, num time) native;
+  void linearRampToValueAtTime(num value, num time) native;
 
   @DomName('AudioParam.setTargetAtTime')
   @DocsEditable()
-  AudioParam setTargetAtTime(num target, num time, num timeConstant) native;
+  void setTargetAtTime(num target, num time, num timeConstant) native;
 
   @DomName('AudioParam.setValueAtTime')
   @DocsEditable()
-  AudioParam setValueAtTime(num value, num time) native;
+  void setValueAtTime(num value, num time) native;
 
   @DomName('AudioParam.setValueCurveAtTime')
   @DocsEditable()
-  AudioParam setValueCurveAtTime(Float32List values, num time, num duration)
-      native;
+  void setValueCurveAtTime(Float32List values, num time, num duration) native;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -801,26 +774,6 @@ class GainNode extends AudioNode {
 // BSD-style license that can be found in the LICENSE file.
 
 @DocsEditable()
-@DomName('IIRFilterNode')
-@Experimental() // untriaged
-@Native("IIRFilterNode")
-class IirFilterNode extends AudioNode {
-  // To suppress missing implicit constructor warnings.
-  factory IirFilterNode._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('IIRFilterNode.getFrequencyResponse')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void getFrequencyResponse(Float32List frequencyHz, Float32List magResponse,
-      Float32List phaseResponse) native;
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
 @DomName('MediaElementAudioSourceNode')
 // https://dvcs.w3.org/hg/audio/raw-file/tip/webaudio/specification.html#MediaElementAudioSourceNode
 @Experimental()
@@ -924,11 +877,6 @@ class OfflineAudioContext extends AudioContext {
   @DocsEditable()
   @Experimental() // untriaged
   Future startRendering() native;
-
-  @DomName('OfflineAudioContext.suspend')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future suspend(num suspendTime) native;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a

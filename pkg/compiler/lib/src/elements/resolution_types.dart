@@ -17,6 +17,7 @@ import '../util/util.dart' show equalElements;
 import 'elements.dart';
 import 'entities.dart';
 import 'modelx.dart' show TypeDeclarationElementX;
+import 'names.dart';
 import 'types.dart';
 
 enum ResolutionTypeKind {
@@ -1091,6 +1092,16 @@ class Types implements DartTypes {
 
   Types copy(Resolution resolution) {
     return new Types(resolution);
+  }
+
+  @override
+  InterfaceType asInstanceOf(ResolutionInterfaceType type, ClassEntity cls) {
+    return type.asInstanceOf(cls);
+  }
+
+  @override
+  ResolutionInterfaceType getSupertype(ClassElement cls) {
+    return cls.supertype;
   }
 
   /// Flatten [type] by recursively removing enclosing `Future` annotations.

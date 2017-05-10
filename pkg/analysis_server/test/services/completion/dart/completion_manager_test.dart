@@ -22,7 +22,6 @@ import 'completion_contributor_util.dart';
 main() {
   defineReflectiveSuite(() {
     defineReflectiveTests(CompletionManagerTest);
-    defineReflectiveTests(CompletionManagerTest_Driver);
   });
 }
 
@@ -63,7 +62,6 @@ part '$testFile';
         enableNewAnalysisDriver ? await driver.getResult(testFile) : null,
         enableNewAnalysisDriver ? null : context,
         provider,
-        searchEngine,
         testSource,
         completionOffset,
         new CompletionPerformance(),
@@ -110,10 +108,4 @@ part '$testFile';
     assertImportedLib(null /* dart:core */);
     assertImportedLib('/libA.dart');
   }
-}
-
-@reflectiveTest
-class CompletionManagerTest_Driver extends CompletionManagerTest {
-  @override
-  bool get enableNewAnalysisDriver => true;
 }

@@ -6,9 +6,9 @@
 library test;
 
 class C {
-  T m<T>(T x) => x;
+  T m<T>(T x) => /*@promotedType=none*/ x;
 }
 
 main() {
-  var /*@type=int*/ y = new C().m(42);
+  var /*@type=int*/ y = new C(). /*@typeArgs=int*/ m(42);
 }

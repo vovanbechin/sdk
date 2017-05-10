@@ -6,7 +6,7 @@
 library test;
 
 class Foo<T extends Pattern> {
-  U method<U extends T>(U u) => u;
+  U method<U extends T>(U u) => /*@promotedType=none*/ u;
 }
 
 main() {
@@ -22,5 +22,5 @@ main() {
   s = c;
   */
 
-  new Foo<String>(). /*error:COULD_NOT_INFER*/ method(42);
+  new Foo<String>(). /*error:COULD_NOT_INFER*/ /*@typeArgs=int*/ method(42);
 }

@@ -24,8 +24,6 @@ export 'type_variable_builder.dart' show TypeVariableBuilder;
 
 export 'function_type_alias_builder.dart' show FunctionTypeAliasBuilder;
 
-export 'named_mixin_application_builder.dart' show NamedMixinApplicationBuilder;
-
 export 'mixin_application_builder.dart' show MixinApplicationBuilder;
 
 export 'enum_builder.dart' show EnumBuilder;
@@ -61,8 +59,8 @@ import 'library_builder.dart' show LibraryBuilder;
 import 'package:front_end/src/fasta/builder/class_builder.dart'
     show ClassBuilder;
 
-import 'package:front_end/src/fasta/type_inference/type_inference_engine.dart'
-    show TypeInferenceEngine;
+import 'package:front_end/src/fasta/source/source_library_builder.dart'
+    show SourceLibraryBuilder;
 
 abstract class Builder {
   /// Used when multiple things with the same name are declared within the same
@@ -124,6 +122,8 @@ abstract class Builder {
 
   bool get isConst => false;
 
+  bool get isSynthetic => false;
+
   get target => internalError("Unsupported operation $runtimeType.");
 
   bool get hasProblem => false;
@@ -139,6 +139,6 @@ abstract class Builder {
     return internalError("No library parent.");
   }
 
-  void prepareInitializerInference(TypeInferenceEngine typeInferenceEngine,
-      LibraryBuilder library, ClassBuilder currentClass) {}
+  void prepareInitializerInference(
+      SourceLibraryBuilder library, ClassBuilder currentClass) {}
 }

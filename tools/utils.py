@@ -405,7 +405,7 @@ def GetArchiveVersion():
   version = ReadVersionFile()
   if not version:
     raise 'Could not get the archive version, parsing the version file failed'
-  if version.channel in ['be', 'integration']:
+  if version.channel == 'be':
     return GetGitNumber()
   return GetSemanticSDKVersion()
 

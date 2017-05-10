@@ -26,6 +26,13 @@ namespace dart {
 namespace kernel {
 
 
+Reader::~Reader() {
+  delete[] string_offsets_;
+  delete[] canonical_name_parents_;
+  delete[] canonical_name_strings_;
+}
+
+
 template <typename T>
 template <typename IT>
 void List<T>::ReadFrom(Reader* reader, TreeNode* parent) {
@@ -89,7 +96,7 @@ void TypeParameterList::ReadFrom(Reader* reader) {
 
 NamedParameter* NamedParameter::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
-  intptr_t name_index = reader->ReadUInt();
+  StringIndex name_index(reader->ReadUInt());
   DartType* type = DartType::ReadFrom(reader);
   return new NamedParameter(name_index, type);
 }
@@ -169,8 +176,8 @@ Library* Library::ReadFrom(Reader* reader) {
   kernel_data_size_ = reader->size();
 
   canonical_name_ = reader->ReadCanonicalNameReference();
-  name_index_ = reader->ReadUInt();
-  import_uri_index_ = canonical_name_->name();
+  name_index_ = StringIndex(reader->ReadUInt());
+  import_uri_index_ = reader->CanonicalNameString(canonical_name_);
   source_uri_index_ = reader->ReadUInt();
   reader->set_current_script_id(source_uri_index_);
 
@@ -203,7 +210,7 @@ Typedef* Typedef::ReadFrom(Reader* reader) {
 
   canonical_name_ = reader->ReadCanonicalNameReference();
   position_ = reader->ReadPosition(false);
-  name_index_ = reader->ReadUInt();
+  name_index_ = StringIndex(reader->ReadUInt());
   source_uri_index_ = reader->ReadUInt();
   type_parameters_.ReadFrom(reader);
   type_ = DartType::ReadFrom(reader);
@@ -218,7 +225,7 @@ Class* Class::ReadFrom(Reader* reader) {
   canonical_name_ = reader->ReadCanonicalNameReference();
   position_ = reader->ReadPosition(false);
   is_abstract_ = reader->ReadBool();
-  name_index_ = reader->ReadUInt();
+  name_index_ = StringIndex(reader->ReadUInt());
   source_uri_index_ = reader->ReadUInt();
   reader->set_current_script_id(source_uri_index_);
   reader->record_token_position(position_);
@@ -263,48 +270,32 @@ MixinClass* MixinClass::ReadFrom(Reader* reader) {
 }
 
 
-CanonicalName* Reference::ReadMemberFrom(Reader* reader, bool allow_null) {
+NameIndex Reference::ReadMemberFrom(Reader* reader, bool allow_null) {
   TRACE_READ_OFFSET();
-
-  CanonicalName* canonical_name = reader->ReadCanonicalNameReference();
-  if (canonical_name == NULL && !allow_null) {
+  NameIndex canonical_name = reader->ReadCanonicalNameReference();
+  if ((canonical_name == -1) && !allow_null) {
     FATAL("Expected a valid member reference, but got `null`");
   }
-
-  if (canonical_name != NULL) {
-    canonical_name->set_referenced(true);
-  }
-
   return canonical_name;
 }
 
 
-CanonicalName* Reference::ReadClassFrom(Reader* reader, bool allow_null) {
+NameIndex Reference::ReadClassFrom(Reader* reader, bool allow_null) {
   TRACE_READ_OFFSET();
-
-  CanonicalName* canonical_name = reader->ReadCanonicalNameReference();
-  if (canonical_name == NULL && !allow_null) {
+  NameIndex canonical_name = reader->ReadCanonicalNameReference();
+  if ((canonical_name == -1) && !allow_null) {
     FATAL("Expected a valid class reference, but got `null`");
   }
-
-  if (canonical_name != NULL) {
-    canonical_name->set_referenced(true);
-  }
-
   return canonical_name;
 }
 
 
-CanonicalName* Reference::ReadTypedefFrom(Reader* reader) {
+NameIndex Reference::ReadTypedefFrom(Reader* reader) {
   TRACE_READ_OFFSET();
-
-  CanonicalName* canonical_name = reader->ReadCanonicalNameReference();
-  if (canonical_name == NULL) {
+  NameIndex canonical_name = reader->ReadCanonicalNameReference();
+  if (canonical_name == -1) {
     FATAL("Expected a valid typedef reference, but got `null`");
   }
-
-  canonical_name->set_referenced(true);
-
   return canonical_name;
 }
 
@@ -676,7 +667,7 @@ Arguments* Arguments::ReadFrom(Reader* reader) {
 
 NamedExpression* NamedExpression::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
-  intptr_t name_index = reader->ReadUInt();
+  StringIndex name_index(reader->ReadUInt());
   Expression* expression = Expression::ReadFrom(reader);
   return new NamedExpression(name_index, expression);
 }
@@ -799,7 +790,7 @@ AsExpression* AsExpression::ReadFrom(Reader* reader) {
 StringLiteral* StringLiteral::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   intptr_t offset = reader->offset() - 1;  // -1 to include tag byte.
-  StringLiteral* lit = new StringLiteral(reader->ReadUInt());
+  StringLiteral* lit = new StringLiteral(StringIndex(reader->ReadUInt()));
   lit->kernel_offset_ = offset;
   return lit;
 }
@@ -808,7 +799,7 @@ StringLiteral* StringLiteral::ReadFrom(Reader* reader) {
 BigintLiteral* BigintLiteral::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   intptr_t offset = reader->offset() - 1;  // -1 to include tag byte.
-  BigintLiteral* lit = new BigintLiteral(reader->ReadUInt());
+  BigintLiteral* lit = new BigintLiteral(StringIndex(reader->ReadUInt()));
   lit->kernel_offset_ = offset;
   return lit;
 }
@@ -837,7 +828,7 @@ DoubleLiteral* DoubleLiteral::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   DoubleLiteral* literal = new DoubleLiteral();
   literal->kernel_offset_ = reader->offset() - 1;  // -1 to include tag byte.
-  literal->value_index_ = reader->ReadUInt();
+  literal->value_index_ = StringIndex(reader->ReadUInt());
   return literal;
 }
 
@@ -863,7 +854,7 @@ SymbolLiteral* SymbolLiteral::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
   SymbolLiteral* lit = new SymbolLiteral();
   lit->kernel_offset_ = reader->offset() - 1;  // -1 to include tag byte.
-  lit->value_index_ = reader->ReadUInt();
+  lit->value_index_ = StringIndex(reader->ReadUInt());
   return lit;
 }
 
@@ -1341,7 +1332,7 @@ VariableDeclaration* VariableDeclaration::ReadFromImpl(Reader* reader,
   decl->position_ = reader->ReadPosition();
   decl->equals_position_ = reader->ReadPosition();
   decl->flags_ = reader->ReadFlags();
-  decl->name_index_ = reader->ReadUInt();
+  decl->name_index_ = StringIndex(reader->ReadUInt());
   decl->type_ = DartType::ReadFrom(reader);
   decl->initializer_ = reader->ReadOptional<Expression>();
 
@@ -1369,10 +1360,10 @@ FunctionDeclaration* FunctionDeclaration::ReadFrom(Reader* reader) {
 
 
 Name* Name::ReadFrom(Reader* reader) {
-  intptr_t name_index = reader->ReadUInt();
+  StringIndex name_index(reader->ReadUInt());
   if ((reader->StringLength(name_index) >= 1) &&
       (reader->CharacterAt(name_index, 0) == '_')) {
-    CanonicalName* library_reference = reader->ReadCanonicalNameReference();
+    intptr_t library_reference = reader->ReadCanonicalNameReference();
     return new Name(name_index, library_reference);
   } else {
     return new Name(name_index, NULL);
@@ -1390,6 +1381,8 @@ DartType* DartType::ReadFrom(Reader* reader) {
       return DynamicType::ReadFrom(reader);
     case kVoidType:
       return VoidType::ReadFrom(reader);
+    case kBottomType:
+      return BottomType::ReadFrom(reader);
     case kInterfaceType:
       return InterfaceType::ReadFrom(reader);
     case kSimpleInterfaceType:
@@ -1430,9 +1423,15 @@ VoidType* VoidType::ReadFrom(Reader* reader) {
 }
 
 
+BottomType* BottomType::ReadFrom(Reader* reader) {
+  TRACE_READ_OFFSET();
+  return new BottomType();
+}
+
+
 InterfaceType* InterfaceType::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
-  CanonicalName* klass_name = Reference::ReadClassFrom(reader);
+  NameIndex klass_name = Reference::ReadClassFrom(reader);
   InterfaceType* type = new InterfaceType(klass_name);
   type->type_arguments().ReadFromStatic<DartType>(reader);
   return type;
@@ -1442,7 +1441,7 @@ InterfaceType* InterfaceType::ReadFrom(Reader* reader) {
 InterfaceType* InterfaceType::ReadFrom(Reader* reader,
                                        bool _without_type_arguments_) {
   TRACE_READ_OFFSET();
-  CanonicalName* klass_name = Reference::ReadClassFrom(reader);
+  NameIndex klass_name = Reference::ReadClassFrom(reader);
   InterfaceType* type = new InterfaceType(klass_name);
   ASSERT(_without_type_arguments_);
   return type;
@@ -1451,7 +1450,7 @@ InterfaceType* InterfaceType::ReadFrom(Reader* reader,
 
 TypedefType* TypedefType::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
-  CanonicalName* typedef_name = Reference::ReadTypedefFrom(reader);
+  NameIndex typedef_name = Reference::ReadTypedefFrom(reader);
   TypedefType* type = new TypedefType(typedef_name);
   type->type_arguments().ReadFromStatic<DartType>(reader);
   return type;
@@ -1487,6 +1486,8 @@ TypeParameterType* TypeParameterType::ReadFrom(Reader* reader) {
   TypeParameterType* type = new TypeParameterType();
   type->parameter_ =
       reader->helper()->type_parameters().Lookup(reader->ReadUInt());
+  // There is an optional promoted bound, currently ignored.
+  delete reader->ReadOptional<DartType>();
   return type;
 }
 
@@ -1504,41 +1505,36 @@ Program* Program::ReadFrom(Reader* reader) {
   if (magic != kMagicProgramFile) FATAL("Invalid magic identifier");
 
   Program* program = new Program();
-  program->canonical_name_root_ = CanonicalName::NewRoot();
   reader->helper()->set_program(program);
 
-  // Skip the table of string end offsets.
-  reader->MarkStringTableOffset();
-  intptr_t length = reader->ReadUInt();
-  reader->string_offsets_ = new intptr_t[length + 1];
+  // Deserialize the string offset table to give fast access to the string data
+  // during deserialization.
+  program->string_table_offset_ = reader->offset();
+  intptr_t string_count = reader->ReadUInt();
+  reader->string_offsets_ = new intptr_t[string_count + 1];
   intptr_t offset = 0;
-  for (intptr_t i = 0; i < length; ++i) {
+  for (intptr_t i = 0; i < string_count; ++i) {
     reader->string_offsets_[i] = offset;
     offset = reader->ReadUInt();
   }
-  reader->string_offsets_[length] = offset;
+  reader->string_offsets_[string_count] = offset;
   // Skip the UTF-8 encoded strings.
   reader->MarkStringDataOffset();
   reader->Consume(offset);
 
-  program->string_table_offset_ = reader->string_table_offset();
-  ASSERT(program->string_table_offset_ >= 0);
   program->source_table_.ReadFrom(reader);
 
-  int canonical_names = reader->ReadUInt();
-  reader->helper()->SetCanonicalNameCount(canonical_names);
-  for (int i = 0; i < canonical_names; ++i) {
-    int biased_parent_index = reader->ReadUInt();
-    CanonicalName* parent;
-    if (biased_parent_index != 0) {
-      parent = reader->helper()->GetCanonicalName(biased_parent_index - 1);
-    } else {
-      parent = program->canonical_name_root();
-    }
-    ASSERT(parent != NULL);
-    intptr_t name_index = reader->ReadUInt();
-    CanonicalName* canonical_name = parent->AddChild(name_index);
-    reader->helper()->SetCanonicalName(i, canonical_name);
+  // Deserialize the canonical name table to give fast access to canonical names
+  // during deserialization.
+  program->name_table_offset_ = reader->offset();
+  intptr_t name_count = reader->ReadUInt();
+  reader->canonical_name_parents_ = new NameIndex[name_count];
+  reader->canonical_name_strings_ = new StringIndex[name_count];
+  for (int i = 0; i < name_count; ++i) {
+    // The parent name index is biased: 0 is the root name and otherwise N+1 is
+    // the Nth name.
+    reader->canonical_name_parents_[i] = reader->ReadCanonicalNameReference();
+    reader->canonical_name_strings_[i] = StringIndex(reader->ReadUInt());
   }
 
   int libraries = reader->ReadUInt();
@@ -1583,7 +1579,7 @@ FunctionNode* FunctionNode::ReadFrom(Reader* reader) {
 
 TypeParameter* TypeParameter::ReadFrom(Reader* reader) {
   TRACE_READ_OFFSET();
-  name_index_ = reader->ReadUInt();
+  name_index_ = StringIndex(reader->ReadUInt());
   bound_ = DartType::ReadFrom(reader);
   return this;
 }

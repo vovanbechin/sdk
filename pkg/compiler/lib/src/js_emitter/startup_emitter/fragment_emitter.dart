@@ -297,7 +297,7 @@ function initializeDeferredHunk(hunk) {
   hunk(inherit, mixin, lazy, makeConstList, convertToFastObject, installTearOff,
        setFunctionNamesIfNecessary, updateHolder, updateTypes,
        setOrUpdateInterceptorsByTag, setOrUpdateLeafTags,
-       #embeddedGlobalsObject, #holdersList, #staticState);
+       #embeddedGlobalsObject, holders, #staticState);
 }
 
 // Returns the global with the given [name].
@@ -313,11 +313,33 @@ function getGlobalFromName(name) {
   }
 }
 
+if (#hasSoftDeferredClasses) {
+  // Loads the soft-deferred classes and initializes them.
+  // Updates the prototype of the given object.
+  function softDef(o) {
+    softDef = function(o) {};  // Replace ourselves.
+    #deferredGlobal[#softId](
+        holders, #embeddedGlobalsObject, #staticState, inherit, mixin,
+        installTearOff);
+    if (o != null) {
+      // TODO(29574): should we do something different for Firefox?
+      // If we recommend that the program triggers the load by itself before
+      // classes are needed, then this line should rarely be hit.
+      // Also, it is only hit at most once (per soft-deferred chunk).
+      o.__proto__ = o.constructor.prototype;
+    }
+  }
+}
+
+if (#isTrackingAllocations) {
+  var allocations = #deferredGlobal['allocations'] = {};
+}
+
 // Creates the holders.
 #holders;
 
 // If the name is not set on the functions, do it now.
-setFunctionNamesIfNecessary(#holdersList);
+setFunctionNamesIfNecessary(holders);
 
 // TODO(floitsch): we should build this object as a literal.
 var #staticStateDeclaration = {};
@@ -429,6 +451,28 @@ updateTypes(#types);
 #nativeSupport;
 }''';
 
+/// Soft-deferred fragments are built similarly to the main fragment.
+///
+/// However, they don't contribute anything to global namespace, but just
+/// initialize existing classes. For example, they update the inheritance
+/// hierarchy, and add methods the prototypes.
+const String softDeferredBoilerplate = '''
+#deferredGlobal[#softId] =
+    function(holdersList, #embeddedGlobalsObject, #staticState, inherit, mixin,
+    installTearOff) {
+
+// Installs the holders as local variables.
+#installHoldersAsLocals;
+// Sets the prototypes of the new classes.
+#prototypes;
+// Sets aliases of methods (on the prototypes of classes).
+#aliases;
+// Installs the tear-offs of functions.
+#tearOffs;
+// Builds the inheritance structure.
+#inheritance;
+}''';
+
 /**
  * This class builds a JavaScript tree for a given fragment.
  *
@@ -443,9 +487,10 @@ class FragmentEmitter {
   final JavaScriptBackend backend;
   final ConstantEmitter constantEmitter;
   final ModelEmitter modelEmitter;
+  final InterceptorData _interceptorData;
 
   FragmentEmitter(this.compiler, this.namer, this.backend, this.constantEmitter,
-      this.modelEmitter);
+      this.modelEmitter, this._interceptorData);
 
   js.Expression generateEmbeddedGlobalAccess(String global) =>
       modelEmitter.generateEmbeddedGlobalAccess(global);
@@ -464,7 +509,9 @@ class FragmentEmitter {
     Iterable<Holder> nonStaticStateHolders =
         program.holders.where((Holder holder) => !holder.isStaticStateHolder);
 
-    return js.js.statement(mainBoilerplate, {
+    String softDeferredId = "softDeferred${new Random().nextInt(0x7FFFFFFF)}";
+
+    js.Statement mainCode = js.js.statement(mainBoilerplate, {
       'directAccessTestExpression': js.js(directAccessTestExpression),
       'typeNameProperty': js.string(ModelEmitter.typeNameProperty),
       'cyclicThrow': backend.emitter
@@ -477,9 +524,6 @@ class FragmentEmitter {
           generateEmbeddedGlobalAccess(INTERCEPTORS_BY_TAG),
       'embeddedLeafTags': generateEmbeddedGlobalAccess(LEAF_TAGS),
       'embeddedGlobalsObject': js.js("init"),
-      'holdersList': new js.ArrayInitializer(nonStaticStateHolders
-          .map((holder) => js.js("#", holder.name))
-          .toList(growable: false)),
       'staticStateDeclaration': new js.VariableDeclaration(
           namer.staticStateHolder,
           allowRename: false),
@@ -490,6 +534,10 @@ class FragmentEmitter {
       'stubName': js.string(namer.stubNameField),
       'argumentCount': js.string(namer.requiredParameterField),
       'defaultArgumentValues': js.string(namer.defaultValuesField),
+      'deferredGlobal': ModelEmitter.deferredInitializersGlobal,
+      'hasSoftDeferredClasses': program.hasSoftDeferredClasses,
+      'softId': js.string(softDeferredId),
+      'isTrackingAllocations': compiler.options.experimentalTrackAllocations,
       'prototypes': emitPrototypes(fragment),
       'inheritance': emitInheritance(fragment),
       'aliases': emitInstanceMethodAliases(fragment),
@@ -501,11 +549,41 @@ class FragmentEmitter {
       'nativeSupport': program.needsNativeSupport
           ? emitNativeSupport(fragment)
           : new js.EmptyStatement(),
-      'jsInteropSupport': backend.jsInteropAnalysis.enabledJsInterop
+      'jsInteropSupport': backend.nativeBasicData.isJsInteropUsed
           ? backend.jsInteropAnalysis.buildJsInteropBootstrap()
           : new js.EmptyStatement(),
       'invokeMain': fragment.invokeMain,
     });
+    if (program.hasSoftDeferredClasses) {
+      return new js.Block([
+        js.js.statement(softDeferredBoilerplate, {
+          'deferredGlobal': ModelEmitter.deferredInitializersGlobal,
+          'softId': js.string(softDeferredId),
+          // TODO(floitsch): don't just reference 'init'.
+          'embeddedGlobalsObject': new js.Parameter('init'),
+          'staticState': new js.Parameter(namer.staticStateHolder),
+          'installHoldersAsLocals':
+              emitInstallHoldersAsLocals(nonStaticStateHolders),
+          'prototypes': emitPrototypes(fragment, softDeferred: true),
+          'aliases': emitInstanceMethodAliases(fragment, softDeferred: true),
+          'tearOffs': emitInstallTearOffs(fragment, softDeferred: true),
+          'inheritance': emitInheritance(fragment, softDeferred: true),
+        }),
+        mainCode
+      ]);
+    }
+    return mainCode;
+  }
+
+  js.Statement emitInstallHoldersAsLocals(Iterable<Holder> holders) {
+    List<js.Statement> holderInits = <js.Statement>[];
+    int counter = 0;
+    for (Holder holder in holders) {
+      holderInits.add(new js.ExpressionStatement(new js.VariableInitialization(
+          new js.VariableDeclaration(holder.name, allowRename: false),
+          js.js("holdersList[#]", js.number(counter++)))));
+    }
+    return new js.Block(holderInits);
   }
 
   js.Expression emitDeferredFragment(DeferredFragment fragment,
@@ -657,6 +735,14 @@ class FragmentEmitter {
     var parameters = <js.Name>[];
     var thisRef;
 
+    if (cls.isSoftDeferred) {
+      statements.add(js.js.statement('softDef(this)'));
+    } else if (compiler.options.experimentalTrackAllocations) {
+      String qualifiedName =
+          "${cls.element.library.canonicalUri}:${cls.element.name}";
+      statements.add(js.js.statement('allocations["$qualifiedName"] = true'));
+    }
+
     // If there are many references to `this`, cache it in a local.
     if (cls.fields.length + (cls.hasRtiField ? 1 : 0) >= 4) {
       // TODO(29455): Fix js_ast printer and minifier to avoid conflicts between
@@ -697,9 +783,10 @@ class FragmentEmitter {
   ///
   /// This section updates the prototype-property of all constructors in the
   /// global holders.
-  js.Statement emitPrototypes(Fragment fragment) {
+  js.Statement emitPrototypes(Fragment fragment, {softDeferred = false}) {
     List<js.Statement> assignments = fragment.libraries
         .expand((Library library) => library.classes)
+        .where((Class cls) => cls.isSoftDeferred == softDeferred)
         .map((Class cls) {
       var proto = js.js.statement(
           '#.prototype = #;', [classReference(cls), emitPrototype(cls)]);
@@ -864,13 +951,14 @@ class FragmentEmitter {
   ///
   /// In this section prototype chains are updated and mixin functions are
   /// copied.
-  js.Statement emitInheritance(Fragment fragment) {
+  js.Statement emitInheritance(Fragment fragment, {bool softDeferred = false}) {
     List<js.Statement> inheritCalls = <js.Statement>[];
     List<js.Statement> mixinCalls = <js.Statement>[];
 
     Set<Class> classesInFragment = new Set<Class>();
     for (Library library in fragment.libraries) {
-      classesInFragment.addAll(library.classes);
+      classesInFragment.addAll(library.classes
+          .where(((Class cls) => cls.isSoftDeferred == softDeferred)));
     }
 
     Map<Class, List<Class>> subclasses = <Class, List<Class>>{};
@@ -891,6 +979,7 @@ class FragmentEmitter {
 
     for (Library library in fragment.libraries) {
       for (Class cls in library.classes) {
+        if (cls.isSoftDeferred != softDeferred) continue;
         collect(cls);
 
         if (cls.isMixinApplication) {
@@ -929,19 +1018,20 @@ class FragmentEmitter {
       }
     }
 
-    return wrapPhase(
-        'inheritance', js.js.statement('{#; #;}', [inheritCalls, mixinCalls]));
+    return wrapPhase('inheritance', inheritCalls.toList()..addAll(mixinCalls));
   }
 
   /// Emits the setup of method aliases.
   ///
   /// This step consists of simply copying JavaScript functions to their
   /// aliased names so they point to the same function.
-  js.Statement emitInstanceMethodAliases(Fragment fragment) {
+  js.Statement emitInstanceMethodAliases(Fragment fragment,
+      {bool softDeferred = false}) {
     List<js.Statement> assignments = <js.Statement>[];
 
     for (Library library in fragment.libraries) {
       for (Class cls in library.classes) {
+        if (cls.isSoftDeferred != softDeferred) continue;
         for (InstanceMethod method in cls.methods) {
           if (method.aliasName != null) {
             assignments.add(js.js.statement('#.prototype.# = #.prototype.#', [
@@ -1029,7 +1119,7 @@ class FragmentEmitter {
     bool isIntercepted = false;
     if (method is InstanceMethod) {
       MethodElement element = method.element;
-      isIntercepted = backend.interceptorData.isInterceptedMethod(element);
+      isIntercepted = _interceptorData.isInterceptedMethod(element);
     }
     int requiredParameterCount = 0;
     js.Expression optionalParameterDefaultValues = new js.LiteralNull();
@@ -1061,12 +1151,15 @@ class FragmentEmitter {
   /// Wraps the statement in a named function to that it shows up as a unit in
   /// profiles.
   // TODO(sra): Should this be conditional?
-  js.Statement wrapPhase(String name, js.Statement statement) {
-    return js.js.statement('(function #(){#})();', [name, statement]);
+  js.Statement wrapPhase(String name, List<js.Statement> statements) {
+    js.Block block = new js.Block(statements);
+    if (statements.isEmpty) return block;
+    return js.js.statement('(function #(){#})();', [name, block]);
   }
 
   /// Emits the section that installs tear-off getters.
-  js.Statement emitInstallTearOffs(Fragment fragment) {
+  js.Statement emitInstallTearOffs(Fragment fragment,
+      {bool softDeferred = false}) {
     List<js.Statement> inits = <js.Statement>[];
     js.Expression temp;
 
@@ -1082,6 +1175,7 @@ class FragmentEmitter {
         }
       }
       for (Class cls in library.classes) {
+        if (cls.isSoftDeferred != softDeferred) continue;
         var methods = cls.methods.where((m) => m.needsTearOff).toList();
         js.Expression container = js.js("#.prototype", classReference(cls));
         js.Expression reference = container;
@@ -1099,7 +1193,7 @@ class FragmentEmitter {
         }
       }
     }
-    return wrapPhase('installTearOffs', new js.Block(inits));
+    return wrapPhase('installTearOffs', inits);
   }
 
   /// Emits the constants section.
@@ -1118,7 +1212,7 @@ class FragmentEmitter {
       compiler.dumpInfoTask.registerConstantAst(constant.value, assignment);
       assignments.add(assignment);
     }
-    return wrapPhase('constants', new js.Block(assignments));
+    return wrapPhase('constants', assignments);
   }
 
   /// Emits the static non-final fields section.
@@ -1137,7 +1231,7 @@ class FragmentEmitter {
       return js.js
           .statement("#.# = #;", [field.holder.name, field.name, field.code]);
     });
-    return wrapPhase('staticFields', new js.Block(statements.toList()));
+    return wrapPhase('staticFields', statements.toList());
   }
 
   /// Emits lazy fields.
@@ -1156,7 +1250,7 @@ class FragmentEmitter {
       ]);
     });
 
-    return wrapPhase('lazyInitializers', new js.Block(statements.toList()));
+    return wrapPhase('lazyInitializers', statements.toList());
   }
 
   /// Emits the embedded globals that are needed for deferred loading.
@@ -1470,6 +1564,6 @@ class FragmentEmitter {
         js.js.statement("setOrUpdateLeafTags(#);", js.objectLiteral(leafTags)));
     statements.addAll(subclassAssignments);
 
-    return wrapPhase('nativeSupport', new js.Block(statements));
+    return wrapPhase('nativeSupport', statements);
   }
 }

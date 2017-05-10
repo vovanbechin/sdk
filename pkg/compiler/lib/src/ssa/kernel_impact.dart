@@ -8,12 +8,13 @@ import '../common.dart';
 import '../common/names.dart';
 import '../compiler.dart';
 import '../constants/expressions.dart';
+import '../constants/values.dart';
 import '../common_elements.dart';
 import '../elements/types.dart';
 import '../elements/elements.dart' show AstElement, ResolvedAst;
 import '../elements/entities.dart';
 import '../js_backend/backend.dart' show JavaScriptBackend;
-import '../kernel/element_adapter.dart';
+import '../kernel/element_map.dart';
 import '../kernel/kernel.dart';
 import '../resolution/registry.dart' show ResolutionWorldImpactBuilder;
 import '../universe/call_structure.dart';
@@ -62,7 +63,7 @@ ir.Member getIrMember(Compiler compiler, ResolvedAst resolvedAst) {
 }
 
 ResolutionImpact buildKernelImpact(
-    ir.Member member, KernelElementAdapter elementAdapter) {
+    ir.Member member, KernelToElementMap elementAdapter) {
   KernelImpactBuilder builder =
       new KernelImpactBuilder('${member.name}', elementAdapter);
   if (member is ir.Procedure) {
@@ -77,7 +78,7 @@ ResolutionImpact buildKernelImpact(
 
 class KernelImpactBuilder extends ir.Visitor {
   final ResolutionWorldImpactBuilder impactBuilder;
-  final KernelElementAdapter elementAdapter;
+  final KernelToElementMap elementAdapter;
 
   KernelImpactBuilder(String name, this.elementAdapter)
       : this.impactBuilder = new ResolutionWorldImpactBuilder(name);
@@ -137,10 +138,8 @@ class KernelImpactBuilder extends ir.Visitor {
     return impactBuilder;
   }
 
-  ResolutionImpact buildProcedure(ir.Procedure procedure) {
-    handleSignature(procedure.function);
-    visitNode(procedure.function.body);
-    switch (procedure.function.asyncMarker) {
+  void handleAsyncMarker(ir.AsyncMarker asyncMarker) {
+    switch (asyncMarker) {
       case ir.AsyncMarker.Sync:
         break;
       case ir.AsyncMarker.SyncStar:
@@ -154,8 +153,14 @@ class KernelImpactBuilder extends ir.Visitor {
         break;
       case ir.AsyncMarker.SyncYielding:
         throw new SpannableAssertionFailure(CURRENT_ELEMENT_SPANNABLE,
-            "Unexpected async marker: ${procedure.function.asyncMarker}");
+            "Unexpected async marker: ${asyncMarker}");
     }
+  }
+
+  ResolutionImpact buildProcedure(ir.Procedure procedure) {
+    handleSignature(procedure.function);
+    visitNode(procedure.function.body);
+    handleAsyncMarker(procedure.function.asyncMarker);
     if (procedure.isExternal &&
         !elementAdapter.isForeignLibrary(procedure.enclosingLibrary)) {
       impactBuilder.registerNativeData(
@@ -265,6 +270,9 @@ class KernelImpactBuilder extends ir.Visitor {
       {bool isConst: false}) {
     _visitArguments(node.arguments);
     ConstructorEntity constructor = elementAdapter.getConstructor(target);
+    if (commonElements.isSymbolConstructor(constructor)) {
+      impactBuilder.registerFeature(Feature.SYMBOL_CONSTRUCTOR);
+    }
     InterfaceType type = elementAdapter.createInterfaceType(
         target.enclosingClass, node.arguments.types);
     CallStructure callStructure =
@@ -275,6 +283,18 @@ class KernelImpactBuilder extends ir.Visitor {
             constructor, callStructure, type));
     if (type.typeArguments.any((DartType type) => !type.isDynamic)) {
       impactBuilder.registerFeature(Feature.TYPE_VARIABLE_BOUNDS_CHECK);
+    }
+    if (isConst && commonElements.isSymbolConstructor(constructor)) {
+      ConstantValue value =
+          elementAdapter.getConstantValue(node.arguments.positional.first);
+      if (!value.isString) {
+        throw new SpannableAssertionFailure(
+            CURRENT_ELEMENT_SPANNABLE,
+            "Unexpected constant value in const Symbol(...) call: "
+            "${value.toStructuredText()}");
+      }
+      StringConstantValue stringValue = value;
+      impactBuilder.registerConstSymbolName(stringValue.primitiveValue);
     }
   }
 
@@ -472,6 +492,7 @@ class KernelImpactBuilder extends ir.Visitor {
     impactBuilder.registerStaticUse(
         new StaticUse.closure(elementAdapter.getLocalFunction(node)));
     handleSignature(node.function);
+    handleAsyncMarker(node.function.asyncMarker);
     visitNode(node.function.body);
   }
 
@@ -480,6 +501,7 @@ class KernelImpactBuilder extends ir.Visitor {
     impactBuilder.registerStaticUse(
         new StaticUse.closure(elementAdapter.getLocalFunction(node)));
     handleSignature(node.function);
+    handleAsyncMarker(node.function.asyncMarker);
     visitNode(node.function.body);
   }
 

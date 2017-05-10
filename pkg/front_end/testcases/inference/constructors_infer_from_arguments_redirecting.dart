@@ -8,9 +8,9 @@ library test;
 class C<T> {
   T t;
   C(this.t);
-  C.named(List<T> t) : this(t[0]);
+  C.named(List<T> t) : this(/*@promotedType=none*/ t[0]);
 }
 
 main() {
-  var /*@type=C<int>*/ x = /*@typeArgs=int*/ new C.named(<int>[42]);
+  var /*@type=C<int>*/ x = new /*@typeArgs=int*/ C.named(<int>[42]);
 }

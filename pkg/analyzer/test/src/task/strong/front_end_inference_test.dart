@@ -16,6 +16,7 @@ import 'package:front_end/src/base/instrumentation.dart' as fasta;
 import 'package:front_end/src/fasta/compiler_context.dart' as fasta;
 import 'package:front_end/src/fasta/testing/validating_instrumentation.dart'
     as fasta;
+import 'package:front_end/src/fasta/util/relativize.dart' show relativizeUri;
 import 'package:kernel/kernel.dart' as fasta;
 import 'package:path/path.dart' as pathos;
 import 'package:test/test.dart';
@@ -31,6 +32,9 @@ main() {
     });
   }, timeout: new Timeout(const Duration(seconds: 60)));
 }
+
+/// Set this to `true` to cause expectation comments to be updated.
+const bool fixProblems = false;
 
 @reflectiveTest
 class RunFrontEndInferenceTest {
@@ -85,7 +89,7 @@ class _FrontEndInferenceTest extends BaseAnalysisDriverTest {
     Uri uri = provider.pathContext.toUri(path);
 
     List<int> lineStarts = new LineInfo.fromContent(code).lineStarts;
-    fasta.CompilerContext.current.uriToSource[uri.toString()] =
+    fasta.CompilerContext.current.uriToSource[relativizeUri(uri).toString()] =
         new fasta.Source(lineStarts, UTF8.encode(code));
 
     var validation = new fasta.ValidatingInstrumentation();
@@ -99,7 +103,12 @@ class _FrontEndInferenceTest extends BaseAnalysisDriverTest {
     validation.finish();
 
     if (validation.hasProblems) {
-      return validation.problemsAsString;
+      if (fixProblems) {
+        validation.fixSource(uri);
+        return null;
+      } else {
+        return validation.problemsAsString;
+      }
     } else {
       return null;
     }
@@ -239,7 +248,7 @@ class _InstrumentationVisitor extends RecursiveAstVisitor<Null> {
     if (type is InterfaceType) {
       if (type.typeParameters.isNotEmpty &&
           node.constructorName.type.typeArguments == null) {
-        _recordTypeArguments(node.offset, type.typeArguments);
+        _recordTypeArguments(node.constructorName.offset, type.typeArguments);
       }
     }
   }
@@ -264,19 +273,37 @@ class _InstrumentationVisitor extends RecursiveAstVisitor<Null> {
     }
   }
 
+  visitMethodInvocation(MethodInvocation node) {
+    super.visitMethodInvocation(node);
+    var inferredTypeArguments = _getInferredFunctionTypeArguments(
+            node.function.staticType, node.staticInvokeType, node.typeArguments)
+        .toList();
+    if (inferredTypeArguments.isNotEmpty) {
+      _recordTypeArguments(node.methodName.offset, inferredTypeArguments);
+    }
+  }
+
   visitSimpleIdentifier(SimpleIdentifier node) {
     super.visitSimpleIdentifier(node);
     Element element = node.staticElement;
-    if (element is LocalVariableElement && node.inGetterContext()) {
-      int offset = node.offset;
-      DartType type = node.staticType;
-      if (identical(type, element.type)) {
-        _instrumentation.record(uri, offset, 'promotedType',
-            const fasta.InstrumentationValueLiteral('none'));
-      } else {
-        _instrumentation.record(uri, offset, 'promotedType',
-            new _InstrumentationValueForType(type));
+    void recordPromotions(DartType elementType) {
+      if (node.inGetterContext() && !node.inDeclarationContext()) {
+        int offset = node.offset;
+        DartType type = node.staticType;
+        if (identical(type, elementType)) {
+          _instrumentation.record(uri, offset, 'promotedType',
+              const fasta.InstrumentationValueLiteral('none'));
+        } else {
+          _instrumentation.record(uri, offset, 'promotedType',
+              new _InstrumentationValueForType(type));
+        }
       }
+    }
+
+    if (element is LocalVariableElement) {
+      recordPromotions(element.type);
+    } else if (element is ParameterElement) {
+      recordPromotions(element.type);
     }
   }
 
@@ -294,6 +321,19 @@ class _InstrumentationVisitor extends RecursiveAstVisitor<Null> {
     }
   }
 
+  /// Based on DDC code generator's `_emitFunctionTypeArguments`
+  Iterable<DartType> _getInferredFunctionTypeArguments(
+      DartType g, DartType f, TypeArgumentList typeArgs) {
+    if (g is FunctionType &&
+        g.typeFormals.isNotEmpty &&
+        f is FunctionType &&
+        f.typeFormals.isEmpty) {
+      return _recoverTypeArguments(g, f);
+    } else {
+      return const [];
+    }
+  }
+
   void _recordTopType(int offset, DartType type) {
     _instrumentation.record(
         uri, offset, 'topType', new _InstrumentationValueForType(type));
@@ -307,5 +347,14 @@ class _InstrumentationVisitor extends RecursiveAstVisitor<Null> {
   void _recordTypeArguments(int offset, List<DartType> typeArguments) {
     _instrumentation.record(uri, offset, 'typeArgs',
         new _InstrumentationValueForTypeArgs(typeArguments));
+  }
+
+  /// Based on DDC code generator's `_recoverTypeArguments`
+  Iterable<DartType> _recoverTypeArguments(FunctionType g, FunctionType f) {
+    assert(identical(g.element, f.element));
+    assert(g.typeFormals.isNotEmpty && f.typeFormals.isEmpty);
+    assert(g.typeFormals.length + g.typeArguments.length ==
+        f.typeArguments.length);
+    return f.typeArguments.skip(g.typeArguments.length);
   }
 }

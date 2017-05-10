@@ -31,8 +31,6 @@ main() {
   defineReflectiveSuite(() {
     defineReflectiveTests(FixProcessorTest);
     defineReflectiveTests(LintFixTest);
-    defineReflectiveTests(FixProcessorTest_Driver);
-    defineReflectiveTests(LintFixTest_Driver);
   });
 }
 
@@ -55,6 +53,7 @@ class BaseFixProcessorTest extends AbstractSingleUnitTest {
   String flutterPkgLibPath = '/packages/flutter/lib';
 
   Fix fix;
+
   SourceChange change;
   String resultCode;
 
@@ -434,6 +433,42 @@ class A {
 ''');
   }
 
+  test_addMissingRequiredArg_cons_flutter_children() async {
+    addPackageSource(
+        'flutter', 'src/widgets/framework.dart', flutter_framework_code);
+
+    _addMetaPackageSource();
+
+    await resolveTestUnit('''
+import 'package:flutter/src/widgets/framework.dart';
+import 'package:meta/meta.dart';
+
+class MyWidget extends Widget {
+  MyWidget({@required List<Widget> children});
+}
+
+build() {
+  return new MyWidget();
+}
+''');
+
+    await assertHasFix(
+        DartFixKind.ADD_MISSING_REQUIRED_ARGUMENT,
+        '''
+import 'package:flutter/src/widgets/framework.dart';
+import 'package:meta/meta.dart';
+
+class MyWidget extends Widget {
+  MyWidget({@required List<Widget> children});
+}
+
+build() {
+  return new MyWidget(children: <Widget>[],);
+}
+''',
+        target: '/test.dart');
+  }
+
   test_addMissingRequiredArg_cons_single() async {
     _addMetaPackageSource();
     addSource(
@@ -461,6 +496,179 @@ import 'libA.dart';
 
 main() {
   A a = new A(a: null);
+}
+''',
+        target: '/test.dart');
+  }
+
+  test_addMissingRequiredArg_cons_single_closure() async {
+    _addMetaPackageSource();
+
+    addSource(
+        '/libA.dart',
+        r'''
+library libA;
+import 'package:meta/meta.dart';
+
+typedef void VoidCallback();
+
+class A {
+  A({@required VoidCallback onPressed}) {}
+}
+''');
+
+    await resolveTestUnit('''
+import 'libA.dart';
+
+main() {
+  A a = new A();
+}
+''');
+    await assertHasFix(
+        DartFixKind.ADD_MISSING_REQUIRED_ARGUMENT,
+        '''
+import 'libA.dart';
+
+main() {
+  A a = new A(onPressed: () {});
+}
+''',
+        target: '/test.dart');
+  }
+
+  test_addMissingRequiredArg_cons_single_closure_2() async {
+    _addMetaPackageSource();
+
+    addSource(
+        '/libA.dart',
+        r'''
+library libA;
+import 'package:meta/meta.dart';
+
+typedef void Callback(e);
+
+class A {
+  A({@required Callback callback}) {}
+}
+''');
+
+    await resolveTestUnit('''
+import 'libA.dart';
+
+main() {
+  A a = new A();
+}
+''');
+    await assertHasFix(
+        DartFixKind.ADD_MISSING_REQUIRED_ARGUMENT,
+        '''
+import 'libA.dart';
+
+main() {
+  A a = new A(callback: (e) {});
+}
+''',
+        target: '/test.dart');
+  }
+
+  test_addMissingRequiredArg_cons_single_closure_3() async {
+    _addMetaPackageSource();
+
+    addSource(
+        '/libA.dart',
+        r'''
+library libA;
+import 'package:meta/meta.dart';
+
+typedef void Callback(a,b,c);
+
+class A {
+  A({@required Callback callback}) {}
+}
+''');
+
+    await resolveTestUnit('''
+import 'libA.dart';
+
+main() {
+  A a = new A();
+}
+''');
+    await assertHasFix(
+        DartFixKind.ADD_MISSING_REQUIRED_ARGUMENT,
+        '''
+import 'libA.dart';
+
+main() {
+  A a = new A(callback: (a, b, c) {});
+}
+''',
+        target: '/test.dart');
+  }
+
+  test_addMissingRequiredArg_cons_single_closure_4() async {
+    _addMetaPackageSource();
+
+    addSource(
+        '/libA.dart',
+        r'''
+library libA;
+import 'package:meta/meta.dart';
+
+typedef int Callback(int a, String b,c);
+
+class A {
+  A({@required Callback callback}) {}
+}
+''');
+
+    await resolveTestUnit('''
+import 'libA.dart';
+
+main() {
+  A a = new A();
+}
+''');
+    await assertHasFix(
+        DartFixKind.ADD_MISSING_REQUIRED_ARGUMENT,
+        '''
+import 'libA.dart';
+
+main() {
+  A a = new A(callback: (int a, String b, c) {});
+}
+''',
+        target: '/test.dart');
+  }
+
+  test_addMissingRequiredArg_cons_single_list() async {
+    _addMetaPackageSource();
+
+    addSource(
+        '/libA.dart',
+        r'''
+library libA;
+import 'package:meta/meta.dart';
+
+class A {
+  A({@required List<String> names}) {}
+}
+''');
+
+    await resolveTestUnit('''
+import 'libA.dart';
+
+main() {
+  A a = new A();
+}
+''');
+    await assertHasFix(
+        DartFixKind.ADD_MISSING_REQUIRED_ARGUMENT,
+        '''
+import 'libA.dart';
+
+main() {
+  A a = new A(names: <String>[]);
 }
 ''',
         target: '/test.dart');
@@ -5713,12 +5921,6 @@ class Required {
 }
 
 @reflectiveTest
-class FixProcessorTest_Driver extends FixProcessorTest {
-  @override
-  bool get enableNewAnalysisDriver => true;
-}
-
-@reflectiveTest
 class LintFixTest extends BaseFixProcessorTest {
   AnalysisError error;
 
@@ -6693,12 +6895,6 @@ Function finalVar() {
   void verifyResult(String expectedResult) {
     expect(resultCode, expectedResult);
   }
-}
-
-@reflectiveTest
-class LintFixTest_Driver extends LintFixTest {
-  @override
-  bool get enableNewAnalysisDriver => true;
 }
 
 class _DartFixContextImpl implements DartFixContext {

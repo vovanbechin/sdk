@@ -107,9 +107,6 @@
       "finished": {
         "support_level": "untriaged"
       },
-      "id": {
-        "support_level": "untriaged"
-      },
       "pause": {
         "support_level": "untriaged"
       },
@@ -515,9 +512,6 @@
       "createEmptyBuffer": {},
       "createGain": {},
       "createGainNode": {},
-      "createIIRFilter": {
-        "support_level": "untriaged"
-      },
       "createJavaScriptNode": {},
       "createMediaElementSource": {},
       "createMediaStreamDestination": {},
@@ -761,19 +755,6 @@
     },
     "support_level": "stable"
   },
-  "BlobCallback": {
-    "members": {},
-    "support_level": "untriaged"
-  },
-  "BlobEvent": {
-    "members": {
-      "BlobEvent": {},
-      "data": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "Bluetooth": {
     "members": {
       "requestDevice": {
@@ -782,64 +763,12 @@
     },
     "support_level": "untriaged"
   },
-  "BluetoothAdvertisingData": {
-    "members": {
-      "rssi": {
-        "support_level": "untriaged"
-      },
-      "txPower": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "BluetoothCharacteristicProperties": {
-    "members": {
-      "authenticatedSignedWrites": {
-        "support_level": "untriaged"
-      },
-      "broadcast": {
-        "support_level": "untriaged"
-      },
-      "indicate": {
-        "support_level": "untriaged"
-      },
-      "notify": {
-        "support_level": "untriaged"
-      },
-      "read": {
-        "support_level": "untriaged"
-      },
-      "reliableWrite": {
-        "support_level": "untriaged"
-      },
-      "writableAuxiliaries": {
-        "support_level": "untriaged"
-      },
-      "write": {
-        "support_level": "untriaged"
-      },
-      "writeWithoutResponse": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "BluetoothDevice": {
     "members": {
-      "adData": {
-        "support_level": "untriaged"
-      },
       "connectGATT": {
         "support_level": "untriaged"
       },
       "deviceClass": {
-        "support_level": "untriaged"
-      },
-      "gatt": {
-        "support_level": "untriaged"
-      },
-      "id": {
         "support_level": "untriaged"
       },
       "instanceID": {
@@ -894,69 +823,6 @@
   "BluetoothGATTService": {
     "members": {
       "getCharacteristic": {
-        "support_level": "untriaged"
-      },
-      "isPrimary": {
-        "support_level": "untriaged"
-      },
-      "uuid": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "BluetoothRemoteGATTCharacteristic": {
-    "members": {
-      "properties": {
-        "support_level": "untriaged"
-      },
-      "readValue": {
-        "support_level": "untriaged"
-      },
-      "startNotifications": {
-        "support_level": "untriaged"
-      },
-      "stopNotifications": {
-        "support_level": "untriaged"
-      },
-      "uuid": {
-        "support_level": "untriaged"
-      },
-      "value": {
-        "support_level": "untriaged"
-      },
-      "writeValue": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "BluetoothRemoteGATTServer": {
-    "members": {
-      "connect": {
-        "support_level": "untriaged"
-      },
-      "connected": {
-        "support_level": "untriaged"
-      },
-      "device": {
-        "support_level": "untriaged"
-      },
-      "disconnect": {
-        "support_level": "untriaged"
-      },
-      "getPrimaryService": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "BluetoothRemoteGATTService": {
-    "members": {
-      "getCharacteristic": {
-        "support_level": "untriaged"
-      },
-      "getCharacteristics": {
         "support_level": "untriaged"
       },
       "isPrimary": {
@@ -1051,9 +917,6 @@
     "comment": "http://www.w3.org/TR/css3-conditional/#the-css-interface",
     "dart_action": "experimental",
     "members": {
-      "escape": {
-        "support_level": "untriaged"
-      },
       "supports": {},
       "supportsCondition": {},
       "supportsProperty": {}
@@ -1164,17 +1027,6 @@
     },
     "support_level": "stable"
   },
-  "CSSNamespaceRule": {
-    "members": {
-      "namespaceURI": {
-        "support_level": "untriaged"
-      },
-      "prefix": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "CSSPageRule": {
     "comment": "http://www.w3.org/TR/DOM-Level-2-Style/css.html#CSS-CSSPageRule",
     "members": {
@@ -1245,9 +1097,6 @@
         "support_level": "untriaged"
       },
       "MEDIA_RULE": {},
-      "NAMESPACE_RULE": {
-        "support_level": "untriaged"
-      },
       "PAGE_RULE": {},
       "STYLE_RULE": {},
       "SUPPORTS_RULE": {},
@@ -1301,9 +1150,6 @@
         "support_level": "untriaged"
       },
       "__setter__": {},
-      "cssFloat": {
-        "support_level": "untriaged"
-      },
       "cssText": {},
       "dart": {
         "support_level": "untriaged"
@@ -1471,60 +1317,6 @@
     },
     "support_level": "untriaged"
   },
-  "CalcLength": {
-    "members": {
-      "CalcLength": {},
-      "ch": {
-        "support_level": "untriaged"
-      },
-      "cm": {
-        "support_level": "untriaged"
-      },
-      "em": {
-        "support_level": "untriaged"
-      },
-      "ex": {
-        "support_level": "untriaged"
-      },
-      "in": {
-        "support_level": "untriaged"
-      },
-      "inch": {
-        "support_level": "untriaged"
-      },
-      "mm": {
-        "support_level": "untriaged"
-      },
-      "pc": {
-        "support_level": "untriaged"
-      },
-      "percent": {
-        "support_level": "untriaged"
-      },
-      "pt": {
-        "support_level": "untriaged"
-      },
-      "px": {
-        "support_level": "untriaged"
-      },
-      "rem": {
-        "support_level": "untriaged"
-      },
-      "vh": {
-        "support_level": "untriaged"
-      },
-      "vmax": {
-        "support_level": "untriaged"
-      },
-      "vmin": {
-        "support_level": "untriaged"
-      },
-      "vw": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "Canvas2DContextAttributes": {
     "comment": "http://wiki.whatwg.org/wiki/CanvasOpaque#Suggested_IDL",
     "members": {
@@ -1534,17 +1326,6 @@
       }
     },
     "support_level": "experimental"
-  },
-  "CanvasCaptureMediaStreamTrack": {
-    "members": {
-      "canvas": {
-        "support_level": "untriaged"
-      },
-      "requestFrame": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "CanvasGradient": {
     "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/the-canvas-element.html#canvasgradient",
@@ -1675,9 +1456,6 @@
       "globalAlpha": {},
       "globalCompositeOperation": {},
       "imageSmoothingEnabled": {
-        "support_level": "untriaged"
-      },
-      "imageSmoothingQuality": {
         "support_level": "untriaged"
       },
       "isContextLost": {
@@ -1923,9 +1701,6 @@
   "Clients": {
     "members": {
       "claim": {
-        "support_level": "untriaged"
-      },
-      "get": {
         "support_level": "untriaged"
       },
       "matchAll": {
@@ -2260,9 +2035,6 @@
   },
   "CredentialsContainer": {
     "members": {
-      "get": {
-        "support_level": "untriaged"
-      },
       "notifyFailedSignIn": {
         "support_level": "untriaged"
       },
@@ -2276,9 +2048,6 @@
         "support_level": "untriaged"
       },
       "requireUserMediation": {
-        "support_level": "untriaged"
-      },
-      "store": {
         "support_level": "untriaged"
       }
     },
@@ -2907,14 +2676,8 @@
       "remove": {
         "support_level": "untriaged"
       },
-      "supports": {
-        "support_level": "untriaged"
-      },
       "toString": {},
-      "toggle": {},
-      "value": {
-        "support_level": "untriaged"
-      }
+      "toggle": {}
     },
     "support_level": "stable"
   },
@@ -3045,28 +2808,10 @@
   },
   "DedicatedWorkerGlobalScope": {
     "members": {
-      "PERSISTENT": {
-        "support_level": "untriaged"
-      },
-      "TEMPORARY": {
-        "support_level": "untriaged"
-      },
       "onmessage": {
         "support_level": "untriaged"
       },
       "postMessage": {
-        "support_level": "untriaged"
-      },
-      "webkitRequestFileSystem": {
-        "support_level": "untriaged"
-      },
-      "webkitRequestFileSystemSync": {
-        "support_level": "untriaged"
-      },
-      "webkitResolveLocalFileSystemSyncURL": {
-        "support_level": "untriaged"
-      },
-      "webkitResolveLocalFileSystemURL": {
         "support_level": "untriaged"
       }
     },
@@ -3602,9 +3347,6 @@
         "comment": "http://dev.w3.org/csswg/cssom/#widl-Document-selectedStyleSheetSet"
       },
       "styleSheets": {},
-      "suborigin": {
-        "support_level": "untriaged"
-      },
       "timeline": {
         "support_level": "untriaged"
       },
@@ -3746,15 +3488,6 @@
     },
     "support_level": "stable"
   },
-  "DragEvent": {
-    "members": {
-      "DragEvent": {},
-      "dataTransfer": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "DynamicsCompressorNode": {
     "comment": "https://dvcs.w3.org/hg/audio/raw-file/tip/webaudio/specification.html#DynamicsCompressorNode",
     "members": {
@@ -3773,60 +3506,6 @@
         "support_level": "untriaged"
       },
       "MIN_EXT": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "EXTColorBufferFloat": {
-    "members": {},
-    "support_level": "untriaged"
-  },
-  "EXTDisjointTimerQuery": {
-    "members": {
-      "CURRENT_QUERY_EXT": {
-        "support_level": "untriaged"
-      },
-      "GPU_DISJOINT_EXT": {
-        "support_level": "untriaged"
-      },
-      "QUERY_COUNTER_BITS_EXT": {
-        "support_level": "untriaged"
-      },
-      "QUERY_RESULT_AVAILABLE_EXT": {
-        "support_level": "untriaged"
-      },
-      "QUERY_RESULT_EXT": {
-        "support_level": "untriaged"
-      },
-      "TIMESTAMP_EXT": {
-        "support_level": "untriaged"
-      },
-      "TIME_ELAPSED_EXT": {
-        "support_level": "untriaged"
-      },
-      "beginQueryEXT": {
-        "support_level": "untriaged"
-      },
-      "createQueryEXT": {
-        "support_level": "untriaged"
-      },
-      "deleteQueryEXT": {
-        "support_level": "untriaged"
-      },
-      "endQueryEXT": {
-        "support_level": "untriaged"
-      },
-      "getQueryEXT": {
-        "support_level": "untriaged"
-      },
-      "getQueryObjectEXT": {
-        "support_level": "untriaged"
-      },
-      "isQueryEXT": {
-        "support_level": "untriaged"
-      },
-      "queryCounterEXT": {
         "support_level": "untriaged"
       }
     },
@@ -3882,12 +3561,6 @@
         "support_level": "untriaged"
       },
       "animate": {
-        "support_level": "untriaged"
-      },
-      "assignedSlot": {
-        "support_level": "untriaged"
-      },
-      "attachShadow": {
         "support_level": "untriaged"
       },
       "attributes": {},
@@ -4255,9 +3928,6 @@
       },
       "scrollTop": {},
       "scrollWidth": {},
-      "setApplyScroll": {
-        "support_level": "untriaged"
-      },
       "setAttribute": {},
       "setAttributeNS": {},
       "setAttributeNode": {
@@ -4266,15 +3936,9 @@
         "support_level": "deprecated"
       },
       "setAttributeNodeNS": {},
-      "setDistributeScroll": {
-        "support_level": "untriaged"
-      },
       "shadowRoot": {
         "comment": "https://dvcs.w3.org/hg/webcomponents/raw-file/tip/spec/shadow/index.html#api-shadow-aware-create-shadow-root",
         "support_level": "experimental"
-      },
-      "slot": {
-        "support_level": "untriaged"
       },
       "spellcheck": {
         "comment": "http://blog.whatwg.org/the-road-to-html-5-spellchecking",
@@ -4565,15 +4229,9 @@
         "support_level": "nonstandard"
       },
       "currentTarget": {},
-      "deepPath": {
-        "support_level": "untriaged"
-      },
       "defaultPrevented": {},
       "eventPhase": {},
       "initEvent": {},
-      "isTrusted": {
-        "support_level": "untriaged"
-      },
       "path": {
         "comment": "https://dvcs.w3.org/hg/webcomponents/raw-file/tip/spec/shadow/index.html#extensions-to-event",
         "support_level": "experimental"
@@ -4582,9 +4240,6 @@
       "returnValue": {
         "comment": "http://dev.w3.org/html5/spec-LC/history.html#dom-beforeunloadevent-returnvalue",
         "support_level": "nonstandard"
-      },
-      "scoped": {
-        "support_level": "untriaged"
       },
       "srcElement": {
         "dart_action": "suppress",
@@ -4659,26 +4314,6 @@
     },
     "support_level": "untriaged"
   },
-  "ExtendableMessageEvent": {
-    "members": {
-      "data": {
-        "support_level": "untriaged"
-      },
-      "lastEventId": {
-        "support_level": "untriaged"
-      },
-      "origin": {
-        "support_level": "untriaged"
-      },
-      "ports": {
-        "support_level": "untriaged"
-      },
-      "source": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "FederatedCredential": {
     "members": {
       "FederatedCredential": {},
@@ -4714,9 +4349,6 @@
   "FetchEvent": {
     "members": {
       "FetchEvent": {},
-      "clientId": {
-        "support_level": "untriaged"
-      },
       "isReload": {
         "support_level": "untriaged"
       },
@@ -5365,18 +4997,6 @@
       "ontimeupdate": {
         "support_level": "untriaged"
       },
-      "ontouchcancel": {
-        "support_level": "untriaged"
-      },
-      "ontouchend": {
-        "support_level": "untriaged"
-      },
-      "ontouchmove": {
-        "support_level": "untriaged"
-      },
-      "ontouchstart": {
-        "support_level": "untriaged"
-      },
       "onvolumechange": {
         "support_level": "untriaged"
       },
@@ -5454,9 +5074,6 @@
       },
       "port": {},
       "protocol": {},
-      "referrerpolicy": {
-        "support_level": "untriaged"
-      },
       "rel": {},
       "rev": {
         "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/obsolete.html#HTMLAnchorElement-partial",
@@ -5526,9 +5143,6 @@
       },
       "port": {},
       "protocol": {},
-      "referrerpolicy": {
-        "support_level": "untriaged"
-      },
       "search": {},
       "shape": {},
       "target": {},
@@ -5666,9 +5280,6 @@
     "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/the-canvas-element.html#the-canvas-element",
     "members": {
       "HTMLCanvasElement": {},
-      "captureStream": {
-        "support_level": "untriaged"
-      },
       "getContext": {},
       "height": {},
       "onwebglcontextlost": {
@@ -5676,9 +5287,6 @@
       },
       "onwebglcontextrestored": {
         "comment": "http://www.khronos.org/registry/webgl/specs/latest/#5.15.3"
-      },
-      "toBlob": {
-        "support_level": "untriaged"
       },
       "toDataURL": {},
       "width": {}
@@ -6040,18 +5648,6 @@
       "ontimeupdate": {
         "support_level": "untriaged"
       },
-      "ontouchcancel": {
-        "support_level": "untriaged"
-      },
-      "ontouchend": {
-        "support_level": "untriaged"
-      },
-      "ontouchmove": {
-        "support_level": "untriaged"
-      },
-      "ontouchstart": {
-        "support_level": "untriaged"
-      },
       "onvolumechange": {
         "support_level": "untriaged"
       },
@@ -6352,9 +5948,6 @@
         "support_level": "deprecated"
       },
       "name": {},
-      "referrerpolicy": {
-        "support_level": "untriaged"
-      },
       "sandbox": {},
       "scrolling": {
         "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/obsolete.html#HTMLIFrameElement-partial",
@@ -6409,9 +6002,6 @@
       "name": {},
       "naturalHeight": {},
       "naturalWidth": {},
-      "referrerpolicy": {
-        "support_level": "untriaged"
-      },
       "sizes": {
         "support_level": "untriaged"
       },
@@ -6621,9 +6211,6 @@
     "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/semantics.html#the-link-element",
     "members": {
       "HTMLLinkElement": {},
-      "as": {
-        "support_level": "untriaged"
-      },
       "charset": {
         "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/obsolete.html#HTMLLinkElement-partial",
         "dart_action": "suppress",
@@ -6644,9 +6231,6 @@
       },
       "media": {},
       "rel": {},
-      "relList": {
-        "support_level": "untriaged"
-      },
       "rev": {
         "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/obsolete.html#HTMLLinkElement-partial",
         "dart_action": "suppress",
@@ -6718,9 +6302,6 @@
         "comment": "https://dvcs.w3.org/hg/html-media/raw-file/tip/encrypted-media/encrypted-media.html#dom-htmlmediaelement",
         "dart_action": "unstable"
       },
-      "captureStream": {
-        "support_level": "untriaged"
-      },
       "controller": {},
       "controls": {},
       "crossOrigin": {
@@ -6730,9 +6311,6 @@
       "currentTime": {},
       "defaultMuted": {},
       "defaultPlaybackRate": {},
-      "disableRemotePlayback": {
-        "support_level": "untriaged"
-      },
       "duration": {},
       "ended": {},
       "error": {},
@@ -7310,17 +6888,6 @@
     },
     "support_level": "experimental"
   },
-  "HTMLSlotElement": {
-    "members": {
-      "getAssignedNodes": {
-        "support_level": "untriaged"
-      },
-      "name": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "HTMLSourceElement": {
     "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#the-source-element",
     "members": {
@@ -7838,9 +7405,6 @@
       },
       "pushState": {},
       "replaceState": {},
-      "scrollRestoration": {
-        "support_level": "untriaged"
-      },
       "state": {}
     },
     "support_level": "stable"
@@ -8099,34 +7663,8 @@
     },
     "support_level": "stable"
   },
-  "IIRFilterNode": {
-    "members": {
-      "getFrequencyResponse": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "IdleDeadline": {
-    "members": {
-      "didTimeout": {
-        "support_level": "untriaged"
-      },
-      "timeRemaining": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "IdleRequestCallback": {
-    "members": {},
-    "support_level": "untriaged"
-  },
   "ImageBitmap": {
     "members": {
-      "close": {
-        "support_level": "untriaged"
-      },
       "height": {
         "support_level": "untriaged"
       },
@@ -8143,17 +7681,6 @@
   "ImageBitmapFactories": {
     "members": {
       "createImageBitmap": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "ImageBitmapRenderingContext": {
-    "members": {
-      "canvas": {
-        "support_level": "untriaged"
-      },
-      "transferImageBitmap": {
         "support_level": "untriaged"
       }
     },
@@ -8183,21 +7710,6 @@
       "firesTouchEvents": {
         "support_level": "untriaged"
       }
-    },
-    "support_level": "untriaged"
-  },
-  "InputDeviceCapabilities": {
-    "members": {
-      "InputDeviceCapabilities": {},
-      "firesTouchEvents": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "InputEvent": {
-    "members": {
-      "InputEvent": {}
     },
     "support_level": "untriaged"
   },
@@ -8234,10 +7746,6 @@
   },
   "InstallEvent": {
     "members": {
-      "InstallEvent": {},
-      "registerForeignFetchScopes": {
-        "support_level": "untriaged"
-      },
       "reloadAll": {
         "support_level": "untriaged"
       },
@@ -8284,52 +7792,6 @@
       "subarray": {}
     },
     "support_level": "stable"
-  },
-  "IntersectionObserver": {
-    "members": {
-      "disconnect": {
-        "support_level": "untriaged"
-      },
-      "observe": {
-        "support_level": "untriaged"
-      },
-      "root": {
-        "support_level": "untriaged"
-      },
-      "rootMargin": {
-        "support_level": "untriaged"
-      },
-      "takeRecords": {
-        "support_level": "untriaged"
-      },
-      "thresholds": {
-        "support_level": "untriaged"
-      },
-      "unobserve": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "IntersectionObserverEntry": {
-    "members": {
-      "boundingClientRect": {
-        "support_level": "untriaged"
-      },
-      "intersectionRect": {
-        "support_level": "untriaged"
-      },
-      "rootBounds": {
-        "support_level": "untriaged"
-      },
-      "target": {
-        "support_level": "untriaged"
-      },
-      "time": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "Iterator": {
     "members": {
@@ -8438,41 +7900,6 @@
   "KeyframeEffect": {
     "members": {
       "KeyframeEffect": {}
-    },
-    "support_level": "untriaged"
-  },
-  "KeywordValue": {
-    "members": {
-      "KeywordValue": {},
-      "keywordValue": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "LengthValue": {
-    "members": {
-      "add": {
-        "support_level": "untriaged"
-      },
-      "divide": {
-        "support_level": "untriaged"
-      },
-      "fromDictionary": {
-        "support_level": "untriaged"
-      },
-      "fromValue": {
-        "support_level": "untriaged"
-      },
-      "multiply": {
-        "support_level": "untriaged"
-      },
-      "parse": {
-        "support_level": "untriaged"
-      },
-      "subtract": {
-        "support_level": "untriaged"
-      }
     },
     "support_level": "untriaged"
   },
@@ -8674,78 +8101,6 @@
   },
   "MIDISuccessCallback": {
     "members": {},
-    "support_level": "untriaged"
-  },
-  "Matrix": {
-    "members": {
-      "Matrix": {},
-      "a": {
-        "support_level": "untriaged"
-      },
-      "b": {
-        "support_level": "untriaged"
-      },
-      "c": {
-        "support_level": "untriaged"
-      },
-      "d": {
-        "support_level": "untriaged"
-      },
-      "e": {
-        "support_level": "untriaged"
-      },
-      "f": {
-        "support_level": "untriaged"
-      },
-      "m11": {
-        "support_level": "untriaged"
-      },
-      "m12": {
-        "support_level": "untriaged"
-      },
-      "m13": {
-        "support_level": "untriaged"
-      },
-      "m14": {
-        "support_level": "untriaged"
-      },
-      "m21": {
-        "support_level": "untriaged"
-      },
-      "m22": {
-        "support_level": "untriaged"
-      },
-      "m23": {
-        "support_level": "untriaged"
-      },
-      "m24": {
-        "support_level": "untriaged"
-      },
-      "m31": {
-        "support_level": "untriaged"
-      },
-      "m32": {
-        "support_level": "untriaged"
-      },
-      "m33": {
-        "support_level": "untriaged"
-      },
-      "m34": {
-        "support_level": "untriaged"
-      },
-      "m41": {
-        "support_level": "untriaged"
-      },
-      "m42": {
-        "support_level": "untriaged"
-      },
-      "m43": {
-        "support_level": "untriaged"
-      },
-      "m44": {
-        "support_level": "untriaged"
-      }
-    },
     "support_level": "untriaged"
   },
   "MediaController": {
@@ -9025,21 +8380,6 @@
     },
     "support_level": "stable"
   },
-  "MediaMetadata": {
-    "members": {
-      "MediaMetadata": {},
-      "album": {
-        "support_level": "untriaged"
-      },
-      "artist": {
-        "support_level": "untriaged"
-      },
-      "title": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "MediaQueryList": {
     "comment": "http://dev.w3.org/csswg/cssom-view/#the-mediaquerylist-interface",
     "dart_action": "unstable",
@@ -9074,54 +8414,6 @@
     },
     "support_level": "stable"
   },
-  "MediaRecorder": {
-    "members": {
-      "MediaRecorder": {},
-      "audioBitsPerSecond": {
-        "support_level": "untriaged"
-      },
-      "ignoreMutedMedia": {
-        "support_level": "untriaged"
-      },
-      "isTypeSupported": {
-        "support_level": "untriaged"
-      },
-      "mimeType": {
-        "support_level": "untriaged"
-      },
-      "onerror": {
-        "support_level": "untriaged"
-      },
-      "onpause": {
-        "support_level": "untriaged"
-      },
-      "pause": {
-        "support_level": "untriaged"
-      },
-      "requestData": {
-        "support_level": "untriaged"
-      },
-      "resume": {
-        "support_level": "untriaged"
-      },
-      "start": {
-        "support_level": "untriaged"
-      },
-      "state": {
-        "support_level": "untriaged"
-      },
-      "stop": {
-        "support_level": "untriaged"
-      },
-      "stream": {
-        "support_level": "untriaged"
-      },
-      "videoBitsPerSecond": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "MediaSession": {
     "members": {
       "MediaSession": {},
@@ -9129,9 +8421,6 @@
         "support_level": "untriaged"
       },
       "deactivate": {
-        "support_level": "untriaged"
-      },
-      "metadata": {
         "support_level": "untriaged"
       }
     },
@@ -9265,9 +8554,6 @@
       "onmute": {},
       "onunmute": {},
       "readyState": {},
-      "remote": {
-        "support_level": "untriaged"
-      },
       "removeEventListener": {},
       "stop": {
         "support_level": "untriaged"
@@ -9319,9 +8605,6 @@
         "dart_action": "unstable"
       },
       "source": {},
-      "suborigin": {
-        "support_level": "untriaged"
-      },
       "webkitInitMessageEvent": {
         "dart_action": "suppress",
         "support_level": "nonstandard"
@@ -9395,9 +8678,6 @@
       },
       "fromElement": {
         "support_level": "deprecated"
-      },
-      "getModifierState": {
-        "support_level": "untriaged"
       },
       "initMouseEvent": {},
       "layerX": {
@@ -9505,23 +8785,6 @@
     },
     "support_level": "stable"
   },
-  "NFC": {
-    "members": {
-      "cancelPush": {
-        "support_level": "untriaged"
-      },
-      "cancelWatch": {
-        "support_level": "untriaged"
-      },
-      "push": {
-        "support_level": "untriaged"
-      },
-      "watch": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "NamedNodeMap": {
     "comment": "http://dom.spec.whatwg.org/#namednodemap",
     "dart_action": "suppress",
@@ -9623,9 +8886,6 @@
         "dart_action": "experimental",
         "support_level": "nonstandard"
       },
-      "nfc": {
-        "support_level": "untriaged"
-      },
       "onLine": {
         "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/offline.html#navigatoronline",
         "dart_action": "unstable"
@@ -9674,16 +8934,10 @@
       "services": {
         "support_level": "untriaged"
       },
-      "storage": {
-        "support_level": "untriaged"
-      },
       "storageQuota": {
         "support_level": "untriaged"
       },
       "unregisterProtocolHandler": {
-        "support_level": "untriaged"
-      },
-      "usb": {
         "support_level": "untriaged"
       },
       "userAgent": {
@@ -9817,12 +9071,6 @@
   },
   "NetworkInformation": {
     "members": {
-      "downlinkMax": {
-        "support_level": "untriaged"
-      },
-      "onchange": {
-        "support_level": "untriaged"
-      },
       "type": {
         "support_level": "untriaged"
       }
@@ -9899,10 +9147,7 @@
       "removeChild": {},
       "removeEventListener": {},
       "replaceChild": {},
-      "textContent": {},
-      "treeRoot": {
-        "support_level": "untriaged"
-      }
+      "textContent": {}
     },
     "support_level": "stable"
   },
@@ -10009,9 +9254,6 @@
     "dart_action": "experimental",
     "members": {
       "Notification": {},
-      "actions": {
-        "support_level": "untriaged"
-      },
       "addEventListener": {},
       "body": {
         "support_level": "untriaged"
@@ -10035,9 +9277,6 @@
       "lang": {
         "support_level": "untriaged"
       },
-      "maxActions": {
-        "support_level": "untriaged"
-      },
       "onclick": {},
       "onclose": {},
       "ondisplay": {
@@ -10048,17 +9287,11 @@
       "onshow": {},
       "permission": {},
       "removeEventListener": {},
-      "renotify": {
-        "support_level": "untriaged"
-      },
       "replaceId": {
         "dart_action": "experimental",
         "support_level": "nonstandard"
       },
       "requestPermission": {},
-      "requireInteraction": {
-        "support_level": "untriaged"
-      },
       "show": {
         "dart_action": "experimental",
         "support_level": "nonstandard"
@@ -10069,9 +9302,6 @@
       "tag": {
         "dart_action": "experimental",
         "support_level": "nonstandard"
-      },
-      "timestamp": {
-        "support_level": "untriaged"
       },
       "title": {
         "support_level": "untriaged"
@@ -10085,9 +9315,6 @@
   "NotificationEvent": {
     "members": {
       "NotificationEvent": {},
-      "action": {
-        "support_level": "untriaged"
-      },
       "notification": {
         "support_level": "untriaged"
       }
@@ -10100,15 +9327,6 @@
       "handleEvent": {}
     },
     "support_level": "experimental"
-  },
-  "NumberValue": {
-    "members": {
-      "NumberValue": {},
-      "value": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "OESElementIndexUint": {
     "comment": "http://www.khronos.org/registry/webgl/extensions/OES_element_index_uint/",
@@ -10269,18 +9487,6 @@
       }
     },
     "support_level": "experimental"
-  },
-  "OffscreenCanvas": {
-    "members": {
-      "OffscreenCanvas": {},
-      "height": {
-        "support_level": "untriaged"
-      },
-      "width": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "OscillatorNode": {
     "comment": "https://dvcs.w3.org/hg/audio/raw-file/tip/webaudio/specification.html#dfn-OscillatorNode",
@@ -10471,19 +9677,10 @@
   "PasswordCredential": {
     "members": {
       "PasswordCredential": {},
-      "additionalData": {
-        "support_level": "untriaged"
-      },
       "formData": {
         "support_level": "untriaged"
       },
-      "idName": {
-        "support_level": "untriaged"
-      },
       "password": {
-        "support_level": "untriaged"
-      },
-      "passwordName": {
         "support_level": "untriaged"
       }
     },
@@ -10557,9 +9754,6 @@
         "comment": "https://dvcs.w3.org/hg/webperf/raw-file/tip/specs/UserTiming/Overview.html#extensions-performance-interface",
         "support_level": "experimental"
       },
-      "clearResourceTimings": {
-        "support_level": "untriaged"
-      },
       "dispatchEvent": {
         "support_level": "untriaged"
       },
@@ -10602,9 +9796,6 @@
         "support_level": "untriaged"
       },
       "setFrameTimingBufferSize": {
-        "support_level": "untriaged"
-      },
-      "setResourceTimingBufferSize": {
         "support_level": "untriaged"
       },
       "timing": {},
@@ -10667,31 +9858,6 @@
       "type": {}
     },
     "support_level": "stable"
-  },
-  "PerformanceObserver": {
-    "members": {
-      "disconnect": {
-        "support_level": "untriaged"
-      },
-      "observe": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "PerformanceObserverEntryList": {
-    "members": {
-      "getEntries": {
-        "support_level": "untriaged"
-      },
-      "getEntriesByName": {
-        "support_level": "untriaged"
-      },
-      "getEntriesByType": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "PerformanceRenderTiming": {
     "members": {
@@ -10829,24 +9995,6 @@
   "Permissions": {
     "members": {
       "query": {
-        "support_level": "untriaged"
-      },
-      "request": {
-        "support_level": "untriaged"
-      },
-      "requestAll": {
-        "support_level": "untriaged"
-      },
-      "revoke": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "Perspective": {
-    "members": {
-      "Perspective": {},
-      "length": {
         "support_level": "untriaged"
       }
     },
@@ -11011,30 +10159,12 @@
     },
     "support_level": "untriaged"
   },
-  "PositionValue": {
-    "members": {
-      "PositionValue": {},
-      "x": {
-        "support_level": "untriaged"
-      },
-      "y": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "Presentation": {
     "members": {
-      "defaultRequest": {
-        "support_level": "untriaged"
-      },
       "getAvailability": {
         "support_level": "untriaged"
       },
       "joinSession": {
-        "support_level": "untriaged"
-      },
-      "receiver": {
         "support_level": "untriaged"
       },
       "session": {
@@ -11052,79 +10182,6 @@
         "support_level": "untriaged"
       },
       "value": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "PresentationConnection": {
-    "members": {
-      "binaryType": {
-        "support_level": "untriaged"
-      },
-      "close": {
-        "support_level": "untriaged"
-      },
-      "id": {
-        "support_level": "untriaged"
-      },
-      "onmessage": {
-        "support_level": "untriaged"
-      },
-      "send": {
-        "support_level": "untriaged"
-      },
-      "state": {
-        "support_level": "untriaged"
-      },
-      "terminate": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "PresentationConnectionAvailableEvent": {
-    "members": {
-      "PresentationConnectionAvailableEvent": {},
-      "connection": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "PresentationConnectionCloseEvent": {
-    "members": {
-      "PresentationConnectionCloseEvent": {},
-      "message": {
-        "support_level": "untriaged"
-      },
-      "reason": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "PresentationReceiver": {
-    "members": {
-      "getConnection": {
-        "support_level": "untriaged"
-      },
-      "getConnections": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "PresentationRequest": {
-    "members": {
-      "PresentationRequest": {},
-      "getAvailability": {
-        "support_level": "untriaged"
-      },
-      "reconnect": {
-        "support_level": "untriaged"
-      },
-      "start": {
         "support_level": "untriaged"
       }
     },
@@ -11295,9 +10352,6 @@
       "endpoint": {
         "support_level": "untriaged"
       },
-      "getKey": {
-        "support_level": "untriaged"
-      },
       "unsubscribe": {
         "support_level": "untriaged"
       }
@@ -11313,14 +10367,6 @@
       "red": {}
     },
     "support_level": "deprecated"
-  },
-  "RTCCertificate": {
-    "members": {
-      "expires": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "RTCDTMFSender": {
     "comment": "http://dev.w3.org/2011/webrtc/editor/webrtc.html#idl-def-RTCDTMFSender",
@@ -11352,9 +10398,6 @@
       "addEventListener": {},
       "binaryType": {},
       "bufferedAmount": {},
-      "bufferedAmountLowThreshold": {
-        "support_level": "untriaged"
-      },
       "close": {},
       "dispatchEvent": {},
       "id": {
@@ -11435,9 +10478,6 @@
       "createDataChannel": {},
       "createOffer": {},
       "dispatchEvent": {},
-      "generateCertificate": {
-        "support_level": "untriaged"
-      },
       "getLocalStreams": {},
       "getRemoteStreams": {},
       "getStats": {},
@@ -11461,10 +10501,6 @@
       "updateIce": {}
     },
     "support_level": "experimental"
-  },
-  "RTCPeerConnectionErrorCallback": {
-    "members": {},
-    "support_level": "untriaged"
   },
   "RTCSessionDescription": {
     "comment": "http://dev.w3.org/2011/webrtc/editor/webrtc.html#idl-def-RTCSessionDescription",
@@ -11723,9 +10759,6 @@
       "headers": {
         "support_level": "untriaged"
       },
-      "integrity": {
-        "support_level": "untriaged"
-      },
       "json": {
         "support_level": "untriaged"
       },
@@ -11733,9 +10766,6 @@
         "support_level": "untriaged"
       },
       "origin": {
-        "support_level": "untriaged"
-      },
-      "redirect": {
         "support_level": "untriaged"
       },
       "referrer": {
@@ -11772,24 +10802,6 @@
         "support_level": "untriaged"
       },
       "status": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "Rotation": {
-    "members": {
-      "Rotation": {},
-      "angle": {
-        "support_level": "untriaged"
-      },
-      "x": {
-        "support_level": "untriaged"
-      },
-      "y": {
-        "support_level": "untriaged"
-      },
-      "z": {
         "support_level": "untriaged"
       }
     },
@@ -12611,18 +11623,6 @@
         "support_level": "untriaged"
       },
       "ontimeupdate": {
-        "support_level": "untriaged"
-      },
-      "ontouchcancel": {
-        "support_level": "untriaged"
-      },
-      "ontouchend": {
-        "support_level": "untriaged"
-      },
-      "ontouchmove": {
-        "support_level": "untriaged"
-      },
-      "ontouchstart": {
         "support_level": "untriaged"
       },
       "onvolumechange": {
@@ -15378,21 +14378,6 @@
     },
     "support_level": "stable"
   },
-  "Scale": {
-    "members": {
-      "Scale": {},
-      "x": {
-        "support_level": "untriaged"
-      },
-      "y": {
-        "support_level": "untriaged"
-      },
-      "z": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "Screen": {
     "comment": "http://dev.w3.org/csswg/cssom-view/#the-screen-interface",
     "members": {
@@ -15414,9 +14399,6 @@
         "support_level": "untriaged"
       },
       "height": {},
-      "keepAwake": {
-        "support_level": "untriaged"
-      },
       "lockOrientation": {
         "support_level": "untriaged"
       },
@@ -15485,9 +14467,6 @@
       "deltaY": {
         "support_level": "untriaged"
       },
-      "distributeToScrollChainDescendant": {
-        "support_level": "untriaged"
-      },
       "fromUserInput": {
         "support_level": "untriaged"
       },
@@ -15497,19 +14476,10 @@
       "isBeginning": {
         "support_level": "untriaged"
       },
-      "isDirectManipulation": {
-        "support_level": "untriaged"
-      },
       "isEnding": {
         "support_level": "untriaged"
       },
       "shouldPropagate": {
-        "support_level": "untriaged"
-      },
-      "startPositionX": {
-        "support_level": "untriaged"
-      },
-      "startPositionY": {
         "support_level": "untriaged"
       },
       "velocityX": {
@@ -15519,10 +14489,6 @@
         "support_level": "untriaged"
       }
     },
-    "support_level": "untriaged"
-  },
-  "ScrollStateCallback": {
-    "members": {},
     "support_level": "untriaged"
   },
   "SecurityPolicy": {
@@ -15901,52 +14867,10 @@
   },
   "SharedWorkerGlobalScope": {
     "members": {
-      "PERSISTENT": {
-        "support_level": "untriaged"
-      },
-      "TEMPORARY": {
-        "support_level": "untriaged"
-      },
       "name": {
         "support_level": "untriaged"
       },
       "onconnect": {
-        "support_level": "untriaged"
-      },
-      "webkitRequestFileSystem": {
-        "support_level": "untriaged"
-      },
-      "webkitRequestFileSystemSync": {
-        "support_level": "untriaged"
-      },
-      "webkitResolveLocalFileSystemSyncURL": {
-        "support_level": "untriaged"
-      },
-      "webkitResolveLocalFileSystemURL": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "SimpleLength": {
-    "members": {
-      "SimpleLength": {},
-      "type": {
-        "support_level": "untriaged"
-      },
-      "value": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "Skew": {
-    "members": {
-      "Skew": {},
-      "ax": {
-        "support_level": "untriaged"
-      },
-      "ay": {
         "support_level": "untriaged"
       }
     },
@@ -16316,17 +15240,6 @@
     },
     "support_level": "experimental"
   },
-  "StorageManager": {
-    "members": {
-      "persistentPermission": {
-        "support_level": "untriaged"
-      },
-      "requestPersistent": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "StorageQuota": {
     "comment": "http://www.w3.org/TR/quota-api/#idl-def-StorageQuota",
     "members": {
@@ -16382,32 +15295,6 @@
     },
     "support_level": "nonstandard"
   },
-  "StylePropertyMap": {
-    "members": {
-      "append": {
-        "support_level": "untriaged"
-      },
-      "delete": {
-        "support_level": "untriaged"
-      },
-      "get": {
-        "support_level": "untriaged"
-      },
-      "getAll": {
-        "support_level": "untriaged"
-      },
-      "getProperties": {
-        "support_level": "untriaged"
-      },
-      "has": {
-        "support_level": "untriaged"
-      },
-      "set": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "StyleSheet": {
     "comment": "http://dev.w3.org/csswg/cssom/#the-stylesheet-interface",
     "members": {
@@ -16430,17 +15317,6 @@
       "length": {}
     },
     "support_level": "stable"
-  },
-  "StyleValue": {
-    "members": {
-      "cssString": {
-        "support_level": "untriaged"
-      },
-      "parse": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "SubtleCrypto": {
     "members": {
@@ -16471,13 +15347,7 @@
   "SyncEvent": {
     "members": {
       "SyncEvent": {},
-      "lastChance": {
-        "support_level": "untriaged"
-      },
       "registration": {
-        "support_level": "untriaged"
-      },
-      "tag": {
         "support_level": "untriaged"
       }
     },
@@ -16489,9 +15359,6 @@
         "support_level": "untriaged"
       },
       "getRegistrations": {
-        "support_level": "untriaged"
-      },
-      "getTags": {
         "support_level": "untriaged"
       },
       "permissionState": {
@@ -16518,9 +15385,6 @@
     "comment": "http://dom.spec.whatwg.org/#interface-text",
     "members": {
       "Text": {},
-      "assignedSlot": {
-        "support_level": "untriaged"
-      },
       "getDestinationInsertionPoints": {
         "support_level": "untriaged"
       },
@@ -16702,9 +15566,6 @@
   "TextTrackCueList": {
     "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#texttrackcuelist",
     "members": {
-      "__getter__": {
-        "support_level": "untriaged"
-      },
       "getCueById": {},
       "item": {},
       "length": {}
@@ -16714,9 +15575,6 @@
   "TextTrackList": {
     "comment": "http://www.whatwg.org/specs/web-apps/current-work/multipage/the-video-element.html#texttracklist",
     "members": {
-      "__getter__": {
-        "support_level": "untriaged"
-      },
       "addEventListener": {},
       "dispatchEvent": {},
       "getTrackById": {
@@ -16825,7 +15683,6 @@
   "Touch": {
     "comment": "http://www.w3.org/TR/touch-events/, http://www.chromestatus.com/features",
     "members": {
-      "Touch": {},
       "clientX": {},
       "clientY": {},
       "force": {
@@ -16838,9 +15695,6 @@
         "support_level": "untriaged"
       },
       "radiusY": {
-        "support_level": "untriaged"
-      },
-      "region": {
         "support_level": "untriaged"
       },
       "rotationAngle": {
@@ -16867,7 +15721,6 @@
   "TouchEvent": {
     "comment": "http://www.w3.org/TR/touch-events/, http://www.chromestatus.com/features",
     "members": {
-      "TouchEvent": {},
       "altKey": {},
       "changedTouches": {},
       "ctrlKey": {},
@@ -16929,29 +15782,6 @@
     },
     "support_level": "experimental"
   },
-  "TransformComponent": {
-    "members": {
-      "asMatrix": {
-        "support_level": "untriaged"
-      },
-      "cssString": {
-        "support_level": "untriaged"
-      },
-      "is2DComponent": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "TransformValue": {
-    "members": {
-      "TransformValue": {},
-      "is2D": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "TransitionEvent": {
     "comment": "http://dev.w3.org/csswg/css-transitions/#Events-TransitionEvent",
     "members": {
@@ -16961,21 +15791,6 @@
       "pseudoElement": {}
     },
     "support_level": "stable"
-  },
-  "Translation": {
-    "members": {
-      "Translation": {},
-      "x": {
-        "support_level": "untriaged"
-      },
-      "y": {
-        "support_level": "untriaged"
-      },
-      "z": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "TreeWalker": {
     "comment": "http://dom.spec.whatwg.org/#treewalker",
@@ -17035,9 +15850,6 @@
         "comment": "http://dev.w3.org/2006/webapi/DOM-Level-3-Events/html/DOM3-Events.html#events-mouseevents",
         "dart_action": "experimental",
         "support_level": "nonstandard"
-      },
-      "sourceCapabilities": {
-        "support_level": "untriaged"
       },
       "sourceDevice": {
         "support_level": "untriaged"
@@ -17103,30 +15915,6 @@
       }
     },
     "support_level": "stable"
-  },
-  "URLSearchParams": {
-    "members": {
-      "URLSearchParams": {},
-      "append": {
-        "support_level": "untriaged"
-      },
-      "delete": {
-        "support_level": "untriaged"
-      },
-      "get": {
-        "support_level": "untriaged"
-      },
-      "getAll": {
-        "support_level": "untriaged"
-      },
-      "has": {
-        "support_level": "untriaged"
-      },
-      "set": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "URLUtils": {
     "members": {
@@ -17204,256 +15992,6 @@
     },
     "support_level": "untriaged"
   },
-  "USB": {
-    "members": {
-      "getDevices": {
-        "support_level": "untriaged"
-      },
-      "requestDevice": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBAlternateInterface": {
-    "members": {
-      "USBAlternateInterface": {},
-      "alternateSetting": {
-        "support_level": "untriaged"
-      },
-      "endpoints": {
-        "support_level": "untriaged"
-      },
-      "interfaceClass": {
-        "support_level": "untriaged"
-      },
-      "interfaceName": {
-        "support_level": "untriaged"
-      },
-      "interfaceProtocol": {
-        "support_level": "untriaged"
-      },
-      "interfaceSubclass": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBConfiguration": {
-    "members": {
-      "USBConfiguration": {},
-      "configurationName": {
-        "support_level": "untriaged"
-      },
-      "configurationValue": {
-        "support_level": "untriaged"
-      },
-      "interfaces": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBConnectionEvent": {
-    "members": {
-      "USBConnectionEvent": {},
-      "device": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBDevice": {
-    "members": {
-      "claimInterface": {
-        "support_level": "untriaged"
-      },
-      "clearHalt": {
-        "support_level": "untriaged"
-      },
-      "close": {
-        "support_level": "untriaged"
-      },
-      "configurations": {
-        "support_level": "untriaged"
-      },
-      "controlTransferIn": {
-        "support_level": "untriaged"
-      },
-      "controlTransferOut": {
-        "support_level": "untriaged"
-      },
-      "deviceClass": {
-        "support_level": "untriaged"
-      },
-      "deviceProtocol": {
-        "support_level": "untriaged"
-      },
-      "deviceSubclass": {
-        "support_level": "untriaged"
-      },
-      "deviceVersionMajor": {
-        "support_level": "untriaged"
-      },
-      "deviceVersionMinor": {
-        "support_level": "untriaged"
-      },
-      "deviceVersionSubminor": {
-        "support_level": "untriaged"
-      },
-      "getConfiguration": {
-        "support_level": "untriaged"
-      },
-      "guid": {
-        "support_level": "untriaged"
-      },
-      "isochronousTransferIn": {
-        "support_level": "untriaged"
-      },
-      "isochronousTransferOut": {
-        "support_level": "untriaged"
-      },
-      "manufacturerName": {
-        "support_level": "untriaged"
-      },
-      "open": {
-        "support_level": "untriaged"
-      },
-      "productId": {
-        "support_level": "untriaged"
-      },
-      "productName": {
-        "support_level": "untriaged"
-      },
-      "releaseInterface": {
-        "support_level": "untriaged"
-      },
-      "reset": {
-        "support_level": "untriaged"
-      },
-      "serialNumber": {
-        "support_level": "untriaged"
-      },
-      "setConfiguration": {
-        "support_level": "untriaged"
-      },
-      "setInterface": {
-        "support_level": "untriaged"
-      },
-      "transferIn": {
-        "support_level": "untriaged"
-      },
-      "transferOut": {
-        "support_level": "untriaged"
-      },
-      "usbVersionMajor": {
-        "support_level": "untriaged"
-      },
-      "usbVersionMinor": {
-        "support_level": "untriaged"
-      },
-      "usbVersionSubminor": {
-        "support_level": "untriaged"
-      },
-      "vendorId": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBEndpoint": {
-    "members": {
-      "USBEndpoint": {},
-      "direction": {
-        "support_level": "untriaged"
-      },
-      "endpointNumber": {
-        "support_level": "untriaged"
-      },
-      "packetSize": {
-        "support_level": "untriaged"
-      },
-      "type": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBInTransferResult": {
-    "members": {
-      "data": {
-        "support_level": "untriaged"
-      },
-      "status": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBInterface": {
-    "members": {
-      "USBInterface": {},
-      "alternates": {
-        "support_level": "untriaged"
-      },
-      "interfaceNumber": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBIsochronousInTransferPacket": {
-    "members": {
-      "data": {
-        "support_level": "untriaged"
-      },
-      "status": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBIsochronousInTransferResult": {
-    "members": {
-      "data": {
-        "support_level": "untriaged"
-      },
-      "packets": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBIsochronousOutTransferPacket": {
-    "members": {
-      "bytesWritten": {
-        "support_level": "untriaged"
-      },
-      "status": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBIsochronousOutTransferResult": {
-    "members": {
-      "packets": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "USBOutTransferResult": {
-    "members": {
-      "bytesWritten": {
-        "support_level": "untriaged"
-      },
-      "status": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
   "Uint16Array": {
     "comment": "http://www.khronos.org/registry/typedarray/specs/latest/",
     "members": {
@@ -17492,20 +16030,6 @@
       "subarray": {}
     },
     "support_level": "stable"
-  },
-  "UnderlyingSourceBase": {
-    "members": {
-      "cancel": {
-        "support_level": "untriaged"
-      },
-      "pull": {
-        "support_level": "untriaged"
-      },
-      "start": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "VRDevice": {
     "members": {
@@ -19123,9 +17647,6 @@
       "readPixels": {
         "support_level": "untriaged"
       },
-      "readPixels2": {
-        "support_level": "untriaged"
-      },
       "renderbufferStorage": {
         "support_level": "untriaged"
       },
@@ -19169,9 +17690,6 @@
         "support_level": "untriaged"
       },
       "texImage2D": {
-        "support_level": "untriaged"
-      },
-      "texImage2D2": {
         "support_level": "untriaged"
       },
       "texImage2DCanvas": {
@@ -19403,95 +17921,6 @@
     "dart_action": "unstable",
     "members": {},
     "support_level": "stable"
-  },
-  "WebGLCompressedTextureASTC": {
-    "members": {
-      "COMPRESSED_RGBA_ASTC_10x10_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_10x5_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_10x6_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_10x8_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_12x10_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_12x12_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_4x4_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_5x4_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_5x5_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_6x5_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_6x6_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_8x5_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_8x6_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_RGBA_ASTC_8x8_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_10x10_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_10x5_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_10x6_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_10x8_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_12x10_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_12x12_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_4x4_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_5x4_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_5x5_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_6x5_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_6x6_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_8x5_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_8x6_KHR": {
-        "support_level": "untriaged"
-      },
-      "COMPRESSED_SRGB8_ALPHA8_ASTC_8x8_KHR": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
   },
   "WebGLCompressedTextureATC": {
     "comment": "http://www.khronos.org/registry/webgl/extensions/WEBGL_compressed_texture_atc/",
@@ -21504,10 +19933,6 @@
     "members": {},
     "support_level": "stable"
   },
-  "WebGLTimerQueryEXT": {
-    "members": {},
-    "support_level": "untriaged"
-  },
   "WebGLTransformFeedback": {
     "members": {},
     "support_level": "untriaged"
@@ -21812,9 +20237,6 @@
         "support_level": "untriaged"
       },
       "cancelAnimationFrame": {},
-      "cancelIdleCallback": {
-        "support_level": "untriaged"
-      },
       "captureEvents": {
         "comment": "http://www.w3.org/TR/DOM-Level-2-Events/events.html#Events-flow-capture",
         "dart_action": "suppress",
@@ -21873,9 +20295,6 @@
       "indexedDB": {},
       "innerHeight": {},
       "innerWidth": {},
-      "isSecureContext": {
-        "support_level": "untriaged"
-      },
       "length": {
         "dart_action": "suppress",
         "support_level": "deprecated"
@@ -22070,13 +20489,7 @@
         "support_level": "deprecated"
       },
       "removeEventListener": {},
-      "renderWorklet": {
-        "support_level": "untriaged"
-      },
       "requestAnimationFrame": {},
-      "requestIdleCallback": {
-        "support_level": "untriaged"
-      },
       "resizeBy": {},
       "resizeTo": {},
       "screen": {},
@@ -22171,9 +20584,6 @@
         "support_level": "untriaged"
       },
       "focused": {
-        "support_level": "untriaged"
-      },
-      "navigate": {
         "support_level": "untriaged"
       },
       "visibilityState": {
@@ -22597,9 +21007,6 @@
       "clearMeasures": {
         "support_level": "untriaged"
       },
-      "clearResourceTimings": {
-        "support_level": "untriaged"
-      },
       "getEntries": {
         "support_level": "untriaged"
       },
@@ -22621,9 +21028,6 @@
       "now": {
         "support_level": "untriaged"
       },
-      "setResourceTimingBufferSize": {
-        "support_level": "untriaged"
-      },
       "webkitClearResourceTimings": {
         "support_level": "untriaged"
       },
@@ -22631,18 +21035,6 @@
         "support_level": "untriaged"
       }
     },
-    "support_level": "untriaged"
-  },
-  "Worklet": {
-    "members": {
-      "import": {
-        "support_level": "untriaged"
-      }
-    },
-    "support_level": "untriaged"
-  },
-  "WorkletGlobalScope": {
-    "members": {},
     "support_level": "untriaged"
   },
   "XMLDocument": {

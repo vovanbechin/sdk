@@ -333,6 +333,8 @@ abstract class ResolutionWorldBuilderBase
   final CommonElements _commonElements;
 
   final NativeBasicData _nativeBasicData;
+  final NativeDataBuilder _nativeDataBuilder;
+  final InterceptorDataBuilder _interceptorDataBuilder;
 
   final SelectorConstraintsStrategy selectorConstraintsStrategy;
 
@@ -359,8 +361,13 @@ abstract class ResolutionWorldBuilderBase
 
   bool get isClosed => _closed;
 
-  ResolutionWorldBuilderBase(this._elementEnvironment, this._commonElements,
-      this._nativeBasicData, this.selectorConstraintsStrategy) {
+  ResolutionWorldBuilderBase(
+      this._elementEnvironment,
+      this._commonElements,
+      this._nativeBasicData,
+      this._nativeDataBuilder,
+      this._interceptorDataBuilder,
+      this.selectorConstraintsStrategy) {
     _allFunctions = new FunctionSetBuilder();
   }
 
@@ -712,7 +719,7 @@ abstract class ResolutionWorldBuilderBase
       }
       if (member.isFunction &&
           member.name == Identifiers.call &&
-          _elementEnvironment.getThisType(cls).typeArguments.isNotEmpty) {
+          _elementEnvironment.isGenericClass(cls)) {
         closurizedMembersWithFreeTypeVariables.add(member);
       }
 
@@ -915,8 +922,15 @@ abstract class KernelResolutionWorldBuilderBase
       ElementEnvironment elementEnvironment,
       CommonElements commonElements,
       NativeBasicData nativeBasicData,
+      NativeDataBuilder nativeDataBuilder,
+      InterceptorDataBuilder interceptorDataBuilder,
       SelectorConstraintsStrategy selectorConstraintsStrategy)
-      : super(elementEnvironment, commonElements, nativeBasicData,
+      : super(
+            elementEnvironment,
+            commonElements,
+            nativeBasicData,
+            nativeDataBuilder,
+            interceptorDataBuilder,
             selectorConstraintsStrategy);
 
   @override
@@ -929,11 +943,11 @@ abstract class KernelResolutionWorldBuilderBase
         commonElements: _commonElements,
         // TODO(johnniwinther): Compute these.
         constantSystem: null,
-        nativeData: null,
+        nativeData: _nativeDataBuilder.close(),
         interceptorData: null,
         backendUsage: null,
         resolutionWorldBuilder: this,
-        functionSetBuilder: _allFunctions,
+        functionSet: _allFunctions.close(),
         allTypedefs: _allTypedefs,
         mixinUses: _mixinUses,
         typesImplementedBySubclasses: typesImplementedBySubclasses,

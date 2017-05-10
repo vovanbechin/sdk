@@ -6,11 +6,12 @@
 library test;
 
 class C {
-  List<T> f<T>(T g()) => <T>[g()];
+  List<T> f<T>(T g()) => <T>[/*@promotedType=none*/ g()];
 }
 
 main() {
-  var /*@type=List<dynamic>*/ v = new C().f<dynamic>(/*@returnType=int*/ () {
+  var /*@type=List<dynamic>*/ v =
+      new C(). /*@typeArgs=dynamic*/ f<dynamic>(/*@returnType=int*/ () {
     return 1;
   });
 }

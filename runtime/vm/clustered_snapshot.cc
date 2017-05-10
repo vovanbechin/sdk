@@ -1934,7 +1934,7 @@ class RODataSerializationCluster : public SerializationCluster {
     s->Write<int32_t>(count);
     for (intptr_t i = 0; i < count; i++) {
       RawObject* object = objects_[i];
-      int32_t rodata_offset = s->GetRODataOffset(object);
+      int32_t rodata_offset = s->GetDataOffset(object);
       s->Write<int32_t>(rodata_offset);
       s->AssignRef(object);
     }
@@ -4856,7 +4856,7 @@ void Serializer::AddVMIsolateBaseObjects() {
   AddBaseObject(table->At(kDynamicCid));
   AddBaseObject(table->At(kVoidCid));
 
-  if (kind_ != Snapshot::kAppAOT) {
+  if (!Snapshot::IncludesCode(kind_)) {
     for (intptr_t i = 0; i < StubCode::NumEntries(); i++) {
       AddBaseObject(StubCode::EntryAt(i)->code());
     }
@@ -4952,7 +4952,7 @@ Deserializer::Deserializer(Thread* thread,
       zone_(thread->zone()),
       kind_(kind),
       stream_(buffer, size),
-      instructions_reader_(NULL),
+      image_reader_(NULL),
       refs_(NULL),
       next_ref_index_(1),
       clusters_(NULL) {
@@ -4960,8 +4960,7 @@ Deserializer::Deserializer(Thread* thread,
     ASSERT(instructions_buffer != NULL);
   }
   if (instructions_buffer != NULL) {
-    instructions_reader_ =
-        new (zone_) InstructionsReader(instructions_buffer, data_buffer);
+    image_reader_ = new (zone_) ImageReader(instructions_buffer, data_buffer);
   }
 }
 
@@ -5261,7 +5260,7 @@ void Deserializer::AddVMIsolateBaseObjects() {
   AddBaseObject(table->At(kDynamicCid));
   AddBaseObject(table->At(kVoidCid));
 
-  if (kind_ != Snapshot::kAppAOT) {
+  if (!Snapshot::IncludesCode(kind_)) {
     for (intptr_t i = 0; i < StubCode::NumEntries(); i++) {
       AddBaseObject(StubCode::EntryAt(i)->code());
     }

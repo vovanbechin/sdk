@@ -19,8 +19,7 @@ import '../elements/resolution_types.dart'
         ResolutionInterfaceType,
         ResolutionTypeKind;
 import '../js_backend/backend.dart';
-import '../tree/dartstring.dart' show DartString;
-import '../tree/tree.dart' as ast show Node, LiteralBool, Send;
+import '../tree/tree.dart' as ast show Node, Send;
 import '../types/masks.dart'
     show
         CommonMasks,
@@ -464,7 +463,7 @@ class MemberTypeInformation extends ElementTypeInformation
   TypeMask handleSpecialCases(InferrerEngine inferrer) {
     if (element.isField &&
         (!inferrer.backend.canFieldBeUsedForGlobalOptimizations(element) ||
-            inferrer.annotations.assumeDynamic(element))) {
+            inferrer.assumeDynamic(element))) {
       // Do not infer types for fields that have a corresponding annotation or
       // are assigned by synthesized calls
 
@@ -479,8 +478,8 @@ class MemberTypeInformation extends ElementTypeInformation
       if (element.isField) {
         FieldElement field = element;
         return inferrer
-            .typeOfNativeBehavior(
-                inferrer.backend.nativeData.getNativeFieldLoadBehavior(field))
+            .typeOfNativeBehavior(inferrer.closedWorld.nativeData
+                .getNativeFieldLoadBehavior(field))
             .type;
       } else {
         assert(element.isFunction ||
@@ -493,7 +492,7 @@ class MemberTypeInformation extends ElementTypeInformation
           return safeType(inferrer);
         } else {
           return inferrer
-              .typeOfNativeBehavior(inferrer.backend.nativeData
+              .typeOfNativeBehavior(inferrer.closedWorld.nativeData
                   .getNativeMethodBehavior(methodElement))
               .type;
         }
@@ -521,7 +520,7 @@ class MemberTypeInformation extends ElementTypeInformation
     Compiler compiler = inferrer.compiler;
     if (!compiler.options.trustTypeAnnotations &&
         !compiler.options.enableTypeAssertions &&
-        !inferrer.annotations.trustTypeAnnotations(element)) {
+        !inferrer.trustTypeAnnotations(element)) {
       return mask;
     }
     if (element.isGenerativeConstructor || element.isSetter) {
@@ -618,7 +617,7 @@ class ParameterTypeInformation extends ElementTypeInformation {
   TypeMask handleSpecialCases(InferrerEngine inferrer) {
     if (!inferrer.backend.canFunctionParametersBeUsedForGlobalOptimizations(
             element.functionDeclaration) ||
-        inferrer.annotations.assumeDynamic(declaration)) {
+        inferrer.assumeDynamic(declaration)) {
       // Do not infer types for parameters that have a corresponding annotation
       // or that are assigned by synthesized calls.
       giveUp(inferrer);
@@ -667,7 +666,7 @@ class ParameterTypeInformation extends ElementTypeInformation {
   TypeMask potentiallyNarrowType(TypeMask mask, InferrerEngine inferrer) {
     Compiler compiler = inferrer.compiler;
     if (!compiler.options.trustTypeAnnotations &&
-        !inferrer.annotations.trustTypeAnnotations(declaration)) {
+        !inferrer.trustTypeAnnotations(declaration)) {
       return mask;
     }
     // When type assertions are enabled (aka checked mode), we have to always
@@ -823,7 +822,7 @@ class DynamicCallSiteTypeInformation extends CallSiteTypeInformation {
   void addToGraph(InferrerEngine inferrer) {
     assert(receiver != null);
     TypeMask typeMask = computeTypedSelector(inferrer);
-    targets = inferrer.closedWorld.allFunctions.filter(selector, typeMask);
+    targets = inferrer.closedWorld.locateMembers(selector, typeMask);
     receiver.addUser(this);
     if (arguments != null) {
       arguments.forEach((info) => info.addUser(this));
@@ -987,9 +986,9 @@ class DynamicCallSiteTypeInformation extends CallSiteTypeInformation {
     // the untyped selector (through noSuchMethod's `Invocation`
     // and a call to `delegate`), we iterate over all these methods to
     // update their parameter types.
-    targets = inferrer.closedWorld.allFunctions.filter(selector, maskToUse);
+    targets = inferrer.closedWorld.locateMembers(selector, maskToUse);
     Iterable<MemberEntity> typedTargets = canReachAll
-        ? inferrer.closedWorld.allFunctions.filter(selector, typeMask)
+        ? inferrer.closedWorld.locateMembers(selector, typeMask)
         : targets;
 
     // Update the call graph if the targets could have changed.
@@ -1041,7 +1040,7 @@ class DynamicCallSiteTypeInformation extends CallSiteTypeInformation {
           TypeMask arg = arguments.positional[0].type;
           if (arg is ValueTypeMask && arg.value.isString) {
             DictionaryTypeMask dictionaryTypeMask = typeMask;
-            String key = arg.value.primitiveValue.slowToString();
+            String key = arg.value.primitiveValue;
             if (dictionaryTypeMask.typeMap.containsKey(key)) {
               if (debug.VERBOSE) {
                 print("Dictionary lookup for $key yields "
@@ -1085,7 +1084,7 @@ class DynamicCallSiteTypeInformation extends CallSiteTypeInformation {
     if (!abandonInferencing) {
       inferrer.updateSelectorInTree(caller, call, selector, mask);
       Iterable<MemberEntity> oldTargets = targets;
-      targets = inferrer.closedWorld.allFunctions.filter(selector, mask);
+      targets = inferrer.closedWorld.locateMembers(selector, mask);
       for (MemberElement element in targets) {
         if (!oldTargets.contains(element)) {
           MemberTypeInformation callee =
@@ -1222,14 +1221,13 @@ class ConcreteTypeInformation extends TypeInformation {
 }
 
 class StringLiteralTypeInformation extends ConcreteTypeInformation {
-  final DartString value;
+  final String value;
 
-  StringLiteralTypeInformation(value, TypeMask mask)
-      : super(new ValueTypeMask(mask, new StringConstantValue(value))),
-        this.value = value;
+  StringLiteralTypeInformation(this.value, TypeMask mask)
+      : super(new ValueTypeMask(mask, new StringConstantValue(value)));
 
-  String asString() => value.slowToString();
-  String toString() => 'Type $type value ${value.slowToString()}';
+  String asString() => value;
+  String toString() => 'Type $type value ${value}';
 
   accept(TypeInformationVisitor visitor) {
     return visitor.visitStringLiteralTypeInformation(this);
@@ -1237,14 +1235,13 @@ class StringLiteralTypeInformation extends ConcreteTypeInformation {
 }
 
 class BoolLiteralTypeInformation extends ConcreteTypeInformation {
-  final ast.LiteralBool value;
+  final bool value;
 
-  BoolLiteralTypeInformation(value, TypeMask mask)
-      : super(new ValueTypeMask(mask,
-            value.value ? new TrueConstantValue() : new FalseConstantValue())),
-        this.value = value;
+  BoolLiteralTypeInformation(this.value, TypeMask mask)
+      : super(new ValueTypeMask(
+            mask, value ? new TrueConstantValue() : new FalseConstantValue()));
 
-  String toString() => 'Type $type value ${value.value}';
+  String toString() => 'Type $type value ${value}';
 
   accept(TypeInformationVisitor visitor) {
     return visitor.visitBoolLiteralTypeInformation(this);
@@ -1753,14 +1750,13 @@ TypeMask _narrowType(
     {bool isNullable: true}) {
   if (annotation.treatAsDynamic) return type;
   if (annotation.isObject) return type;
+  if (annotation.isVoid) return type;
   TypeMask otherType;
   if (annotation.isTypedef || annotation.isFunctionType) {
     otherType = closedWorld.commonMasks.functionType;
   } else if (annotation.isTypeVariable) {
     // TODO(ngeoffray): Narrow to bound.
     return type;
-  } else if (annotation.isVoid) {
-    otherType = closedWorld.commonMasks.nullType;
   } else {
     ResolutionInterfaceType interfaceType = annotation;
     otherType = new TypeMask.nonNullSubtype(interfaceType.element, closedWorld);

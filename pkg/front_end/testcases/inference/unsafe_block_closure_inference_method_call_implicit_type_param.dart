@@ -6,11 +6,11 @@
 library test;
 
 class C {
-  List<T> f<T>(T g()) => <T>[g()];
+  List<T> f<T>(T g()) => <T>[/*@promotedType=none*/ g()];
 }
 
 main() {
-  var /*@type=List<int>*/ v = new C().f(
+  var /*@type=List<int>*/ v = new C(). /*@typeArgs=int*/ f(
       /*@returnType=int*/ () {
     return 1;
   });

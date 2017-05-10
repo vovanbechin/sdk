@@ -6,14 +6,14 @@ part of dart2js.kernel.element_map;
 
 /// Support for subtype checks of kernel based [DartType]s.
 class _KernelDartTypes implements DartTypes {
-  final KernelToElementMap worldBuilder;
+  final KernelToElementMapImpl elementMap;
   final SubtypeVisitor subtypeVisitor;
   final PotentialSubtypeVisitor potentialSubtypeVisitor;
 
-  _KernelDartTypes(this.worldBuilder)
-      : this.subtypeVisitor = new _KernelSubtypeVisitor(worldBuilder),
+  _KernelDartTypes(this.elementMap)
+      : this.subtypeVisitor = new _KernelSubtypeVisitor(elementMap),
         this.potentialSubtypeVisitor =
-            new _KernelPotentialSubtypeVisitor(worldBuilder);
+            new _KernelPotentialSubtypeVisitor(elementMap);
 
   @override
   bool isPotentialSubtype(DartType t, DartType s) {
@@ -31,11 +31,21 @@ class _KernelDartTypes implements DartTypes {
   }
 
   @override
-  CommonElements get commonElements => worldBuilder.commonElements;
+  InterfaceType getSupertype(ClassEntity cls) {
+    return elementMap._getSuperType(cls);
+  }
+
+  @override
+  InterfaceType asInstanceOf(InterfaceType type, ClassEntity cls) {
+    return elementMap._asInstanceOf(type, cls);
+  }
+
+  @override
+  CommonElements get commonElements => elementMap.commonElements;
 }
 
 class _KernelOrderedTypeSetBuilder extends OrderedTypeSetBuilderBase {
-  final KernelToElementMap elementMap;
+  final KernelToElementMapImpl elementMap;
 
   _KernelOrderedTypeSetBuilder(this.elementMap, ClassEntity cls)
       : super(cls,
@@ -60,7 +70,7 @@ class _KernelOrderedTypeSetBuilder extends OrderedTypeSetBuilderBase {
 }
 
 abstract class _AbstractTypeRelationMixin implements AbstractTypeRelation {
-  KernelToElementMap get elementMap;
+  KernelToElementMapImpl get elementMap;
 
   @override
   CommonElements get commonElements => elementMap.commonElements;
@@ -79,26 +89,20 @@ abstract class _AbstractTypeRelationMixin implements AbstractTypeRelation {
 
   @override
   InterfaceType asInstanceOf(InterfaceType type, ClassEntity cls) {
-    OrderedTypeSet orderedTypeSet = elementMap._getOrderedTypeSet(type.element);
-    InterfaceType supertype =
-        orderedTypeSet.asInstanceOf(cls, elementMap._getHierarchyDepth(cls));
-    if (supertype != null) {
-      supertype = elementMap._substByContext(supertype, type);
-    }
-    return supertype;
+    return elementMap._asInstanceOf(type, cls);
   }
 }
 
 class _KernelSubtypeVisitor extends SubtypeVisitor
     with _AbstractTypeRelationMixin {
-  final KernelToElementMap elementMap;
+  final KernelToElementMapImpl elementMap;
 
   _KernelSubtypeVisitor(this.elementMap);
 }
 
 class _KernelPotentialSubtypeVisitor extends PotentialSubtypeVisitor
     with _AbstractTypeRelationMixin {
-  final KernelToElementMap elementMap;
+  final KernelToElementMapImpl elementMap;
 
   _KernelPotentialSubtypeVisitor(this.elementMap);
 }

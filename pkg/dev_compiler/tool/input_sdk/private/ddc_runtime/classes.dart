@@ -33,7 +33,7 @@ mixin(base, @rest mixins) => JS(
   for (let m of $mixins) {
     $copyProperties(Mixin.prototype, m.prototype);
   }
-  // Initializer method: run mixin initializers, then the base.
+  // Initializer methods: run mixin initializers, then the base.
   Mixin.prototype.new = function(...args) {
     // Run mixin initializers. They cannot have arguments.
     // Run them backwards so most-derived mixin is initialized first.
@@ -43,6 +43,20 @@ mixin(base, @rest mixins) => JS(
     // Run base initializer.
     $base.prototype.new.apply(this, args);
   };
+  let namedCtors = ${safeGetOwnProperty(base, _namedConstructors)};
+  if ($base[$_namedConstructors] != null) {
+    for (let namedCtor of $base[$_namedConstructors]) {
+      Mixin.prototype[namedCtor] = function(...args) {
+        // Run mixin initializers. They cannot have arguments.
+        // Run them backwards so most-derived mixin is initialized first.
+        for (let i = $mixins.length - 1; i >= 0; i--) {
+          $mixins[i].prototype.new.call(this);
+        }
+        // Run base initializer.
+        $base.prototype[namedCtor].apply(this, args);
+      };
+    }
+  }
 
   // Set the signature of the Mixin class to be the composition
   // of the signatures of the mixins.
@@ -165,10 +179,10 @@ generic(typeConstructor, [setBaseClass]) => JS(
   return makeGenericType;
 })()''');
 
-getGenericClass(type) =>
-    JS('', '$safeGetOwnProperty($type, $_originalDeclaration)');
+getGenericClass(type) => safeGetOwnProperty(type, _originalDeclaration);
 
-getGenericArgs(type) => JS('', '$safeGetOwnProperty($type, $_typeArguments)');
+List getGenericArgs(type) =>
+    JS('List', '#', safeGetOwnProperty(type, _typeArguments));
 
 // TODO(vsm): Collapse into one expando.
 final _constructorSig = JS('', 'Symbol("sigCtor")');
@@ -261,43 +275,6 @@ classGetConstructorType(cls, name) => JS(
   if (sigCtor === void 0) return void 0;
   return sigCtor[$name];
 })()''');
-
-/// Given an object and a method name, tear off the method.
-/// Sets the runtime type of the torn off method appropriately,
-/// and also binds the object.
-///
-/// If the optional `f` argument is passed in, it will be used as the method.
-/// This supports cases like `super.foo` where we need to tear off the method
-/// from the superclass, not from the `obj` directly.
-/// TODO(leafp): Consider caching the tearoff on the object?
-bind(obj, name, f) => JS(
-    '',
-    '''(() => {
-  if ($f === void 0) $f = $obj[$name];
-  // TODO(jmesserly): track the function's signature on the function, instead
-  // of having to go back to the class?
-  let sig = $getMethodType($getType($obj), $name);
-
-  // JS interop case: do not bind this for compatibility with the dart2js
-  // implementation where we cannot bind this reliably here until we trust
-  // types more.
-  if (sig == null) return $f;
-
-  $f = $f.bind($obj);
-  $tag($f, sig);
-  return $f;
-})()''');
-
-/// Instantiate a generic method.
-///
-/// We need to apply the type arguments both to the function, as well as its
-/// associated function type.
-gbind(f, @rest typeArgs) {
-  var result = JS('', '#.apply(null, #)', f, typeArgs);
-  var sig = JS('', '#.instantiate(#)', _getRuntimeType(f), typeArgs);
-  tag(result, sig);
-  return result;
-}
 
 // Set up the method signature field on the constructor
 _setInstanceSignature(f, sigF, kind) => defineMemoizedGetter(
@@ -424,12 +401,17 @@ defineNamedConstructor(clazz, name) => JS(
   let proto = $clazz.prototype;
   let initMethod = proto[$name];
   let ctor = function(...args) { initMethod.apply(this, args); };
-  ctor[$isNamedConstructor] = true;
   ctor.prototype = proto;
   // Use defineProperty so we don't hit a property defined on Function,
   // like `caller` and `arguments`.
   $defineProperty($clazz, $name, { value: ctor, configurable: true });
+
+  let namedCtors = ${safeGetOwnProperty(clazz, _namedConstructors)};
+  if (namedCtors == null) $clazz[$_namedConstructors] = namedCtors = [];
+  namedCtors.push($name);
 })()''');
+
+final _namedConstructors = JS('', 'Symbol("_namedConstructors")');
 
 final _extensionType = JS('', 'Symbol("extensionType")');
 

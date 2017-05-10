@@ -12,6 +12,7 @@ import '../constants/values.dart';
 import '../common_elements.dart';
 import '../elements/elements.dart';
 import '../elements/entities.dart';
+import '../elements/names.dart';
 import '../js_backend/annotations.dart';
 import '../js_backend/js_backend.dart';
 import '../native/behavior.dart' as native;
@@ -85,14 +86,24 @@ class InferrerEngine {
 
   CommonElements get commonElements => closedWorld.commonElements;
 
+  /// Returns `true` if [element] has an `@AssumeDynamic()` annotation.
+  bool assumeDynamic(Element element) {
+    return element is MemberElement && optimizerHints.assumeDynamic(element);
+  }
+
+  /// Returns `true` if [element] has an `@TrustTypeAnnotations()` annotation.
+  bool trustTypeAnnotations(Element element) {
+    return element is MemberElement &&
+        optimizerHints.trustTypeAnnotations(element);
+  }
+
   /**
    * Applies [f] to all elements in the universe that match
    * [selector] and [mask]. If [f] returns false, aborts the iteration.
    */
   void forEachElementMatching(
       Selector selector, TypeMask mask, bool f(Element element)) {
-    Iterable<MemberEntity> elements =
-        closedWorld.allFunctions.filter(selector, mask);
+    Iterable<MemberEntity> elements = closedWorld.locateMembers(selector, mask);
     for (MemberElement e in elements) {
       if (!f(e.implementation)) return;
     }
@@ -210,7 +221,7 @@ class InferrerEngine {
 
   bool isNativeMember(Element element) {
     return element is MemberElement &&
-        compiler.backend.nativeData.isNativeMember(element);
+        closedWorld.nativeData.isNativeMember(element);
   }
 
   bool checkIfExposesThis(Element element) {
@@ -226,7 +237,7 @@ class InferrerEngine {
   }
 
   JavaScriptBackend get backend => compiler.backend;
-  OptimizerHintsForTests get annotations => backend.annotations;
+  OptimizerHintsForTests get optimizerHints => backend.optimizerHints;
   DiagnosticReporter get reporter => compiler.reporter;
   CommonMasks get commonMasks => closedWorld.commonMasks;
 
@@ -887,9 +898,7 @@ class InferrerEngine {
           arguments, sideEffects, inLoop);
     }
 
-    closedWorld.allFunctions
-        .filter(selector, mask)
-        .forEach((MemberElement callee) {
+    closedWorld.locateMembers(selector, mask).forEach((MemberElement callee) {
       updateSideEffects(sideEffects, selector, callee);
     });
 

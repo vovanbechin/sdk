@@ -40,7 +40,7 @@ getOwnNamesAndSymbols(obj) {
   return JS('', '#.concat(#)', names, symbols);
 }
 
-safeGetOwnProperty(obj, String name) {
+safeGetOwnProperty(obj, name) {
   var desc = getOwnPropertyDescriptor(obj, name);
   if (desc != null) return JS('', '#.value', desc);
 }
@@ -60,7 +60,7 @@ defineLazyProperty(to, name, desc) => JS(
       value = x;
     }
     function circularInitError() {
-      $throwInternalError('circular initialization for field ' + $name);
+      $throwCyclicInitializationError($name);
     }
     function lazyGetter() {
       if (init == null) return value;

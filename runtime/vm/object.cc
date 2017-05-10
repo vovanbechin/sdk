@@ -3820,7 +3820,6 @@ bool Class::TypeTestNonRecursive(const Class& cls,
   Zone* zone = Thread::Current()->zone();
   Class& thsi = Class::Handle(zone, cls.raw());
   while (true) {
-    ASSERT(!thsi.IsVoidClass());
     // Check for DynamicType.
     // Each occurrence of DynamicType in type T is interpreted as the dynamic
     // type, a supertype of all types.
@@ -3839,9 +3838,14 @@ bool Class::TypeTestNonRecursive(const Class& cls,
       return test_kind == Class::kIsSubtypeOf;
     }
     // Check for ObjectType. Any type that is not NullType or DynamicType
-    // (already checked above), is more specific than ObjectType.
-    if (other.IsObjectClass()) {
+    // (already checked above), is more specific than ObjectType/VoidType.
+    if (other.IsObjectClass() || other.IsVoidClass()) {
       return true;
+    }
+    // If other is neither Object, dynamic or void, then ObjectType/VoidType
+    // can't be a subtype of other.
+    if (thsi.IsObjectClass() || thsi.IsVoidClass()) {
+      return false;
     }
     // Check for reflexivity.
     if (thsi.raw() == other.raw()) {
@@ -9105,6 +9109,11 @@ void Script::set_kernel_string_offsets(const TypedData& offsets) const {
 
 void Script::set_kernel_string_data(const TypedData& data) const {
   StorePointer(&raw_ptr()->kernel_string_data_, data.raw());
+}
+
+
+void Script::set_kernel_canonical_names(const TypedData& names) const {
+  StorePointer(&raw_ptr()->kernel_canonical_names_, names.raw());
 }
 
 
@@ -15825,7 +15834,7 @@ bool Instance::IsInstanceOf(
   ASSERT(!other.IsMalformed());
   ASSERT(!other.IsMalbounded());
   if (other.IsVoidType()) {
-    return false;
+    return true;
   }
   Zone* zone = Thread::Current()->zone();
   const Class& cls = Class::Handle(zone, clazz());
@@ -16643,9 +16652,12 @@ bool AbstractType::TypeTest(TypeTestKind test_kind,
     return false;
   }
   // Any type is a subtype of (and is more specific than) Object and dynamic.
+  // As of Dart 1.24, void is dynamically treated like Object (except when
+  // comparing function-types).
   // As of Dart 1.5, the Null type is a subtype of (and is more specific than)
   // any type.
-  if (other.IsObjectType() || other.IsDynamicType() || IsNullType()) {
+  if (other.IsObjectType() || other.IsDynamicType() || other.IsVoidType() ||
+      IsNullType()) {
     return true;
   }
   Zone* zone = Thread::Current()->zone();

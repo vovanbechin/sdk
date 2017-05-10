@@ -15,20 +15,21 @@ import '../compiler.dart';
 import '../constants/constant_system.dart';
 import '../constants/expressions.dart';
 import '../constants/values.dart';
-import '../elements/resolution_types.dart';
-import '../elements/types.dart';
 import '../diagnostics/messages.dart' show Message, MessageTemplate;
 import '../dump_info.dart' show InfoReporter;
 import '../elements/elements.dart';
 import '../elements/entities.dart';
 import '../elements/modelx.dart' show ConstructorBodyElementX;
+import '../elements/names.dart';
+import '../elements/operators.dart';
+import '../elements/resolution_types.dart';
+import '../elements/types.dart';
 import '../io/source_information.dart';
 import '../js/js.dart' as js;
 import '../js_backend/backend.dart' show JavaScriptBackend;
 import '../js_backend/js_backend.dart';
 import '../js_emitter/js_emitter.dart' show CodeEmitterTask, NativeEmitter;
 import '../native/native.dart' as native;
-import '../resolution/operators.dart';
 import '../resolution/semantic_visitor.dart';
 import '../resolution/tree_elements.dart' show TreeElements;
 import '../tree/tree.dart' as ast;
@@ -214,8 +215,8 @@ class SsaBuilder extends ast.Visitor
         sourceInformationFactory.createBuilderForContext(resolvedAst);
     graph.sourceInformation =
         sourceInformationBuilder.buildVariableDeclaration();
-    localsHandler = new LocalsHandler(
-        this, target, null, backend.nativeData, backend.interceptorData);
+    localsHandler = new LocalsHandler(this, target, null,
+        closedWorld.nativeData, closedWorld.interceptorData);
     loopHandler = new SsaLoopHandler(this);
     typeBuilder = new TypeBuilder(this);
   }
@@ -406,13 +407,14 @@ class SsaBuilder extends ast.Visitor
     if (compiler.elementHasCompileTimeError(element)) return false;
 
     MethodElement function = element;
+    MethodElement declaration = function.declaration;
     ResolvedAst functionResolvedAst = function.resolvedAst;
     bool insideLoop = loopDepth > 0 || graph.calledInLoop;
 
     // Bail out early if the inlining decision is in the cache and we can't
     // inline (no need to check the hard constraints).
     bool cachedCanBeInlined =
-        inlineCache.canInline(function, insideLoop: insideLoop);
+        inlineCache.canInline(declaration, insideLoop: insideLoop);
     if (cachedCanBeInlined == false) return false;
 
     bool meetsHardConstraints() {
@@ -534,9 +536,9 @@ class SsaBuilder extends ast.Visitor
           functionResolvedAst, maxInliningNodes,
           enableUserAssertions: options.enableUserAssertions);
       if (canInline) {
-        inlineCache.markAsInlinable(function, insideLoop: insideLoop);
+        inlineCache.markAsInlinable(declaration, insideLoop: insideLoop);
       } else {
-        inlineCache.markAsNonInlinable(function, insideLoop: insideLoop);
+        inlineCache.markAsNonInlinable(declaration, insideLoop: insideLoop);
       }
       return canInline;
     }
@@ -1239,7 +1241,7 @@ class SsaBuilder extends ast.Visitor
     if (!isNativeUpgradeFactory) {
       // Create the runtime type information, if needed.
       bool hasRtiInput = false;
-      if (rtiNeed.classNeedsRtiField(classElement)) {
+      if (rtiNeed.classNeedsRtiField(classElement.declaration)) {
         // Read the values of the type arguments and create a
         // HTypeInfoExpression to set on the newly create object.
         hasRtiInput = true;
@@ -1378,7 +1380,7 @@ class SsaBuilder extends ast.Visitor
     // may contain references to type variables.
     var enclosing = element.enclosingElement;
     if ((element.isConstructor || element.isGenerativeConstructorBody) &&
-        rtiNeed.classNeedsRti(enclosing)) {
+        rtiNeed.classNeedsRti(enclosing.declaration)) {
       enclosing.typeVariables
           .forEach((ResolutionTypeVariableType typeVariable) {
         HParameterValue param =
@@ -1468,8 +1470,8 @@ class SsaBuilder extends ast.Visitor
         localsHandler.substInContext(subtype), sourceElement);
     HInstruction supertypeInstruction = typeBuilder.analyzeTypeArgument(
         localsHandler.substInContext(supertype), sourceElement);
-    HInstruction messageInstruction = graph.addConstantString(
-        new ast.DartString.literal(message), closedWorld);
+    HInstruction messageInstruction =
+        graph.addConstantString(message, closedWorld);
     MethodElement element = commonElements.assertIsSubtype;
     var inputs = <HInstruction>[
       subtypeInstruction,
@@ -2818,7 +2820,7 @@ class SsaBuilder extends ast.Visitor
     }
     HConstant hConstant = globalNameHNode;
     StringConstantValue constant = hConstant.constant;
-    String globalName = constant.primitiveValue.slowToString();
+    String globalName = constant.primitiveValue;
     js.Template expr = js.js.expressionTemplateYielding(
         emitter.generateEmbeddedGlobalAccess(globalName));
     native.NativeBehavior nativeBehavior = elements.getNativeData(node);
@@ -2980,9 +2982,7 @@ class SsaBuilder extends ast.Visitor
     FunctionEntity loadFunction = commonElements.loadLibraryWrapper;
     PrefixElement prefixElement = deferredLoader.enclosingElement;
     String loadId = deferredLoadTask.getImportDeferName(node, prefixElement);
-    var inputs = [
-      graph.addConstantString(new ast.DartString.literal(loadId), closedWorld)
-    ];
+    var inputs = [graph.addConstantString(loadId, closedWorld)];
     push(new HInvokeStatic(loadFunction, inputs, commonMasks.nonNullType,
         targetCanThrow: false)
       ..sourceInformation = sourceInformation);
@@ -3009,8 +3009,7 @@ class SsaBuilder extends ast.Visitor
     String publicName = name;
     if (selector.isSetter) publicName += '=';
 
-    ConstantValue nameConstant =
-        constantSystem.createString(new ast.DartString.literal(publicName));
+    ConstantValue nameConstant = constantSystem.createString(publicName);
 
     js.Name internalName = namer.invocationName(selector);
 
@@ -3022,7 +3021,7 @@ class SsaBuilder extends ast.Visitor
     var argumentNames = new List<HInstruction>();
     for (String argumentName in selector.namedArguments) {
       ConstantValue argumentNameConstant =
-          constantSystem.createString(new ast.DartString.literal(argumentName));
+          constantSystem.createString(argumentName);
       argumentNames.add(graph.addConstant(argumentNameConstant, closedWorld));
     }
     var argumentNamesInstruction = buildLiteralList(argumentNames);
@@ -3679,8 +3678,7 @@ class SsaBuilder extends ast.Visitor
   }
 
   HConstant addConstantString(String string) {
-    ast.DartString dartString = new ast.DartString.literal(string);
-    return graph.addConstantString(dartString, closedWorld);
+    return graph.addConstantString(string, closedWorld);
   }
 
   HConstant addConstantStringFromName(js.Name name) {
@@ -3815,11 +3813,9 @@ class SsaBuilder extends ast.Visitor
       List<String> existingArguments,
       SourceInformation sourceInformation}) {
     MethodElement helper = commonElements.throwNoSuchMethod;
-    ConstantValue receiverConstant =
-        constantSystem.createString(new ast.DartString.empty());
+    ConstantValue receiverConstant = constantSystem.createString('');
     HInstruction receiver = graph.addConstant(receiverConstant, closedWorld);
-    ast.DartString dartString = new ast.DartString.literal(methodName);
-    ConstantValue nameConstant = constantSystem.createString(dartString);
+    ConstantValue nameConstant = constantSystem.createString(methodName);
     HInstruction name = graph.addConstant(nameConstant, closedWorld);
     if (argumentValues == null) {
       argumentValues = <HInstruction>[];
@@ -3835,8 +3831,7 @@ class SsaBuilder extends ast.Visitor
     if (existingArguments != null) {
       List<HInstruction> existingNames = <HInstruction>[];
       for (String name in existingArguments) {
-        HInstruction nameConstant = graph.addConstantString(
-            new ast.DartString.literal(name), closedWorld);
+        HInstruction nameConstant = graph.addConstantString(name, closedWorld);
         existingNames.add(nameConstant);
       }
       existingNamesList = buildLiteralList(existingNames);
@@ -3873,12 +3868,12 @@ class SsaBuilder extends ast.Visitor
   @override
   void bulkHandleNew(ast.NewExpression node, [_]) {
     Element element = elements[node.send];
-    final bool isSymbolConstructor =
-        element == commonElements.symbolConstructor;
     if (!Elements.isMalformed(element)) {
       ConstructorElement function = element;
       element = function.effectiveTarget;
     }
+    final bool isSymbolConstructor =
+        element == commonElements.symbolConstructorTarget;
     if (Elements.isError(element)) {
       ErroneousElement error = element;
       if (error.messageKind == MessageKind.CANNOT_FIND_CONSTRUCTOR ||
@@ -3899,7 +3894,7 @@ class SsaBuilder extends ast.Visitor
       if (isSymbolConstructor) {
         ConstructedConstantValue symbol = getConstantForNode(node);
         StringConstantValue stringConstant = symbol.fields.values.single;
-        String nameString = stringConstant.toDartString().slowToString();
+        String nameString = stringConstant.primitiveValue;
         registry?.registerConstSymbol(nameString);
       }
     } else {
@@ -3992,7 +3987,7 @@ class SsaBuilder extends ast.Visitor
     nativeEmitter.nativeMethods.add(element);
 
     if (element.isFactoryConstructor &&
-        jsInteropAnalysis.hasAnonymousAnnotation(element.contextClass)) {
+        nativeData.isAnonymousJsInteropClass(element.contextClass)) {
       // Factory constructor that is syntactic sugar for creating a JavaScript
       // object literal.
       ConstructorElement constructor = element;
@@ -4933,7 +4928,8 @@ class SsaBuilder extends ast.Visitor
   }
 
   void visitLiteralString(ast.LiteralString node) {
-    stack.add(graph.addConstantString(node.dartString, closedWorld));
+    stack.add(
+        graph.addConstantString(node.dartString.slowToString(), closedWorld));
   }
 
   void visitLiteralSymbol(ast.LiteralSymbol node) {
@@ -4944,7 +4940,8 @@ class SsaBuilder extends ast.Visitor
   void visitStringJuxtaposition(ast.StringJuxtaposition node) {
     if (!node.isInterpolation) {
       // This is a simple string with no interpolations.
-      stack.add(graph.addConstantString(node.dartString, closedWorld));
+      stack.add(
+          graph.addConstantString(node.dartString.slowToString(), closedWorld));
       return;
     }
     StringBuilderVisitor stringBuilder = new StringBuilderVisitor(this, node);

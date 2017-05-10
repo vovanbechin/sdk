@@ -5,7 +5,8 @@
 /*@testedFeatures=inference*/
 library test;
 
-List<T> f<T>(T g()) => <T>[g()];
-var /*@topType=List<dynamic>*/ v = f<dynamic>(/*@returnType=int*/ () {
+List<T> f<T>(T g()) => <T>[/*@promotedType=none*/ g()];
+var /*@topType=List<dynamic>*/ v = /*@typeArgs=dynamic*/ f<dynamic>(
+    /*@returnType=int*/ () {
   return 1;
 });

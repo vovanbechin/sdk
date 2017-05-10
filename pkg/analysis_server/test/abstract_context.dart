@@ -13,13 +13,13 @@ import 'package:analyzer/exception/exception.dart';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/file_system/memory_file_system.dart';
 import 'package:analyzer/source/package_map_resolver.dart';
-import 'package:analyzer/src/dart/analysis/byte_store.dart';
 import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer/src/dart/analysis/file_state.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/engine.dart' as engine;
 import 'package:analyzer/src/generated/sdk.dart';
 import 'package:analyzer/src/generated/source_io.dart';
+import 'package:front_end/src/incremental/byte_store.dart';
 
 import 'mock_sdk.dart';
 
@@ -73,8 +73,10 @@ class AbstractContextTest {
 
   /**
    * Return `true` if the new analysis driver should be used by these tests.
+   *
+   * Remove this after there are no subclasses that override it.
    */
-  bool get enableNewAnalysisDriver => false;
+  bool get enableNewAnalysisDriver => true;
 
   Source addMetaPackageSource() => addPackageSource(
       'meta',
@@ -98,19 +100,18 @@ class Required {
 
   Source addSource(String path, String content, [Uri uri]) {
     File file = newFile(path, content);
+    Source source = file.createSource(uri);
     if (enableNewAnalysisDriver) {
       driver.addFile(path);
       driver.changeFile(path);
       _fileContentOverlay[path] = content;
-      return null;
     } else {
-      Source source = file.createSource(uri);
       ChangeSet changeSet = new ChangeSet();
       changeSet.addedSource(source);
       context.applyChanges(changeSet);
       context.setContents(source, content);
-      return source;
     }
+    return source;
   }
 
   File newFile(String path, [String content]) =>

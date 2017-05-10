@@ -93,6 +93,7 @@ main(List<String> args) {
     List list = createResolutionEnqueuerListener(compiler);
     ResolutionEnqueuerListener resolutionEnqueuerListener = list[0];
     BackendUsageBuilder backendUsageBuilder = list[1];
+    InterceptorDataBuilder interceptorDataBuilder = list[2];
     ResolutionEnqueuer enqueuer = new ResolutionEnqueuer(
         compiler.enqueuer,
         compiler.options,
@@ -100,7 +101,12 @@ main(List<String> args) {
         const TreeShakingEnqueuerStrategy(),
         resolutionEnqueuerListener,
         new ElementResolutionWorldBuilder(
-            backend, compiler.resolution, const OpenWorldStrategy()),
+            backend,
+            compiler.resolution,
+            backend.nativeBasicData,
+            backend.nativeDataBuilder,
+            interceptorDataBuilder,
+            const OpenWorldStrategy()),
         new KernelWorkItemBuilder(compiler),
         'enqueuer from kernel');
     ClosedWorld closedWorld = computeClosedWorld(
@@ -138,14 +144,16 @@ List createResolutionEnqueuerListener(Compiler compiler) {
   JavaScriptBackend backend = compiler.backend;
   BackendUsageBuilder backendUsageBuilder =
       new BackendUsageBuilderImpl(compiler.commonElements);
+  InterceptorDataBuilder interceptorDataBuilder =
+      new InterceptorDataBuilderImpl(backend.nativeBasicData,
+          compiler.elementEnvironment, compiler.commonElements);
   ResolutionEnqueuerListener listener = new ResolutionEnqueuerListener(
       compiler.options,
       compiler.elementEnvironment,
       compiler.commonElements,
       backend.impacts,
       backend.nativeBasicData,
-      new InterceptorDataBuilderImpl(backend.nativeBasicData,
-          compiler.elementEnvironment, compiler.commonElements),
+      interceptorDataBuilder,
       backendUsageBuilder,
       backend.rtiNeedBuilder,
       backend.mirrorsDataBuilder,
@@ -155,10 +163,10 @@ List createResolutionEnqueuerListener(Compiler compiler) {
       backend.mirrorsResolutionAnalysis,
       new TypeVariableResolutionAnalysis(
           compiler.elementEnvironment, backend.impacts, backendUsageBuilder),
-      backend.nativeResolutionEnqueuer,
+      backend.nativeResolutionEnqueuerForTesting,
       compiler.deferredLoadTask,
       backend.kernelTask);
-  return [listener, backendUsageBuilder];
+  return [listener, backendUsageBuilder, interceptorDataBuilder];
 }
 
 ClosedWorld computeClosedWorld(DiagnosticReporter reporter,

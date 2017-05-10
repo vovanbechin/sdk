@@ -13,10 +13,20 @@ class ElementResolutionWorldBuilder extends ResolutionWorldBuilderBase {
   final JavaScriptBackend _backend;
   final Resolution _resolution;
 
-  ElementResolutionWorldBuilder(this._backend, this._resolution,
+  ElementResolutionWorldBuilder(
+      this._backend,
+      this._resolution,
+      NativeBasicData nativeBasicData,
+      NativeDataBuilder nativeDataBuilder,
+      InterceptorDataBuilder interceptorDataBuilder,
       SelectorConstraintsStrategy selectorConstraintsStrategy)
-      : super(_backend.compiler.elementEnvironment, _resolution.commonElements,
-            _backend.nativeBasicData, selectorConstraintsStrategy);
+      : super(
+            _backend.compiler.elementEnvironment,
+            _resolution.commonElements,
+            nativeBasicData,
+            nativeDataBuilder,
+            interceptorDataBuilder,
+            selectorConstraintsStrategy);
 
   bool isImplemented(ClassElement cls) {
     return super.isImplemented(cls.declaration);
@@ -64,10 +74,15 @@ class ElementResolutionWorldBuilder extends ResolutionWorldBuilderBase {
               ConstructorElement target = constructor.effectiveTarget;
               ResolutionInterfaceType targetType =
                   constructor.computeEffectiveTargetType(instance.type);
-              Instantiation kind = Instantiation.DIRECTLY_INSTANTIATED;
-              if (target.enclosingClass.isAbstract) {
-                // If target is a factory constructor on an abstract class.
+              ClassElement cls = target.enclosingClass;
+              bool isNative = _nativeBasicData.isNativeClass(cls);
+              Instantiation kind;
+              if (isNative) {
+                kind = Instantiation.ABSTRACTLY_INSTANTIATED;
+              } else if (cls.isAbstract) {
                 kind = Instantiation.UNINSTANTIATED;
+              } else {
+                kind = Instantiation.DIRECTLY_INSTANTIATED;
               }
               infoFor(targetType.element)
                   .addInstantiation(target, targetType, kind);
@@ -158,11 +173,11 @@ class ElementResolutionWorldBuilder extends ResolutionWorldBuilderBase {
     return _closedWorldCache = new ClosedWorldImpl(
         commonElements: _commonElements,
         constantSystem: _backend.constantSystem,
-        nativeData: _backend.nativeData,
-        interceptorData: _backend.interceptorData,
+        nativeData: _nativeDataBuilder.close(),
+        interceptorData: _interceptorDataBuilder.close(),
         backendUsage: _backend.backendUsage,
         resolutionWorldBuilder: this,
-        functionSetBuilder: _allFunctions,
+        functionSet: _allFunctions.close(),
         allTypedefs: _allTypedefs,
         mixinUses: _mixinUses,
         typesImplementedBySubclasses: typesImplementedBySubclasses,

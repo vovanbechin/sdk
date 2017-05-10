@@ -685,28 +685,17 @@ RawObject* SnapshotReader::NewInteger(int64_t value) {
 }
 
 
-int32_t ImageWriter::GetOffsetFor(RawInstructions* instructions,
-                                  RawCode* code) {
-#if defined(PRODUCT)
-  // Instructions are only dedup in product mode because it obfuscates profiler
-  // results.
-  for (intptr_t i = 0; i < instructions_.length(); i++) {
-    if (instructions_[i].raw_insns_ == instructions) {
-      return instructions_[i].offset_;
-    }
-  }
-#endif
-
+int32_t ImageWriter::GetTextOffsetFor(RawInstructions* instructions,
+                                      RawCode* code) {
   intptr_t heap_size = instructions->Size();
   intptr_t offset = next_offset_;
   next_offset_ += heap_size;
   instructions_.Add(InstructionsData(instructions, code, offset));
-
   return offset;
 }
 
 
-int32_t ImageWriter::GetObjectOffsetFor(RawObject* raw_object) {
+int32_t ImageWriter::GetDataOffsetFor(RawObject* raw_object) {
   intptr_t heap_size = raw_object->Size();
   intptr_t offset = next_object_offset_;
   next_object_offset_ += heap_size;
@@ -1066,7 +1055,7 @@ void BlobImageWriter::WriteText(WriteStream* clustered_stream, bool vm) {
 }
 
 
-RawInstructions* InstructionsReader::GetInstructionsAt(int32_t offset) {
+RawInstructions* ImageReader::GetInstructionsAt(int32_t offset) {
   ASSERT(Utils::IsAligned(offset, OS::PreferredCodeAlignment()));
 
   RawInstructions* result = reinterpret_cast<RawInstructions*>(
@@ -1078,7 +1067,7 @@ RawInstructions* InstructionsReader::GetInstructionsAt(int32_t offset) {
 }
 
 
-RawObject* InstructionsReader::GetObjectAt(int32_t offset) {
+RawObject* ImageReader::GetObjectAt(int32_t offset) {
   ASSERT(Utils::IsAligned(offset, kWordSize));
 
   RawObject* result = reinterpret_cast<RawObject*>(

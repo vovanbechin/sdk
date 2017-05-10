@@ -15,7 +15,6 @@ import 'package:analyzer/source/package_map_resolver.dart';
 import 'package:analyzer/source/pub_package_map_provider.dart';
 import 'package:analyzer/source/sdk_ext.dart';
 import 'package:analyzer/src/context/builder.dart';
-import 'package:analyzer/src/dart/analysis/byte_store.dart';
 import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer/src/dart/analysis/file_state.dart';
 import 'package:analyzer/src/dart/sdk/sdk.dart';
@@ -40,6 +39,7 @@ import 'package:analyzer_cli/src/error_severity.dart';
 import 'package:analyzer_cli/src/options.dart';
 import 'package:analyzer_cli/src/perf_report.dart';
 import 'package:analyzer_cli/starter.dart' show CommandLineStarter;
+import 'package:front_end/src/incremental/byte_store.dart';
 import 'package:linter/src/rules.dart' as linter;
 import 'package:package_config/discovery.dart' as pkg_discovery;
 import 'package:package_config/packages.dart' show Packages;
@@ -130,8 +130,8 @@ class Driver implements CommandLineStarter {
     // Do analysis.
     if (options.buildMode) {
       ErrorSeverity severity = _buildModeAnalyze(options);
-      // In case of error propagate exit code.
-      if (severity == ErrorSeverity.ERROR) {
+      // Propagate issues to the exit code.
+      if (_shouldBeFatal(severity, options)) {
         io.exitCode = severity.ordinal;
       }
     } else if (options.shouldBatch) {
@@ -142,8 +142,8 @@ class Driver implements CommandLineStarter {
       });
     } else {
       ErrorSeverity severity = await _analyzeAll(options);
-      // In case of error propagate exit code.
-      if (severity == ErrorSeverity.ERROR) {
+      // Propagate issues to the exit code.
+      if (_shouldBeFatal(severity, options)) {
         io.exitCode = severity.ordinal;
       }
     }
@@ -713,19 +713,12 @@ class Driver implements CommandLineStarter {
   }
 
   /// Analyze a single source.
-  Future<ErrorSeverity> _runAnalyzer(Source source, CommandLineOptions options,
-      ErrorFormatter formatter) async {
+  Future<ErrorSeverity> _runAnalyzer(
+      Source source, CommandLineOptions options, ErrorFormatter formatter) {
     int startTime = currentTimeMillis;
     AnalyzerImpl analyzer = new AnalyzerImpl(_context.analysisOptions, _context,
         analysisDriver, source, options, stats, startTime);
-    ErrorSeverity errorSeverity = await analyzer.analyze(formatter);
-    if (errorSeverity == ErrorSeverity.ERROR) {
-      io.exitCode = errorSeverity.ordinal;
-    }
-    if (options.warningsAreFatal && errorSeverity == ErrorSeverity.WARNING) {
-      io.exitCode = errorSeverity.ordinal;
-    }
-    return errorSeverity;
+    return analyzer.analyze(formatter);
   }
 
   void _setupSdk(CommandLineOptions options, bool useSummaries,
@@ -747,6 +740,19 @@ class Driver implements CommandLineStarter {
         dartSdk.analysisOptions = analysisOptions;
         sdk = dartSdk;
       }
+    }
+  }
+
+  bool _shouldBeFatal(ErrorSeverity severity, CommandLineOptions options) {
+    if (severity == ErrorSeverity.ERROR) {
+      return true;
+    } else if (severity == ErrorSeverity.WARNING &&
+        (options.warningsAreFatal || options.hintsAreFatal)) {
+      return true;
+    } else if (severity == ErrorSeverity.INFO && options.hintsAreFatal) {
+      return true;
+    } else {
+      return false;
     }
   }
 
