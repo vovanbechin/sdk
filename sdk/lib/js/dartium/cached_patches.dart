@@ -235,78 +235,6 @@ class BlobEventImpl extends BlobEvent implements js_library.JSObjectInterfacesDo
   get runtimeType => BlobEvent;
   toString() => super.toString();
 }
-@patch class Bluetooth {
-  static Type get instanceRuntimeType => BluetoothImpl;
-
-}
-class BluetoothImpl extends Bluetooth implements js_library.JSObjectInterfacesDom {
-  BluetoothImpl.internal_() : super.internal_();
-  get runtimeType => Bluetooth;
-  toString() => super.toString();
-}
-@patch class BluetoothAdvertisingData {
-  static Type get instanceRuntimeType => BluetoothAdvertisingDataImpl;
-
-}
-class BluetoothAdvertisingDataImpl extends BluetoothAdvertisingData implements js_library.JSObjectInterfacesDom {
-  BluetoothAdvertisingDataImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothAdvertisingData;
-  toString() => super.toString();
-}
-@patch class BluetoothCharacteristicProperties {
-  static Type get instanceRuntimeType => BluetoothCharacteristicPropertiesImpl;
-
-}
-class BluetoothCharacteristicPropertiesImpl extends BluetoothCharacteristicProperties implements js_library.JSObjectInterfacesDom {
-  BluetoothCharacteristicPropertiesImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothCharacteristicProperties;
-  toString() => super.toString();
-}
-@patch class BluetoothDevice {
-  static Type get instanceRuntimeType => BluetoothDeviceImpl;
-
-}
-class BluetoothDeviceImpl extends BluetoothDevice implements js_library.JSObjectInterfacesDom {
-  BluetoothDeviceImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothDevice;
-  toString() => super.toString();
-}
-@patch class BluetoothRemoteGattCharacteristic {
-  static Type get instanceRuntimeType => BluetoothRemoteGattCharacteristicImpl;
-
-}
-class BluetoothRemoteGattCharacteristicImpl extends BluetoothRemoteGattCharacteristic implements js_library.JSObjectInterfacesDom {
-  BluetoothRemoteGattCharacteristicImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothRemoteGattCharacteristic;
-  toString() => super.toString();
-}
-@patch class BluetoothRemoteGattServer {
-  static Type get instanceRuntimeType => BluetoothRemoteGattServerImpl;
-
-}
-class BluetoothRemoteGattServerImpl extends BluetoothRemoteGattServer implements js_library.JSObjectInterfacesDom {
-  BluetoothRemoteGattServerImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothRemoteGattServer;
-  toString() => super.toString();
-}
-@patch class BluetoothRemoteGattService {
-  static Type get instanceRuntimeType => BluetoothRemoteGattServiceImpl;
-
-}
-class BluetoothRemoteGattServiceImpl extends BluetoothRemoteGattService implements js_library.JSObjectInterfacesDom {
-  BluetoothRemoteGattServiceImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothRemoteGattService;
-  toString() => super.toString();
-}
-@patch class BluetoothUuid {
-  static Type get instanceRuntimeType => BluetoothUuidImpl;
-
-}
-class BluetoothUuidImpl extends BluetoothUuid implements js_library.JSObjectInterfacesDom {
-  BluetoothUuidImpl.internal_() : super.internal_();
-  get runtimeType => BluetoothUuid;
-  toString() => super.toString();
-}
 @patch class Body {
   static Type get instanceRuntimeType => BodyImpl;
 
@@ -2206,15 +2134,6 @@ class NetworkInformationImpl extends NetworkInformation implements js_library.JS
   get runtimeType => NetworkInformation;
   toString() => super.toString();
 }
-@patch class Nfc {
-  static Type get instanceRuntimeType => NfcImpl;
-
-}
-class NfcImpl extends Nfc implements js_library.JSObjectInterfacesDom {
-  NfcImpl.internal_() : super.internal_();
-  get runtimeType => Nfc;
-  toString() => super.toString();
-}
 @patch class Node {
   static Type get instanceRuntimeType => NodeImpl;
 
@@ -3700,123 +3619,6 @@ class UrlUtilsReadOnlyImpl extends UrlUtilsReadOnly implements js_library.JSObje
   get runtimeType => UrlUtilsReadOnly;
   toString() => super.toString();
 }
-@patch class Usb {
-  static Type get instanceRuntimeType => UsbImpl;
-
-}
-class UsbImpl extends Usb implements js_library.JSObjectInterfacesDom {
-  UsbImpl.internal_() : super.internal_();
-  get runtimeType => Usb;
-  toString() => super.toString();
-}
-@patch class UsbAlternateInterface {
-  static Type get instanceRuntimeType => UsbAlternateInterfaceImpl;
-
-}
-class UsbAlternateInterfaceImpl extends UsbAlternateInterface implements js_library.JSObjectInterfacesDom {
-  UsbAlternateInterfaceImpl.internal_() : super.internal_();
-  get runtimeType => UsbAlternateInterface;
-  toString() => super.toString();
-}
-@patch class UsbConfiguration {
-  static Type get instanceRuntimeType => UsbConfigurationImpl;
-
-}
-class UsbConfigurationImpl extends UsbConfiguration implements js_library.JSObjectInterfacesDom {
-  UsbConfigurationImpl.internal_() : super.internal_();
-  get runtimeType => UsbConfiguration;
-  toString() => super.toString();
-}
-@patch class UsbConnectionEvent {
-  static Type get instanceRuntimeType => UsbConnectionEventImpl;
-
-}
-class UsbConnectionEventImpl extends UsbConnectionEvent implements js_library.JSObjectInterfacesDom {
-  UsbConnectionEventImpl.internal_() : super.internal_();
-  get runtimeType => UsbConnectionEvent;
-  toString() => super.toString();
-}
-@patch class UsbDevice {
-  static Type get instanceRuntimeType => UsbDeviceImpl;
-
-}
-class UsbDeviceImpl extends UsbDevice implements js_library.JSObjectInterfacesDom {
-  UsbDeviceImpl.internal_() : super.internal_();
-  get runtimeType => UsbDevice;
-  toString() => super.toString();
-}
-@patch class UsbEndpoint {
-  static Type get instanceRuntimeType => UsbEndpointImpl;
-
-}
-class UsbEndpointImpl extends UsbEndpoint implements js_library.JSObjectInterfacesDom {
-  UsbEndpointImpl.internal_() : super.internal_();
-  get runtimeType => UsbEndpoint;
-  toString() => super.toString();
-}
-@patch class UsbInTransferResult {
-  static Type get instanceRuntimeType => UsbInTransferResultImpl;
-
-}
-class UsbInTransferResultImpl extends UsbInTransferResult implements js_library.JSObjectInterfacesDom {
-  UsbInTransferResultImpl.internal_() : super.internal_();
-  get runtimeType => UsbInTransferResult;
-  toString() => super.toString();
-}
-@patch class UsbInterface {
-  static Type get instanceRuntimeType => UsbInterfaceImpl;
-
-}
-class UsbInterfaceImpl extends UsbInterface implements js_library.JSObjectInterfacesDom {
-  UsbInterfaceImpl.internal_() : super.internal_();
-  get runtimeType => UsbInterface;
-  toString() => super.toString();
-}
-@patch class UsbIsochronousInTransferPacket {
-  static Type get instanceRuntimeType => UsbIsochronousInTransferPacketImpl;
-
-}
-class UsbIsochronousInTransferPacketImpl extends UsbIsochronousInTransferPacket implements js_library.JSObjectInterfacesDom {
-  UsbIsochronousInTransferPacketImpl.internal_() : super.internal_();
-  get runtimeType => UsbIsochronousInTransferPacket;
-  toString() => super.toString();
-}
-@patch class UsbIsochronousInTransferResult {
-  static Type get instanceRuntimeType => UsbIsochronousInTransferResultImpl;
-
-}
-class UsbIsochronousInTransferResultImpl extends UsbIsochronousInTransferResult implements js_library.JSObjectInterfacesDom {
-  UsbIsochronousInTransferResultImpl.internal_() : super.internal_();
-  get runtimeType => UsbIsochronousInTransferResult;
-  toString() => super.toString();
-}
-@patch class UsbIsochronousOutTransferPacket {
-  static Type get instanceRuntimeType => UsbIsochronousOutTransferPacketImpl;
-
-}
-class UsbIsochronousOutTransferPacketImpl extends UsbIsochronousOutTransferPacket implements js_library.JSObjectInterfacesDom {
-  UsbIsochronousOutTransferPacketImpl.internal_() : super.internal_();
-  get runtimeType => UsbIsochronousOutTransferPacket;
-  toString() => super.toString();
-}
-@patch class UsbIsochronousOutTransferResult {
-  static Type get instanceRuntimeType => UsbIsochronousOutTransferResultImpl;
-
-}
-class UsbIsochronousOutTransferResultImpl extends UsbIsochronousOutTransferResult implements js_library.JSObjectInterfacesDom {
-  UsbIsochronousOutTransferResultImpl.internal_() : super.internal_();
-  get runtimeType => UsbIsochronousOutTransferResult;
-  toString() => super.toString();
-}
-@patch class UsbOutTransferResult {
-  static Type get instanceRuntimeType => UsbOutTransferResultImpl;
-
-}
-class UsbOutTransferResultImpl extends UsbOutTransferResult implements js_library.JSObjectInterfacesDom {
-  UsbOutTransferResultImpl.internal_() : super.internal_();
-  get runtimeType => UsbOutTransferResult;
-  toString() => super.toString();
-}
 @patch class VRDevice {
   static Type get instanceRuntimeType => VRDeviceImpl;
 
@@ -4087,6 +3889,78 @@ class _AttrImpl extends _Attr implements js_library.JSObjectInterfacesDom {
   get runtimeType => _Attr;
   toString() => super.toString();
 }
+@patch class _Bluetooth {
+  static Type get instanceRuntimeType => _BluetoothImpl;
+
+}
+class _BluetoothImpl extends _Bluetooth implements js_library.JSObjectInterfacesDom {
+  _BluetoothImpl.internal_() : super.internal_();
+  get runtimeType => _Bluetooth;
+  toString() => super.toString();
+}
+@patch class _BluetoothAdvertisingData {
+  static Type get instanceRuntimeType => _BluetoothAdvertisingDataImpl;
+
+}
+class _BluetoothAdvertisingDataImpl extends _BluetoothAdvertisingData implements js_library.JSObjectInterfacesDom {
+  _BluetoothAdvertisingDataImpl.internal_() : super.internal_();
+  get runtimeType => _BluetoothAdvertisingData;
+  toString() => super.toString();
+}
+@patch class _BluetoothCharacteristicProperties {
+  static Type get instanceRuntimeType => _BluetoothCharacteristicPropertiesImpl;
+
+}
+class _BluetoothCharacteristicPropertiesImpl extends _BluetoothCharacteristicProperties implements js_library.JSObjectInterfacesDom {
+  _BluetoothCharacteristicPropertiesImpl.internal_() : super.internal_();
+  get runtimeType => _BluetoothCharacteristicProperties;
+  toString() => super.toString();
+}
+@patch class _BluetoothDevice {
+  static Type get instanceRuntimeType => _BluetoothDeviceImpl;
+
+}
+class _BluetoothDeviceImpl extends _BluetoothDevice implements js_library.JSObjectInterfacesDom {
+  _BluetoothDeviceImpl.internal_() : super.internal_();
+  get runtimeType => _BluetoothDevice;
+  toString() => super.toString();
+}
+@patch class _BluetoothRemoteGATTCharacteristic {
+  static Type get instanceRuntimeType => _BluetoothRemoteGATTCharacteristicImpl;
+
+}
+class _BluetoothRemoteGATTCharacteristicImpl extends _BluetoothRemoteGATTCharacteristic implements js_library.JSObjectInterfacesDom {
+  _BluetoothRemoteGATTCharacteristicImpl.internal_() : super.internal_();
+  get runtimeType => _BluetoothRemoteGATTCharacteristic;
+  toString() => super.toString();
+}
+@patch class _BluetoothRemoteGATTServer {
+  static Type get instanceRuntimeType => _BluetoothRemoteGATTServerImpl;
+
+}
+class _BluetoothRemoteGATTServerImpl extends _BluetoothRemoteGATTServer implements js_library.JSObjectInterfacesDom {
+  _BluetoothRemoteGATTServerImpl.internal_() : super.internal_();
+  get runtimeType => _BluetoothRemoteGATTServer;
+  toString() => super.toString();
+}
+@patch class _BluetoothRemoteGATTService {
+  static Type get instanceRuntimeType => _BluetoothRemoteGATTServiceImpl;
+
+}
+class _BluetoothRemoteGATTServiceImpl extends _BluetoothRemoteGATTService implements js_library.JSObjectInterfacesDom {
+  _BluetoothRemoteGATTServiceImpl.internal_() : super.internal_();
+  get runtimeType => _BluetoothRemoteGATTService;
+  toString() => super.toString();
+}
+@patch class _BluetoothUUID {
+  static Type get instanceRuntimeType => _BluetoothUUIDImpl;
+
+}
+class _BluetoothUUIDImpl extends _BluetoothUUID implements js_library.JSObjectInterfacesDom {
+  _BluetoothUUIDImpl.internal_() : super.internal_();
+  get runtimeType => _BluetoothUUID;
+  toString() => super.toString();
+}
 @patch class _Cache {
   static Type get instanceRuntimeType => _CacheImpl;
 
@@ -4276,6 +4150,15 @@ class _HTMLMarqueeElementImpl extends _HTMLMarqueeElement implements js_library.
   get runtimeType => _HTMLMarqueeElement;
   toString() => super.toString();
 }
+@patch class _NFC {
+  static Type get instanceRuntimeType => _NFCImpl;
+
+}
+class _NFCImpl extends _NFC implements js_library.JSObjectInterfacesDom {
+  _NFCImpl.internal_() : super.internal_();
+  get runtimeType => _NFC;
+  toString() => super.toString();
+}
 @patch class _NamedNodeMap {
   static Type get instanceRuntimeType => _NamedNodeMapImpl;
 
@@ -4364,6 +4247,123 @@ class _StyleSheetListImpl extends _StyleSheetList implements js_library.JSObject
 class _SubtleCryptoImpl extends _SubtleCrypto implements js_library.JSObjectInterfacesDom {
   _SubtleCryptoImpl.internal_() : super.internal_();
   get runtimeType => _SubtleCrypto;
+  toString() => super.toString();
+}
+@patch class _USB {
+  static Type get instanceRuntimeType => _USBImpl;
+
+}
+class _USBImpl extends _USB implements js_library.JSObjectInterfacesDom {
+  _USBImpl.internal_() : super.internal_();
+  get runtimeType => _USB;
+  toString() => super.toString();
+}
+@patch class _USBAlternateInterface {
+  static Type get instanceRuntimeType => _USBAlternateInterfaceImpl;
+
+}
+class _USBAlternateInterfaceImpl extends _USBAlternateInterface implements js_library.JSObjectInterfacesDom {
+  _USBAlternateInterfaceImpl.internal_() : super.internal_();
+  get runtimeType => _USBAlternateInterface;
+  toString() => super.toString();
+}
+@patch class _USBConfiguration {
+  static Type get instanceRuntimeType => _USBConfigurationImpl;
+
+}
+class _USBConfigurationImpl extends _USBConfiguration implements js_library.JSObjectInterfacesDom {
+  _USBConfigurationImpl.internal_() : super.internal_();
+  get runtimeType => _USBConfiguration;
+  toString() => super.toString();
+}
+@patch class _USBConnectionEvent {
+  static Type get instanceRuntimeType => _USBConnectionEventImpl;
+
+}
+class _USBConnectionEventImpl extends _USBConnectionEvent implements js_library.JSObjectInterfacesDom {
+  _USBConnectionEventImpl.internal_() : super.internal_();
+  get runtimeType => _USBConnectionEvent;
+  toString() => super.toString();
+}
+@patch class _USBDevice {
+  static Type get instanceRuntimeType => _USBDeviceImpl;
+
+}
+class _USBDeviceImpl extends _USBDevice implements js_library.JSObjectInterfacesDom {
+  _USBDeviceImpl.internal_() : super.internal_();
+  get runtimeType => _USBDevice;
+  toString() => super.toString();
+}
+@patch class _USBEndpoint {
+  static Type get instanceRuntimeType => _USBEndpointImpl;
+
+}
+class _USBEndpointImpl extends _USBEndpoint implements js_library.JSObjectInterfacesDom {
+  _USBEndpointImpl.internal_() : super.internal_();
+  get runtimeType => _USBEndpoint;
+  toString() => super.toString();
+}
+@patch class _USBInTransferResult {
+  static Type get instanceRuntimeType => _USBInTransferResultImpl;
+
+}
+class _USBInTransferResultImpl extends _USBInTransferResult implements js_library.JSObjectInterfacesDom {
+  _USBInTransferResultImpl.internal_() : super.internal_();
+  get runtimeType => _USBInTransferResult;
+  toString() => super.toString();
+}
+@patch class _USBInterface {
+  static Type get instanceRuntimeType => _USBInterfaceImpl;
+
+}
+class _USBInterfaceImpl extends _USBInterface implements js_library.JSObjectInterfacesDom {
+  _USBInterfaceImpl.internal_() : super.internal_();
+  get runtimeType => _USBInterface;
+  toString() => super.toString();
+}
+@patch class _USBIsochronousInTransferPacket {
+  static Type get instanceRuntimeType => _USBIsochronousInTransferPacketImpl;
+
+}
+class _USBIsochronousInTransferPacketImpl extends _USBIsochronousInTransferPacket implements js_library.JSObjectInterfacesDom {
+  _USBIsochronousInTransferPacketImpl.internal_() : super.internal_();
+  get runtimeType => _USBIsochronousInTransferPacket;
+  toString() => super.toString();
+}
+@patch class _USBIsochronousInTransferResult {
+  static Type get instanceRuntimeType => _USBIsochronousInTransferResultImpl;
+
+}
+class _USBIsochronousInTransferResultImpl extends _USBIsochronousInTransferResult implements js_library.JSObjectInterfacesDom {
+  _USBIsochronousInTransferResultImpl.internal_() : super.internal_();
+  get runtimeType => _USBIsochronousInTransferResult;
+  toString() => super.toString();
+}
+@patch class _USBIsochronousOutTransferPacket {
+  static Type get instanceRuntimeType => _USBIsochronousOutTransferPacketImpl;
+
+}
+class _USBIsochronousOutTransferPacketImpl extends _USBIsochronousOutTransferPacket implements js_library.JSObjectInterfacesDom {
+  _USBIsochronousOutTransferPacketImpl.internal_() : super.internal_();
+  get runtimeType => _USBIsochronousOutTransferPacket;
+  toString() => super.toString();
+}
+@patch class _USBIsochronousOutTransferResult {
+  static Type get instanceRuntimeType => _USBIsochronousOutTransferResultImpl;
+
+}
+class _USBIsochronousOutTransferResultImpl extends _USBIsochronousOutTransferResult implements js_library.JSObjectInterfacesDom {
+  _USBIsochronousOutTransferResultImpl.internal_() : super.internal_();
+  get runtimeType => _USBIsochronousOutTransferResult;
+  toString() => super.toString();
+}
+@patch class _USBOutTransferResult {
+  static Type get instanceRuntimeType => _USBOutTransferResultImpl;
+
+}
+class _USBOutTransferResultImpl extends _USBOutTransferResult implements js_library.JSObjectInterfacesDom {
+  _USBOutTransferResultImpl.internal_() : super.internal_();
+  get runtimeType => _USBOutTransferResult;
   toString() => super.toString();
 }
 @patch class _WebKitCSSMatrix {

@@ -149,19 +149,19 @@ final htmlBlinkMap = {
   'BeforeUnloadEvent': () => BeforeUnloadEvent.instanceRuntimeType,
   'Blob': () => Blob.instanceRuntimeType,
   'BlobEvent': () => BlobEvent.instanceRuntimeType,
-  'Bluetooth': () => Bluetooth.instanceRuntimeType,
+  'Bluetooth': () => _Bluetooth.instanceRuntimeType,
   'BluetoothAdvertisingData': () =>
-      BluetoothAdvertisingData.instanceRuntimeType,
+      _BluetoothAdvertisingData.instanceRuntimeType,
   'BluetoothCharacteristicProperties': () =>
-      BluetoothCharacteristicProperties.instanceRuntimeType,
-  'BluetoothDevice': () => BluetoothDevice.instanceRuntimeType,
+      _BluetoothCharacteristicProperties.instanceRuntimeType,
+  'BluetoothDevice': () => _BluetoothDevice.instanceRuntimeType,
   'BluetoothRemoteGATTCharacteristic': () =>
-      BluetoothRemoteGattCharacteristic.instanceRuntimeType,
+      _BluetoothRemoteGATTCharacteristic.instanceRuntimeType,
   'BluetoothRemoteGATTServer': () =>
-      BluetoothRemoteGattServer.instanceRuntimeType,
+      _BluetoothRemoteGATTServer.instanceRuntimeType,
   'BluetoothRemoteGATTService': () =>
-      BluetoothRemoteGattService.instanceRuntimeType,
-  'BluetoothUUID': () => BluetoothUuid.instanceRuntimeType,
+      _BluetoothRemoteGATTService.instanceRuntimeType,
+  'BluetoothUUID': () => _BluetoothUUID.instanceRuntimeType,
   'Body': () => Body.instanceRuntimeType,
   'CDATASection': () => CDataSection.instanceRuntimeType,
   'CHROMIUMValuebuffer': () => ChromiumValuebuffer.instanceRuntimeType,
@@ -427,7 +427,7 @@ final htmlBlinkMap = {
   'MouseEvent': () => MouseEvent.instanceRuntimeType,
   'MutationObserver': () => MutationObserver.instanceRuntimeType,
   'MutationRecord': () => MutationRecord.instanceRuntimeType,
-  'NFC': () => Nfc.instanceRuntimeType,
+  'NFC': () => _NFC.instanceRuntimeType,
   'NamedNodeMap': () => _NamedNodeMap.instanceRuntimeType,
   'Navigator': () => Navigator.instanceRuntimeType,
   'NavigatorCPU': () => NavigatorCpu.instanceRuntimeType,
@@ -596,23 +596,23 @@ final htmlBlinkMap = {
   'URLSearchParams': () => UrlSearchParams.instanceRuntimeType,
   'URLUtils': () => UrlUtils.instanceRuntimeType,
   'URLUtilsReadOnly': () => UrlUtilsReadOnly.instanceRuntimeType,
-  'USB': () => Usb.instanceRuntimeType,
-  'USBAlternateInterface': () => UsbAlternateInterface.instanceRuntimeType,
-  'USBConfiguration': () => UsbConfiguration.instanceRuntimeType,
-  'USBConnectionEvent': () => UsbConnectionEvent.instanceRuntimeType,
-  'USBDevice': () => UsbDevice.instanceRuntimeType,
-  'USBEndpoint': () => UsbEndpoint.instanceRuntimeType,
-  'USBInTransferResult': () => UsbInTransferResult.instanceRuntimeType,
-  'USBInterface': () => UsbInterface.instanceRuntimeType,
+  'USB': () => _USB.instanceRuntimeType,
+  'USBAlternateInterface': () => _USBAlternateInterface.instanceRuntimeType,
+  'USBConfiguration': () => _USBConfiguration.instanceRuntimeType,
+  'USBConnectionEvent': () => _USBConnectionEvent.instanceRuntimeType,
+  'USBDevice': () => _USBDevice.instanceRuntimeType,
+  'USBEndpoint': () => _USBEndpoint.instanceRuntimeType,
+  'USBInTransferResult': () => _USBInTransferResult.instanceRuntimeType,
+  'USBInterface': () => _USBInterface.instanceRuntimeType,
   'USBIsochronousInTransferPacket': () =>
-      UsbIsochronousInTransferPacket.instanceRuntimeType,
+      _USBIsochronousInTransferPacket.instanceRuntimeType,
   'USBIsochronousInTransferResult': () =>
-      UsbIsochronousInTransferResult.instanceRuntimeType,
+      _USBIsochronousInTransferResult.instanceRuntimeType,
   'USBIsochronousOutTransferPacket': () =>
-      UsbIsochronousOutTransferPacket.instanceRuntimeType,
+      _USBIsochronousOutTransferPacket.instanceRuntimeType,
   'USBIsochronousOutTransferResult': () =>
-      UsbIsochronousOutTransferResult.instanceRuntimeType,
-  'USBOutTransferResult': () => UsbOutTransferResult.instanceRuntimeType,
+      _USBIsochronousOutTransferResult.instanceRuntimeType,
+  'USBOutTransferResult': () => _USBOutTransferResult.instanceRuntimeType,
   'UnderlyingSourceBase': () => UnderlyingSourceBase.instanceRuntimeType,
   'VRDevice': () => VRDevice.instanceRuntimeType,
   'VREyeParameters': () => VREyeParameters.instanceRuntimeType,
@@ -2536,447 +2536,6 @@ class BlobEvent extends Event {
   @DocsEditable()
   @Experimental() // untriaged
   Blob get data => _blink.BlinkBlobEvent.instance.data_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('Bluetooth')
-@Experimental() // untriaged
-class Bluetooth extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory Bluetooth._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  Bluetooth.internal_() {}
-
-  @DomName('Bluetooth.requestDevice')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future requestDevice(Map options) => convertNativePromiseToDartFuture(
-      _blink.BlinkBluetooth.instance.requestDevice_Callback_1_(
-          this, convertDartToNative_Dictionary(options)));
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('BluetoothAdvertisingData')
-@Experimental() // untriaged
-class BluetoothAdvertisingData extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory BluetoothAdvertisingData._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  BluetoothAdvertisingData.internal_() {}
-
-  @DomName('BluetoothAdvertisingData.rssi')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get rssi =>
-      _blink.BlinkBluetoothAdvertisingData.instance.rssi_Getter_(this);
-
-  @DomName('BluetoothAdvertisingData.txPower')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get txPower =>
-      _blink.BlinkBluetoothAdvertisingData.instance.txPower_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('BluetoothCharacteristicProperties')
-@Experimental() // untriaged
-class BluetoothCharacteristicProperties extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory BluetoothCharacteristicProperties._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  BluetoothCharacteristicProperties.internal_() {}
-
-  @DomName('BluetoothCharacteristicProperties.authenticatedSignedWrites')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get authenticatedSignedWrites =>
-      _blink.BlinkBluetoothCharacteristicProperties.instance
-          .authenticatedSignedWrites_Getter_(this);
-
-  @DomName('BluetoothCharacteristicProperties.broadcast')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get broadcast => _blink.BlinkBluetoothCharacteristicProperties.instance
-      .broadcast_Getter_(this);
-
-  @DomName('BluetoothCharacteristicProperties.indicate')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get indicate => _blink.BlinkBluetoothCharacteristicProperties.instance
-      .indicate_Getter_(this);
-
-  @DomName('BluetoothCharacteristicProperties.notify')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get notify => _blink.BlinkBluetoothCharacteristicProperties.instance
-      .notify_Getter_(this);
-
-  @DomName('BluetoothCharacteristicProperties.read')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get read =>
-      _blink.BlinkBluetoothCharacteristicProperties.instance.read_Getter_(this);
-
-  @DomName('BluetoothCharacteristicProperties.reliableWrite')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get reliableWrite =>
-      _blink.BlinkBluetoothCharacteristicProperties.instance
-          .reliableWrite_Getter_(this);
-
-  @DomName('BluetoothCharacteristicProperties.writableAuxiliaries')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get writableAuxiliaries =>
-      _blink.BlinkBluetoothCharacteristicProperties.instance
-          .writableAuxiliaries_Getter_(this);
-
-  @DomName('BluetoothCharacteristicProperties.write')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get write => _blink.BlinkBluetoothCharacteristicProperties.instance
-      .write_Getter_(this);
-
-  @DomName('BluetoothCharacteristicProperties.writeWithoutResponse')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get writeWithoutResponse =>
-      _blink.BlinkBluetoothCharacteristicProperties.instance
-          .writeWithoutResponse_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('BluetoothDevice')
-@Experimental() // untriaged
-class BluetoothDevice extends EventTarget {
-  // To suppress missing implicit constructor warnings.
-  factory BluetoothDevice._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  BluetoothDevice.internal_() : super.internal_();
-
-  @DomName('BluetoothDevice.adData')
-  @DocsEditable()
-  @Experimental() // untriaged
-  BluetoothAdvertisingData get adData =>
-      _blink.BlinkBluetoothDevice.instance.adData_Getter_(this);
-
-  @DomName('BluetoothDevice.deviceClass')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get deviceClass =>
-      _blink.BlinkBluetoothDevice.instance.deviceClass_Getter_(this);
-
-  @DomName('BluetoothDevice.gatt')
-  @DocsEditable()
-  @Experimental() // untriaged
-  BluetoothRemoteGattServer get gatt =>
-      _blink.BlinkBluetoothDevice.instance.gatt_Getter_(this);
-
-  @DomName('BluetoothDevice.id')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get id => _blink.BlinkBluetoothDevice.instance.id_Getter_(this);
-
-  @DomName('BluetoothDevice.instanceID')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get instanceID =>
-      _blink.BlinkBluetoothDevice.instance.instanceID_Getter_(this);
-
-  @DomName('BluetoothDevice.name')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get name => _blink.BlinkBluetoothDevice.instance.name_Getter_(this);
-
-  @DomName('BluetoothDevice.productID')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get productID =>
-      _blink.BlinkBluetoothDevice.instance.productID_Getter_(this);
-
-  @DomName('BluetoothDevice.productVersion')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get productVersion =>
-      _blink.BlinkBluetoothDevice.instance.productVersion_Getter_(this);
-
-  @DomName('BluetoothDevice.vendorID')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get vendorID =>
-      _blink.BlinkBluetoothDevice.instance.vendorID_Getter_(this);
-
-  @DomName('BluetoothDevice.vendorIDSource')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get vendorIDSource =>
-      _blink.BlinkBluetoothDevice.instance.vendorIDSource_Getter_(this);
-
-  @DomName('BluetoothDevice.connectGATT')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future connectGatt() => convertNativePromiseToDartFuture(
-      _blink.BlinkBluetoothDevice.instance.connectGATT_Callback_0_(this));
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('BluetoothRemoteGATTCharacteristic')
-@Experimental() // untriaged
-class BluetoothRemoteGattCharacteristic extends EventTarget {
-  // To suppress missing implicit constructor warnings.
-  factory BluetoothRemoteGattCharacteristic._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  BluetoothRemoteGattCharacteristic.internal_() : super.internal_();
-
-  @DomName('BluetoothRemoteGATTCharacteristic.properties')
-  @DocsEditable()
-  @Experimental() // untriaged
-  BluetoothCharacteristicProperties get properties =>
-      _blink.BlinkBluetoothRemoteGATTCharacteristic.instance
-          .properties_Getter_(this);
-
-  @DomName('BluetoothRemoteGATTCharacteristic.uuid')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get uuid =>
-      _blink.BlinkBluetoothRemoteGATTCharacteristic.instance.uuid_Getter_(this);
-
-  @DomName('BluetoothRemoteGATTCharacteristic.value')
-  @DocsEditable()
-  @Experimental() // untriaged
-  _DataView get value => _blink.BlinkBluetoothRemoteGATTCharacteristic.instance
-      .value_Getter_(this);
-
-  @DomName('BluetoothRemoteGATTCharacteristic.readValue')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future readValue() => convertNativePromiseToDartFuture(_blink
-      .BlinkBluetoothRemoteGATTCharacteristic.instance
-      .readValue_Callback_0_(this));
-
-  @DomName('BluetoothRemoteGATTCharacteristic.startNotifications')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future startNotifications() => convertNativePromiseToDartFuture(_blink
-      .BlinkBluetoothRemoteGATTCharacteristic.instance
-      .startNotifications_Callback_0_(this));
-
-  @DomName('BluetoothRemoteGATTCharacteristic.stopNotifications')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future stopNotifications() => convertNativePromiseToDartFuture(_blink
-      .BlinkBluetoothRemoteGATTCharacteristic.instance
-      .stopNotifications_Callback_0_(this));
-
-  @DomName('BluetoothRemoteGATTCharacteristic.writeValue')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future writeValue(/*BufferSource*/ value) => convertNativePromiseToDartFuture(
-      _blink.BlinkBluetoothRemoteGATTCharacteristic.instance
-          .writeValue_Callback_1_(this, value));
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('BluetoothRemoteGATTServer')
-@Experimental() // untriaged
-class BluetoothRemoteGattServer extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory BluetoothRemoteGattServer._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  BluetoothRemoteGattServer.internal_() {}
-
-  @DomName('BluetoothRemoteGATTServer.connected')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get connected =>
-      _blink.BlinkBluetoothRemoteGATTServer.instance.connected_Getter_(this);
-
-  @DomName('BluetoothRemoteGATTServer.device')
-  @DocsEditable()
-  @Experimental() // untriaged
-  BluetoothDevice get device =>
-      _blink.BlinkBluetoothRemoteGATTServer.instance.device_Getter_(this);
-
-  @DomName('BluetoothRemoteGATTServer.connect')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future connect() => convertNativePromiseToDartFuture(
-      _blink.BlinkBluetoothRemoteGATTServer.instance.connect_Callback_0_(this));
-
-  @DomName('BluetoothRemoteGATTServer.disconnect')
-  @DocsEditable()
-  @Experimental() // untriaged
-  void disconnect() => _blink.BlinkBluetoothRemoteGATTServer.instance
-      .disconnect_Callback_0_(this);
-
-  @DomName('BluetoothRemoteGATTServer.getPrimaryService')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future getPrimaryService(/*BluetoothServiceUUID*/ service) =>
-      convertNativePromiseToDartFuture(_blink
-          .BlinkBluetoothRemoteGATTServer.instance
-          .getPrimaryService_Callback_1_(this, service));
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('BluetoothRemoteGATTService')
-@Experimental() // untriaged
-class BluetoothRemoteGattService extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory BluetoothRemoteGattService._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  BluetoothRemoteGattService.internal_() {}
-
-  @DomName('BluetoothRemoteGATTService.isPrimary')
-  @DocsEditable()
-  @Experimental() // untriaged
-  bool get isPrimary =>
-      _blink.BlinkBluetoothRemoteGATTService.instance.isPrimary_Getter_(this);
-
-  @DomName('BluetoothRemoteGATTService.uuid')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get uuid =>
-      _blink.BlinkBluetoothRemoteGATTService.instance.uuid_Getter_(this);
-
-  @DomName('BluetoothRemoteGATTService.getCharacteristic')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future getCharacteristic(/*BluetoothCharacteristicUUID*/ characteristic) =>
-      convertNativePromiseToDartFuture(_blink
-          .BlinkBluetoothRemoteGATTService.instance
-          .getCharacteristic_Callback_1_(this, characteristic));
-
-  Future getCharacteristics([/*BluetoothCharacteristicUUID*/ characteristic]) {
-    if (characteristic != null) {
-      return _blink.BlinkBluetoothRemoteGATTService.instance
-          .getCharacteristics_Callback_1_(this, characteristic);
-    }
-    return _blink.BlinkBluetoothRemoteGATTService.instance
-        .getCharacteristics_Callback_0_(this);
-  }
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('BluetoothUUID')
-@Experimental() // untriaged
-class BluetoothUuid extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory BluetoothUuid._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  BluetoothUuid.internal_() {}
-
-  @DomName('BluetoothUUID.canonicalUUID')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static String canonicalUuid(int alias) =>
-      _blink.BlinkBluetoothUUID.instance.canonicalUUID_Callback_1_(alias);
-
-  @DomName('BluetoothUUID.getCharacteristic')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static String getCharacteristic(Object name) =>
-      _blink.BlinkBluetoothUUID.instance.getCharacteristic_Callback_1_(name);
-
-  @DomName('BluetoothUUID.getDescriptor')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static String getDescriptor(Object name) =>
-      _blink.BlinkBluetoothUUID.instance.getDescriptor_Callback_1_(name);
-
-  @DomName('BluetoothUUID.getService')
-  @DocsEditable()
-  @Experimental() // untriaged
-  static String getService(Object name) =>
-      _blink.BlinkBluetoothUUID.instance.getService_Callback_1_(name);
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -21317,7 +20876,7 @@ class HtmlDocument extends Document {
    *
    * * [getCssCanvasContext]
    */
-  static bool get supportsCssCanvasContext => true;
+  static bool get supportsCssCanvasContext => false;
 
   /**
    * Gets a CanvasRenderingContext which can be used as the CSS background of an
@@ -21345,7 +20904,7 @@ class HtmlDocument extends Document {
   @DomName('Document.getCSSCanvasContext')
   CanvasRenderingContext getCssCanvasContext(
       String contextId, String name, int width, int height) {
-    return _getCssCanvasContext(contextId, name, width, height);
+    throw new UnsupportedError("Not supported");
   }
 
   @DomName('Document.head')
@@ -23362,7 +22921,7 @@ class HttpRequest extends HttpRequestEventTarget {
   }
 
   /**
-   * Sets the value of an HTTP requst header.
+   * Sets the value of an HTTP request header.
    *
    * This method should be called after the request is opened, but before
    * the request is sent.
@@ -29629,12 +29188,6 @@ class Navigator extends DartHtmlDomObject
   @Deprecated("Internal Use Only")
   Navigator.internal_() {}
 
-  @DomName('Navigator.bluetooth')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Bluetooth get bluetooth =>
-      _blink.BlinkNavigator.instance.bluetooth_Getter_(this);
-
   @DomName('Navigator.connection')
   @DocsEditable()
   @Experimental() // untriaged
@@ -29681,7 +29234,7 @@ class Navigator extends DartHtmlDomObject
   @DomName('Navigator.nfc')
   @DocsEditable()
   @Experimental() // untriaged
-  Nfc get nfc => _blink.BlinkNavigator.instance.nfc_Getter_(this);
+  _NFC get nfc => _blink.BlinkNavigator.instance.nfc_Getter_(this);
 
   @DomName('Navigator.permissions')
   @DocsEditable()
@@ -29724,11 +29277,6 @@ class Navigator extends DartHtmlDomObject
   @Experimental() // untriaged
   StorageQuota get storageQuota =>
       _blink.BlinkNavigator.instance.storageQuota_Getter_(this);
-
-  @DomName('Navigator.usb')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Usb get usb => _blink.BlinkNavigator.instance.usb_Getter_(this);
 
   @DomName('Navigator.vendor')
   @DocsEditable()
@@ -30124,57 +29672,6 @@ class NetworkInformation extends EventTarget {
   @DocsEditable()
   @Experimental() // untriaged
   Stream<Event> get onChange => changeEvent.forTarget(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('NFC')
-@Experimental() // untriaged
-class Nfc extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory Nfc._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  Nfc.internal_() {}
-
-  Future cancelPush([String target]) {
-    if (target != null) {
-      return _blink.BlinkNFC.instance.cancelPush_Callback_1_(this, target);
-    }
-    return _blink.BlinkNFC.instance.cancelPush_Callback_0_(this);
-  }
-
-  Future cancelWatch([int id]) {
-    if (id != null) {
-      return _blink.BlinkNFC.instance.cancelWatch_Callback_1_(this, id);
-    }
-    return _blink.BlinkNFC.instance.cancelWatch_Callback_0_(this);
-  }
-
-  Future push(Object message, [Map options]) {
-    if (options != null) {
-      return _blink.BlinkNFC.instance.push_Callback_2_(
-          this, message, convertDartToNative_Dictionary(options));
-    }
-    return _blink.BlinkNFC.instance.push_Callback_1_(this, message);
-  }
-
-  Future watch(MessageCallback callback, [Map options]) {
-    if (options != null) {
-      return _blink.BlinkNFC.instance.watch_Callback_2_(
-          this, callback, convertDartToNative_Dictionary(options));
-    }
-    return _blink.BlinkNFC.instance.watch_Callback_1_(this, callback);
-  }
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -31117,8 +30614,7 @@ class Notification extends EventTarget {
   @DomName('Notification.actions')
   @DocsEditable()
   @Experimental() // untriaged
-  List<NotificationAction> get actions =>
-      _blink.BlinkNotification.instance.actions_Getter_(this);
+  List get actions => _blink.BlinkNotification.instance.actions_Getter_(this);
 
   @DomName('Notification.body')
   @DocsEditable()
@@ -42176,695 +41672,6 @@ abstract class UrlUtilsReadOnly extends DartHtmlDomObject {
 // WARNING: Do not edit - generated code.
 
 @DocsEditable()
-@DomName('USB')
-@Experimental() // untriaged
-class Usb extends EventTarget {
-  // To suppress missing implicit constructor warnings.
-  factory Usb._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  Usb.internal_() : super.internal_();
-
-  @DomName('USB.getDevices')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future getDevices() => convertNativePromiseToDartFuture(
-      _blink.BlinkUSB.instance.getDevices_Callback_0_(this));
-
-  @DomName('USB.requestDevice')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future requestDevice(Map options) => convertNativePromiseToDartFuture(
-      _blink.BlinkUSB.instance.requestDevice_Callback_1_(
-          this, convertDartToNative_Dictionary(options)));
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBAlternateInterface')
-@Experimental() // untriaged
-class UsbAlternateInterface extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbAlternateInterface._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('USBAlternateInterface.USBAlternateInterface')
-  @DocsEditable()
-  factory UsbAlternateInterface(
-      UsbInterface deviceInterface, int alternateSetting) {
-    return _blink.BlinkUSBAlternateInterface.instance
-        .constructorCallback_2_(deviceInterface, alternateSetting);
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbAlternateInterface.internal_() {}
-
-  @DomName('USBAlternateInterface.alternateSetting')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get alternateSetting =>
-      _blink.BlinkUSBAlternateInterface.instance.alternateSetting_Getter_(this);
-
-  @DomName('USBAlternateInterface.endpoints')
-  @DocsEditable()
-  @Experimental() // untriaged
-  List<UsbEndpoint> get endpoints =>
-      _blink.BlinkUSBAlternateInterface.instance.endpoints_Getter_(this);
-
-  @DomName('USBAlternateInterface.interfaceClass')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get interfaceClass =>
-      _blink.BlinkUSBAlternateInterface.instance.interfaceClass_Getter_(this);
-
-  @DomName('USBAlternateInterface.interfaceName')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get interfaceName =>
-      _blink.BlinkUSBAlternateInterface.instance.interfaceName_Getter_(this);
-
-  @DomName('USBAlternateInterface.interfaceProtocol')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get interfaceProtocol => _blink.BlinkUSBAlternateInterface.instance
-      .interfaceProtocol_Getter_(this);
-
-  @DomName('USBAlternateInterface.interfaceSubclass')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get interfaceSubclass => _blink.BlinkUSBAlternateInterface.instance
-      .interfaceSubclass_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBConfiguration')
-@Experimental() // untriaged
-class UsbConfiguration extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbConfiguration._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('USBConfiguration.USBConfiguration')
-  @DocsEditable()
-  factory UsbConfiguration(UsbDevice device, int configurationValue) {
-    return _blink.BlinkUSBConfiguration.instance
-        .constructorCallback_2_(device, configurationValue);
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbConfiguration.internal_() {}
-
-  @DomName('USBConfiguration.configurationName')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get configurationName =>
-      _blink.BlinkUSBConfiguration.instance.configurationName_Getter_(this);
-
-  @DomName('USBConfiguration.configurationValue')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get configurationValue =>
-      _blink.BlinkUSBConfiguration.instance.configurationValue_Getter_(this);
-
-  @DomName('USBConfiguration.interfaces')
-  @DocsEditable()
-  @Experimental() // untriaged
-  List<UsbInterface> get interfaces =>
-      _blink.BlinkUSBConfiguration.instance.interfaces_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBConnectionEvent')
-@Experimental() // untriaged
-class UsbConnectionEvent extends Event {
-  // To suppress missing implicit constructor warnings.
-  factory UsbConnectionEvent._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('USBConnectionEvent.USBConnectionEvent')
-  @DocsEditable()
-  factory UsbConnectionEvent(String type, [Map eventInitDict]) {
-    if (eventInitDict != null) {
-      var eventInitDict_1 = convertDartToNative_Dictionary(eventInitDict);
-      return _blink.BlinkUSBConnectionEvent.instance
-          .constructorCallback_2_(type, eventInitDict_1);
-    }
-    return _blink.BlinkUSBConnectionEvent.instance.constructorCallback_1_(type);
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbConnectionEvent.internal_() : super.internal_();
-
-  @DomName('USBConnectionEvent.device')
-  @DocsEditable()
-  @Experimental() // untriaged
-  UsbDevice get device =>
-      _blink.BlinkUSBConnectionEvent.instance.device_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBDevice')
-@Experimental() // untriaged
-class UsbDevice extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbDevice._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbDevice.internal_() {}
-
-  @DomName('USBDevice.configurations')
-  @DocsEditable()
-  @Experimental() // untriaged
-  List<UsbConfiguration> get configurations =>
-      _blink.BlinkUSBDevice.instance.configurations_Getter_(this);
-
-  @DomName('USBDevice.deviceClass')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get deviceClass =>
-      _blink.BlinkUSBDevice.instance.deviceClass_Getter_(this);
-
-  @DomName('USBDevice.deviceProtocol')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get deviceProtocol =>
-      _blink.BlinkUSBDevice.instance.deviceProtocol_Getter_(this);
-
-  @DomName('USBDevice.deviceSubclass')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get deviceSubclass =>
-      _blink.BlinkUSBDevice.instance.deviceSubclass_Getter_(this);
-
-  @DomName('USBDevice.deviceVersionMajor')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get deviceVersionMajor =>
-      _blink.BlinkUSBDevice.instance.deviceVersionMajor_Getter_(this);
-
-  @DomName('USBDevice.deviceVersionMinor')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get deviceVersionMinor =>
-      _blink.BlinkUSBDevice.instance.deviceVersionMinor_Getter_(this);
-
-  @DomName('USBDevice.deviceVersionSubminor')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get deviceVersionSubminor =>
-      _blink.BlinkUSBDevice.instance.deviceVersionSubminor_Getter_(this);
-
-  @DomName('USBDevice.guid')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get guid => _blink.BlinkUSBDevice.instance.guid_Getter_(this);
-
-  @DomName('USBDevice.manufacturerName')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get manufacturerName =>
-      _blink.BlinkUSBDevice.instance.manufacturerName_Getter_(this);
-
-  @DomName('USBDevice.productId')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get productId => _blink.BlinkUSBDevice.instance.productId_Getter_(this);
-
-  @DomName('USBDevice.productName')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get productName =>
-      _blink.BlinkUSBDevice.instance.productName_Getter_(this);
-
-  @DomName('USBDevice.serialNumber')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get serialNumber =>
-      _blink.BlinkUSBDevice.instance.serialNumber_Getter_(this);
-
-  @DomName('USBDevice.usbVersionMajor')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get usbVersionMajor =>
-      _blink.BlinkUSBDevice.instance.usbVersionMajor_Getter_(this);
-
-  @DomName('USBDevice.usbVersionMinor')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get usbVersionMinor =>
-      _blink.BlinkUSBDevice.instance.usbVersionMinor_Getter_(this);
-
-  @DomName('USBDevice.usbVersionSubminor')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get usbVersionSubminor =>
-      _blink.BlinkUSBDevice.instance.usbVersionSubminor_Getter_(this);
-
-  @DomName('USBDevice.vendorId')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get vendorId => _blink.BlinkUSBDevice.instance.vendorId_Getter_(this);
-
-  @DomName('USBDevice.claimInterface')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future claimInterface(int interfaceNumber) =>
-      convertNativePromiseToDartFuture(_blink.BlinkUSBDevice.instance
-          .claimInterface_Callback_1_(this, interfaceNumber));
-
-  @DomName('USBDevice.clearHalt')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future clearHalt(int endpointNumber) =>
-      convertNativePromiseToDartFuture(_blink.BlinkUSBDevice.instance
-          .clearHalt_Callback_1_(this, endpointNumber));
-
-  @DomName('USBDevice.close')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future close() => convertNativePromiseToDartFuture(
-      _blink.BlinkUSBDevice.instance.close_Callback_0_(this));
-
-  @DomName('USBDevice.controlTransferIn')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future controlTransferIn(Map setup, int length) =>
-      convertNativePromiseToDartFuture(_blink.BlinkUSBDevice.instance
-          .controlTransferIn_Callback_2_(
-              this, convertDartToNative_Dictionary(setup), length));
-
-  Future controlTransferOut(Map setup, [/*BufferSource*/ data]) {
-    if (data != null) {
-      return _blink.BlinkUSBDevice.instance.controlTransferOut_Callback_2_(
-          this, convertDartToNative_Dictionary(setup), data);
-    }
-    return _blink.BlinkUSBDevice.instance.controlTransferOut_Callback_1_(
-        this, convertDartToNative_Dictionary(setup));
-  }
-
-  @DomName('USBDevice.getConfiguration')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future getConfiguration() => convertNativePromiseToDartFuture(
-      _blink.BlinkUSBDevice.instance.getConfiguration_Callback_0_(this));
-
-  @DomName('USBDevice.isochronousTransferIn')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future isochronousTransferIn(int endpointNumber, List<int> packetLengths) =>
-      convertNativePromiseToDartFuture(_blink.BlinkUSBDevice.instance
-          .isochronousTransferIn_Callback_2_(
-              this, endpointNumber, packetLengths));
-
-  @DomName('USBDevice.isochronousTransferOut')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future isochronousTransferOut(
-          int endpointNumber, /*BufferSource*/ data, List<int> packetLengths) =>
-      convertNativePromiseToDartFuture(_blink.BlinkUSBDevice.instance
-          .isochronousTransferOut_Callback_3_(
-              this, endpointNumber, data, packetLengths));
-
-  @DomName('USBDevice.open')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future open() => convertNativePromiseToDartFuture(
-      _blink.BlinkUSBDevice.instance.open_Callback_0_(this));
-
-  @DomName('USBDevice.releaseInterface')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future releaseInterface(int interfaceNumber) =>
-      convertNativePromiseToDartFuture(_blink.BlinkUSBDevice.instance
-          .releaseInterface_Callback_1_(this, interfaceNumber));
-
-  @DomName('USBDevice.reset')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future reset() => convertNativePromiseToDartFuture(
-      _blink.BlinkUSBDevice.instance.reset_Callback_0_(this));
-
-  @DomName('USBDevice.setConfiguration')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future setConfiguration(int configurationValue) =>
-      convertNativePromiseToDartFuture(_blink.BlinkUSBDevice.instance
-          .setConfiguration_Callback_1_(this, configurationValue));
-
-  @DomName('USBDevice.setInterface')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future setInterface(int interfaceNumber, int alternateSetting) =>
-      convertNativePromiseToDartFuture(_blink.BlinkUSBDevice.instance
-          .setInterface_Callback_2_(this, interfaceNumber, alternateSetting));
-
-  @DomName('USBDevice.transferIn')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future transferIn(int endpointNumber, int length) =>
-      convertNativePromiseToDartFuture(_blink.BlinkUSBDevice.instance
-          .transferIn_Callback_2_(this, endpointNumber, length));
-
-  @DomName('USBDevice.transferOut')
-  @DocsEditable()
-  @Experimental() // untriaged
-  Future transferOut(int endpointNumber, /*BufferSource*/ data) =>
-      convertNativePromiseToDartFuture(_blink.BlinkUSBDevice.instance
-          .transferOut_Callback_2_(this, endpointNumber, data));
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBEndpoint')
-@Experimental() // untriaged
-class UsbEndpoint extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbEndpoint._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('USBEndpoint.USBEndpoint')
-  @DocsEditable()
-  factory UsbEndpoint(
-      UsbAlternateInterface alternate, int endpointNumber, String direction) {
-    return _blink.BlinkUSBEndpoint.instance
-        .constructorCallback_3_(alternate, endpointNumber, direction);
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbEndpoint.internal_() {}
-
-  @DomName('USBEndpoint.direction')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get direction =>
-      _blink.BlinkUSBEndpoint.instance.direction_Getter_(this);
-
-  @DomName('USBEndpoint.endpointNumber')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get endpointNumber =>
-      _blink.BlinkUSBEndpoint.instance.endpointNumber_Getter_(this);
-
-  @DomName('USBEndpoint.packetSize')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get packetSize =>
-      _blink.BlinkUSBEndpoint.instance.packetSize_Getter_(this);
-
-  @DomName('USBEndpoint.type')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get type => _blink.BlinkUSBEndpoint.instance.type_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBInTransferResult')
-@Experimental() // untriaged
-class UsbInTransferResult extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbInTransferResult._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbInTransferResult.internal_() {}
-
-  @DomName('USBInTransferResult.data')
-  @DocsEditable()
-  @Experimental() // untriaged
-  _DataView get data =>
-      _blink.BlinkUSBInTransferResult.instance.data_Getter_(this);
-
-  @DomName('USBInTransferResult.status')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get status =>
-      _blink.BlinkUSBInTransferResult.instance.status_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBInterface')
-@Experimental() // untriaged
-class UsbInterface extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbInterface._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('USBInterface.USBInterface')
-  @DocsEditable()
-  factory UsbInterface(UsbConfiguration configuration, int interfaceNumber) {
-    return _blink.BlinkUSBInterface.instance
-        .constructorCallback_2_(configuration, interfaceNumber);
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbInterface.internal_() {}
-
-  @DomName('USBInterface.alternates')
-  @DocsEditable()
-  @Experimental() // untriaged
-  List<UsbAlternateInterface> get alternates =>
-      _blink.BlinkUSBInterface.instance.alternates_Getter_(this);
-
-  @DomName('USBInterface.interfaceNumber')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get interfaceNumber =>
-      _blink.BlinkUSBInterface.instance.interfaceNumber_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBIsochronousInTransferPacket')
-@Experimental() // untriaged
-class UsbIsochronousInTransferPacket extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbIsochronousInTransferPacket._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbIsochronousInTransferPacket.internal_() {}
-
-  @DomName('USBIsochronousInTransferPacket.data')
-  @DocsEditable()
-  @Experimental() // untriaged
-  _DataView get data =>
-      _blink.BlinkUSBIsochronousInTransferPacket.instance.data_Getter_(this);
-
-  @DomName('USBIsochronousInTransferPacket.status')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get status =>
-      _blink.BlinkUSBIsochronousInTransferPacket.instance.status_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBIsochronousInTransferResult')
-@Experimental() // untriaged
-class UsbIsochronousInTransferResult extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbIsochronousInTransferResult._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbIsochronousInTransferResult.internal_() {}
-
-  @DomName('USBIsochronousInTransferResult.data')
-  @DocsEditable()
-  @Experimental() // untriaged
-  _DataView get data =>
-      _blink.BlinkUSBIsochronousInTransferResult.instance.data_Getter_(this);
-
-  @DomName('USBIsochronousInTransferResult.packets')
-  @DocsEditable()
-  @Experimental() // untriaged
-  List<UsbIsochronousInTransferPacket> get packets =>
-      _blink.BlinkUSBIsochronousInTransferResult.instance.packets_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBIsochronousOutTransferPacket')
-@Experimental() // untriaged
-class UsbIsochronousOutTransferPacket extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbIsochronousOutTransferPacket._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbIsochronousOutTransferPacket.internal_() {}
-
-  @DomName('USBIsochronousOutTransferPacket.bytesWritten')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get bytesWritten => _blink.BlinkUSBIsochronousOutTransferPacket.instance
-      .bytesWritten_Getter_(this);
-
-  @DomName('USBIsochronousOutTransferPacket.status')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get status =>
-      _blink.BlinkUSBIsochronousOutTransferPacket.instance.status_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBIsochronousOutTransferResult')
-@Experimental() // untriaged
-class UsbIsochronousOutTransferResult extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbIsochronousOutTransferResult._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbIsochronousOutTransferResult.internal_() {}
-
-  @DomName('USBIsochronousOutTransferResult.packets')
-  @DocsEditable()
-  @Experimental() // untriaged
-  List<UsbIsochronousOutTransferPacket> get packets =>
-      _blink.BlinkUSBIsochronousOutTransferResult.instance
-          .packets_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('USBOutTransferResult')
-@Experimental() // untriaged
-class UsbOutTransferResult extends DartHtmlDomObject {
-  // To suppress missing implicit constructor warnings.
-  factory UsbOutTransferResult._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  UsbOutTransferResult.internal_() {}
-
-  @DomName('USBOutTransferResult.bytesWritten')
-  @DocsEditable()
-  @Experimental() // untriaged
-  int get bytesWritten =>
-      _blink.BlinkUSBOutTransferResult.instance.bytesWritten_Getter_(this);
-
-  @DomName('USBOutTransferResult.status')
-  @DocsEditable()
-  @Experimental() // untriaged
-  String get status =>
-      _blink.BlinkUSBOutTransferResult.instance.status_Getter_(this);
-}
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
 @DomName('VRDevice')
 @Experimental() // untriaged
 class VRDevice extends DartHtmlDomObject {
@@ -46771,6 +45578,174 @@ class _Attr extends Node {
 // WARNING: Do not edit - generated code.
 
 @DocsEditable()
+@DomName('Bluetooth')
+@Experimental() // untriaged
+class _Bluetooth extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _Bluetooth._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _Bluetooth.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('BluetoothAdvertisingData')
+@Experimental() // untriaged
+class _BluetoothAdvertisingData extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _BluetoothAdvertisingData._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _BluetoothAdvertisingData.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('BluetoothCharacteristicProperties')
+@Experimental() // untriaged
+class _BluetoothCharacteristicProperties extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _BluetoothCharacteristicProperties._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _BluetoothCharacteristicProperties.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('BluetoothDevice')
+@Experimental() // untriaged
+class _BluetoothDevice extends EventTarget {
+  // To suppress missing implicit constructor warnings.
+  factory _BluetoothDevice._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _BluetoothDevice.internal_() : super.internal_();
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('BluetoothRemoteGATTCharacteristic')
+@Experimental() // untriaged
+class _BluetoothRemoteGATTCharacteristic extends EventTarget {
+  // To suppress missing implicit constructor warnings.
+  factory _BluetoothRemoteGATTCharacteristic._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _BluetoothRemoteGATTCharacteristic.internal_() : super.internal_();
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('BluetoothRemoteGATTServer')
+@Experimental() // untriaged
+class _BluetoothRemoteGATTServer extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _BluetoothRemoteGATTServer._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _BluetoothRemoteGATTServer.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('BluetoothRemoteGATTService')
+@Experimental() // untriaged
+class _BluetoothRemoteGATTService extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _BluetoothRemoteGATTService._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _BluetoothRemoteGATTService.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('BluetoothUUID')
+@Experimental() // untriaged
+class _BluetoothUUID extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _BluetoothUUID._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _BluetoothUUID.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
 @DomName('Cache')
 @Experimental() // untriaged
 class _Cache extends DartHtmlDomObject {
@@ -47668,6 +46643,27 @@ class _HTMLMarqueeElement extends HtmlElement {
 // WARNING: Do not edit - generated code.
 
 @DocsEditable()
+@DomName('NFC')
+@Experimental() // untriaged
+class _NFC extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _NFC._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _NFC.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
 @DomName('NamedNodeMap')
 // http://dom.spec.whatwg.org/#namednodemap
 @deprecated // deprecated
@@ -48159,6 +47155,320 @@ class _SubtleCrypto extends DartHtmlDomObject {
 
   @Deprecated("Internal Use Only")
   _SubtleCrypto.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USB')
+@Experimental() // untriaged
+class _USB extends EventTarget {
+  // To suppress missing implicit constructor warnings.
+  factory _USB._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USB.internal_() : super.internal_();
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBAlternateInterface')
+@Experimental() // untriaged
+class _USBAlternateInterface extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBAlternateInterface._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @DomName('USBAlternateInterface.USBAlternateInterface')
+  @DocsEditable()
+  factory _USBAlternateInterface(
+      _USBInterface deviceInterface, int alternateSetting) {
+    return _blink.BlinkUSBAlternateInterface.instance
+        .constructorCallback_2_(deviceInterface, alternateSetting);
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBAlternateInterface.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBConfiguration')
+@Experimental() // untriaged
+class _USBConfiguration extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBConfiguration._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @DomName('USBConfiguration.USBConfiguration')
+  @DocsEditable()
+  factory _USBConfiguration(_USBDevice device, int configurationValue) {
+    return _blink.BlinkUSBConfiguration.instance
+        .constructorCallback_2_(device, configurationValue);
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBConfiguration.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBConnectionEvent')
+@Experimental() // untriaged
+class _USBConnectionEvent extends Event {
+  // To suppress missing implicit constructor warnings.
+  factory _USBConnectionEvent._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @DomName('USBConnectionEvent.USBConnectionEvent')
+  @DocsEditable()
+  factory _USBConnectionEvent(String type, [Map eventInitDict]) {
+    if (eventInitDict != null) {
+      var eventInitDict_1 = convertDartToNative_Dictionary(eventInitDict);
+      return _blink.BlinkUSBConnectionEvent.instance
+          .constructorCallback_2_(type, eventInitDict_1);
+    }
+    return _blink.BlinkUSBConnectionEvent.instance.constructorCallback_1_(type);
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBConnectionEvent.internal_() : super.internal_();
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBDevice')
+@Experimental() // untriaged
+class _USBDevice extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBDevice._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBDevice.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBEndpoint')
+@Experimental() // untriaged
+class _USBEndpoint extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBEndpoint._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @DomName('USBEndpoint.USBEndpoint')
+  @DocsEditable()
+  factory _USBEndpoint(
+      _USBAlternateInterface alternate, int endpointNumber, String direction) {
+    return _blink.BlinkUSBEndpoint.instance
+        .constructorCallback_3_(alternate, endpointNumber, direction);
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBEndpoint.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBInTransferResult')
+@Experimental() // untriaged
+class _USBInTransferResult extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBInTransferResult._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBInTransferResult.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBInterface')
+@Experimental() // untriaged
+class _USBInterface extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBInterface._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @DomName('USBInterface.USBInterface')
+  @DocsEditable()
+  factory _USBInterface(_USBConfiguration configuration, int interfaceNumber) {
+    return _blink.BlinkUSBInterface.instance
+        .constructorCallback_2_(configuration, interfaceNumber);
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBInterface.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBIsochronousInTransferPacket')
+@Experimental() // untriaged
+class _USBIsochronousInTransferPacket extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBIsochronousInTransferPacket._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBIsochronousInTransferPacket.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBIsochronousInTransferResult')
+@Experimental() // untriaged
+class _USBIsochronousInTransferResult extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBIsochronousInTransferResult._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBIsochronousInTransferResult.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBIsochronousOutTransferPacket')
+@Experimental() // untriaged
+class _USBIsochronousOutTransferPacket extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBIsochronousOutTransferPacket._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBIsochronousOutTransferPacket.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBIsochronousOutTransferResult')
+@Experimental() // untriaged
+class _USBIsochronousOutTransferResult extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBIsochronousOutTransferResult._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBIsochronousOutTransferResult.internal_() {}
+}
+// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
+// for details. All rights reserved. Use of this source code is governed by a
+// BSD-style license that can be found in the LICENSE file.
+
+// WARNING: Do not edit - generated code.
+
+@DocsEditable()
+@DomName('USBOutTransferResult')
+@Experimental() // untriaged
+class _USBOutTransferResult extends DartHtmlDomObject {
+  // To suppress missing implicit constructor warnings.
+  factory _USBOutTransferResult._() {
+    throw new UnsupportedError("Not supported");
+  }
+
+  @Deprecated("Internal Use Only")
+  external static Type get instanceRuntimeType;
+
+  @Deprecated("Internal Use Only")
+  _USBOutTransferResult.internal_() {}
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -52835,6 +52145,8 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
   /** Shadows on top of the parent's currentTarget. */
   EventTarget _currentTarget;
 
+  final InputDeviceCapabilities sourceCapabilities;
+
   /** Construct a KeyEvent with [parent] as the event we're emulating. */
   KeyEvent.wrap(KeyboardEvent parent) : super(parent) {
     _parent = parent;
@@ -52985,13 +52297,21 @@ class _WrappedEvent implements Event {
 
   EventTarget get currentTarget => wrapped.currentTarget;
 
+  List<EventTarget> deepPath() {
+    return wrapped.deepPath();
+  }
+
   bool get defaultPrevented => wrapped.defaultPrevented;
 
   int get eventPhase => wrapped.eventPhase;
 
+  bool get isTrusted => wrapped.isTrusted;
+
+  bool get scoped => wrapped.scoped;
+
   EventTarget get target => wrapped.target;
 
-  int get timeStamp => wrapped.timeStamp;
+  double get timeStamp => wrapped.timeStamp;
 
   String get type => wrapped.type;
 

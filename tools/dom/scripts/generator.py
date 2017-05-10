@@ -1193,7 +1193,8 @@ class SequenceIDLTypeInfo(IDLTypeInfo):
     self._item_info = item_info
 
   def dart_type(self):
-    return 'List<%s>' % self._item_info.dart_type()
+    darttype = self._item_info.dart_type()
+    return 'List' if darttype is None else 'List<%s>' % darttype
 
   def interface_name(self):
     return self.dart_type()
@@ -1530,6 +1531,7 @@ _idl_type_registry = monitored.Dict('generator._idl_type_registry', {
     'NamedNodeMap': TypeData(clazz='Interface', item_type='Node'),
     'NodeList': TypeData(clazz='Interface', item_type='Node',
                          suppress_interface=False, dart_type='List<Node>'),
+    'NotificationAction': TypedListTypeData(''),
     'SVGElementInstanceList': TypeData(clazz='Interface',
         item_type='SVGElementInstance', suppress_interface=True),
     'SourceBufferList': TypeData(clazz='Interface', item_type='SourceBuffer'),
@@ -1575,6 +1577,7 @@ _idl_type_registry = monitored.Dict('generator._idl_type_registry', {
     'SVGTransform': TypeData(clazz='SVGTearOff', native_type="SVGPropertyTearOff<SVGTransform>"),
     'SVGTransformList': TypeData(clazz='SVGTearOff', item_type='SVGTransform',
         native_type='SVGTransformListPropertyTearOff'),
+
      # Add any setlike forEach Callback types here.
     'FontFaceSetForEachCallback': TypeData(clazz='Interface', item_type='FontFaceSetForEachCallback'),
 })
