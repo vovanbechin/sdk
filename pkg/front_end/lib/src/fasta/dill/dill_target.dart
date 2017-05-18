@@ -8,19 +8,13 @@ import 'dart:async' show Future;
 
 import 'package:kernel/ast.dart' show Class;
 
-import 'dill_loader.dart' show DillLoader;
-
 import '../errors.dart' show internalError;
-
-import '../target_implementation.dart' show TargetImplementation;
-
-import '../ticker.dart' show Ticker;
-
-import '../translate_uri.dart' show TranslateUri;
-
 import '../kernel/kernel_builder.dart' show ClassBuilder;
-
+import '../target_implementation.dart' show TargetImplementation;
+import '../ticker.dart' show Ticker;
+import '../translate_uri.dart' show TranslateUri;
 import 'dill_library_builder.dart' show DillLibraryBuilder;
+import 'dill_loader.dart' show DillLoader;
 
 class DillTarget extends TargetImplementation {
   bool isLoaded = false;
@@ -40,15 +34,17 @@ class DillTarget extends TargetImplementation {
     internalError("Unsupported operation.");
   }
 
-  Future<Null> writeProgram(Uri uri) {
+  @override
+  Future<Null> buildProgram() {
     return internalError("not implemented.");
   }
 
-  Future<Null> writeOutline(Uri uri) async {
-    if (loader.program == null) return null;
-    await loader.buildOutlines();
+  @override
+  Future<Null> buildOutlines() async {
+    if (loader.libraries.isNotEmpty) {
+      await loader.buildOutlines();
+    }
     isLoaded = true;
-    return null;
   }
 
   DillLibraryBuilder createLibraryBuilder(Uri uri, Uri fileUri) {

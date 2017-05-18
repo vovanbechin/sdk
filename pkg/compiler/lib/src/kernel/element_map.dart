@@ -10,7 +10,6 @@ import '../constants/constructors.dart';
 import '../constants/expressions.dart';
 import '../constants/values.dart';
 import '../common_elements.dart';
-import '../elements/elements.dart';
 import '../elements/entities.dart';
 import '../elements/names.dart';
 import '../elements/operators.dart';
@@ -53,6 +52,25 @@ abstract class KernelToElementMap {
   /// Returns the [ConstructorEntity] corresponding to the generative or factory
   /// constructor [node].
   ConstructorEntity getConstructor(ir.Member node);
+
+  /// Returns the [ConstructorEntity] corresponding to a super initializer in
+  /// [constructor].
+  ///
+  /// The IR resolves super initializers to a [target] up in the type hierarchy.
+  /// Most of the time, the result of this function will be the entity
+  /// corresponding to that target. In the presence of unnamed mixins, this
+  /// function returns an entity for an intermediate synthetic constructor that
+  /// kernel doesn't explicitly represent.
+  ///
+  /// For example:
+  ///     class M {}
+  ///     class C extends Object with M {}
+  ///
+  /// Kernel will say that C()'s super initializer resolves to Object(), but
+  /// this function will return an entity representing the unnamed mixin
+  /// application "Object+M"'s constructor.
+  ConstructorEntity getSuperConstructor(
+      ir.Constructor constructor, ir.Member target);
 
   /// Returns the [MemberEntity] corresponding to the member [node].
   MemberEntity getMember(ir.Member node);
@@ -174,7 +192,7 @@ abstract class KernelToElementMapMixin implements KernelToElementMap {
   Selector getInvocationSelector(ir.InvocationExpression invocation) {
     Name name = getName(invocation.name);
     SelectorKind kind;
-    if (Elements.isOperatorName(invocation.name.name)) {
+    if (Selector.isOperatorName(name.text)) {
       if (name == Names.INDEX_NAME || name == Names.INDEX_SET_NAME) {
         kind = SelectorKind.INDEX;
       } else {
@@ -791,6 +809,7 @@ class Constantifier extends ir.ExpressionVisitor<ConstantExpression> {
 
     if (!isRedirecting) {
       for (ir.Field field in cls.fields) {
+        if (field.isStatic) continue;
         if (field.initializer != null) {
           registerField(field, field.initializer.accept(this));
         }

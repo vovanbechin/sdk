@@ -7,16 +7,19 @@ import 'dart:async';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/file_system/physical_file_system.dart';
 import 'package:analyzer/src/dart/analysis/driver.dart'
-    show AnalysisDriverGeneric, AnalysisDriverScheduler, PerformanceLog;
+    show AnalysisDriverGeneric, AnalysisDriverScheduler;
 import 'package:analyzer/src/dart/analysis/file_state.dart';
+import 'package:analyzer/src/generated/sdk.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer_plugin/channel/channel.dart';
 import 'package:analyzer_plugin/protocol/protocol.dart';
+import 'package:analyzer_plugin/protocol/protocol_common.dart';
 import 'package:analyzer_plugin/protocol/protocol_constants.dart';
 import 'package:analyzer_plugin/protocol/protocol_generated.dart';
 import 'package:analyzer_plugin/src/protocol/protocol_internal.dart';
 import 'package:analyzer_plugin/src/utilities/null_string_sink.dart';
 import 'package:analyzer_plugin/utilities/subscriptions/subscription_manager.dart';
+import 'package:front_end/src/base/performace_logger.dart';
 import 'package:front_end/src/incremental/byte_store.dart';
 import 'package:front_end/src/incremental/file_byte_store.dart';
 import 'package:path/src/context.dart';
@@ -77,6 +80,11 @@ abstract class ServerPlugin {
   ByteStore _byteStore;
 
   /**
+   * The SDK manager used to manage SDKs.
+   */
+  DartSdkManager _sdkManager;
+
+  /**
    * The file content overlay used by any analysis drivers that are created.
    */
   final FileContentOverlay fileContentOverlay = new FileContentOverlay();
@@ -121,6 +129,11 @@ abstract class ServerPlugin {
    * Return the user visible name of this plugin.
    */
   String get name;
+
+  /**
+   * Return the SDK manager used to manage SDKs.
+   */
+  DartSdkManager get sdkManager => _sdkManager;
 
   /**
    * Return the version number of this plugin, encoded as a string.
@@ -256,6 +269,10 @@ abstract class ServerPlugin {
         // has the side-effect of adding it to the analysis driver scheduler.
         AnalysisDriverGeneric driver = createAnalysisDriver(contextRoot);
         driverMap[contextRoot] = driver;
+        _addFilesToDriver(
+            driver,
+            resourceProvider.getResource(contextRoot.root),
+            contextRoot.exclude);
       }
     }
     for (ContextRoot contextRoot in oldRoots) {
@@ -396,10 +413,12 @@ abstract class ServerPlugin {
   Future<PluginVersionCheckResult> handlePluginVersionCheck(
       PluginVersionCheckParams parameters) async {
     String byteStorePath = parameters.byteStorePath;
+    String sdkPath = parameters.sdkPath;
     String versionString = parameters.version;
     Version serverVersion = new Version.parse(versionString);
     _byteStore =
         new MemoryCachingByteStore(new FileByteStore(byteStorePath), 64 * M);
+    _sdkManager = new DartSdkManager(sdkPath, true);
     return new PluginVersionCheckResult(
         isCompatibleWith(serverVersion), name, version, fileGlobsToAnalyze,
         contactInfo: contactInfo);
@@ -444,10 +463,33 @@ abstract class ServerPlugin {
   }
 
   /**
+   * Add all of the files contained in the given [resource] that are not in the
+   * list of [excluded] resources to the given [driver].
+   */
+  void _addFilesToDriver(
+      AnalysisDriverGeneric driver, Resource resource, List<String> excluded) {
+    String path = resource.path;
+    if (excluded.contains(path)) {
+      return;
+    }
+    if (resource is File) {
+      driver.addFile(path);
+    } else if (resource is Folder) {
+      try {
+        for (Resource child in resource.getChildren()) {
+          _addFilesToDriver(driver, child, excluded);
+        }
+      } on FileSystemException {
+        // The folder does not exist, so ignore it.
+      }
+    }
+  }
+
+  /**
    * Compute the response that should be returned for the given [request], or
    * `null` if the response has already been sent.
    */
-  Future<Response> _getResponse(Request request) async {
+  Future<Response> _getResponse(Request request, int requestTime) async {
     ResponseResult result = null;
     switch (request.method) {
       case ANALYSIS_REQUEST_HANDLE_WATCH_EVENTS:
@@ -503,7 +545,7 @@ abstract class ServerPlugin {
       case PLUGIN_REQUEST_SHUTDOWN:
         var params = new PluginShutdownParams();
         result = await handlePluginShutdown(params);
-        _channel.sendResponse(result.toResponse(request.id));
+        _channel.sendResponse(result.toResponse(request.id, requestTime));
         _channel.close();
         return null;
       case PLUGIN_REQUEST_VERSION_CHECK:
@@ -512,10 +554,10 @@ abstract class ServerPlugin {
         break;
     }
     if (result == null) {
-      return new Response(request.id,
-          error: RequestErrorFactory.unknownRequest(request));
+      return new Response(request.id, requestTime,
+          error: RequestErrorFactory.unknownRequest(request.method));
     }
-    return result.toResponse(request.id);
+    return result.toResponse(request.id, requestTime);
   }
 
   /**
@@ -523,14 +565,15 @@ abstract class ServerPlugin {
    * server.
    */
   Future<Null> _onRequest(Request request) async {
+    int requestTime = new DateTime.now().millisecondsSinceEpoch;
     String id = request.id;
     Response response;
     try {
-      response = await _getResponse(request);
+      response = await _getResponse(request, requestTime);
     } on RequestFailure catch (exception) {
-      response = new Response(id, error: exception.error);
+      response = new Response(id, requestTime, error: exception.error);
     } catch (exception, stackTrace) {
-      response = new Response(id,
+      response = new Response(id, requestTime,
           error: new RequestError(
               RequestErrorCode.PLUGIN_ERROR, exception.toString(),
               stackTrace: stackTrace.toString()));

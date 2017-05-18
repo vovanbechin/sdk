@@ -8,6 +8,7 @@ import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/file_system/memory_file_system.dart';
 import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer_plugin/plugin/plugin.dart';
+import 'package:analyzer_plugin/protocol/protocol_common.dart';
 import 'package:analyzer_plugin/protocol/protocol_generated.dart';
 import 'package:path/src/context.dart';
 import 'package:test/test.dart';
@@ -18,6 +19,11 @@ void main() {
 }
 
 class MockAnalysisDriver extends AnalysisDriverGeneric {
+  /**
+   * The files that have been added to this driver.
+   */
+  List<String> addedFiles = <String>[];
+
   @override
   bool get hasFilesToAnalyze => false;
 
@@ -26,6 +32,11 @@ class MockAnalysisDriver extends AnalysisDriverGeneric {
 
   @override
   AnalysisDriverPriority get workPriority => AnalysisDriverPriority.nothing;
+
+  @override
+  void addFile(String path) {
+    addedFiles.add(path);
+  }
 
   @override
   void dispose() {}
@@ -119,7 +130,9 @@ class ServerPluginTest {
     var result = await plugin.handleAnalysisSetContextRoots(
         new AnalysisSetContextRootsParams([contextRoot1]));
     expect(result, isNotNull);
-    expect(plugin.driverMap[contextRoot1], isNotNull);
+    AnalysisDriverGeneric driver = plugin.driverMap[contextRoot1];
+    expect(driver, isNotNull);
+    expect((driver as MockAnalysisDriver).addedFiles, hasLength(1));
   }
 
   test_handleAnalysisSetPriorityFiles() async {
@@ -220,7 +233,7 @@ class ServerPluginTest {
 
   test_handlePluginVersionCheck() async {
     PluginVersionCheckResult result = await plugin.handlePluginVersionCheck(
-        new PluginVersionCheckParams('path', '0.1.0'));
+        new PluginVersionCheckParams('byteStorePath', 'sdkPath', '0.1.0'));
     expect(result, isNotNull);
     expect(result.interestingFiles, ['*.dart']);
     expect(result.isCompatible, isTrue);

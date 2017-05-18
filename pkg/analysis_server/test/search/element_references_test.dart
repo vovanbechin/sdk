@@ -6,6 +6,7 @@ import 'dart:async';
 
 import 'package:analysis_server/protocol/protocol.dart';
 import 'package:analysis_server/protocol/protocol_generated.dart';
+import 'package:analyzer_plugin/protocol/protocol_common.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
@@ -20,6 +21,9 @@ main() {
 @reflectiveTest
 class ElementReferencesTest extends AbstractSearchDomainTest {
   Element searchElement;
+
+  @override
+  bool get enableNewAnalysisDriver => false;
 
   void assertHasRef(SearchResultKind kind, String search, bool isPotential) {
     assertHasResult(kind, search);
@@ -41,12 +45,6 @@ class ElementReferencesTest extends AbstractSearchDomainTest {
       await waitForSearchResults();
     }
     expect(serverErrors, isEmpty);
-  }
-
-  @override
-  void setUp() {
-    enableNewAnalysisDriver = false;
-    super.setUp();
   }
 
   test_constructor_named() async {

@@ -93,6 +93,7 @@ class FastaCompile
     Program platform = await context.loadPlatform();
     Ticker ticker = new Ticker();
     DillTarget dillTarget = new DillTarget(ticker, context.uriTranslator);
+    platform.unbindCanonicalNames();
     dillTarget.loader.appendLibraries(platform);
     KernelTarget sourceTarget = new KernelTarget(PhysicalFileSystem.instance,
         dillTarget, context.uriTranslator, context.strongMode);
@@ -100,9 +101,9 @@ class FastaCompile
     Program p;
     try {
       sourceTarget.read(description.uri);
-      await dillTarget.writeOutline(null);
-      await sourceTarget.writeOutline(null);
-      p = await sourceTarget.writeProgram(null);
+      await dillTarget.buildOutlines();
+      await sourceTarget.buildOutlines();
+      p = await sourceTarget.buildProgram();
     } on InputError catch (e, s) {
       return fail(null, e.error, s);
     }

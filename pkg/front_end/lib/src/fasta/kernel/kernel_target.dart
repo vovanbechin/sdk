@@ -6,13 +6,14 @@ library fasta.kernel_target;
 
 import 'dart:async' show Future;
 
-import 'dart:io' show File, IOSink;
+import 'dart:io' show File;
 
 import 'package:front_end/file_system.dart';
 import 'package:kernel/ast.dart'
     show
         Arguments,
         AsyncMarker,
+        CanonicalName,
         Class,
         Constructor,
         DartType,
@@ -39,10 +40,6 @@ import 'package:kernel/ast.dart'
         VariableDeclaration,
         VariableGet,
         VoidType;
-
-import 'package:kernel/binary/ast_to_binary.dart' show BinaryPrinter;
-
-import 'package:kernel/text/ast_to_text.dart' show Printer;
 
 import 'package:kernel/transformations/erasure.dart' show Erasure;
 
@@ -100,9 +97,9 @@ class KernelTarget extends TargetImplementation {
   final Map<String, Source> uriToSource;
 
   SourceLoader<Library> loader;
-  Program program;
+  Program _program;
 
-  final List errors = [];
+  final List<String> errors = <String>[];
 
   final TypeBuilder dynamicType =
       new KernelNamedTypeBuilder("dynamic", null, -1, null);
@@ -120,8 +117,9 @@ class KernelTarget extends TargetImplementation {
   void addError(file, int charOffset, String message) {
     Uri uri = file is String ? Uri.parse(file) : file;
     InputError error = new InputError(uri, charOffset, message);
-    print(error.format());
-    errors.add(error);
+    String formatterMessage = error.format();
+    print(formatterMessage);
+    errors.add(formatterMessage);
   }
 
   SourceLoader<Library> createLoader() =>
@@ -217,20 +215,17 @@ class KernelTarget extends TargetImplementation {
     builder.mixedInType = null;
   }
 
-  Future<Program> handleInputError(Uri uri, InputError error,
-      {bool isFullProgram}) {
+  void handleInputError(InputError error, {bool isFullProgram}) {
     if (error != null) {
       String message = error.format();
       print(message);
       errors.add(message);
     }
-    program = erroneousProgram(isFullProgram);
-    return uri == null
-        ? new Future<Program>.value(program)
-        : writeLinkedProgram(uri, program, isFullProgram: isFullProgram);
+    _program = erroneousProgram(isFullProgram);
   }
 
-  Future<Program> writeOutline(Uri uri) async {
+  @override
+  Future<Program> buildOutlines({CanonicalName nameRoot}) async {
     if (loader.first == null) return null;
     try {
       loader.createTypeInferenceEngine();
@@ -248,25 +243,26 @@ class KernelTarget extends TargetImplementation {
       installDefaultConstructors(sourceClasses);
       loader.resolveConstructors();
       loader.finishTypeVariables(objectClassBuilder);
-      program = link(new List<Library>.from(loader.libraries));
-      loader.computeHierarchy(program);
+      _program =
+          link(new List<Library>.from(loader.libraries), nameRoot: nameRoot);
+      loader.computeHierarchy(_program);
       loader.checkOverrides(sourceClasses);
       loader.prepareInitializerInference();
       loader.performInitializerInference();
-      if (uri == null) return program;
-      return await writeLinkedProgram(uri, program, isFullProgram: false);
     } on InputError catch (e) {
-      return handleInputError(uri, e, isFullProgram: false);
+      handleInputError(e, isFullProgram: false);
     } catch (e, s) {
       return reportCrash(e, s, loader?.currentUriForCrashReporting);
     }
+    return _program;
   }
 
-  Future<Program> writeProgram(Uri uri,
-      {bool dumpIr: false, bool verify: false}) async {
+  @override
+  Future<Program> buildProgram({bool verify: false}) async {
     if (loader.first == null) return null;
     if (errors.isNotEmpty) {
-      return handleInputError(uri, null, isFullProgram: true);
+      handleInputError(null, isFullProgram: true);
+      return _program;
     }
     try {
       await loader.buildBodies();
@@ -275,19 +271,17 @@ class KernelTarget extends TargetImplementation {
       loader.finishNativeMethods();
       runBuildTransformations();
 
-      if (dumpIr) this.dumpIr();
       if (verify) this.verify();
       errors.addAll(loader.collectCompileTimeErrors().map((e) => e.format()));
       if (errors.isNotEmpty) {
-        return handleInputError(uri, null, isFullProgram: true);
+        handleInputError(null, isFullProgram: true);
       }
-      if (uri == null) return program;
-      return await writeLinkedProgram(uri, program, isFullProgram: true);
     } on InputError catch (e) {
-      return handleInputError(uri, e, isFullProgram: true);
+      handleInputError(e, isFullProgram: true);
     } catch (e, s) {
       return reportCrash(e, s, loader?.currentUriForCrashReporting);
     }
+    return _program;
   }
 
   Future writeDepsFile(Uri output, Uri depsFile,
@@ -368,21 +362,20 @@ class KernelTarget extends TargetImplementation {
 
   /// Creates a program by combining [libraries] with the libraries of
   /// `dillTarget.loader.program`.
-  Program link(List<Library> libraries) {
+  Program link(List<Library> libraries, {CanonicalName nameRoot}) {
     Map<String, Source> uriToSource =
         new Map<String, Source>.from(this.uriToSource);
 
-    final Program binary = dillTarget.loader.program;
-    if (binary != null) {
-      libraries.addAll(binary.libraries);
-      uriToSource.addAll(binary.uriToSource);
-    }
+    libraries.addAll(dillTarget.loader.libraries);
+    // TODO(scheglov) Should we also somehow update `uriToSource`?
+//    uriToSource.addAll(binary.uriToSource);
 
     // TODO(ahe): Remove this line. Kernel seems to generate a default line map
     // that used when there's no fileUri on an element. Instead, ensure all
     // elements have a fileUri.
     uriToSource[""] = new Source(<int>[0], const <int>[]);
-    Program program = new Program(libraries, uriToSource);
+    Program program = new Program(
+        nameRoot: nameRoot, libraries: libraries, uriToSource: uriToSource);
     if (loader.first != null) {
       Builder builder = loader.first.lookup("main", -1, null);
       if (builder is KernelProcedureBuilder) {
@@ -394,24 +387,6 @@ class KernelTarget extends TargetImplementation {
     }
     ticker.logMs("Linked program");
     return program;
-  }
-
-  Future<Program> writeLinkedProgram(Uri uri, Program program,
-      {bool isFullProgram}) async {
-    File output = new File.fromUri(uri);
-    IOSink sink = output.openWrite();
-    try {
-      new BinaryPrinter(sink).writeProgramFile(program);
-      program.unbindCanonicalNames();
-    } finally {
-      await sink.close();
-    }
-    if (isFullProgram) {
-      ticker.logMs("Wrote program to ${uri.toFilePath()}");
-    } else {
-      ticker.logMs("Wrote outline to ${uri.toFilePath()}");
-    }
-    return null;
   }
 
   void installDefaultSupertypes() {
@@ -679,31 +654,24 @@ class KernelTarget extends TargetImplementation {
   void runLinkTransformations(Program program) {}
 
   void transformMixinApplications() {
-    new MixinFullResolution().transform(program);
+    new MixinFullResolution().transform(_program);
     ticker.logMs("Transformed mixin applications");
   }
 
   void otherTransformations() {
     // TODO(ahe): Don't generate type variables in the first place.
-    program.accept(new Erasure());
-    ticker.logMs("Erased type variables in generic methods");
+    if (!strongMode) {
+      _program.accept(new Erasure());
+      ticker.logMs("Erased type variables in generic methods");
+    }
     // TODO(kmillikin): Make this run on a per-method basis.
-    transformAsync.transformProgram(program);
+    transformAsync.transformProgram(_program);
     ticker.logMs("Transformed async methods");
   }
 
-  void dumpIr() {
-    StringBuffer sb = new StringBuffer();
-    for (Library library in loader.libraries) {
-      Printer printer = new Printer(sb);
-      printer.writeLibraryFile(library);
-    }
-    print("$sb");
-    ticker.logMs("Dumped IR");
-  }
-
   void verify() {
-    errors.addAll(verifyProgram(program));
+    var verifyErrors = verifyProgram(_program);
+    errors.addAll(verifyErrors.map((error) => '$error'));
     ticker.logMs("Verified program");
   }
 }

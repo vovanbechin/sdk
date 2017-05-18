@@ -397,14 +397,16 @@ private_html_members = monitored.Set('htmlrenamer.private_html_members', [
   'Touch.radiusX',
   'Touch.radiusY',
   'TouchEvent.initTouchEvent',
-  'UIEvent.charCode',
   'UIEvent.initUIEvent',
-  'UIEvent.keyCode',
   'UIEvent.layerX',
   'UIEvent.layerY',
   'UIEvent.pageX',
   'UIEvent.pageY',
   'UIEvent.which',
+  'KeyboardEvent.charCode',
+  'KeyboardEvent.keyCode',
+  'KeyboardEvent.which',
+
   'WheelEvent.initWebKitWheelEvent',
   'WheelEvent.deltaX',
   'WheelEvent.deltaY',
@@ -432,29 +434,25 @@ private_html_members = monitored.Set('htmlrenamer.private_html_members', [
 # Members from the standard dom that exist in the dart:html library with
 # identical functionality but with cleaner names.
 renamed_html_members = monitored.Dict('htmlrenamer.renamed_html_members', {
-    'ConsoleBase.assert': 'assertCondition',
-    'CSSKeyframesRule.insertRule': 'appendRule',
-    'DirectoryEntry.getDirectory': '_getDirectory',
-    'DirectoryEntry.getFile': '_getFile',
-    'Document.createCDATASection': 'createCDataSection',
-    'Document.defaultView': 'window',
-    'Window.CSS': 'css',
+    'ConsoleBase.assert': 'assertCondition', 'CSSKeyframesRule.insertRule':
+    'appendRule', 'DirectoryEntry.getDirectory': '_getDirectory',
+    'DirectoryEntry.getFile': '_getFile', 'Document.createCDATASection':
+    'createCDataSection', 'Document.defaultView': 'window', 'Window.CSS': 'css',
     'Window.webkitNotifications': 'notifications',
     'Window.webkitRequestFileSystem': '_requestFileSystem',
     'Window.webkitResolveLocalFileSystemURL': 'resolveLocalFileSystemUrl',
-    'Navigator.webkitGetUserMedia': '_getUserMedia',
-    'Node.appendChild': 'append',
-    'Node.cloneNode': 'clone',
-    'Node.nextSibling': 'nextNode',
-    'Node.parentElement': 'parent',
-    'Node.previousSibling': 'previousNode',
-    'Node.textContent': 'text',
-    'SVGElement.className': '_svgClassName',
-    'SVGStopElement.offset': 'gradientOffset',
-    'URL.createObjectURL': 'createObjectUrl',
-    'URL.revokeObjectURL': 'revokeObjectUrl',
+    'Navigator.webkitGetUserMedia': '_getUserMedia', 'Node.appendChild':
+    'append', 'Node.cloneNode': 'clone', 'Node.nextSibling': 'nextNode',
+    'Node.parentElement': 'parent', 'Node.previousSibling': 'previousNode',
+    'Node.textContent': 'text', 'SVGElement.className': '_svgClassName',
+    'SVGStopElement.offset': 'gradientOffset', 'URL.createObjectURL':
+    'createObjectUrl', 'URL.revokeObjectURL': 'revokeObjectUrl',
     #'WorkerContext.webkitRequestFileSystem': '_requestFileSystem',
     #'WorkerContext.webkitRequestFileSystemSync': '_requestFileSystemSync',
+
+    # OfflineAudioContext.suspend has an signature incompatible with shadowed
+    # base class method AudioContext.suspend.
+    'OfflineAudioContext.suspend': 'suspendFor',
 })
 
 # Members that have multiple definitions, but their types are vary, so we rename
@@ -786,9 +784,6 @@ removed_html_members = monitored.Set('htmlrenamer.removed_html_members', [
     'HTMLUListElement.compact',
     'HTMLUListElement.type',
     'IDBDatabase.transaction', # We do this in a template without the generated implementation at all.
-    'KeyboardEvent.charCode',
-    'KeyboardEvent.keyCode',
-    'KeyboardEvent.which',
     'Location.valueOf',
     'MessageEvent.data',
     'MessageEvent.ports',

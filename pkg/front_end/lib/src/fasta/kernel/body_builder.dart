@@ -14,7 +14,11 @@ import '../parser/identifier_context.dart' show IdentifierContext;
 import 'package:front_end/src/fasta/builder/ast_factory.dart' show AstFactory;
 
 import 'package:front_end/src/fasta/kernel/kernel_shadow_ast.dart'
-    show KernelArguments, KernelField;
+    show
+        KernelArguments,
+        KernelField,
+        KernelFunctionDeclaration,
+        KernelReturnStatement;
 
 import 'package:front_end/src/fasta/kernel/utils.dart' show offsetForToken;
 
@@ -39,8 +43,10 @@ import 'package:kernel/core_types.dart' show CoreTypes;
 
 import 'frontend_accessors.dart' show buildIsNull, makeBinary, makeLet;
 
+import '../../scanner/token.dart' show Token;
+
 import '../scanner/token.dart'
-    show BeginGroupToken, Token, isBinaryOperator, isMinusOperator;
+    show BeginGroupToken, isBinaryOperator, isMinusOperator;
 
 import '../errors.dart' show formatUnexpected, internalError;
 
@@ -93,8 +99,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   @override
   final Uri uri;
 
-  final TypeInferrer<Statement, Expression, VariableDeclaration, KernelField>
-      _typeInferrer;
+  final TypeInferrer _typeInferrer;
 
   @override
   final AstFactory astFactory;
@@ -105,7 +110,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   /// If not `null`, dependencies on fields are accumulated into this list.
   ///
   /// If `null`, no dependency information is recorded.
-  final List<FieldNode<KernelField>> fieldDependencies;
+  final List<FieldNode> fieldDependencies;
 
   /// Only used when [member] is a constructor. It tracks if an implicit super
   /// initializer is needed.
@@ -1057,7 +1062,8 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
       push(buildCompileTimeErrorStatement(
           "Can't return from a constructor.", beginToken.charOffset));
     } else {
-      push(new ReturnStatement(expression)..fileOffset = beginToken.charOffset);
+      push(new KernelReturnStatement(expression)
+        ..fileOffset = beginToken.charOffset);
     }
   }
 
@@ -1565,7 +1571,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
           nit("Ignoring type on 'this' parameter '${name.name}'.",
               thisKeyword.charOffset);
         }
-        type = field.target.type ?? const DynamicType();
+        type = field.target.type;
         variable = astFactory.variableDeclaration(
             name.name, name.token, functionNestingLevel,
             type: type,
@@ -1579,7 +1585,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     }
     variable ??= astFactory.variableDeclaration(
         name.name, name.token, functionNestingLevel,
-        type: type ?? const DynamicType(),
+        type: type,
         initializer: name.initializer,
         isFinal: isFinal,
         isConst: isConst);
@@ -2042,8 +2048,8 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     Identifier name = pop();
     VariableDeclaration variable = astFactory.variableDeclaration(
         name.name, name.token, functionNestingLevel,
-        isFinal: true);
-    push(new FunctionDeclaration(
+        isFinal: true, isLocalFunction: true);
+    push(new KernelFunctionDeclaration(
         variable, new FunctionNode(new InvalidStatement()))
       ..fileOffset = beginToken.charOffset);
     scope[variable.name] = new KernelVariableBuilder(
@@ -2102,6 +2108,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     exitLocalScope();
     FunctionDeclaration declaration = pop();
     function.returnType = pop() ?? const DynamicType();
+    declaration.variable.type = function.functionType;
     pop(); // Modifiers.
     exitFunction();
     declaration.function = function;

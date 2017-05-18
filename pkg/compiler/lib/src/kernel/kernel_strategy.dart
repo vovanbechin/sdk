@@ -26,6 +26,7 @@ import '../js_backend/mirrors_analysis.dart';
 import '../js_backend/mirrors_data.dart';
 import '../js_backend/native_data.dart';
 import '../js_backend/no_such_method_registry.dart';
+import '../js_backend/runtime_types.dart';
 import '../js_emitter/sorter.dart';
 import '../library_loader.dart';
 import '../native/resolver.dart';
@@ -65,6 +66,8 @@ class KernelFrontEndStrategy implements FrontEndStrategy {
 
   @override
   ElementEnvironment get elementEnvironment => elementMap.elementEnvironment;
+
+  DartTypes get dartTypes => elementMap.types;
 
   @override
   AnnotationProcessor get annotationProcesser =>
@@ -111,9 +114,15 @@ class KernelFrontEndStrategy implements FrontEndStrategy {
       NativeBasicData nativeBasicData,
       NativeDataBuilder nativeDataBuilder,
       InterceptorDataBuilder interceptorDataBuilder,
+      BackendUsageBuilder backendUsageBuilder,
       SelectorConstraintsStrategy selectorConstraintsStrategy) {
-    return new KernelResolutionWorldBuilder(elementMap, nativeBasicData,
-        nativeDataBuilder, interceptorDataBuilder, selectorConstraintsStrategy);
+    return new KernelResolutionWorldBuilder(
+        elementMap,
+        nativeBasicData,
+        nativeDataBuilder,
+        interceptorDataBuilder,
+        backendUsageBuilder,
+        selectorConstraintsStrategy);
   }
 
   WorkItemBuilder createResolutionWorkItemBuilder(
@@ -122,6 +131,12 @@ class KernelFrontEndStrategy implements FrontEndStrategy {
       ImpactTransformer impactTransformer) {
     return new KernelWorkItemBuilder(
         elementMap, nativeBasicData, nativeDataBuilder, impactTransformer);
+  }
+
+  @override
+  SourceSpan spanFromSpannable(Spannable spannable, Entity currentElement) {
+    // TODO(johnniwinther): Compute source spans from kernel elements.
+    return new SourceSpan(null, null, null);
   }
 }
 

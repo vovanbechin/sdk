@@ -2127,7 +2127,9 @@ class AudioTrack extends DartHtmlDomObject {
 @DocsEditable()
 @DomName('AudioTrackList')
 @Experimental() // untriaged
-class AudioTrackList extends EventTarget {
+class AudioTrackList extends EventTarget
+    with ListMixin<AudioTrack>, ImmutableListMixin<AudioTrack>
+    implements List<AudioTrack> {
   // To suppress missing implicit constructor warnings.
   factory AudioTrackList._() {
     throw new UnsupportedError("Not supported");
@@ -2149,6 +2151,51 @@ class AudioTrackList extends EventTarget {
   @DocsEditable()
   @Experimental() // untriaged
   int get length => _blink.BlinkAudioTrackList.instance.length_Getter_(this);
+
+  AudioTrack operator [](int index) {
+    if (index < 0 || index >= length) throw new RangeError.index(index, this);
+    return _nativeIndexedGetter(index);
+  }
+
+  AudioTrack _nativeIndexedGetter(int index) =>
+      (_blink.BlinkAudioTrackList.instance.item_Callback_1_(this, index));
+
+  void operator []=(int index, AudioTrack value) {
+    throw new UnsupportedError("Cannot assign element of immutable List.");
+  }
+  // -- start List<AudioTrack> mixins.
+  // AudioTrack is the element type.
+
+  set length(int value) {
+    throw new UnsupportedError("Cannot resize immutable List.");
+  }
+
+  AudioTrack get first {
+    if (this.length > 0) {
+      return _nativeIndexedGetter(0);
+    }
+    throw new StateError("No elements");
+  }
+
+  AudioTrack get last {
+    int len = this.length;
+    if (len > 0) {
+      return _nativeIndexedGetter(len - 1);
+    }
+    throw new StateError("No elements");
+  }
+
+  AudioTrack get single {
+    int len = this.length;
+    if (len == 1) {
+      return _nativeIndexedGetter(0);
+    }
+    if (len == 0) throw new StateError("No elements");
+    throw new StateError("More than one element");
+  }
+
+  AudioTrack elementAt(int index) => this[index];
+  // -- end List<AudioTrack> mixins.
 
   @DomName('AudioTrackList.__getter__')
   @DocsEditable()
@@ -24964,7 +25011,8 @@ class KeyboardEvent extends UIEvent {
       {Window view,
       bool canBubble: true,
       bool cancelable: true,
-      int keyLocation: 1,
+      int location,
+      int keyLocation, // Legacy alias for location
       bool ctrlKey: false,
       bool altKey: false,
       bool shiftKey: false,
@@ -24972,8 +25020,9 @@ class KeyboardEvent extends UIEvent {
     if (view == null) {
       view = window;
     }
+    location ??= keyLocation ?? 1;
     final e = document._createEvent("KeyboardEvent");
-    e._initKeyboardEvent(type, canBubble, cancelable, view, "", keyLocation,
+    e._initKeyboardEvent(type, canBubble, cancelable, view, "", location,
         ctrlKey, altKey, shiftKey, metaKey);
     return e;
   }
@@ -25028,6 +25077,12 @@ class KeyboardEvent extends UIEvent {
   @DocsEditable()
   bool get altKey => _blink.BlinkKeyboardEvent.instance.altKey_Getter_(this);
 
+  @DomName('KeyboardEvent.charCode')
+  @DocsEditable()
+  @Experimental() // untriaged
+  int get _charCode =>
+      _blink.BlinkKeyboardEvent.instance.charCode_Getter_(this);
+
   @DomName('KeyboardEvent.code')
   @DocsEditable()
   @Experimental() // untriaged
@@ -25041,6 +25096,11 @@ class KeyboardEvent extends UIEvent {
   @DocsEditable()
   @Experimental() // untriaged
   String get key => _blink.BlinkKeyboardEvent.instance.key_Getter_(this);
+
+  @DomName('KeyboardEvent.keyCode')
+  @DocsEditable()
+  @Experimental() // untriaged
+  int get _keyCode => _blink.BlinkKeyboardEvent.instance.keyCode_Getter_(this);
 
   @DomName('KeyboardEvent.keyIdentifier')
   @DocsEditable()
@@ -25066,6 +25126,11 @@ class KeyboardEvent extends UIEvent {
   @DocsEditable()
   bool get shiftKey =>
       _blink.BlinkKeyboardEvent.instance.shiftKey_Getter_(this);
+
+  @DomName('KeyboardEvent.which')
+  @DocsEditable()
+  @Experimental() // untriaged
+  int get _which => _blink.BlinkKeyboardEvent.instance.which_Getter_(this);
 
   @DomName('KeyboardEvent.getModifierState')
   @DocsEditable()
@@ -26160,8 +26225,8 @@ class MediaElement extends HtmlElement {
   @DomName('HTMLMediaElement.audioTracks')
   @DocsEditable()
   @Experimental() // untriaged
-  AudioTrackList get audioTracks =>
-      _blink.BlinkHTMLMediaElement.instance.audioTracks_Getter_(this);
+  List<AudioTrack> get audioTracks =>
+      (_blink.BlinkHTMLMediaElement.instance.audioTracks_Getter_(this));
 
   @DomName('HTMLMediaElement.autoplay')
   @DocsEditable()
@@ -41262,11 +41327,11 @@ class Url extends DartHtmlDomObject implements UrlUtils {
       return _blink.BlinkURL.instance
           .createObjectURL_Callback_1_(blob_OR_source_OR_stream);
     }
-    if ((blob_OR_source_OR_stream is MediaStream)) {
+    if ((blob_OR_source_OR_stream is MediaSource)) {
       return _blink.BlinkURL.instance
           .createObjectURL_Callback_1_(blob_OR_source_OR_stream);
     }
-    if ((blob_OR_source_OR_stream is MediaSource)) {
+    if ((blob_OR_source_OR_stream is MediaStream)) {
       return _blink.BlinkURL.instance
           .createObjectURL_Callback_1_(blob_OR_source_OR_stream);
     }
@@ -47774,7 +47839,7 @@ abstract class _AttributeMap implements Map<String, String> {
   /**
    * Checks to see if the node should be included in this map.
    */
-  bool _matches(Node node);
+  bool _matches(_Attr node);
 }
 
 /**
@@ -47808,7 +47873,7 @@ class _ElementAttributeMap extends _AttributeMap {
     return keys.length;
   }
 
-  bool _matches(Node node) => node._namespaceUri == null;
+  bool _matches(_Attr node) => node._namespaceUri == null;
 }
 
 /**
@@ -47844,7 +47909,7 @@ class _NamespacedAttributeMap extends _AttributeMap {
     return keys.length;
   }
 
-  bool _matches(Node node) => node._namespaceUri == _namespace;
+  bool _matches(_Attr node) => node._namespaceUri == _namespace;
 }
 
 /**
@@ -49101,9 +49166,9 @@ class _EventStreamSubscription<T extends Event> extends StreamSubscription<T> {
     }
   }
 
-  Future/*<E>*/ asFuture/*<E>*/([var/*=E*/ futureValue]) {
+  Future<E> asFuture<E>([E futureValue]) {
     // We just need a future that will never succeed or fail.
-    var completer = new Completer/*<E>*/();
+    var completer = new Completer<E>();
     return completer.future;
   }
 }
@@ -50773,7 +50838,7 @@ class _KeyboardEventHandler extends EventStreamProvider<KeyEvent> {
    * keypress events.
    */
   int _findCharCodeKeyDown(KeyboardEvent event) {
-    if (event.keyLocation == 3) {
+    if (event.location == 3) {
       // Numpad keys.
       switch (event.keyCode) {
         case KeyCode.NUM_ZERO:

@@ -13,21 +13,25 @@ import '../target_implementation.dart' show TargetImplementation;
 import 'dill_library_builder.dart' show DillLibraryBuilder;
 
 class DillLoader extends Loader<Library> {
-  Program program;
+  /// Source targets are compiled against these binary libraries.
+  final libraries = <Library>[];
 
   DillLoader(TargetImplementation target) : super(target);
 
   /// Append compiled libraries from the given [program]. If the [filter] is
   /// provided, append only libraries whose [Uri] is accepted by the [filter].
-  void appendLibraries(Program program, [bool filter(Uri uri)]) {
-    this.program ??= new Program();
-    program.unbindCanonicalNames();
+  List<DillLibraryBuilder> appendLibraries(Program program,
+      [bool filter(Uri uri)]) {
+    var builders = <DillLibraryBuilder>[];
     for (Library library in program.libraries) {
       if (filter == null || filter(library.importUri)) {
-        this.program.libraries.add(library);
-        read(library.importUri).library = library;
+        libraries.add(library);
+        DillLibraryBuilder builder = read(library.importUri);
+        builder.library = library;
+        builders.add(builder);
       }
     }
+    return builders;
   }
 
   Future<Null> buildBody(DillLibraryBuilder builder) {
@@ -37,6 +41,7 @@ class DillLoader extends Loader<Library> {
   Future<Null> buildOutline(DillLibraryBuilder builder) async {
     builder.library.classes.forEach(builder.addClass);
     builder.library.procedures.forEach(builder.addMember);
+    builder.library.typedefs.forEach(builder.addTypedef);
     builder.library.fields.forEach(builder.addMember);
   }
 

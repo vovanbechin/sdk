@@ -12,7 +12,7 @@ import '../parser/parser.dart' show FormalParameterType, optional;
 
 import '../parser/identifier_context.dart' show IdentifierContext;
 
-import '../scanner/token.dart' show Token;
+import '../../scanner/token.dart' show Token;
 
 import '../util/link.dart' show Link;
 
@@ -510,13 +510,14 @@ class OutlineBuilder extends UnhandledListener {
   void endFunctionTypedFormalParameter(
       Token covariantKeyword, Token thisKeyword, FormalParameterType kind) {
     debugEvent("FunctionTypedFormalParameter");
-    pop(); // Function type parameters.
-    pop(); // Formals offset
-    pop(); // Type variables.
+    List<FormalParameterBuilder> formals = pop();
+    int formalsOffset = pop();
+    List<TypeVariableBuilder> typeVariables = pop();
     int charOffset = pop();
     String name = pop();
-    pop(); // Return type.
-    push(NullValue.Type);
+    TypeBuilder returnType = pop();
+    push(library.addFunctionType(
+        returnType, typeVariables, formals, formalsOffset));
     push(name);
     push(charOffset);
   }

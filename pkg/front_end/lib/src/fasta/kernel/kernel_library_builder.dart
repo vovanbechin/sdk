@@ -4,7 +4,7 @@
 
 library fasta.kernel_library_builder;
 
-import 'package:front_end/src/fasta/scanner/token.dart' show Token;
+import 'package:front_end/src/scanner/token.dart' show Token;
 
 import 'package:kernel/ast.dart';
 
@@ -652,9 +652,8 @@ class KernelLibraryBuilder
       library.addMember(builder.build(this)..isStatic = true);
     } else if (builder is KernelProcedureBuilder) {
       library.addMember(builder.build(this)..isStatic = true);
-    } else if (builder is FunctionTypeAliasBuilder) {
-      // Kernel discard typedefs and use their corresponding function types
-      // directly.
+    } else if (builder is KernelFunctionTypeAliasBuilder) {
+      library.addTypedef(builder.build(this));
     } else if (builder is KernelEnumBuilder) {
       library.addClass(builder.build(this, coreLibrary));
     } else if (builder is PrefixBuilder) {

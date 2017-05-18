@@ -5,6 +5,8 @@
 library dart2js.kernel.element_map;
 
 import 'package:kernel/ast.dart' as ir;
+import 'package:kernel/clone.dart';
+import 'package:kernel/type_algebra.dart';
 
 import '../common.dart';
 import '../common/names.dart' show Identifiers;
@@ -22,6 +24,7 @@ import '../elements/names.dart';
 import '../elements/types.dart';
 import '../environment.dart';
 import '../frontend_strategy.dart';
+import '../js_backend/backend_usage.dart';
 import '../js_backend/constant_system_javascript.dart';
 import '../js_backend/interceptor_data.dart';
 import '../js_backend/native_data.dart';
@@ -30,7 +33,6 @@ import '../native/native.dart' as native;
 import '../native/resolver.dart';
 import '../ordered_typeset.dart';
 import '../ssa/kernel_impact.dart';
-import '../universe/call_structure.dart';
 import '../universe/world_builder.dart';
 import '../util/util.dart' show Link, LinkBuilder;
 import 'element_map.dart';
@@ -157,6 +159,13 @@ class KernelToElementMapImpl extends KernelToElementMapMixin {
     _KLibraryEnv libraryEnv = _libraryEnvs[library.libraryIndex];
     ir.Member member = libraryEnv.lookupMember(name, setter: setter);
     return member != null ? getMember(member) : null;
+  }
+
+  void _forEachLibraryMember(KLibrary library, void f(MemberEntity member)) {
+    _KLibraryEnv libraryEnv = _libraryEnvs[library.libraryIndex];
+    libraryEnv.forEachMember((ir.Member node) {
+      f(getMember(node));
+    });
   }
 
   ClassEntity lookupClass(KLibrary library, String name) {
@@ -530,6 +539,13 @@ class KernelToElementMapImpl extends KernelToElementMapMixin {
     }
   }
 
+  void _forEachConstructor(KClass cls, void f(ConstructorEntity member)) {
+    _KClassEnv env = _classEnvs[cls.classIndex];
+    env.forEachConstructor((ir.Member member) {
+      f(getConstructor(member));
+    });
+  }
+
   void _forEachClassMember(
       KClass cls, void f(ClassEntity cls, MemberEntity member)) {
     _KClassEnv env = _classEnvs[cls.classIndex];
@@ -605,7 +621,27 @@ class KernelToElementMapImpl extends KernelToElementMapMixin {
   }
 
   @override
-  FunctionEntity getConstructor(ir.Member node) => _getConstructor(node);
+  ConstructorEntity getConstructor(ir.Member node) => _getConstructor(node);
+
+  @override
+  ConstructorEntity getSuperConstructor(
+      ir.Constructor sourceNode, ir.Member targetNode) {
+    KConstructor source = getConstructor(sourceNode);
+    KClass sourceClass = source.enclosingClass;
+    KConstructor target = getConstructor(targetNode);
+    KClass targetClass = target.enclosingClass;
+    KClass superClass = _getSuperType(sourceClass)?.element;
+    if (superClass == targetClass) {
+      return target;
+    }
+    _KClassEnv env = _classEnvs[superClass.classIndex];
+    ir.Member member = env.lookupConstructor(target.name);
+    if (member != null) {
+      return getConstructor(member);
+    }
+    throw new SpannableAssertionFailure(
+        source, "Super constructor for $source not found.");
+  }
 
   ConstantConstructor _getConstructorConstant(KConstructor constructor) {
     _ConstructorData data = _memberList[constructor.memberIndex];
@@ -709,8 +745,7 @@ class _KLibraryEnv {
     _classMap.values.forEach(f);
   }
 
-  /// Return the [ir.Member] for the member [name] in [library].
-  ir.Member lookupMember(String name, {bool setter: false}) {
+  void _ensureMemberMaps() {
     if (_memberMap == null) {
       _memberMap = <String, ir.Member>{};
       _setterMap = <String, ir.Member>{};
@@ -732,7 +767,24 @@ class _KLibraryEnv {
         }
       }
     }
-    return _memberMap[name];
+  }
+
+  /// Return the [ir.Member] for the member [name] in [library].
+  ir.Member lookupMember(String name, {bool setter: false}) {
+    _ensureMemberMaps();
+    return setter ? _setterMap[name] : _memberMap[name];
+  }
+
+  void forEachMember(void f(ir.Member member)) {
+    _ensureMemberMaps();
+    _memberMap.values.forEach(f);
+    for (ir.Member member in _setterMap.values) {
+      if (member is ir.Procedure) {
+        f(member);
+      } else {
+        // Skip fields; these are also in _memberMap.
+      }
+    }
   }
 }
 
@@ -756,7 +808,54 @@ class _KClassEnv {
   _KClassEnv(this.cls)
       // TODO(johnniwinther): Change this to use a property on [cls] when such
       // is added to kernel.
-      : isUnnamedMixinApplication = cls.name.contains('+');
+      : isUnnamedMixinApplication =
+            cls.name.contains('+') || cls.name.contains('&');
+
+  /// Copied from 'package:kernel/transformations/mixin_full_resolution.dart'.
+  ir.Constructor _buildForwardingConstructor(
+      CloneVisitor cloner, ir.Constructor superclassConstructor) {
+    var superFunction = superclassConstructor.function;
+
+    // We keep types and default values for the parameters but always mark the
+    // parameters as final (since we just forward them to the super
+    // constructor).
+    ir.VariableDeclaration cloneVariable(ir.VariableDeclaration variable) {
+      ir.VariableDeclaration clone = cloner.clone(variable);
+      clone.isFinal = true;
+      return clone;
+    }
+
+    // Build a [FunctionNode] which has the same parameters as the one in the
+    // superclass constructor.
+    var positionalParameters =
+        superFunction.positionalParameters.map(cloneVariable).toList();
+    var namedParameters =
+        superFunction.namedParameters.map(cloneVariable).toList();
+    var function = new ir.FunctionNode(new ir.EmptyStatement(),
+        positionalParameters: positionalParameters,
+        namedParameters: namedParameters,
+        requiredParameterCount: superFunction.requiredParameterCount,
+        returnType: const ir.VoidType());
+
+    // Build a [SuperInitializer] which takes all positional/named parameters
+    // and forward them to the super class constructor.
+    var positionalArguments = <ir.Expression>[];
+    for (var variable in positionalParameters) {
+      positionalArguments.add(new ir.VariableGet(variable));
+    }
+    var namedArguments = <ir.NamedExpression>[];
+    for (var variable in namedParameters) {
+      namedArguments.add(
+          new ir.NamedExpression(variable.name, new ir.VariableGet(variable)));
+    }
+    var superInitializer = new ir.SuperInitializer(superclassConstructor,
+        new ir.Arguments(positionalArguments, named: namedArguments));
+
+    // Assemble the constructor.
+    return new ir.Constructor(function,
+        name: superclassConstructor.name,
+        initializers: <ir.Initializer>[superInitializer]);
+  }
 
   void _ensureMaps() {
     if (_memberMap == null) {
@@ -796,6 +895,25 @@ class _KClassEnv {
         addMembers(cls.mixedInClass, includeStatic: false);
       }
       addMembers(cls, includeStatic: true);
+
+      if (isUnnamedMixinApplication && _constructorMap.isEmpty) {
+        // Unnamed mixin applications have no constructors when read from .dill.
+        // For each generative constructor in the superclass we make a
+        // corresponding forwarding constructor in the subclass.
+        //
+        // This code is copied from
+        // 'package:kernel/transformations/mixin_full_resolution.dart'
+        var superclassSubstitution = getSubstitutionMap(cls.supertype);
+        var superclassCloner =
+            new CloneVisitor(typeSubstitution: superclassSubstitution);
+        for (var superclassConstructor in cls.superclass.constructors) {
+          var forwardingConstructor = _buildForwardingConstructor(
+              superclassCloner, superclassConstructor);
+          cls.addMember(forwardingConstructor);
+          _constructorMap[forwardingConstructor.name.name] =
+              forwardingConstructor;
+        }
+      }
     }
   }
 
@@ -811,7 +929,7 @@ class _KClassEnv {
     return _constructorMap[name];
   }
 
-  void forEachMember(f(ir.Member member)) {
+  void forEachMember(void f(ir.Member member)) {
     _ensureMaps();
     _memberMap.values.forEach(f);
     for (ir.Member member in _setterMap.values) {
@@ -821,6 +939,11 @@ class _KClassEnv {
         // Skip fields; these are also in _memberMap.
       }
     }
+  }
+
+  void forEachConstructor(void f(ir.Member member)) {
+    _ensureMaps();
+    _constructorMap.values.forEach(f);
   }
 
   Iterable<ConstantValue> getMetadata(KernelToElementMapImpl elementMap) {
@@ -846,19 +969,11 @@ class _MemberData {
 class _FunctionData extends _MemberData {
   final ir.FunctionNode functionNode;
   FunctionType _type;
-  CallStructure _callStructure;
 
   _FunctionData(ir.Member node, this.functionNode) : super(node);
 
   FunctionType getFunctionType(KernelToElementMapImpl elementMap) {
     return _type ??= elementMap.getFunctionType(functionNode);
-  }
-
-  CallStructure get callStructure {
-    return _callStructure ??= new CallStructure(
-        functionNode.positionalParameters.length +
-            functionNode.namedParameters.length,
-        functionNode.namedParameters.map((d) => d.name).toList());
   }
 }
 
@@ -953,11 +1068,6 @@ class KernelElementEnvironment implements ElementEnvironment {
   }
 
   @override
-  bool isSubtype(DartType a, DartType b) {
-    return elementMap.types.isSubtype(a, b);
-  }
-
-  @override
   FunctionType getFunctionType(KFunction function) {
     return elementMap._getFunctionType(function);
   }
@@ -1025,6 +1135,18 @@ class KernelElementEnvironment implements ElementEnvironment {
   }
 
   @override
+  void forEachConstructor(
+      ClassEntity cls, void f(ConstructorEntity constructor)) {
+    elementMap._forEachConstructor(cls, f);
+  }
+
+  @override
+  void forEachLibraryMember(
+      LibraryEntity library, void f(MemberEntity member)) {
+    elementMap._forEachLibraryMember(library, f);
+  }
+
+  @override
   MemberEntity lookupLibraryMember(LibraryEntity library, String name,
       {bool setter: false, bool required: false}) {
     MemberEntity member =
@@ -1060,12 +1182,6 @@ class KernelElementEnvironment implements ElementEnvironment {
           CURRENT_ELEMENT_SPANNABLE, "The library '$uri' was not found.");
     }
     return library;
-  }
-
-  @override
-  CallStructure getCallStructure(KFunction function) {
-    _FunctionData data = elementMap._memberList[function.memberIndex];
-    return data.callStructure;
   }
 
   @override
@@ -1255,6 +1371,7 @@ class KernelResolutionWorldBuilder extends KernelResolutionWorldBuilderBase {
       NativeBasicData nativeBasicData,
       NativeDataBuilder nativeDataBuilder,
       InterceptorDataBuilder interceptorDataBuilder,
+      BackendUsageBuilder backendUsageBuilder,
       SelectorConstraintsStrategy selectorConstraintsStrategy)
       : super(
             elementMap.elementEnvironment,
@@ -1262,6 +1379,7 @@ class KernelResolutionWorldBuilder extends KernelResolutionWorldBuilderBase {
             nativeBasicData,
             nativeDataBuilder,
             interceptorDataBuilder,
+            backendUsageBuilder,
             selectorConstraintsStrategy);
 
   @override
