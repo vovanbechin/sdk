@@ -48,7 +48,7 @@ main() {
     test('contentEdge.height', () {
       var all1 = queryAll('#test');
 
-      expect(all1.contentEdge.height, 12);
+      expect(all1.contentEdge.height, 10);
       expect(all1[0].getComputedStyle().getPropertyValue('height'), '10px');
 
       all1.contentEdge.height = new Dimension.px(600);

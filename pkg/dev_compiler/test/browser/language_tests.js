@@ -438,6 +438,9 @@ define(['dart_sdk', 'async_helper', 'expect', 'unittest', 'is', 'require'],
       'element_classes_test': 'fail',
       'element_classes_svg_test': 'fail',
 
+      // https://github.com/dart-lang/sdk/issues/29650
+      'element_dimensions_test': 'fail',
+
       // Failure: 'Expected 56 to be in the inclusive range [111, 160].'.
       'element_offset_test': 'fail',
 
