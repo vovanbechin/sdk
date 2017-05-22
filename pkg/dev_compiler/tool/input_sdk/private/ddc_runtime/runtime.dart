@@ -88,6 +88,11 @@ final global_ = JS(
       if (typeof SourceBufferList == "undefined") {
         window.SourceBufferList = new MediaSource().sourceBuffers.constructor;
       }
+      if (typeof SpeechRecognition == "undefined") {
+        window.SpeechRecognition = window.webkitSpeechRecognition;
+        window.SpeechRecognitionError = window.webkitSpeechRecognitionError;
+        window.SpeechRecognitionEvent = window.webkitSpeechRecognitionEvent;
+      }
     }
 
     var globalState = (typeof window != "undefined") ? window
@@ -102,6 +107,10 @@ final global_ = JS(
     $ignoreWhitelistedErrors(
         'ignoreWhitelistedErrors' in settings ?
             settings.ignoreWhitelistedErrors : true);
+
+    $ignoreAllErrors(
+        'ignoreAllErrors' in settings ?settings.ignoreAllErrors : false);
+
     $failForWeakModeIsChecks(
         'failForWeakModeIsChecks' in settings ?
             settings.failForWeakModeIsChecks : true);

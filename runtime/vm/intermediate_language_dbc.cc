@@ -35,7 +35,7 @@ DECLARE_FLAG(int, optimization_counter_threshold);
   M(Int32ToDouble)                                                             \
   M(DoubleToInteger)                                                           \
   M(BoxInt64)                                                                  \
-  M(MergedMath)                                                                \
+  M(TruncDivMod)                                                               \
   M(GuardFieldClass)                                                           \
   M(GuardFieldLength)                                                          \
   M(IfThenElse)                                                                \
@@ -244,44 +244,36 @@ EMIT_NATIVE_CODE(PolymorphicInstanceCall,
   const intptr_t argdesc_kidx = __ AddConstant(arguments_descriptor);
 
   // Push the target onto the stack.
-  if (with_checks()) {
-    const intptr_t length = targets_.length();
-    if (!Utils::IsUint(8, length)) {
-      Unsupported(compiler);
-      UNREACHABLE();
-    }
-    bool using_ranges = false;
-    for (intptr_t i = 0; i < length; i++) {
-      if (targets_[i].cid_start != targets_[i].cid_end) {
-        using_ranges = true;
-        break;
-      }
-    }
-
-    if (using_ranges) {
-      __ PushPolymorphicInstanceCallByRange(instance_call()->ArgumentCount(),
-                                            length);
-    } else {
-      __ PushPolymorphicInstanceCall(instance_call()->ArgumentCount(), length);
-    }
-    for (intptr_t i = 0; i < length; i++) {
-      const Function& target = *targets_.TargetAt(i)->target;
-      intptr_t cid_start = targets_[i].cid_start;
-      intptr_t cid_end = targets_[i].cid_end;
-
-      __ Nop(compiler->ToEmbeddableCid(cid_start, this));
-      if (using_ranges) {
-        __ Nop(compiler->ToEmbeddableCid(1 + cid_end - cid_start, this));
-      }
-      __ Nop(__ AddConstant(target));
-    }
-    compiler->EmitDeopt(deopt_id(),
-                        ICData::kDeoptPolymorphicInstanceCallTestFail, 0);
-  } else {
-    ASSERT(targets().HasSingleTarget());
-    const Function& target = targets().FirstTarget();
-    __ PushConstant(target);
+  const intptr_t length = targets_.length();
+  if (!Utils::IsUint(8, length)) {
+    Unsupported(compiler);
+    UNREACHABLE();
   }
+  bool using_ranges = false;
+  for (intptr_t i = 0; i < length; i++) {
+    if (!targets_[i].IsSingleCid()) {
+      using_ranges = true;
+      break;
+    }
+  }
+
+  if (using_ranges) {
+    __ PushPolymorphicInstanceCallByRange(instance_call()->ArgumentCount(),
+                                          length);
+  } else {
+    __ PushPolymorphicInstanceCall(instance_call()->ArgumentCount(), length);
+  }
+  for (intptr_t i = 0; i < length; i++) {
+    const Function& target = *targets_.TargetAt(i)->target;
+
+    __ Nop(compiler->ToEmbeddableCid(targets_[i].cid_start, this));
+    if (using_ranges) {
+      __ Nop(compiler->ToEmbeddableCid(1 + targets_[i].Extent(), this));
+    }
+    __ Nop(__ AddConstant(target));
+  }
+  compiler->EmitDeopt(deopt_id(), ICData::kDeoptPolymorphicInstanceCallTestFail,
+                      0);
 
   // Call the function.
   __ StaticCall(instance_call()->ArgumentCount(), argdesc_kidx);
@@ -1331,15 +1323,6 @@ CompileType UnaryUint32OpInstr::ComputeType() const {
 }
 
 
-static const intptr_t kMintShiftCountLimit = 63;
-
-
-bool ShiftMintOpInstr::has_shift_count_check() const {
-  return !RangeUtils::IsWithin(right()->definition()->range(), 0,
-                               kMintShiftCountLimit);
-}
-
-
 CompileType LoadIndexedInstr::ComputeType() const {
   switch (class_id_) {
     case kArrayCid:
@@ -1490,7 +1473,14 @@ EMIT_NATIVE_CODE(CheckEitherNonSmi, 2) {
 
 
 EMIT_NATIVE_CODE(CheckClassId, 1) {
-  __ CheckClassId(locs()->in(0).reg(), compiler->ToEmbeddableCid(cid_, this));
+  if (cids_.IsSingleCid()) {
+    __ CheckClassId(locs()->in(0).reg(),
+                    compiler->ToEmbeddableCid(cids_.cid_start, this));
+  } else {
+    __ CheckClassIdRange(locs()->in(0).reg(),
+                         compiler->ToEmbeddableCid(cids_.cid_start, this));
+    __ Nop(__ AddConstant(Smi::Handle(Smi::New(cids_.Extent()))));
+  }
   compiler->EmitDeopt(deopt_id(), ICData::kDeoptCheckClass);
 }
 
@@ -1523,7 +1513,7 @@ EMIT_NATIVE_CODE(CheckClass, 1) {
       int smi_adjustment = 0;
       int length = cids_.length();
       for (intptr_t i = 0; i < length; i++) {
-        if (cids_[i].cid_start != cids_[i].cid_end) {
+        if (!cids_[i].IsSingleCid()) {
           using_ranges = true;
         } else if (cids_[i].cid_start == kSmiCid) {
           ASSERT(cids_[i].cid_end == kSmiCid);  // We are in the else clause.
@@ -1550,7 +1540,7 @@ EMIT_NATIVE_CODE(CheckClass, 1) {
         }
         __ Nop(compiler->ToEmbeddableCid(cid_start, this));
         if (using_ranges) {
-          __ Nop(compiler->ToEmbeddableCid(1 + cid_end - cid_start, this));
+          __ Nop(compiler->ToEmbeddableCid(1 + cids_[i].Extent(), this));
         }
       }
     }

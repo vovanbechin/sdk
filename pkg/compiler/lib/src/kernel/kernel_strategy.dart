@@ -9,6 +9,7 @@ import '../backend_strategy.dart';
 import '../common.dart';
 import '../common_elements.dart';
 import '../common/backend_api.dart';
+import '../common/codegen.dart' show CodegenRegistry, CodegenWorkItem;
 import '../common/resolution.dart';
 import '../common/tasks.dart';
 import '../common/work.dart';
@@ -230,7 +231,8 @@ class MirrorsResolutionAnalysisImpl implements MirrorsResolutionAnalysis {
 
   @override
   MirrorsCodegenAnalysis close() {
-    throw new UnimplementedError('MirrorsResolutionAnalysisImpl.close');
+    // TODO(johnniwinther): Implement this.
+    return new MirrorsCodegenAnalysisImpl();
   }
 
   @override
@@ -254,6 +256,52 @@ class KernelBackendStrategy implements BackendStrategy {
   void convertClosures(ClosedWorldRefiner closedWorldRefiner) {
     // TODO(johnniwinther,efortuna): Compute closure classes for kernel based
     // elements.
-    throw new UnimplementedError('KernelBackendStrategy.createClosureClasses');
+  }
+
+  @override
+  WorkItemBuilder createCodegenWorkItemBuilder(ClosedWorld closedWorld) {
+    return new KernelCodegenWorkItemBuilder();
+  }
+
+  @override
+  CodegenWorldBuilder createCodegenWorldBuilder(
+      NativeBasicData nativeBasicData,
+      ClosedWorld closedWorld,
+      SelectorConstraintsStrategy selectorConstraintsStrategy) {
+    return new KernelCodegenWorldBuilder(
+        null, nativeBasicData, closedWorld, selectorConstraintsStrategy);
+  }
+}
+
+class MirrorsCodegenAnalysisImpl implements MirrorsCodegenAnalysis {
+  @override
+  int get preMirrorsMethodCount {
+    throw new UnimplementedError(
+        'MirrorsCodegenAnalysisImpl.preMirrorsMethodCount');
+  }
+
+  @override
+  void onQueueEmpty(Enqueuer enqueuer, Iterable<ClassEntity> recentClasses) {
+    throw new UnimplementedError('MirrorsCodegenAnalysisImpl.onQueueEmpty');
+  }
+}
+
+class KernelCodegenWorkItemBuilder implements WorkItemBuilder {
+  @override
+  CodegenWorkItem createWorkItem(MemberEntity entity) {
+    return new KernelCodegenWorkItem(entity);
+  }
+}
+
+class KernelCodegenWorkItem extends CodegenWorkItem {
+  final MemberEntity element;
+  final CodegenRegistry registry;
+
+  KernelCodegenWorkItem(this.element) : registry = new CodegenRegistry(element);
+
+  @override
+  WorldImpact run() {
+    // TODO(johnniwinther): Build SSA graph from kernel and run codegen on it.
+    return const WorldImpact();
   }
 }

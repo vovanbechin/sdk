@@ -297,14 +297,8 @@ class CallSites : public ValueObject {
 
     GrowableArray<intptr_t> static_call_counts(num_static_calls);
     for (intptr_t i = 0; i < num_static_calls; ++i) {
-      intptr_t aggregate_count = 0;
-      if (static_calls_[i + static_call_start_ix].call->ic_data() == NULL) {
-        aggregate_count = 0;
-      } else {
-        aggregate_count = static_calls_[i + static_call_start_ix]
-                              .call->ic_data()
-                              ->AggregateCount();
-      }
+      intptr_t aggregate_count =
+          static_calls_[i + static_call_start_ix].call->CallCount();
       static_call_counts.Add(aggregate_count);
       if (aggregate_count > max_count) max_count = aggregate_count;
     }
@@ -1296,46 +1290,18 @@ class CallSiteInliner : public ValueObject {
                              call_info.length()));
     for (intptr_t call_idx = 0; call_idx < call_info.length(); ++call_idx) {
       PolymorphicInstanceCallInstr* call = call_info[call_idx].call;
-      if (call->with_checks()) {
-        // PolymorphicInliner introduces deoptimization paths.
-        if (!call->complete() && !FLAG_polymorphic_with_deopt) {
-          TRACE_INLINING(
-              THR_Print("  => %s\n     Bailout: call with checks\n",
-                        call->instance_call()->function_name().ToCString()));
-          continue;
-        }
-        const Function& cl = call_info[call_idx].caller();
-        intptr_t caller_inlining_id =
-            call_info[call_idx].caller_graph->inlining_id();
-        PolymorphicInliner inliner(this, call, cl, caller_inlining_id);
-        inliner.Inline();
+      // PolymorphicInliner introduces deoptimization paths.
+      if (!call->complete() && !FLAG_polymorphic_with_deopt) {
+        TRACE_INLINING(
+            THR_Print("  => %s\n     Bailout: call with checks\n",
+                      call->instance_call()->function_name().ToCString()));
         continue;
       }
-
-      const Function& target = call->targets().MostPopularTarget();
-      if (!inliner_->AlwaysInline(target) &&
-          (call_info[call_idx].ratio * 100) < FLAG_inlining_hotness) {
-        if (trace_inlining()) {
-          String& name = String::Handle(target.QualifiedUserVisibleName());
-          THR_Print("  => %s (deopt count %d)\n     Bailout: cold %f\n",
-                    name.ToCString(), target.deoptimization_counter(),
-                    call_info[call_idx].ratio);
-        }
-        PRINT_INLINING_TREE("Too cold", &call_info[call_idx].caller(), &target,
-                            call);
-        continue;
-      }
-      GrowableArray<Value*> arguments(call->ArgumentCount());
-      for (int arg_i = 0; arg_i < call->ArgumentCount(); ++arg_i) {
-        arguments.Add(call->PushArgumentAt(arg_i)->value());
-      }
-      InlinedCallData call_data(
-          call, &arguments, call_info[call_idx].caller(),
-          call_info[call_idx].caller_graph->inlining_id());
-      if (TryInlining(target, call->instance_call()->argument_names(),
-                      &call_data)) {
-        InlineCall(&call_data);
-      }
+      const Function& cl = call_info[call_idx].caller();
+      intptr_t caller_inlining_id =
+          call_info[call_idx].caller_graph->inlining_id();
+      PolymorphicInliner inliner(this, call, cl, caller_inlining_id);
+      inliner.Inline();
     }
   }
 
@@ -1554,7 +1520,7 @@ bool PolymorphicInliner::CheckNonInlinedDuplicate(const Function& target) {
 bool PolymorphicInliner::TryInliningPoly(const TargetInfo& target_info) {
   if ((!FLAG_precompiled_mode ||
        owner_->inliner_->use_speculative_inlining()) &&
-      target_info.cid_start == target_info.cid_end &&
+      target_info.IsSingleCid() &&
       TryInlineRecognizedMethod(target_info.cid_start, *target_info.target)) {
     owner_->inlined_ = true;
     return true;
@@ -1585,7 +1551,7 @@ bool PolymorphicInliner::TryInliningPoly(const TargetInfo& target_info) {
   RedefinitionInstr* redefinition = new (Z) RedefinitionInstr(actual->Copy(Z));
   redefinition->set_ssa_temp_index(
       owner_->caller_graph()->alloc_ssa_temp_index());
-  if (target_info.cid_start == target_info.cid_end) {
+  if (target_info.IsSingleCid()) {
     redefinition->UpdateType(CompileType::FromCid(target_info.cid_start));
   }
   redefinition->InsertAfter(callee_graph->graph_entry()->normal_entry());
@@ -1704,31 +1670,25 @@ TargetEntryInstr* PolymorphicInliner::BuildDecisionGraph() {
       new (Z) LoadClassIdInstr(new (Z) Value(receiver));
   load_cid->set_ssa_temp_index(owner_->caller_graph()->alloc_ssa_temp_index());
   cursor = AppendInstruction(cursor, load_cid);
-  bool follow_with_deopt = false;
   for (intptr_t i = 0; i < inlined_variants_.length(); ++i) {
     const CidRange& variant = inlined_variants_[i];
-    bool test_is_range = (variant.cid_start != variant.cid_end);
+    bool test_is_range = !variant.IsSingleCid();
     bool is_last_test = (i == inlined_variants_.length() - 1);
     // 1. Guard the body with a class id check.  We don't need any check if
     // it's the last test and global analysis has told us that the call is
-    // complete.  TODO(erikcorry): Enhance CheckClassIdInstr so it can take an
-    // arbitrary CidRangeTarget.  Currently we don't go into this branch if the
-    // last test is a range test - instead we set the follow_with_deopt flag.
-    if (is_last_test && (!test_is_range || call_->complete()) &&
-        non_inlined_variants_->is_empty()) {
+    // complete.
+    if (is_last_test && non_inlined_variants_->is_empty()) {
       // If it is the last variant use a check class id instruction which can
       // deoptimize, followed unconditionally by the body. Omit the check if
       // we know that we have covered all possible classes.
       if (!call_->complete()) {
-        ASSERT(!test_is_range);  // See condition above.
         RedefinitionInstr* cid_redefinition =
             new RedefinitionInstr(new (Z) Value(load_cid));
         cid_redefinition->set_ssa_temp_index(
             owner_->caller_graph()->alloc_ssa_temp_index());
         cursor = AppendInstruction(cursor, cid_redefinition);
-        CheckClassIdInstr* check_class_id =
-            new (Z) CheckClassIdInstr(new (Z) Value(cid_redefinition),
-                                      variant.cid_start, call_->deopt_id());
+        CheckClassIdInstr* check_class_id = new (Z) CheckClassIdInstr(
+            new (Z) Value(cid_redefinition), variant, call_->deopt_id());
         check_class_id->InheritDeoptTarget(zone(), call_);
         cursor = AppendInstruction(cursor, check_class_id);
       }
@@ -1770,7 +1730,6 @@ TargetEntryInstr* PolymorphicInliner::BuildDecisionGraph() {
       }
       cursor = NULL;
     } else {
-      if (is_last_test && test_is_range) follow_with_deopt = true;
       // For all variants except the last, use a branch on the loaded class
       // id.
       const Smi& cid = Smi::ZoneHandle(Smi::New(variant.cid_start));
@@ -1902,8 +1861,7 @@ TargetEntryInstr* PolymorphicInliner::BuildDecisionGraph() {
     }
     PolymorphicInstanceCallInstr* fallback_call =
         new PolymorphicInstanceCallInstr(
-            call_->instance_call(), *non_inlined_variants_,
-            /* with_checks = */ true, call_->complete());
+            call_->instance_call(), *non_inlined_variants_, call_->complete());
     fallback_call->set_ssa_temp_index(
         owner_->caller_graph()->alloc_ssa_temp_index());
     fallback_call->InheritDeoptTarget(zone(), call_);
@@ -1917,14 +1875,6 @@ TargetEntryInstr* PolymorphicInliner::BuildDecisionGraph() {
     exit_collector_->AddExit(fallback_return);
     cursor = NULL;
   } else {
-    if (follow_with_deopt) {
-      DeoptimizeInstr* deopt = new DeoptimizeInstr(
-          ICData::kDeoptPolymorphicInstanceCallTestFail, call_->deopt_id());
-      deopt->InheritDeoptTarget(zone(), call_);
-      cursor = AppendInstruction(cursor, deopt);
-      cursor = NULL;
-    }
-
     // Remove push arguments of the call.
     for (intptr_t i = 0; i < call_->ArgumentCount(); ++i) {
       PushArgumentInstr* push = call_->PushArgumentAt(i);

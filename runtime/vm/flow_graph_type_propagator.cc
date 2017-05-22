@@ -249,8 +249,8 @@ void FlowGraphTypePropagator::VisitCheckClassId(CheckClassIdInstr* check) {
 
   LoadClassIdInstr* load_cid =
       check->value()->definition()->OriginalDefinition()->AsLoadClassId();
-  if (load_cid != NULL) {
-    SetCid(load_cid->object()->definition(), check->cid());
+  if (load_cid != NULL && check->cids().IsSingleCid()) {
+    SetCid(load_cid->object()->definition(), check->cids().cid_start);
   }
 }
 
@@ -1024,7 +1024,9 @@ CompileType StaticCallInstr::ComputeType() const {
     return CompileType::FromAbstractType(result_type);
   }
 
-  return CompileType::Dynamic();
+  return (function_.recognized_kind() != MethodRecognizer::kUnknown)
+             ? CompileType::FromCid(MethodRecognizer::ResultCid(function_))
+             : CompileType::Dynamic();
 }
 
 
@@ -1518,7 +1520,7 @@ CompileType InvokeMathCFunctionInstr::ComputeType() const {
 }
 
 
-CompileType MergedMathInstr::ComputeType() const {
+CompileType TruncDivModInstr::ComputeType() const {
   return CompileType::Dynamic();
 }
 

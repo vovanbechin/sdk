@@ -453,7 +453,7 @@ class EmbeddedArray<T, 0> {
   M(OneByteStringFromCharCode)                                                 \
   M(StringInterpolate)                                                         \
   M(InvokeMathCFunction)                                                       \
-  M(MergedMath)                                                                \
+  M(TruncDivMod)                                                               \
   M(GuardFieldClass)                                                           \
   M(GuardFieldLength)                                                          \
   M(IfThenElse)                                                                \
@@ -557,6 +557,11 @@ struct CidRange : public ZoneAllocated {
       : ZoneAllocated(), cid_start(o.cid_start), cid_end(o.cid_end) {}
   CidRange(intptr_t cid_start_arg, intptr_t cid_end_arg)
       : cid_start(cid_start_arg), cid_end(cid_end_arg) {}
+
+  bool IsSingleCid() const { return cid_start == cid_end; }
+  bool Contains(intptr_t cid) { return cid_start <= cid && cid <= cid_end; }
+  int32_t Extent() const { return cid_end - cid_start; }
+
   intptr_t cid_start;
   intptr_t cid_end;
 };
@@ -2908,6 +2913,10 @@ class InstanceCallInstr : public TemplateDartCall<0> {
   bool has_unique_selector() const { return has_unique_selector_; }
   void set_has_unique_selector(bool b) { has_unique_selector_ = b; }
 
+  virtual intptr_t CallCount() const {
+    return ic_data() == NULL ? 0 : ic_data()->AggregateCount();
+  }
+
   virtual bool ComputeCanDeoptimize() const { return true; }
 
   virtual Definition* Canonicalize(FlowGraph* flow_graph);
@@ -2945,12 +2954,10 @@ class PolymorphicInstanceCallInstr : public TemplateDefinition<0, Throws> {
  public:
   PolymorphicInstanceCallInstr(InstanceCallInstr* instance_call,
                                const CallTargets& targets,
-                               bool with_checks,
                                bool complete)
       : TemplateDefinition(instance_call->deopt_id()),
         instance_call_(instance_call),
         targets_(targets),
-        with_checks_(with_checks),
         complete_(complete) {
     ASSERT(instance_call_ != NULL);
     ASSERT(targets.length() != 0);
@@ -2958,8 +2965,6 @@ class PolymorphicInstanceCallInstr : public TemplateDefinition<0, Throws> {
   }
 
   InstanceCallInstr* instance_call() const { return instance_call_; }
-  bool with_checks() const { return with_checks_; }
-  void set_with_checks(bool b) { with_checks_ = b; }
   bool complete() const { return complete_; }
   virtual TokenPosition token_pos() const {
     return instance_call_->token_pos();
@@ -2973,6 +2978,10 @@ class PolymorphicInstanceCallInstr : public TemplateDefinition<0, Throws> {
   virtual PushArgumentInstr* PushArgumentAt(intptr_t index) const {
     return instance_call()->PushArgumentAt(index);
   }
+  const Array& argument_names() const {
+    return instance_call()->argument_names();
+  }
+  intptr_t type_args_len() const { return instance_call()->type_args_len(); }
 
   bool HasOnlyDispatcherOrImplicitAccessorTargets() const;
 
@@ -3009,7 +3018,6 @@ class PolymorphicInstanceCallInstr : public TemplateDefinition<0, Throws> {
  private:
   InstanceCallInstr* instance_call_;
   const CallTargets& targets_;
-  bool with_checks_;
   const bool complete_;
   intptr_t total_call_count_;
 
@@ -3327,6 +3335,7 @@ class StaticCallInstr : public TemplateDartCall<0> {
                          arguments,
                          token_pos),
         ic_data_(NULL),
+        call_count_(0),
         function_(function),
         result_cid_(kDynamicCid),
         is_known_list_constructor_(false),
@@ -3341,19 +3350,37 @@ class StaticCallInstr : public TemplateDartCall<0> {
                   intptr_t type_args_len,
                   const Array& argument_names,
                   ZoneGrowableArray<PushArgumentInstr*>* arguments,
-                  intptr_t deopt_id)
+                  intptr_t deopt_id,
+                  intptr_t call_count)
       : TemplateDartCall(deopt_id,
                          type_args_len,
                          argument_names,
                          arguments,
                          token_pos),
         ic_data_(NULL),
+        call_count_(call_count),
         function_(function),
         result_cid_(kDynamicCid),
         is_known_list_constructor_(false),
         identity_(AliasIdentity::Unknown()) {
     ASSERT(function.IsZoneHandle());
     ASSERT(!function.IsNull());
+  }
+
+  // Generate a replacement call instruction for an instance call which
+  // has been found to have only one target.
+  template <class C>
+  static StaticCallInstr* FromCall(Zone* zone,
+                                   const C* call,
+                                   const Function& target) {
+    ZoneGrowableArray<PushArgumentInstr*>* args =
+        new (zone) ZoneGrowableArray<PushArgumentInstr*>(call->ArgumentCount());
+    for (intptr_t i = 0; i < call->ArgumentCount(); i++) {
+      args->Add(call->PushArgumentAt(i));
+    }
+    return new (zone) StaticCallInstr(
+        call->token_pos(), target, call->type_args_len(),
+        call->argument_names(), args, call->deopt_id(), call->CallCount());
   }
 
   // ICData for static calls carries call count.
@@ -3370,7 +3397,7 @@ class StaticCallInstr : public TemplateDartCall<0> {
   const Function& function() const { return function_; }
 
   virtual intptr_t CallCount() const {
-    return ic_data() == NULL ? 0 : ic_data()->AggregateCount();
+    return ic_data() == NULL ? call_count_ : ic_data()->AggregateCount();
   }
 
   virtual bool ComputeCanDeoptimize() const { return true; }
@@ -3399,6 +3426,7 @@ class StaticCallInstr : public TemplateDartCall<0> {
 
  private:
   const ICData* ic_data_;
+  const intptr_t call_count_;
   const Function& function_;
   intptr_t result_cid_;  // For some library functions we know the result.
 
@@ -4526,6 +4554,13 @@ class LoadFieldInstr : public TemplateDefinition<1, NoThrow> {
   virtual void InferRange(RangeAnalysis* analysis, Range* range);
 
   bool IsImmutableLengthLoad() const;
+
+  // Try evaluating this load against the given constant value of
+  // the instance. Returns true if evaluation succeeded and
+  // puts result into result.
+  // Note: we only evaluate loads when we can ensure that
+  // instance has the field.
+  bool Evaluate(const Object& instance_value, Object* result);
 
   virtual Definition* Canonicalize(FlowGraph* flow_graph);
 
@@ -6973,7 +7008,8 @@ class BinarySmiOpInstr : public BinaryIntegerOpInstr {
                    Value* left,
                    Value* right,
                    intptr_t deopt_id)
-      : BinaryIntegerOpInstr(op_kind, left, right, deopt_id) {}
+      : BinaryIntegerOpInstr(op_kind, left, right, deopt_id),
+        right_range_(NULL) {}
 
   virtual bool ComputeCanDeoptimize() const;
 
@@ -6982,7 +7018,11 @@ class BinarySmiOpInstr : public BinaryIntegerOpInstr {
 
   DECLARE_INSTRUCTION(BinarySmiOp)
 
+  Range* right_range() const { return right_range_; }
+
  private:
+  Range* right_range_;
+
   DISALLOW_COPY_AND_ASSIGN(BinarySmiOpInstr);
 };
 
@@ -7011,7 +7051,11 @@ class BinaryInt32OpInstr : public BinaryIntegerOpInstr {
 
       case Token::kSHL:
       case Token::kSHR:
-        return right->BindsToConstant();
+        if (right->BindsToConstant() && right->BoundConstant().IsSmi()) {
+          const intptr_t value = Smi::Cast(right->BoundConstant()).Value();
+          return 0 <= value && value < kBitsPerWord;
+        }
+        return false;
 
       default:
         return false;
@@ -7133,9 +7177,12 @@ class ShiftMintOpInstr : public BinaryIntegerOpInstr {
                    Value* left,
                    Value* right,
                    intptr_t deopt_id)
-      : BinaryIntegerOpInstr(op_kind, left, right, deopt_id) {
+      : BinaryIntegerOpInstr(op_kind, left, right, deopt_id),
+        shift_range_(NULL) {
     ASSERT((op_kind == Token::kSHR) || (op_kind == Token::kSHL));
   }
+
+  Range* shift_range() const { return shift_range_; }
 
   virtual bool ComputeCanDeoptimize() const {
     return has_shift_count_check() ||
@@ -7155,7 +7202,10 @@ class ShiftMintOpInstr : public BinaryIntegerOpInstr {
   DECLARE_INSTRUCTION(ShiftMintOp)
 
  private:
+  static const intptr_t kMintShiftCountLimit = 63;
   bool has_shift_count_check() const;
+
+  Range* shift_range_;
 
   DISALLOW_COPY_AND_ASSIGN(ShiftMintOpInstr);
 };
@@ -7589,90 +7639,45 @@ class ExtractNthOutputInstr : public TemplateDefinition<1, NoThrow, Pure> {
 };
 
 
-class MergedMathInstr : public PureDefinition {
+class TruncDivModInstr : public TemplateDefinition<2, NoThrow, Pure> {
  public:
-  enum Kind {
-    kTruncDivMod,
-  };
+  TruncDivModInstr(Value* lhs, Value* rhs, intptr_t deopt_id);
 
-  MergedMathInstr(ZoneGrowableArray<Value*>* inputs,
-                  intptr_t original_deopt_id,
-                  MergedMathInstr::Kind kind);
-
-  static intptr_t InputCountFor(MergedMathInstr::Kind kind) {
-    if (kind == kTruncDivMod) {
-      return 2;
-    } else {
-      UNIMPLEMENTED();
-      return -1;
-    }
-  }
-
-  MergedMathInstr::Kind kind() const { return kind_; }
-
-  virtual intptr_t InputCount() const { return inputs_->length(); }
-
-  virtual Value* InputAt(intptr_t i) const { return (*inputs_)[i]; }
-
-  static intptr_t OutputIndexOf(MethodRecognizer::Kind kind);
   static intptr_t OutputIndexOf(Token::Kind token);
 
   virtual CompileType ComputeType() const;
 
-  virtual bool ComputeCanDeoptimize() const {
-    if (kind_ == kTruncDivMod) {
-      return true;
-    } else {
-      UNIMPLEMENTED();
-      return false;
-    }
-  }
+  virtual bool ComputeCanDeoptimize() const { return true; }
 
-  virtual Representation representation() const {
-    if (kind_ == kTruncDivMod) {
-      return kPairOfTagged;
-    } else {
-      UNIMPLEMENTED();
-      return kTagged;
-    }
-  }
+  virtual Representation representation() const { return kPairOfTagged; }
 
   virtual Representation RequiredInputRepresentation(intptr_t idx) const {
     ASSERT((0 <= idx) && (idx < InputCount()));
-    if (kind_ == kTruncDivMod) {
-      return kTagged;
-    } else {
-      UNIMPLEMENTED();
-      return kTagged;
-    }
+    return kTagged;
   }
 
   virtual intptr_t DeoptimizationTarget() const { return GetDeoptId(); }
 
-  DECLARE_INSTRUCTION(MergedMath)
+  DECLARE_INSTRUCTION(TruncDivMod)
 
-  virtual bool AttributesEqual(Instruction* other) const {
-    MergedMathInstr* other_invoke = other->AsMergedMath();
-    return other_invoke->kind() == kind();
-  }
-
-  virtual bool MayThrow() const { return false; }
-
-  static const char* KindToCString(MergedMathInstr::Kind kind) {
-    if (kind == kTruncDivMod) return "TruncDivMod";
-    UNIMPLEMENTED();
-    return "";
-  }
+  virtual bool AttributesEqual(Instruction* other) const { return true; }
 
   PRINT_OPERANDS_TO_SUPPORT
 
  private:
-  virtual void RawSetInputAt(intptr_t i, Value* value) {
-    (*inputs_)[i] = value;
+  Range* divisor_range() const {
+    // Note: this range is only used to remove check for zero divisor from
+    // the emitted pattern. It is not used for deciding whether instruction
+    // will deoptimize or not - that is why it is ok to access range of
+    // the definition directly. Otherwise range analysis or another pass
+    // needs to cache range of the divisor in the operation to prevent
+    // bugs when range information gets out of sync with the final decision
+    // whether some instruction can deoptimize or not made in
+    // EliminateEnvironments().
+    return InputAt(1)->definition()->range();
   }
-  ZoneGrowableArray<Value*>* inputs_;
-  MergedMathInstr::Kind kind_;
-  DISALLOW_COPY_AND_ASSIGN(MergedMathInstr);
+
+  DISALLOW_COPY_AND_ASSIGN(TruncDivModInstr);
 };
 
 
@@ -7772,13 +7777,13 @@ class CheckSmiInstr : public TemplateInstruction<1, NoThrow, Pure> {
 
 class CheckClassIdInstr : public TemplateInstruction<1, NoThrow> {
  public:
-  CheckClassIdInstr(Value* value, intptr_t cid, intptr_t deopt_id)
-      : TemplateInstruction(deopt_id), cid_(cid) {
+  CheckClassIdInstr(Value* value, CidRange cids, intptr_t deopt_id)
+      : TemplateInstruction(deopt_id), cids_(cids) {
     SetInputAt(0, value);
   }
 
   Value* value() const { return inputs_[0]; }
-  intptr_t cid() const { return cid_; }
+  const CidRange& cids() const { return cids_; }
 
   DECLARE_INSTRUCTION(CheckClassId)
 
@@ -7794,7 +7799,9 @@ class CheckClassIdInstr : public TemplateInstruction<1, NoThrow> {
   PRINT_OPERANDS_TO_SUPPORT
 
  private:
-  intptr_t cid_;
+  bool Contains(intptr_t cid) const;
+
+  CidRange cids_;
 
   DISALLOW_COPY_AND_ASSIGN(CheckClassIdInstr);
 };

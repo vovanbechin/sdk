@@ -501,7 +501,6 @@ class KernelLibraryBuilder
       String name,
       List<TypeVariableBuilder> typeVariables,
       List<FormalParameterBuilder> formals,
-      AsyncMarker asyncModifier,
       ProcedureKind kind,
       int charOffset,
       int charOpenParenOffset,
@@ -536,7 +535,6 @@ class KernelLibraryBuilder
           name,
           typeVariables,
           formals,
-          asyncModifier,
           kind,
           this,
           charOffset,
@@ -555,7 +553,6 @@ class KernelLibraryBuilder
       int modifiers,
       ConstructorReferenceBuilder constructorNameReference,
       List<FormalParameterBuilder> formals,
-      AsyncMarker asyncModifier,
       ConstructorReferenceBuilder redirectionTarget,
       int charOffset,
       int charOpenParenOffset,
@@ -578,7 +575,6 @@ class KernelLibraryBuilder
         name,
         <TypeVariableBuilder>[],
         formals,
-        asyncModifier,
         ProcedureKind.Factory,
         this,
         charOffset,
@@ -621,8 +617,8 @@ class KernelLibraryBuilder
       List<TypeVariableBuilder> typeVariables,
       List<FormalParameterBuilder> formals,
       int charOffset) {
-    return new KernelFunctionTypeBuilder(
-        charOffset, fileUri, returnType, typeVariables, formals);
+    return addType(new KernelFunctionTypeBuilder(
+        charOffset, fileUri, returnType, typeVariables, formals));
   }
 
   KernelFormalParameterBuilder addFormalParameter(

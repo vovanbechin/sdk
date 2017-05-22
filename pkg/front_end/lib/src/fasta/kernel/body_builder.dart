@@ -7,7 +7,7 @@ library fasta.body_builder;
 import '../fasta_codes.dart'
     show FastaMessage, codeExpectedButGot, codeExpectedFunctionBody;
 
-import '../parser/parser.dart' show FormalParameterType, optional;
+import '../parser/parser.dart' show FormalParameterType, MemberKind, optional;
 
 import '../parser/identifier_context.dart' show IdentifierContext;
 
@@ -54,8 +54,6 @@ import '../source/scope_listener.dart'
     show JumpTargetKind, NullValue, ScopeListener;
 
 import '../scope.dart' show ProblemBuilder;
-
-import '../source/outline_builder.dart' show asyncMarkerFromTokens;
 
 import 'fasta_accessors.dart';
 
@@ -337,8 +335,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   }
 
   @override
-  void endFields(
-      int count, Token covariantKeyword, Token beginToken, Token endToken) {
+  void endFields(int count, Token beginToken, Token endToken) {
     debugEvent("Fields");
     doFields(count);
     pop(); // Metadata.
@@ -1479,6 +1476,15 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   }
 
   @override
+  void handleFunctionType(Token functionToken, Token endToken) {
+    debugEvent("FunctionType");
+    FormalParameters formals = pop();
+    ignore(Unhandled.TypeVariables);
+    DartType returnType = pop();
+    push(formals.toFunctionType(returnType));
+  }
+
+  @override
   void handleVoidKeyword(Token token) {
     debugEvent("VoidKeyword");
     push(const VoidType());
@@ -1530,11 +1536,9 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   }
 
   @override
-  void endFormalParameter(Token covariantKeyword, Token thisKeyword,
-      Token nameToken, FormalParameterType kind) {
+  void endFormalParameter(Token thisKeyword, Token nameToken,
+      FormalParameterType kind, MemberKind memberKind) {
     debugEvent("FormalParameter");
-    // TODO(ahe): Need beginToken here.
-    int charOffset = thisKeyword?.charOffset;
     if (thisKeyword != null) {
       if (!inConstructor) {
         addCompileTimeError(thisKeyword.charOffset,
@@ -1552,8 +1556,11 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
     bool isFinal = (modifiers & finalMask) != 0;
     ignore(Unhandled.Metadata);
     VariableDeclaration variable;
-    if (!inCatchClause && functionNestingLevel == 0) {
-      dynamic builder = formalParameterScope.lookup(name.name, charOffset, uri);
+    if (!inCatchClause &&
+        functionNestingLevel == 0 &&
+        memberKind != MemberKind.GeneralizedFunctionType) {
+      dynamic builder = formalParameterScope.lookup(
+          name.name, offsetForToken(name.token), uri);
       if (builder == null) {
         if (thisKeyword == null) {
           internalError("Internal error: formal missing for '${name.name}'");
@@ -1584,9 +1591,9 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
       }
     }
     variable ??= astFactory.variableDeclaration(
-        name.name, name.token, functionNestingLevel,
+        name?.name, name?.token, functionNestingLevel,
         type: type,
-        initializer: name.initializer,
+        initializer: name?.initializer,
         isFinal: isFinal,
         isConst: isConst);
     push(variable);
@@ -1610,7 +1617,7 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
 
   @override
   void endFunctionTypedFormalParameter(
-      Token covariantKeyword, Token thisKeyword, FormalParameterType kind) {
+      Token thisKeyword, FormalParameterType kind) {
     debugEvent("FunctionTypedFormalParameter");
     if (inCatchClause || functionNestingLevel != 0) {
       exitLocalScope();
@@ -1638,7 +1645,8 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   }
 
   @override
-  void endFormalParameters(int count, Token beginToken, Token endToken) {
+  void endFormalParameters(
+      int count, Token beginToken, Token endToken, MemberKind kind) {
     debugEvent("FormalParameters");
     OptionalFormals optional;
     if (count > 0 && peek() is OptionalFormals) {
@@ -1650,7 +1658,8 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
         optional,
         beginToken.charOffset);
     push(formals);
-    if (inCatchClause || functionNestingLevel != 0) {
+    if ((inCatchClause || functionNestingLevel != 0) &&
+        kind != MemberKind.GeneralizedFunctionType) {
       enterLocalScope(formals.computeFormalParameterScope(
           scope, member ?? classBuilder ?? library));
     }
@@ -2527,7 +2536,6 @@ class BodyBuilder extends ScopeListener<JumpTarget> implements BuilderHelper {
   @override
   void handleRecoverableError(Token token, FastaMessage message) {
     bool silent = hasParserError;
-    super.handleRecoverableError(token, message);
     addCompileTimeError(message.charOffset, message.message, silent: silent);
   }
 
@@ -3143,5 +3151,25 @@ String getNodeName(Object node) {
     return node.plainNameForRead;
   } else {
     return internalError("Unhandled: ${node.runtimeType}");
+  }
+}
+
+AsyncMarker asyncMarkerFromTokens(Token asyncToken, Token starToken) {
+  if (asyncToken == null || identical(asyncToken.stringValue, "sync")) {
+    if (starToken == null) {
+      return AsyncMarker.Sync;
+    } else {
+      assert(identical(starToken.stringValue, "*"));
+      return AsyncMarker.SyncStar;
+    }
+  } else if (identical(asyncToken.stringValue, "async")) {
+    if (starToken == null) {
+      return AsyncMarker.Async;
+    } else {
+      assert(identical(starToken.stringValue, "*"));
+      return AsyncMarker.AsyncStar;
+    }
+  } else {
+    return internalError("Unknown async modifier: $asyncToken");
   }
 }

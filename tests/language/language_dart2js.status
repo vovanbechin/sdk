@@ -44,17 +44,6 @@ generic_function_typedef2_test/03: Crash # Issue 28214
 generic_function_typedef2_test/05: Crash # Issue 28214
 generic_function_typedef2_test/06: Crash # Issue 28214
 
-covariant_test/02: MissingCompileTimeError, OK # Accepts `covariant` for statics/top-level.
-covariant_test/08: MissingCompileTimeError, OK # Accepts `covariant` for statics/top-level.
-covariant_test/12: MissingCompileTimeError, OK # Accepts `covariant` for statics/top-level.
-covariant_test/14: MissingCompileTimeError, OK # Accepts `covariant` for statics/top-level.
-covariant_test/16: MissingCompileTimeError, OK # Accepts `covariant` for statics/top-level.
-covariant_test/22: MissingCompileTimeError, OK # Accepts `covariant` for statics/top-level.
-covariant_test/28: MissingCompileTimeError, OK # Accepts `covariant` for statics/top-level.
-covariant_test/32: MissingCompileTimeError, OK # Accepts `covariant` for statics/top-level.
-covariant_test/34: MissingCompileTimeError, OK # Accepts `covariant` for statics/top-level.
-covariant_test/36: MissingCompileTimeError, OK # Accepts `covariant` for statics/top-level.
-
 stacktrace_demangle_ctors_test: Fail # dart2js stack traces are not always compliant.
 
 [ $compiler == dart2js && $fast_startup ]
@@ -251,7 +240,6 @@ external_test/10: CompileTimeError # Issue 12887
 external_test/13: CompileTimeError # Issue 12887
 external_test/20: CompileTimeError # Issue 12887
 list_literal4_test: RuntimeError # Issue 12890
-built_in_identifier_test/01: CompileTimeError # Issue 13022
 
 scope_variable_test/01: MissingCompileTimeError # Issue 13016
 
@@ -328,7 +316,6 @@ await_for_test: RuntimeError # Issue 27394
 await_for_use_local_test: RuntimeError # Issue 27394
 bootstrap_test: RuntimeError # Issue 27394
 bound_closure_equality_test: RuntimeError # Issue 27394
-built_in_identifier_test/01: Crash # Issue 27394
 call_nonexistent_static_test/10: Crash # Issue 27394
 canonical_const3_test: RuntimeError # Issue 27394
 canonical_const_test: RuntimeError # Issue 27394
@@ -355,15 +342,7 @@ constructor_redirect2_test/04: Crash # Issue 27394
 covariant_test/10: Crash # Issue 27394
 covariant_test/11: Crash # Issue 27394
 covariant_test/20b: Crash # Issue 27394
-covariant_test/21: Crash # Issue 27394
-covariant_test/21b: Crash # Issue 27394
 covariant_test/24: Crash # Issue 27394
-covariant_test/27: Crash # Issue 27394
-covariant_test/27b: Crash # Issue 27394
-covariant_test/30: Crash # Issue 27394
-covariant_test/30b: Crash # Issue 27394
-covariant_test/31: Crash # Issue 27394
-covariant_test/31b: Crash # Issue 27394
 ct_const_test: RuntimeError # Issue 27394
 cyclic_default_values_test: RuntimeError # Issue 27394
 deferred_constraints_constants_test/constructor1: Crash # Issue 27394

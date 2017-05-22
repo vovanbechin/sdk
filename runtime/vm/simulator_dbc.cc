@@ -2957,15 +2957,17 @@ RawObject* Simulator::Call(const Code& code,
     BYTECODE(CreateArrayOpt, A_B_C);
     const intptr_t length = Smi::Value(RAW_CAST(Smi, FP[rB]));
     if (LIKELY(static_cast<uintptr_t>(length) <= Array::kMaxElements)) {
-      const intptr_t fixed_size = sizeof(RawArray) + kObjectAlignment - 1;
+      const intptr_t fixed_size_plus_alignment_padding =
+          sizeof(RawArray) + kObjectAlignment - 1;
       const intptr_t instance_size =
-          (fixed_size + length * kWordSize) & ~(kObjectAlignment - 1);
+          (fixed_size_plus_alignment_padding + length * kWordSize) &
+          ~(kObjectAlignment - 1);
       const uword start =
           thread->heap()->new_space()->TryAllocate(instance_size);
       if (LIKELY(start != 0)) {
         const intptr_t cid = kArrayCid;
         uword tags = 0;
-        if (LIKELY(instance_size < RawObject::SizeTag::kMaxSizeTag)) {
+        if (LIKELY(instance_size <= RawObject::SizeTag::kMaxSizeTag)) {
           tags = RawObject::SizeTag::update(instance_size, tags);
         }
         tags = RawObject::ClassIdTag::update(cid, tags);
@@ -3250,6 +3252,18 @@ RawObject* Simulator::Call(const Code& code,
         reinterpret_cast<intptr_t>(FP[rA]) >> kSmiTagSize;
     const intptr_t desired_cid = rD;
     pc += (actual_cid == desired_cid) ? 1 : 0;
+    DISPATCH();
+  }
+
+  {
+    BYTECODE(CheckClassIdRange, A_D);
+    const intptr_t actual_cid =
+        reinterpret_cast<intptr_t>(FP[rA]) >> kSmiTagSize;
+    const uintptr_t cid_start = rD;
+    const uintptr_t cid_range = Bytecode::DecodeD(*pc);
+    // Unsigned comparison.  Skip either just the nop or both the nop and the
+    // following instruction.
+    pc += (actual_cid - cid_start <= cid_range) ? 2 : 1;
     DISPATCH();
   }
 

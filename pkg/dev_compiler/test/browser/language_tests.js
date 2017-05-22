@@ -114,7 +114,7 @@ define(['dart_sdk', 'async_helper', 'expect', 'unittest', 'is', 'require'],
       'const_switch_test_02_multi': fail,
       'const_switch_test_04_multi': fail,
       'constructor12_test': fail,
-      'covariant_subtyping_tearoff2_test': fail,
+      'covariant_subtyping_tearoff2_test': fail,     
       'covariant_subtyping_tearoff3_test': fail,
       'covariant_subtyping_unsafe_call2_test': fail,
       'covariant_subtyping_unsafe_call3_test': fail,
@@ -191,8 +191,6 @@ define(['dart_sdk', 'async_helper', 'expect', 'unittest', 'is', 'require'],
       'memory_swap_test': skip_timeout,
       'method_invocation_test': fail,
       'mint_arithmetic_test': fail,
-      'mixin_implements_test': fail,
-      'mixin_regress_13688_test': fail,
       'mixin_super_constructor_positionals_test_none_multi': fail, // Issue 28059
       'modulo_test': fail,
       'named_parameter_clash_test': fail,
@@ -438,9 +436,6 @@ define(['dart_sdk', 'async_helper', 'expect', 'unittest', 'is', 'require'],
       'element_classes_test': 'fail',
       'element_classes_svg_test': 'fail',
 
-      // https://github.com/dart-lang/sdk/issues/29650
-      'element_dimensions_test': 'fail',
-
       // Failure: 'Expected 56 to be in the inclusive range [111, 160].'.
       'element_offset_test': 'fail',
 
@@ -500,7 +495,8 @@ define(['dart_sdk', 'async_helper', 'expect', 'unittest', 'is', 'require'],
       'shadow_dom_test': firefox_fail,
 
       // was https://github.com/dart-lang/sdk/issues/27578, needs triage
-      'speechrecognition_test': 'fail',
+      'speechrecognition_test': firefox_fail,
+      'svgelement_test': chrome_fail,
       'text_event_test': firefox_fail,
 
       // was https://github.com/dart-lang/sdk/issues/27578, needs triage
