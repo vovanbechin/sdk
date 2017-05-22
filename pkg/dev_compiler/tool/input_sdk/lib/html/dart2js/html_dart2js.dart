@@ -1010,7 +1010,9 @@ class AudioTrack extends Interceptor {
 @DomName('AudioTrackList')
 @Experimental() // untriaged
 @Native("AudioTrackList")
-class AudioTrackList extends EventTarget {
+class AudioTrackList extends EventTarget
+    with ListMixin<AudioTrack>, ImmutableListMixin<AudioTrack>
+    implements JavaScriptIndexingBehavior<AudioTrack>, List<AudioTrack> {
   // To suppress missing implicit constructor warnings.
   factory AudioTrackList._() {
     throw new UnsupportedError("Not supported");
@@ -1025,7 +1027,50 @@ class AudioTrackList extends EventTarget {
   @DomName('AudioTrackList.length')
   @DocsEditable()
   @Experimental() // untriaged
-  final int length;
+  int get length => JS("int", "#.length", this);
+
+  AudioTrack operator [](int index) {
+    if (JS("bool", "# >>> 0 !== # || # >= #", index, index, index, length))
+      throw new RangeError.index(index, this);
+    return JS("AudioTrack", "#[#]", this, index);
+  }
+
+  void operator []=(int index, AudioTrack value) {
+    throw new UnsupportedError("Cannot assign element of immutable List.");
+  }
+  // -- start List<AudioTrack> mixins.
+  // AudioTrack is the element type.
+
+  set length(int value) {
+    throw new UnsupportedError("Cannot resize immutable List.");
+  }
+
+  AudioTrack get first {
+    if (this.length > 0) {
+      return JS('AudioTrack', '#[0]', this);
+    }
+    throw new StateError("No elements");
+  }
+
+  AudioTrack get last {
+    int len = this.length;
+    if (len > 0) {
+      return JS('AudioTrack', '#[#]', this, len - 1);
+    }
+    throw new StateError("No elements");
+  }
+
+  AudioTrack get single {
+    int len = this.length;
+    if (len == 1) {
+      return JS('AudioTrack', '#[0]', this);
+    }
+    if (len == 0) throw new StateError("No elements");
+    throw new StateError("More than one element");
+  }
+
+  AudioTrack elementAt(int index) => this[index];
+  // -- end List<AudioTrack> mixins.
 
   @DomName('AudioTrackList.__getter__')
   @DocsEditable()
@@ -15338,6 +15383,8 @@ class Element extends Node
    */
   @DomName('Element.getBoundingClientRect')
   @DocsEditable()
+  @Creates('_ClientRect')
+  @Returns('_ClientRect|Null')
   Rectangle getBoundingClientRect() native;
 
   /**
@@ -16928,6 +16975,8 @@ class ExtendableMessageEvent extends ExtendableEvent {
   @DomName('ExtendableMessageEvent.data')
   @DocsEditable()
   @Experimental() // untriaged
+  @annotation_Creates_SerializedScriptValue
+  @annotation_Returns_SerializedScriptValue
   final Object data;
 
   @DomName('ExtendableMessageEvent.lastEventId')
@@ -16948,6 +16997,8 @@ class ExtendableMessageEvent extends ExtendableEvent {
   @DomName('ExtendableMessageEvent.source')
   @DocsEditable()
   @Experimental() // untriaged
+  @Creates('Client|_ServiceWorker|MessagePort')
+  @Returns('Client|_ServiceWorker|MessagePort|Null')
   final Object source;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
@@ -22070,7 +22121,8 @@ class KeyboardEvent extends UIEvent {
       {Window view,
       bool canBubble: true,
       bool cancelable: true,
-      int keyLocation: 1,
+      int location,
+      int keyLocation, // Legacy alias for location
       bool ctrlKey: false,
       bool altKey: false,
       bool shiftKey: false,
@@ -22078,8 +22130,9 @@ class KeyboardEvent extends UIEvent {
     if (view == null) {
       view = window;
     }
+    location ??= keyLocation ?? 1;
     KeyboardEvent e = document._createEvent("KeyboardEvent");
-    e._initKeyboardEvent(type, canBubble, cancelable, view, "", keyLocation,
+    e._initKeyboardEvent(type, canBubble, cancelable, view, "", location,
         ctrlKey, altKey, shiftKey, metaKey);
     return e;
   }
@@ -22091,7 +22144,7 @@ class KeyboardEvent extends UIEvent {
       bool cancelable,
       Window view,
       String keyIdentifier,
-      int keyLocation,
+      int location,
       bool ctrlKey,
       bool altKey,
       bool shiftKey,
@@ -22114,7 +22167,7 @@ class KeyboardEvent extends UIEvent {
           cancelable,
           view,
           keyIdentifier,
-          keyLocation,
+          location,
           ctrlKey,
           altKey,
           shiftKey,
@@ -22123,10 +22176,10 @@ class KeyboardEvent extends UIEvent {
   }
 
   @DomName('KeyboardEvent.keyCode')
-  int get keyCode => _keyCode;
+  final int keyCode;
 
   @DomName('KeyboardEvent.charCode')
-  int get charCode => _charCode;
+  final int charCode;
 
   @DomName('KeyboardEvent.which')
   int get which => _which;
@@ -22169,6 +22222,12 @@ class KeyboardEvent extends UIEvent {
   @DocsEditable()
   final bool altKey;
 
+  @JSName('charCode')
+  @DomName('KeyboardEvent.charCode')
+  @DocsEditable()
+  @Experimental() // untriaged
+  final int _charCode;
+
   @DomName('KeyboardEvent.code')
   @DocsEditable()
   @Experimental() // untriaged
@@ -22182,6 +22241,12 @@ class KeyboardEvent extends UIEvent {
   @DocsEditable()
   @Experimental() // untriaged
   final String key;
+
+  @JSName('keyCode')
+  @DomName('KeyboardEvent.keyCode')
+  @DocsEditable()
+  @Experimental() // untriaged
+  final int _keyCode;
 
   @JSName('keyIdentifier')
   @DomName('KeyboardEvent.keyIdentifier')
@@ -22206,6 +22271,9 @@ class KeyboardEvent extends UIEvent {
   @DomName('KeyboardEvent.shiftKey')
   @DocsEditable()
   final bool shiftKey;
+
+  // Use implementation from UIEvent.
+  // final int _which;
 
   @DomName('KeyboardEvent.getModifierState')
   @DocsEditable()
@@ -23059,7 +23127,9 @@ class MediaElement extends HtmlElement {
   @DomName('HTMLMediaElement.audioTracks')
   @DocsEditable()
   @Experimental() // untriaged
-  final AudioTrackList audioTracks;
+  @Returns('AudioTrackList|Null')
+  @Creates('AudioTrackList')
+  final List<AudioTrack> audioTracks;
 
   @DomName('HTMLMediaElement.autoplay')
   @DocsEditable()
@@ -41453,7 +41523,7 @@ abstract class _AttributeMap implements Map<String, String> {
   /**
    * Checks to see if the node should be included in this map.
    */
-  bool _matches(Node node);
+  bool _matches(_Attr node);
 }
 
 /**
@@ -41487,7 +41557,7 @@ class _ElementAttributeMap extends _AttributeMap {
     return keys.length;
   }
 
-  bool _matches(Node node) => node._namespaceUri == null;
+  bool _matches(_Attr node) => node._namespaceUri == null;
 }
 
 /**
@@ -41523,7 +41593,7 @@ class _NamespacedAttributeMap extends _AttributeMap {
     return keys.length;
   }
 
-  bool _matches(Node node) => node._namespaceUri == _namespace;
+  bool _matches(_Attr node) => node._namespaceUri == _namespace;
 }
 
 /**
@@ -42948,9 +43018,9 @@ class _EventStreamSubscription<T extends Event> extends StreamSubscription<T> {
     }
   }
 
-  Future/*<E>*/ asFuture/*<E>*/([var/*=E*/ futureValue]) {
+  Future<E> asFuture<E>([E futureValue]) {
     // We just need a future that will never succeed or fail.
-    var completer = new Completer/*<E>*/();
+    var completer = new Completer<E>();
     return completer.future;
   }
 }
@@ -44620,7 +44690,7 @@ class _KeyboardEventHandler extends EventStreamProvider<KeyEvent> {
    * keypress events.
    */
   int _findCharCodeKeyDown(KeyboardEvent event) {
-    if (event.keyLocation == 3) {
+    if (event.location == 3) {
       // Numpad keys.
       switch (event.keyCode) {
         case KeyCode.NUM_ZERO:
@@ -46005,7 +46075,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
       bool cancelable: true,
       int keyCode: 0,
       int charCode: 0,
-      int keyLocation: 1,
+      int location: 1,
       bool ctrlKey: false,
       bool altKey: false,
       bool shiftKey: false,
@@ -46031,7 +46101,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
       JS('void', '#.which = #', eventObj, keyCode);
       JS('void', '#.charCode = #', eventObj, charCode);
 
-      JS('void', '#.keyLocation = #', eventObj, keyLocation);
+      JS('void', '#.location = #', eventObj, location);
       JS('void', '#.ctrlKey = #', eventObj, ctrlKey);
       JS('void', '#.altKey = #', eventObj, altKey);
       JS('void', '#.shiftKey = #', eventObj, shiftKey);
@@ -46067,7 +46137,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
 
       var keyIdentifier = _convertToHexString(charCode, keyCode);
       eventObj._initKeyboardEvent(type, canBubble, cancelable, view,
-          keyIdentifier, keyLocation, ctrlKey, altKey, shiftKey, metaKey);
+          keyIdentifier, location, ctrlKey, altKey, shiftKey, metaKey);
       JS('void', '#.keyCodeVal = #', eventObj, keyCode);
       JS('void', '#.charCodeVal = #', eventObj, charCode);
     }
@@ -46125,7 +46195,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
    * KeyLocation.STANDARD, KeyLocation.RIGHT, KeyLocation.LEFT,
    * KeyLocation.NUMPAD, KeyLocation.MOBILE, KeyLocation.JOYSTICK).
    */
-  int get keyLocation => _parent.keyLocation;
+  int get location => _parent.location;
   /** True if the Meta (or Mac command) key is pressed during this event. */
   bool get metaKey => _parent.metaKey;
   /** True if the shift key was pressed during this event. */
@@ -46152,7 +46222,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
       bool cancelable,
       Window view,
       String keyIdentifier,
-      int keyLocation,
+      int location,
       bool ctrlKey,
       bool altKey,
       bool shiftKey,
@@ -46163,8 +46233,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
 
   @Experimental() // untriaged
   bool getModifierState(String keyArgument) => throw new UnimplementedError();
-  @Experimental() // untriaged
-  int get location => throw new UnimplementedError();
+
   @Experimental() // untriaged
   bool get repeat => throw new UnimplementedError();
   dynamic get _get_view => throw new UnimplementedError();
