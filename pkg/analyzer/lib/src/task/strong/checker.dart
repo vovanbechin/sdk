@@ -1106,7 +1106,7 @@ class CodeChecker extends RecursiveAstVisitor {
         if (e is PropertyAccessorElement) {
           if (e.isStatic) {
             validateHasType(e);
-          } else {
+          } else if (e.hasImplicitReturnType) {
             _recordMessage(
                 n, StrongModeCode.TOP_LEVEL_INSTANCE_GETTER, [name, e.name]);
           }

@@ -2405,10 +2405,10 @@ var v_assign = (/*error:TOP_LEVEL_UNSUPPORTED*/new A().f = 1);
 var v_plus = (/*error:TOP_LEVEL_UNSUPPORTED*/new A().f += 1);
 var v_minus = (/*error:TOP_LEVEL_UNSUPPORTED*/new A().f -= 1);
 var v_multiply = (/*error:TOP_LEVEL_UNSUPPORTED*/new A().f *= 1);
-var v_prefix_pp = (++new A()./*error:TOP_LEVEL_INSTANCE_GETTER*/f);
-var v_prefix_mm = (--new A()./*error:TOP_LEVEL_INSTANCE_GETTER*/f);
-var v_postfix_pp = (new A()./*error:TOP_LEVEL_INSTANCE_GETTER*/f++);
-var v_postfix_mm = (new A()./*error:TOP_LEVEL_INSTANCE_GETTER*/f--);
+var v_prefix_pp = (++new A().f);
+var v_prefix_mm = (--new A().f);
+var v_postfix_pp = (new A().f++);
+var v_postfix_mm = (new A().f--);
 ''');
   }
 
@@ -2421,10 +2421,10 @@ class A {
 class B {
   A a;
 }
-var v_prefix_pp = (++new B()./*error:TOP_LEVEL_INSTANCE_GETTER*/a);
-var v_prefix_mm = (--new B()./*error:TOP_LEVEL_INSTANCE_GETTER*/a);
-var v_postfix_pp = (new B()./*error:TOP_LEVEL_INSTANCE_GETTER*/a++);
-var v_postfix_mm = (new B()./*error:TOP_LEVEL_INSTANCE_GETTER*/a--);
+var v_prefix_pp = (++new B().a);
+var v_prefix_mm = (--new B().a);
+var v_postfix_pp = (new B().a++);
+var v_postfix_mm = (new B().a--);
 ''');
   }
 

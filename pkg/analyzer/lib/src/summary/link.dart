@@ -2636,7 +2636,9 @@ class ExprTypeComputer {
     if (element is NonstaticMemberElementForLink &&
             element.hasInstanceGetterReference ||
         element is FieldElement && !element.isStatic ||
-        element is PropertyAccessorElement && !element.isStatic) {
+        element is PropertyAccessorElement &&
+            !element.isStatic &&
+            element.hasImplicitReturnType) {
       throw new _InferenceFailedError(
           'Instance fields cannot be used for type inference.');
     }
@@ -4035,7 +4037,7 @@ class NonstaticMemberElementForLink extends Object
   bool get hasInstanceGetterReference {
     ExecutableElement element = asExecutableElement;
     if (element is PropertyAccessorElement) {
-      return !element.isStatic;
+      return !element.isStatic && element.hasImplicitReturnType;
     }
     ReferenceableElementForLink target = _target;
     if (target is NonstaticMemberElementForLink) {
@@ -4357,6 +4359,9 @@ class PropertyAccessorElementForLink_EnumField extends Object
   Element get enclosingElement => variable.enclosingElement;
 
   @override
+  bool get hasImplicitReturnType => false;
+
+  @override
   bool get isGetter => true;
 
   @override
@@ -4508,6 +4513,9 @@ class PropertyAccessorElementForLink_Variable extends Object
 
   @override
   Element get enclosingElement => variable.enclosingElement;
+
+  @override
+  bool get hasImplicitReturnType => variable.hasImplicitType;
 
   @override
   bool get isGetter => !isSetter;

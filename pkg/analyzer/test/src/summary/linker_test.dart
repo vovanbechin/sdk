@@ -348,7 +348,7 @@ var y = C.x;
 ''');
     LibraryElementForLink library = linker.getLibrary(linkerInputs.testDartUri);
     expect(_getVariable(library.getContainedName('y')).inferredType.toString(),
-        '(D) → dynamic');
+        '(D) → E');
   }
 
   void test_inferredType_instanceField_conditional_genericFunctions() {

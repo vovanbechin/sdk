@@ -693,7 +693,9 @@ class _IsValidForTypeInferenceVisitor extends RecursiveAstVisitor {
           parent is PrefixedIdentifier && parent.identifier == node) {
         isValid = false;
       }
-    } else if (element is PropertyAccessorElement && !element.isStatic) {
+    } else if (element is PropertyAccessorElement &&
+        !element.isStatic &&
+        element.hasImplicitReturnType) {
       isValid = false;
     }
   }
