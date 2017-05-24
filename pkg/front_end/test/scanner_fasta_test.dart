@@ -18,7 +18,6 @@ main() {
   defineReflectiveSuite(() {
     defineReflectiveTests(ScannerTest_Fasta);
     defineReflectiveTests(ScannerTest_Fasta_Direct);
-    defineReflectiveTests(ScannerTest_Fasta_Roundtrip);
   });
 }
 
@@ -30,8 +29,7 @@ class ScannerTest_Fasta extends ScannerTestBase {
       bool lazyAssignmentOperators: false}) {
     var scanner = new fasta.StringScanner(source,
         includeComments: true,
-        scanGenericMethodComments: genericMethodComments,
-        scanLazyAssignmentOperators: lazyAssignmentOperators);
+        scanGenericMethodComments: genericMethodComments);
     var token = scanner.tokenize();
     return new ToAnalyzerTokenStreamConverter_WithListener(listener)
         .convertTokens(token);
@@ -504,21 +502,6 @@ class ScannerTest_Fasta_Direct extends ScannerTest_Fasta_Base {
   Token scan(String source) {
     var scanner = new fasta.StringScanner(source, includeComments: true);
     return scanner.tokenize();
-  }
-}
-
-/// Scanner tests that exercise the Fasta scanner, then convert the tokens to
-/// analyzer tokens, then convert back to Fasta tokens before checking
-/// assertions.
-@reflectiveTest
-class ScannerTest_Fasta_Roundtrip extends ScannerTest_Fasta_Base {
-  @override
-  Token scan(String source) {
-    var scanner = new fasta.StringScanner(source, includeComments: true);
-    var fastaTokenStream = scanner.tokenize();
-    var analyzerTokenStream = new ToAnalyzerTokenStreamConverter_NoErrors()
-        .convertTokens(fastaTokenStream);
-    return fromAnalyzerTokenStream(analyzerTokenStream);
   }
 }
 
