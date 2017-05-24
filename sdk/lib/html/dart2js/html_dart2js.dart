@@ -42,7 +42,7 @@ import 'dart:web_gl' as gl;
 import 'dart:web_gl' show RenderingContext;
 import 'dart:web_sql';
 import 'dart:_isolate_helper' show IsolateNatives;
-import 'dart:_foreign_helper' show JS, JS_INTERCEPTOR_CONSTANT;
+import 'dart:_foreign_helper' show JS, JS_INTERCEPTOR_CONSTANT, JS_CONST;
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -135,6 +135,7 @@ createCustomUpgrader(Type customElementClass, $this) => $this;
 @Experimental() // untriaged
 typedef void FontFaceSetForEachCallback(
     FontFace fontFace, FontFace fontFaceAgain, FontFaceSet set);
+
 // Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -4356,11 +4357,10 @@ class CssStyleDeclaration extends Interceptor with CssStyleDeclarationBase {
 
   static String _camelCase(String hyphenated) {
     var replacedMs = JS('String', r'#.replace(/^-ms-/, "ms-")', hyphenated);
-    return JS(
-        'String',
-        r'#.replace(/-([\da-z])/ig,'
-        r'function(_, letter) { return letter.toUpperCase();})',
-        replacedMs);
+
+    var fToUpper =
+        const JS_CONST(r'function(_, letter) { return letter.toUpperCase(); }');
+    return JS('String', r'#.replace(/-([\da-z])/ig, #)', replacedMs, fToUpper);
   }
 
   void _setPropertyHelper(String propertyName, String value,
@@ -16862,7 +16862,7 @@ class Events {
 
   Events(this._ptr);
 
-  Stream<Event> operator [](String type) {
+  Stream operator [](String type) {
     return new _EventStream(_ptr, type, false);
   }
 }
@@ -16887,7 +16887,7 @@ class ElementEvents extends Events {
 
   ElementEvents(Element ptr) : super(ptr);
 
-  Stream<Event> operator [](String type) {
+  Stream operator [](String type) {
     if (webkitEvents.keys.contains(type.toLowerCase())) {
       if (Device.isWebKit) {
         return new _ElementEventStreamImpl(
@@ -16944,7 +16944,7 @@ class EventTarget extends Interceptor {
   @JSName('addEventListener')
   @DomName('EventTarget.addEventListener')
   @DocsEditable()
-  void _addEventListener(String type, EventListener listener, [bool options])
+  void _addEventListener(String type, EventListener listener, [Object options])
       native;
 
   @DomName('EventTarget.dispatchEvent')
@@ -16954,8 +16954,8 @@ class EventTarget extends Interceptor {
   @JSName('removeEventListener')
   @DomName('EventTarget.removeEventListener')
   @DocsEditable()
-  void _removeEventListener(String type, EventListener listener, [bool options])
-      native;
+  void _removeEventListener(String type, EventListener listener,
+      [Object options]) native;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -31068,8 +31068,8 @@ class SelectElement extends HtmlElement {
   // Override default options, since IE returns SelectElement itself and it
   // does not operate as a List.
   List<OptionElement> get options {
-    var options = this.querySelectorAll<OptionElement>('option');
-    return new UnmodifiableListView(options.toList());
+    var options = new List<OptionElement>.from(this.querySelectorAll('option'));
+    return new UnmodifiableListView(options);
   }
 
   List<OptionElement> get selectedOptions {
@@ -42988,7 +42988,7 @@ class _EventStreamSubscription<T extends Event> extends StreamSubscription<T> {
       this._target, this._eventType, void onData(T event), this._useCapture)
       : _onData = onData == null
             ? null
-            : _wrapZone<Event, dynamic>((e) => (onData as dynamic)(e)) {
+            : _wrapZone/*<Event, dynamic>*/((e) => (onData as dynamic)(e)) {
     _tryResume();
   }
 
