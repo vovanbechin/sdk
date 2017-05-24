@@ -4,9 +4,6 @@
 
 library fasta.diet_listener;
 
-import 'package:front_end/src/fasta/kernel/kernel_ast_factory.dart'
-    show KernelAstFactory;
-
 import 'package:front_end/src/fasta/type_inference/type_inference_engine.dart'
     show TypeInferenceEngine;
 
@@ -410,18 +407,8 @@ class DietListener extends StackListener {
     var listener = new TypeInferenceListener();
     var typeInferrer =
         typeInferenceEngine.createLocalTypeInferrer(uri, listener);
-    return new BodyBuilder(
-        library,
-        builder,
-        memberScope,
-        formalParameterScope,
-        hierarchy,
-        coreTypes,
-        currentClass,
-        isInstanceMember,
-        uri,
-        typeInferrer,
-        new KernelAstFactory())
+    return new BodyBuilder(library, builder, memberScope, formalParameterScope,
+        hierarchy, coreTypes, currentClass, isInstanceMember, uri, typeInferrer)
       ..constantExpressionRequired = builder.isConstructor && builder.isConst;
   }
 
@@ -582,6 +569,14 @@ class DietListener extends StackListener {
       return inputError(uri, token.charOffset, "Duplicated name: $name");
     }
     return builder;
+  }
+
+  @override
+  void addCompileTimeErrorFromMessage(FastaMessage message) {
+    library.addCompileTimeError(message.charOffset, message.message,
+        fileUri: message.uri,
+        // We assume this error has already been reported by OutlineBuilder.
+        silent: true);
   }
 
   @override

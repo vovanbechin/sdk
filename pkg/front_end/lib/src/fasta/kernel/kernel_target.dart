@@ -133,7 +133,7 @@ class KernelTarget extends TargetImplementation {
   }
 
   void read(Uri uri) {
-    loader.read(uri);
+    loader.read(uri, -1);
   }
 
   LibraryBuilder createLibraryBuilder(Uri uri, Uri fileUri) {
@@ -267,7 +267,9 @@ class KernelTarget extends TargetImplementation {
   ///
   /// When [trimDependencies] is true, this also runs a tree-shaker that deletes
   /// anything from the [DillTarget] that is not needed for the source program,
-  /// this includes function bodies and types that are not reachable.
+  /// this includes function bodies and types that are not reachable. This
+  /// option is currently in flux and the internal implementation might change.
+  /// See [trimDependenciesInProgram] for more details.
   ///
   /// If [verify], run the default kernel verification on the resulting program.
   @override
@@ -375,8 +377,7 @@ class KernelTarget extends TargetImplementation {
     Map<String, Source> uriToSource =
         new Map<String, Source>.from(this.uriToSource);
 
-    List<Library> extraLibraries = dillTarget.loader.libraries;
-    libraries.addAll(extraLibraries);
+    libraries.addAll(dillTarget.loader.libraries);
     // TODO(scheglov) Should we also somehow update `uriToSource`?
 //    uriToSource.addAll(binary.uriToSource);
 
@@ -684,6 +685,12 @@ class KernelTarget extends TargetImplementation {
   /// Tree-shakes most code from the [dillTarget] by visiting all other
   /// libraries in [_program] and marking the APIs from the [dillTarget]
   /// libraries that are in use.
+  ///
+  /// Note: while it's likely we'll do some trimming of programs for modular
+  /// compilation, it is unclear at this time when and how that trimming should
+  /// happen. We are likely going to remove the extra visitor my either marking
+  /// things while code is built, or by handling tree-shaking after the fact
+  /// (e.g. during serialization).
   trimDependenciesInProgram() {
     var toShake =
         dillTarget.loader.libraries.map((lib) => lib.importUri).toSet();
@@ -694,6 +701,12 @@ class KernelTarget extends TargetImplementation {
     // a second visit over the tree.
     new RootsMarker(data).run(_program, isIncluded);
     trimProgram(_program, data, isIncluded);
+  }
+
+  /// Return `true` if the given [library] was built by this [KernelTarget]
+  /// from sources, and not loaded from a [DillTarget].
+  bool isSourceLibrary(Library library) {
+    return loader.libraries.contains(library);
   }
 }
 

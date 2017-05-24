@@ -8,6 +8,30 @@
   type `void` now allows the returned expression to have any type. For example,
   assuming the declaration `int x;`, it is now type correct to have
   `void f() => ++x;`.
+* A new function-type syntax has been added to the language.
+  Intuitively, the type of a function can be constructed by textually replacing
+  the function's name with `Function` in its declaration. For instance, the
+  type of `void foo() {}` would be `void Function()`. The new syntax may be used
+  wherever a type can be written. It is thus now possible to declare fields
+  containing functions without needing to write typedefs: `void Function() x;`.
+  The new function type has one restriction: it may not contain the old-style
+  function-type syntax for its parameters. The following is thus
+  illegal: `void Function(int f())`.
+  `typedefs` have been updated to support this new syntax.
+  Examples:
+  ```
+  typedef F = void Function();  // F is the name for a `void` callback.
+  int Function(int) f;  // A field `f` that contains an int->int function.
+
+  class A<T> {
+    // The parameter `callback` is a function that takes a `T` and returns
+    // `void`.
+    void forEach(void Function(T) callback);
+  }
+
+  // The new function type supports generic arguments.
+  typedef Invoker = T Function<T>(T Function() callback);
+  ```
 
 #### Strong Mode
 
@@ -24,6 +48,7 @@ entirely to allow inference to fill in the type.
 * The following is also a change in strong mode: During static analysis, a
   function or setter declared using `=>` with return type `void` now allows the
   returned expression to have any type.
+* The new function-type syntax is also supported by strong mode.
 
 ### Core library changes
 
@@ -46,7 +71,6 @@ entirely to allow inference to fill in the type.
       1.24, violations are only reported (on stdout or stderr), but a future
       version of the Dart SDK will change this to throwing a `StateError`.
 
-
 ### Dart VM
 
 ### Tool Changes
@@ -60,6 +84,12 @@ entirely to allow inference to fill in the type.
     * Preserve type parameters in new generic function typedef syntax.
     * Add self-test validation to ensure formatter bugs do not cause user code
       to be lost.
+
+### Infrastructure changes
+
+* As of this release, we'll show a warning when using the MIPS architecture.
+  Unless we learn about any critical use of Dart on MIPS in the meantime, we're
+  planning to deprecate support for MIPS starting with the next stable release.
 
 ## 1.23.0
 

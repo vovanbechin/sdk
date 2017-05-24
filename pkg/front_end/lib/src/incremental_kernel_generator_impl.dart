@@ -126,6 +126,9 @@ class IncrementalKernelGeneratorImpl implements IncrementalKernelGenerator {
       }
 
       // TODO(scheglov) Add libraries which import changed libraries.
+      // For now the corresponding test works because we use full library
+      // contents to compute signatures (not just API parts). So, every library
+      // that imports a changed one, is affected.
 
       return new DeltaProgram(program);
     });
@@ -243,7 +246,7 @@ class IncrementalKernelGeneratorImpl implements IncrementalKernelGenerator {
         FileState file = uriToFile[library.uri];
         for (NamespaceExport export in file.exports) {
           DillLibraryBuilder exportedLibrary =
-              dillTarget.loader.read(export.library.uri);
+              dillTarget.loader.read(export.library.uri, -1, accessor: library);
           if (exportedLibrary != null) {
             exportedLibrary.exports.forEach((name, member) {
               if (export.isExposed(name) &&
