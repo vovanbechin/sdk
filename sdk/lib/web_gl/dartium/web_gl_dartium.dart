@@ -6247,6 +6247,14 @@ class RenderingContext2 extends DartHtmlDomObject
   void readBuffer(int mode) => _blink.BlinkWebGL2RenderingContext.instance
       .readBuffer_Callback_1_(this, mode);
 
+  @DomName('WebGL2RenderingContext.readPixels')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void readPixels(int x, int y, int width, int height, int format, int type,
+          int offset) =>
+      _blink.BlinkWebGL2RenderingContext.instance.readPixels_Callback_7_(
+          this, x, y, width, height, format, type, offset);
+
   @DomName('WebGL2RenderingContext.readPixels2')
   @DocsEditable()
   @Experimental() // untriaged
@@ -6283,6 +6291,23 @@ class RenderingContext2 extends DartHtmlDomObject
   void samplerParameteri(Sampler sampler, int pname, int param) =>
       _blink.BlinkWebGL2RenderingContext.instance
           .samplerParameteri_Callback_3_(this, sampler, pname, param);
+
+  @DomName('WebGL2RenderingContext.texImage2D')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void texImage2D(int target, int level, int internalformat, int width,
+          int height, int border, int format, int type, int offset) =>
+      _blink.BlinkWebGL2RenderingContext.instance.texImage2D_Callback_9_(
+          this,
+          target,
+          level,
+          internalformat,
+          width,
+          height,
+          border,
+          format,
+          type,
+          offset);
 
   @DomName('WebGL2RenderingContext.texImage2D2')
   @DocsEditable()

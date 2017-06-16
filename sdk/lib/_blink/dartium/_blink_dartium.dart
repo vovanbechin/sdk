@@ -28944,6 +28944,26 @@ class BlinkWebGL2RenderingContext {
       Blink_JsNative_DomException.callMethod(
           mthis /* WebGL2RenderingContextBase */, "readBuffer", [__arg_0]);
 
+  readPixels_Callback_5_(mthis, __arg_0, __arg_1, __arg_2, __arg_3, __arg_4) =>
+      Blink_JsNative_DomException.callMethod(
+          mthis /* WebGL2RenderingContextBase */,
+          "readPixels",
+          [__arg_0, __arg_1, __arg_2, __arg_3, __arg_4]);
+
+  readPixels_Callback_6_(
+          mthis, __arg_0, __arg_1, __arg_2, __arg_3, __arg_4, __arg_5) =>
+      Blink_JsNative_DomException.callMethod(
+          mthis /* WebGL2RenderingContextBase */,
+          "readPixels",
+          [__arg_0, __arg_1, __arg_2, __arg_3, __arg_4, __arg_5]);
+
+  readPixels_Callback_7_(mthis, __arg_0, __arg_1, __arg_2, __arg_3, __arg_4,
+          __arg_5, __arg_6) =>
+      Blink_JsNative_DomException.callMethod(
+          mthis /* WebGL2RenderingContextBase */,
+          "readPixels",
+          [__arg_0, __arg_1, __arg_2, __arg_3, __arg_4, __arg_5, __arg_6]);
+
   renderbufferStorageMultisample_Callback_3_(
           mthis, __arg_0, __arg_1, __arg_2) =>
       Blink_JsNative_DomException.callMethod(
@@ -29005,6 +29025,42 @@ class BlinkWebGL2RenderingContext {
           mthis /* WebGL2RenderingContextBase */,
           "samplerParameteri",
           [__arg_0, __arg_1, __arg_2]);
+
+  texImage2D_Callback_7_(mthis, __arg_0, __arg_1, __arg_2, __arg_3, __arg_4,
+          __arg_5, __arg_6) =>
+      Blink_JsNative_DomException.callMethod(
+          mthis /* WebGL2RenderingContextBase */,
+          "texImage2D",
+          [__arg_0, __arg_1, __arg_2, __arg_3, __arg_4, __arg_5, __arg_6]);
+
+  texImage2D_Callback_8_(mthis, __arg_0, __arg_1, __arg_2, __arg_3, __arg_4,
+          __arg_5, __arg_6, __arg_7) =>
+      Blink_JsNative_DomException.callMethod(
+          mthis /* WebGL2RenderingContextBase */, "texImage2D", [
+        __arg_0,
+        __arg_1,
+        __arg_2,
+        __arg_3,
+        __arg_4,
+        __arg_5,
+        __arg_6,
+        __arg_7
+      ]);
+
+  texImage2D_Callback_9_(mthis, __arg_0, __arg_1, __arg_2, __arg_3, __arg_4,
+          __arg_5, __arg_6, __arg_7, __arg_8) =>
+      Blink_JsNative_DomException.callMethod(
+          mthis /* WebGL2RenderingContextBase */, "texImage2D", [
+        __arg_0,
+        __arg_1,
+        __arg_2,
+        __arg_3,
+        __arg_4,
+        __arg_5,
+        __arg_6,
+        __arg_7,
+        __arg_8
+      ]);
 
   texImage3D_Callback_8_(mthis, __arg_0, __arg_1, __arg_2, __arg_3, __arg_4,
           __arg_5, __arg_6, __arg_7) =>

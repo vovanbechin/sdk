@@ -5398,6 +5398,12 @@ class RenderingContext2 extends Interceptor
   @Experimental() // untriaged
   void readBuffer(int mode) native;
 
+  @DomName('WebGL2RenderingContext.readPixels')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void readPixels(int x, int y, int width, int height, int format, int type,
+      int offset) native;
+
   @JSName('readPixels')
   @DomName('WebGL2RenderingContext.readPixels')
   @DocsEditable()
@@ -5425,6 +5431,12 @@ class RenderingContext2 extends Interceptor
   @DocsEditable()
   @Experimental() // untriaged
   void samplerParameteri(Sampler sampler, int pname, int param) native;
+
+  @DomName('WebGL2RenderingContext.texImage2D')
+  @DocsEditable()
+  @Experimental() // untriaged
+  void texImage2D(int target, int level, int internalformat, int width,
+      int height, int border, int format, int type, int offset) native;
 
   @JSName('texImage2D')
   @DomName('WebGL2RenderingContext.texImage2D')
