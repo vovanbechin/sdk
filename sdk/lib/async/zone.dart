@@ -1492,7 +1492,7 @@ R runZoned<R>(R body(),
         zone.runBinary(onError, e, stackTrace);
         return null;
       }
-      assert(onError is! ZoneUnaryCallback<R, Object>);
+      assert(onError is ZoneUnaryCallback<R, Object>);
       zone.runUnary(onError, e);
       return null;
     }
