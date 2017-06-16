@@ -9,6 +9,7 @@ import 'package:async_helper/async_helper.dart';
 import 'package:expect/expect.dart';
 import 'package:compiler/src/closure.dart';
 import 'package:compiler/src/commandline_options.dart';
+import 'package:compiler/src/common_elements.dart';
 import 'package:compiler/src/constants/values.dart';
 import 'package:compiler/src/compiler.dart';
 import 'package:compiler/src/deferred_load.dart';
@@ -50,7 +51,6 @@ main(List<String> args) {
           resolutionInputs:
               serializedData.toUris(result.serializedData.toUris()));
     } else {
-      Uri entryPoint = Uri.parse('memory:main.dart');
       await arguments.forEachTest(serializedData, TESTS, checkModels);
     }
     printMeasurementResults();
@@ -71,7 +71,9 @@ Future checkModels(Uri entryPoint,
         memorySourceFiles: sourceFiles, options: [Flags.analyzeOnly]);
     compilerNormal.resolution.retainCachesForTesting = true;
     await compilerNormal.run(entryPoint);
-    compilerNormal.closeResolution();
+    ElementEnvironment elementEnvironment =
+        compilerNormal.frontendStrategy.elementEnvironment;
+    compilerNormal.closeResolution(elementEnvironment.mainFunction);
     return compilerNormal;
   });
 
@@ -83,7 +85,9 @@ Future checkModels(Uri entryPoint,
         options: [Flags.analyzeOnly]);
     compilerDeserialized.resolution.retainCachesForTesting = true;
     await compilerDeserialized.run(entryPoint);
-    compilerDeserialized.closeResolution();
+    ElementEnvironment elementEnvironment =
+        compilerDeserialized.frontendStrategy.elementEnvironment;
+    compilerDeserialized.closeResolution(elementEnvironment.mainFunction);
     return compilerDeserialized;
   });
 

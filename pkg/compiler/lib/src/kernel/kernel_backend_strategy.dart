@@ -73,14 +73,21 @@ class KernelBackendStrategy implements BackendStrategy {
       NativeBasicData nativeBasicData,
       ClosedWorld closedWorld,
       SelectorConstraintsStrategy selectorConstraintsStrategy) {
-    return new KernelCodegenWorldBuilder(closedWorld.elementEnvironment,
-        nativeBasicData, closedWorld, selectorConstraintsStrategy);
+    KernelFrontEndStrategy frontendStrategy = _compiler.frontendStrategy;
+    return new KernelCodegenWorldBuilder(
+        frontendStrategy.elementMap,
+        closedWorld.elementEnvironment,
+        nativeBasicData,
+        closedWorld,
+        selectorConstraintsStrategy);
   }
 
   @override
-  SsaBuilderTask createSsaBuilderTask(JavaScriptBackend backend,
+  SsaBuilder createSsaBuilder(CompilerTask task, JavaScriptBackend backend,
       SourceInformationStrategy sourceInformationStrategy) {
-    return new KernelSsaBuilderTask(backend.compiler);
+    KernelFrontEndStrategy strategy = backend.compiler.frontendStrategy;
+    KernelToElementMap elementMap = strategy.elementMap;
+    return new KernelSsaBuilder(task, backend.compiler, elementMap);
   }
 
   @override
@@ -117,7 +124,8 @@ class KernelCodegenWorkItem extends CodegenWorkItem {
   final CodegenRegistry registry;
 
   KernelCodegenWorkItem(this._backend, this._closedWorld, this.element)
-      : registry = new CodegenRegistry(element);
+      : registry =
+            new CodegenRegistry(_closedWorld.elementEnvironment, element);
 
   @override
   WorldImpact run() {
@@ -126,19 +134,16 @@ class KernelCodegenWorkItem extends CodegenWorkItem {
 }
 
 /// Task for building SSA from kernel IR loaded from .dill.
-class KernelSsaBuilderTask extends CompilerTask implements SsaBuilderTask {
+class KernelSsaBuilder implements SsaBuilder {
+  final CompilerTask task;
   final Compiler _compiler;
+  final KernelToElementMap _elementMap;
 
-  KernelSsaBuilderTask(this._compiler) : super(_compiler.measurer);
-
-  KernelToElementMapImpl get _elementMap {
-    KernelFrontEndStrategy frontendStrategy = _compiler.frontendStrategy;
-    return frontendStrategy.elementMap;
-  }
+  KernelSsaBuilder(this.task, this._compiler, this._elementMap);
 
   @override
   HGraph build(CodegenWorkItem work, ClosedWorld closedWorld) {
-    KernelSsaBuilder builder = new KernelSsaBuilder(
+    KernelSsaGraphBuilder builder = new KernelSsaGraphBuilder(
         work.element,
         work.element.enclosingClass,
         _elementMap.getMemberNode(work.element),
@@ -266,7 +271,8 @@ class KernelToLocalsMapImpl implements KernelToLocalsMap {
 
   @override
   JumpTarget getJumpTarget(ir.TreeNode node, {bool isContinueTarget: false}) {
-    throw new UnimplementedError('KernelToLocalsMapImpl.getJumpTarget');
+    // TODO(johnniwinther): Support jump targets.
+    return null;
   }
 
   @override

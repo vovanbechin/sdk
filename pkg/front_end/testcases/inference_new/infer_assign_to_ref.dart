@@ -10,8 +10,7 @@ class A {
 }
 
 A a = new A();
-var /*@topType=dynamic*/ b =
-    (/*error:TOP_LEVEL_UNSUPPORTED*/ a. /*@target=A::f*/ f = 1);
+var /*@topType=int*/ b = (a. /*@target=A::f*/ f = 1);
 var /*@topType=int*/ c = 0;
 var /*@topType=int*/ d = (c = 1);
 

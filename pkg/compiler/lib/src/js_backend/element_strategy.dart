@@ -8,6 +8,7 @@ import '../backend_strategy.dart';
 import '../closure.dart' show ClosureConversionTask, ClosureTask;
 import '../common.dart';
 import '../common/codegen.dart';
+import '../common/tasks.dart';
 import '../common/work.dart';
 import '../compiler.dart';
 import '../elements/elements.dart';
@@ -51,8 +52,12 @@ class ElementBackendStrategy implements BackendStrategy {
       NativeBasicData nativeBasicData,
       ClosedWorld closedWorld,
       SelectorConstraintsStrategy selectorConstraintsStrategy) {
-    return new ElementCodegenWorldBuilderImpl(closedWorld.elementEnvironment,
-        nativeBasicData, closedWorld, selectorConstraintsStrategy);
+    return new ElementCodegenWorldBuilderImpl(
+        _compiler.backend.constants,
+        closedWorld.elementEnvironment,
+        nativeBasicData,
+        closedWorld,
+        selectorConstraintsStrategy);
   }
 
   @override
@@ -62,11 +67,11 @@ class ElementBackendStrategy implements BackendStrategy {
   }
 
   @override
-  SsaBuilderTask createSsaBuilderTask(JavaScriptBackend backend,
+  SsaBuilder createSsaBuilder(CompilerTask task, JavaScriptBackend backend,
       SourceInformationStrategy sourceInformationStrategy) {
     return _compiler.options.useKernel
-        ? new RastaSsaBuilderTask(backend, sourceInformationStrategy)
-        : new SsaAstBuilderTask(backend, sourceInformationStrategy);
+        ? new RastaSsaBuilder(task, backend, sourceInformationStrategy)
+        : new SsaAstBuilder(task, backend, sourceInformationStrategy);
   }
 
   SourceInformationStrategy get sourceInformationStrategy {
@@ -155,7 +160,7 @@ class ElementCodegenWorkItem extends CodegenWorkItem {
   MemberElement get element => resolvedAst.element;
 
   WorldImpact run() {
-    registry = new CodegenRegistry(element);
+    registry = new CodegenRegistry(_closedWorld.elementEnvironment, element);
     return _backend.codegen(this, _closedWorld);
   }
 

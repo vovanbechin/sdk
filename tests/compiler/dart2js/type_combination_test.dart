@@ -750,7 +750,7 @@ void main() {
     WorldImpactBuilderImpl impactBuilder = new WorldImpactBuilderImpl();
     LibraryElement interceptorsLibrary =
         compiler.resolution.commonElements.interceptorsLibrary;
-    interceptorsLibrary.forEachLocalMember((element) {
+    interceptorsLibrary.forEachLocalMember((dynamic element) {
       if (element.isClass) {
         element.ensureResolved(compiler.resolution);
         impactBuilder
@@ -769,7 +769,7 @@ void main() {
         .registerTypeUse(new TypeUse.instantiation(patternImplClass.rawType));
     compiler.enqueuer.resolution.applyImpact(impactBuilder);
     backend.onResolutionEnd();
-    compiler.closeResolution();
+    compiler.closeResolution(null);
     ClosedWorld closedWorld =
         compiler.resolutionWorldBuilder.closedWorldForTesting;
 

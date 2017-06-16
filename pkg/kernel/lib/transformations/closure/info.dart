@@ -100,8 +100,30 @@ class ClosureInfo extends RecursiveVisitor {
   }
 
   visitConstructor(Constructor node) {
+    /// [currentFunction] should be set to [currentMemberFunction] before
+    /// visiting the [FunctionNode] of the constructor, because initializers may
+    /// use constructor parameters and it shouldn't be treated as capturing
+    /// them.  Consider the following code:
+    ///
+    ///     class A {
+    ///       int x;
+    ///       A(int x)  /* [x] is visible in initializers and body. */
+    ///         : this.x = x {  /* Initializer. */
+    ///         /* Constructor body. */
+    ///       }
+    ///     }
+    ///
+    /// Here the parameter shouldn't be captured into a context in the
+    /// initializer.  However, [currentFunction] is `null` if not set, and
+    /// `function[node.variable]` in this case points to the [FunctionNode] of
+    /// the constructor (which is not `null`).  It leads to `x` being treated as
+    /// captured, because it's seen as used outside of the function where it is
+    /// declared.  In turn, it leads to unnecessary context creation and usage.
     beginMember(node, node.function);
-    super.visitConstructor(node);
+    saveCurrentFunction(() {
+      currentFunction = currentMemberFunction;
+      super.visitConstructor(node);
+    });
     endMember();
   }
 
@@ -158,10 +180,12 @@ class ClosureInfo extends RecursiveVisitor {
 
   visitFunctionNode(FunctionNode node) {
     localNames.putIfAbsent(node, computeUniqueLocalName);
-    var saved = currentFunction;
-    currentFunction = node;
-    node.visitChildren(this);
-    currentFunction = saved;
+
+    saveCurrentFunction(() {
+      currentFunction = node;
+      node.visitChildren(this);
+    });
+
     Set<TypeParameter> capturedTypeVariables = typeVariables[node];
     if (capturedTypeVariables != null && !isOuterMostContext) {
       // Propagate captured type variables to enclosing function.
@@ -208,5 +232,14 @@ class ClosureInfo extends RecursiveVisitor {
   visitPropertyGet(PropertyGet node) {
     invokedGetters.add(node.name);
     super.visitPropertyGet(node);
+  }
+
+  saveCurrentFunction(void f()) {
+    var saved = currentFunction;
+    try {
+      f();
+    } finally {
+      currentFunction = saved;
+    }
   }
 }

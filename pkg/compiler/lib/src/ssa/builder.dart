@@ -54,85 +54,53 @@ import 'ssa_branch_builder.dart';
 import 'type_builder.dart';
 import 'types.dart';
 
-abstract class SsaAstBuilderBase extends CompilerTask
-    implements SsaBuilderTask {
+abstract class SsaAstBuilderBase extends SsaBuilderFieldMixin
+    implements SsaBuilder {
+  final CompilerTask task;
   final JavaScriptBackend backend;
 
-  SsaAstBuilderBase(this.backend) : super(backend.compiler.measurer);
+  SsaAstBuilderBase(this.task, this.backend);
 
-  /// Handle field initializer of `work.element`. Returns `true` if no code
-  /// is needed for the field.
-  ///
-  /// If `work.element` is a field with a constant initializer, the value is
-  /// registered with the world impact. Otherwise the cyclic-throw helper is
-  /// registered for the lazy value computation.
-  ///
-  /// If the field is constant, no code is needed for the field and the method
-  /// return `true`.
-  bool handleConstantField(
-      ElementCodegenWorkItem work, ClosedWorld closedWorld) {
-    MemberElement element = work.element;
-    if (element.isField) {
-      FieldElement field = element;
-      ConstantExpression constant = field.constant;
-      if (constant != null) {
-        ConstantValue initialValue =
-            backend.constants.getConstantValue(constant);
-        if (initialValue != null) {
-          work.registry.worldImpact
-              .registerConstantUse(new ConstantUse.init(initialValue));
-          // We don't need to generate code for static or top-level
-          // variables. For instance variables, we may need to generate
-          // the checked setter.
-          if (field.isStatic || field.isTopLevel) {
-            /// No code is created for this field.
-            return true;
-          }
-        } else {
-          assert(
-              field.isInstanceMember ||
-                  constant.isImplicit ||
-                  constant.isPotential,
-              failedAt(
-                  field,
-                  "Constant expression without value: "
-                  "${constant.toStructuredText()}."));
-        }
-      } else {
-        // If the constant-handler was not able to produce a result we have to
-        // go through the builder (below) to generate the lazy initializer for
-        // the static variable.
-        // We also need to register the use of the cyclic-error helper.
-        work.registry.worldImpact.registerStaticUse(new StaticUse.staticInvoke(
-            closedWorld.commonElements.cyclicThrowHelper,
-            CallStructure.ONE_ARG));
+  ConstantValue getFieldInitialConstantValue(FieldElement field) {
+    ConstantExpression constant = field.constant;
+    if (constant != null) {
+      ConstantValue initialValue = backend.constants.getConstantValue(constant);
+      if (initialValue == null) {
+        assert(
+            field.isInstanceMember ||
+                constant.isImplicit ||
+                constant.isPotential,
+            failedAt(
+                field,
+                "Constant expression without value: "
+                "${constant.toStructuredText()}."));
       }
+      return initialValue;
     }
-    return false;
+    return null;
   }
 }
 
-class SsaAstBuilderTask extends SsaAstBuilderBase {
+class SsaAstBuilder extends SsaAstBuilderBase {
   final CodeEmitterTask emitter;
   final SourceInformationStrategy sourceInformationFactory;
 
-  String get name => 'SSA builder';
-
-  SsaAstBuilderTask(JavaScriptBackend backend, this.sourceInformationFactory)
+  SsaAstBuilder(CompilerTask task, JavaScriptBackend backend,
+      this.sourceInformationFactory)
       : emitter = backend.emitter,
-        super(backend);
+        super(task, backend);
 
   DiagnosticReporter get reporter => backend.reporter;
 
   HGraph build(ElementCodegenWorkItem work, ClosedWorld closedWorld) {
-    return measure(() {
-      if (handleConstantField(work, closedWorld)) {
+    return task.measure(() {
+      if (handleConstantField(work.element, work.registry, closedWorld)) {
         // No code is generated for `work.element`.
         return null;
       }
       MemberElement element = work.element.implementation;
       return reporter.withCurrentElement(element, () {
-        SsaBuilder builder = new SsaBuilder(
+        SsaAstGraphBuilder builder = new SsaAstGraphBuilder(
             work.element.implementation,
             work.resolvedAst,
             work.registry,
@@ -179,7 +147,7 @@ class SsaAstBuilderTask extends SsaAstBuilderBase {
 /**
  * This class builds SSA nodes for functions represented in AST.
  */
-class SsaBuilder extends ast.Visitor
+class SsaAstGraphBuilder extends ast.Visitor
     with
         BaseImplementationOfCompoundsMixin,
         BaseImplementationOfSetIfNullsMixin,
@@ -258,7 +226,7 @@ class SsaBuilder extends ast.Visitor
   TypeBuilder typeBuilder;
 
   // TODO(sigmund): make most args optional
-  SsaBuilder(
+  SsaAstGraphBuilder(
       this.target,
       this.resolvedAst,
       this.registry,
@@ -6597,7 +6565,7 @@ class SsaBuilder extends ast.Visitor
  * non-literal subexpressions.
  */
 class StringBuilderVisitor extends ast.Visitor {
-  final SsaBuilder builder;
+  final SsaAstGraphBuilder builder;
   final ast.Node diagnosticNode;
 
   /**
