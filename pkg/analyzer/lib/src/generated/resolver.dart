@@ -6801,10 +6801,10 @@ class ResolverVisitor extends ScopedVisitor {
         !FunctionTypeImpl.relate(
             expectedClosureType,
             staticClosureType,
-            (DartType t, DartType s, _, __) =>
-                (t as TypeImpl).isMoreSpecificThan(s),
+            (s, t) => true,
             new TypeSystemImpl(typeProvider).instantiateToBounds,
-            returnRelation: (s, t) => true)) {
+            parameterRelation: (t, s) =>
+                (t.type as TypeImpl).isMoreSpecificThan(s.type))) {
       return;
     }
     // set propagated type for the closure

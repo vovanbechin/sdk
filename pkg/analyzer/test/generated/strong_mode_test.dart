@@ -14,6 +14,7 @@ import 'package:analyzer/src/dart/element/element.dart';
 import 'package:analyzer/src/error/codes.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/source_io.dart';
+import 'package:analyzer/src/task/strong/ast_properties.dart';
 import 'package:front_end/src/base/errors.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
@@ -418,6 +419,249 @@ class StrongModeLocalInferenceTest extends ResolverTestCase {
     ConstructorFieldInitializer assignment = constructor.initializers[0];
     Expression exp = assignment.expression;
     _isListOf(_isString)(exp.staticType);
+  }
+
+  test_covarianceChecks() async {
+    var source = addSource(r'''
+class C<T> {
+  add(T t) {}
+  forEach(void f(T t)) {}
+}
+class D extends C<int> {
+  add(int t) {}
+  forEach(void f(int t)) {}
+}
+class E extends C<int> {
+  add(Object t) {}
+  forEach(void f(Null t)) {}
+}
+''');
+    var unit = (await computeAnalysisResult(source)).unit;
+    assertNoErrors(source);
+    var cAdd = AstFinder.getMethodInClass(unit, "C", "add");
+    var covariantC = getClassCovariantParameters(AstFinder.getClass(unit, "C"));
+    expect(covariantC.toList(), [cAdd.element.parameters[0]]);
+
+    var dAdd = AstFinder.getMethodInClass(unit, "D", "add");
+    var covariantD = getClassCovariantParameters(AstFinder.getClass(unit, "D"));
+    expect(covariantD.toList(), [dAdd.element.parameters[0]]);
+
+    var covariantE = getClassCovariantParameters(AstFinder.getClass(unit, "E"));
+    expect(covariantE.toList(), []);
+  }
+
+  test_covarianceChecks_genericMethods() async {
+    var source = addSource(r'''
+class C<T> {
+  add<S>(T t) {}
+  forEach<S>(S f(T t)) {}
+}
+class D extends C<int> {
+  add<S>(int t) {}
+  forEach<S>(S f(int t)) {}
+}
+class E extends C<int> {
+  add<S>(Object t) {}
+  forEach<S>(S f(Null t)) {}
+}
+''');
+    var unit = (await computeAnalysisResult(source)).unit;
+    assertNoErrors(source);
+
+    var cAdd = AstFinder.getMethodInClass(unit, "C", "add");
+    var covariantC = getClassCovariantParameters(AstFinder.getClass(unit, "C"));
+    expect(covariantC.toList(), [cAdd.element.parameters[0]]);
+
+    var dAdd = AstFinder.getMethodInClass(unit, "D", "add");
+    var covariantD = getClassCovariantParameters(AstFinder.getClass(unit, "D"));
+    expect(covariantD.toList(), [dAdd.element.parameters[0]]);
+
+    var covariantE = getClassCovariantParameters(AstFinder.getClass(unit, "E"));
+    expect(covariantE.toList(), []);
+  }
+
+  test_covarianceChecks_superclass() async {
+    var source = addSource(r'''
+class C<T> {
+  add(T t) {}
+  forEach(void f(T t)) {}
+}
+class D {
+  add(int t) {}
+  forEach(void f(int t)) {}
+}
+class E extends D implements C<int> {}
+''');
+    var unit = (await computeAnalysisResult(source)).unit;
+    assertNoErrors(source);
+    var cAdd = AstFinder.getMethodInClass(unit, "C", "add");
+    var covariantC = getClassCovariantParameters(AstFinder.getClass(unit, "C"));
+    expect(covariantC.toList(), [cAdd.element.parameters[0]]);
+
+    var dAdd = AstFinder.getMethodInClass(unit, "D", "add");
+    var covariantD = getClassCovariantParameters(AstFinder.getClass(unit, "D"));
+    expect(covariantD, null);
+
+    var classE = AstFinder.getClass(unit, "E");
+    var covariantE = getClassCovariantParameters(classE);
+    var superCovariantE = getSuperclassCovariantParameters(classE);
+    expect(covariantE.toList(), []);
+    expect(superCovariantE.toList(), [dAdd.element.parameters[0]]);
+  }
+
+  @soloTest
+  test_covarianceChecks_returnFunction() async {
+    var source = addSource(r'''
+
+typedef F<T>(T t);
+typedef T R<T>();
+class C<T> {
+  F<T> f;
+  F<T> get g => null;
+  F<T> m1() => null;
+  R<F<T>> m2() => null;
+
+  casts(C<T> other, T t, F<T> fT, R<F<T>> rfT) {
+    fT = f;
+    fT = g;
+    fT = m1();
+    rfT = m2();
+
+    f(t);
+    g(t);
+    (f)(t);
+    (g)(t);
+    m1()(t);
+    m2()()(t);
+
+    fT = this.f;
+    fT = this.g;
+    fT = this.m1();
+    rfT = this.m2();
+
+    this.f(t);
+    this.g(t);
+    (this.f)(t);
+    (this.g)(t);
+    this.m1()(t);
+    this.m2()()(t);
+
+    fT = other.f;
+    fT = other.g;
+    fT = other.m1();
+    rfT = other.m2();
+
+    other.f(t);
+    other.g(t);
+    (other.f)(t);
+    (other.g)(t);
+    other.m1()(t);
+    other.m2()()(t);
+  }
+}
+class D extends C<int> {}
+
+D d;
+C<Object> c;
+F<Object> f;
+F<Null> fN;
+R<F<Object>> rf;
+R<F<Null>> rfN;
+R<R<F<Object>>> rrf;
+R<R<F<Null>>> rrfN;
+Object obj;
+F<int> fi;
+R<F<int>> rfi;
+R<R<F<int>>> rrfi;
+
+casts() {
+  f = c.f;
+  f = c.g;
+  rf = c.m1;
+  rrf = c.m2;
+  f = c.m1();
+  rf = c.m2();
+  c.m2()();
+
+  c.f(obj);
+  c.g(obj);
+  (c.f)(obj);
+  (c.g)(obj);
+  (c.m1)();
+  c.m1()(obj);
+  (c.m2)();
+}
+
+noCasts() {
+  c.f;
+  c.g;
+  c.m1;
+  c.m1();
+  c.m2();
+
+  fN = c.f;
+  fN = c.g;
+  rfN = c.m1;
+  rrfN = c.m2;
+  fN = c.m1();
+  rfN = c.m2();
+  fN = c.m2()();
+
+  fi = d.f;
+  fi = d.g;
+  rfi = d.m1;
+  fi = d.m1();
+  rrfi = d.m2;
+  rfi = d.m2();
+  fi = d.m2()();
+  d.f(42);
+  d.g(42);
+  (d.f)(42);
+  (d.g)(42);
+  d.m1()(42);
+  d.m2()()(42);
+}
+''');
+    var unit = (await computeAnalysisResult(source)).unit;
+    assertNoErrors(source);
+
+    void expectCast(Statement statement, bool hasCast) {
+      var expr = (statement as ExpressionStatement).expression;
+      Expression value;
+      if (expr is AssignmentExpression) {
+        value = expr.rightHandSide;
+      } else {
+        value = expr;
+        while (value is InvocationExpression) {
+          value = (value as InvocationExpression).function;
+        }
+        // We don't put the cast on the method itself
+        if (value is SimpleIdentifier && value.name.startsWith('m')) {
+          value = value.parent;
+        }
+      }
+      while (value is ParenthesizedExpression) {
+        value = (value as ParenthesizedExpression).expression;
+      }
+      var parent = value.parent;
+      var cast = parent is MethodInvocation && value == parent.methodName
+          ? getImplicitOperationCast(value)
+          : getImplicitCast(value);
+      expect(cast, hasCast ? isNotNull : isNull,
+          reason: '`$expr` should ' +
+              (hasCast ? '' : 'not ') +
+              'have a cast on `$value`.');
+    }
+
+    for (var s in AstFinder.getStatementsInMethod(unit, 'C', 'casts')) {
+      expectCast(s, true);
+    }
+    for (var s in AstFinder.getStatementsInTopLevelFunction(unit, 'noCasts')) {
+      expectCast(s, false);
+    }
+    for (var s in AstFinder.getStatementsInTopLevelFunction(unit, 'casts')) {
+      expectCast(s, true);
+    }
   }
 
   test_factoryConstructor_propagation() async {

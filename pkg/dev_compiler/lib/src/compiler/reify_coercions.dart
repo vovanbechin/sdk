@@ -132,8 +132,16 @@ class _TreeCloner extends analyzer.AstCloner {
     if (clone is Expression) {
       ast_properties.setImplicitCast(
           clone, ast_properties.getImplicitCast(node));
+      ast_properties.setImplicitOperationCast(
+          clone, ast_properties.getImplicitOperationCast(node));
       ast_properties.setIsDynamicInvoke(
           clone, ast_properties.isDynamicInvoke(node));
+    }
+    if (clone is ClassDeclaration) {
+      ast_properties.setClassCovariantParameters(
+          clone, ast_properties.getClassCovariantParameters(node));
+      ast_properties.setSuperclassCovariantParameters(
+          clone, ast_properties.getSuperclassCovariantParameters(node));
     }
   }
 
