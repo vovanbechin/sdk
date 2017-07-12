@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.services.dependencies.import_collector;
-
 import 'package:analysis_server/src/services/dependencies/reachable_source_collector.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:test/test.dart';
@@ -19,11 +17,8 @@ main() {
 
 @reflectiveTest
 class ReachableSourceCollectorTest extends AbstractContextTest {
-  @override
-  bool get enableNewAnalysisDriver => false;
-
   Map<String, List<String>> importsFor(Source source) =>
-      new ReachableSourceCollector(source, context).collectSources();
+      new ReachableSourceCollector(source, null).collectSources();
 
   test_null_context() {
     Source lib = addSource('/lib.dart', '');
@@ -31,12 +26,18 @@ class ReachableSourceCollectorTest extends AbstractContextTest {
         throwsA(new isInstanceOf<ArgumentError>()));
   }
 
+  @failingTest
   test_null_source() {
-    expect(() => new ReachableSourceCollector(null, context),
+    // See https://github.com/dart-lang/sdk/issues/29311
+    fail('The analysis.getReachableSources is not implemented.');
+    expect(() => new ReachableSourceCollector(null, null),
         throwsA(new isInstanceOf<ArgumentError>()));
   }
 
+  @failingTest
   test_sources() {
+    // See https://github.com/dart-lang/sdk/issues/29311
+    fail('The analysis.getReachableSources is not implemented.');
     Source lib1 = addSource(
         '/lib1.dart',
         '''

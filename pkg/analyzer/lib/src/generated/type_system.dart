@@ -266,8 +266,8 @@ class StrongTypeSystemImpl extends TypeSystem {
   /// they originated, so we can issue an error message tracing back to the
   /// argument values, type parameter "extends" clause, or the return type
   /// context.
-  /*=T*/ inferGenericFunctionOrType/*<T extends ParameterizedType>*/(
-      /*=T*/ genericType,
+  T inferGenericFunctionOrType<T extends ParameterizedType>(
+      T genericType,
       List<ParameterElement> parameters,
       List<DartType> argumentTypes,
       DartType returnContextType,
@@ -497,19 +497,25 @@ class StrongTypeSystemImpl extends TypeSystem {
         !nonnullableTypes.contains(_getTypeFullyQualifiedName(type));
   }
 
-  /// Check that [f1] is a subtype of [f2] for an override.
+  /// Check that [f1] is a subtype of [f2] for a member override.
   ///
   /// This is different from the normal function subtyping in two ways:
   /// - we know the function types are strict arrows,
   /// - it allows opt-in covariant parameters.
   bool isOverrideSubtypeOf(FunctionType f1, FunctionType f2) {
-    return FunctionTypeImpl.relate(
-        f1,
-        f2,
-        (t1, t2, t1Covariant, _) =>
-            isSubtypeOf(t2, t1) || t1Covariant && isSubtypeOf(t1, t2),
-        instantiateToBounds,
-        returnRelation: isSubtypeOf);
+    return FunctionTypeImpl.relate(f1, f2, isSubtypeOf, instantiateToBounds,
+        parameterRelation: isOverrideSubtypeOfParameter);
+  }
+
+  /// Check that parameter [p2] is a subtype of [p1], given that we are
+  /// checking `f1 <: f2` where `p1` is a parameter of `f1` and `p2` is a
+  /// parameter of `f2`.
+  ///
+  /// Parameters are contravariant, so we must check `p2 <: p1` to
+  /// determine if `f1 <: f2`. This is used by [isOverrideSubtypeOf].
+  bool isOverrideSubtypeOfParameter(ParameterElement p1, ParameterElement p2) {
+    return isSubtypeOf(p2.type, p1.type) ||
+        p1.isCovariant && isSubtypeOf(p1.type, p2.type);
   }
 
   @override
@@ -789,13 +795,10 @@ class StrongTypeSystemImpl extends TypeSystem {
   /// that dynamic parameters of f1 and f2 are treated as bottom.
   bool _isFunctionSubtypeOf(
       FunctionType f1, FunctionType f2, Set<TypeImpl> visitedTypes) {
-    return FunctionTypeImpl.relate(
-        f1,
-        f2,
-        (t1, t2, _, __) =>
-            _isSubtypeOf(t2, t1, visitedTypes, dynamicIsBottom: true),
-        instantiateToBounds,
-        returnRelation: isSubtypeOf);
+    return FunctionTypeImpl.relate(f1, f2, isSubtypeOf, instantiateToBounds,
+        parameterRelation: (p1, p2) => _isSubtypeOf(
+            p2.type, p1.type, visitedTypes,
+            dynamicIsBottom: true));
   }
 
   bool _isInterfaceSubtypeOf(
@@ -1078,9 +1081,8 @@ class StrongTypeSystemImpl extends TypeSystem {
     return getLeastUpperBound(type1, type2);
   }
 
-  static List/*<T>*/ _transformList/*<T>*/(
-      List/*<T>*/ list, /*=T*/ f(/*=T*/ t)) {
-    List/*<T>*/ newList = null;
+  static List<T> _transformList<T>(List<T> list, T f(T t)) {
+    List<T> newList = null;
     for (var i = 0; i < list.length; i++) {
       var item = list[i];
       var newItem = f(item);
@@ -1647,7 +1649,7 @@ class UnknownInferredTypeElement extends ElementImpl
   UnknownInferredType get type => UnknownInferredType.instance;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor visitor) => null;
+  T accept<T>(ElementVisitor visitor) => null;
 }
 
 /// Tracks upper and lower type bounds for a set of type parameters.
@@ -1735,9 +1737,8 @@ class _GenericInferrer {
   /// `?` to precisely represent an unknown type. If [downwardsInferPhase] is
   /// false, we are on our final inference pass, have all available information
   /// including argument types, and must not conclude `?` for any type formal.
-  /*=T*/ infer/*<T extends ParameterizedType>*/(
-      /*=T*/ genericType,
-      List<TypeParameterElement> typeFormals,
+  T infer<T extends ParameterizedType>(
+      T genericType, List<TypeParameterElement> typeFormals,
       {ErrorReporter errorReporter,
       AstNode errorNode,
       bool downwardsInferPhase: false}) {
@@ -1770,7 +1771,7 @@ class _GenericInferrer {
     // If the downwards infer phase has failed, we'll catch this in the upwards
     // phase later on.
     if (downwardsInferPhase) {
-      return genericType.instantiate(inferredTypes) as dynamic/*=T*/;
+      return genericType.instantiate(inferredTypes) as T;
     }
 
     // Check the inferred types against all of the constraints.
@@ -1814,7 +1815,7 @@ class _GenericInferrer {
     // Use instantiate to bounds to finish things off.
     var hasError = new List<bool>.filled(fnTypeParams.length, false);
     var result = _typeSystem.instantiateToBounds(genericType,
-        hasError: hasError, knownTypes: knownTypes) as dynamic/*=T*/;
+        hasError: hasError, knownTypes: knownTypes) as T;
 
     // Report any errors from instantiateToBounds.
     for (int i = 0; i < hasError.length; i++) {
@@ -2178,14 +2179,16 @@ class _GenericInferrer {
       FunctionTypeImpl.relate(
           t1,
           t2,
-          (t1, t2, _, __) {
-            _matchSubtypeOf(t2, t1, null, origin,
-                covariant: !covariant, dynamicIsBottom: true);
+          (t1, t2) {
+            // TODO(jmesserly): should we flip covariance when we're relating
+            // type formal bounds? They're more like parameters.
+            matchSubtype(t1, t2);
             return true;
           },
           _typeSystem.instantiateToBounds,
-          returnRelation: (t1, t2) {
-            matchSubtype(t1, t2);
+          parameterRelation: (p1, p2) {
+            _matchSubtypeOf(p2.type, p1.type, null, origin,
+                covariant: !covariant, dynamicIsBottom: true);
             return true;
           });
     }

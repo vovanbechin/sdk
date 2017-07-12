@@ -9,14 +9,13 @@ import 'package:async_helper/async_helper.dart';
 import 'package:compiler/src/common/names.dart';
 import 'package:compiler/src/commandline_options.dart';
 import 'package:compiler/src/compiler.dart';
-import 'package:compiler/src/js_backend/js_backend.dart';
 import 'package:compiler/src/js_backend/native_data.dart';
 import 'package:compiler/src/filenames.dart';
 import 'package:compiler/src/serialization/equivalence.dart';
 import 'package:compiler/src/world.dart';
+import '../equivalence/check_helpers.dart';
 import '../memory_compiler.dart';
 import 'helper.dart';
-import 'test_helper.dart';
 
 main(List<String> args) {
   asyncTest(() async {
@@ -36,7 +35,9 @@ Future checkNativeData(Uri uri, {bool verbose: false}) async {
   SerializationResult result = await serialize(uri);
   Compiler compiler1 = result.compiler;
   SerializedData serializedData = result.serializedData;
-  ClosedWorld closedWorld1 = compiler1.closeResolution().closedWorld;
+  var elementEnvironment1 = compiler1.frontendStrategy.elementEnvironment;
+  ClosedWorld closedWorld1 =
+      compiler1.closeResolution(elementEnvironment1.mainFunction).closedWorld;
 
   print('------------------------------------------------------------------');
   print('analyze deserialized: $uri');
@@ -46,12 +47,14 @@ Future checkNativeData(Uri uri, {bool verbose: false}) async {
       resolutionInputs: serializedData.toUris(),
       options: [Flags.analyzeAll]);
   await compiler2.run(uri);
-  ClosedWorld closedWorld2 = compiler2.closeResolution().closedWorld;
+  var elementEnvironment2 = compiler2.frontendStrategy.elementEnvironment;
+  ClosedWorld closedWorld2 =
+      compiler2.closeResolution(elementEnvironment2.mainFunction).closedWorld;
 
-  JavaScriptBackend backend1 = compiler1.backend;
-  JavaScriptBackend backend2 = compiler2.backend;
-  NativeBasicDataImpl nativeBasicData1 = backend1.nativeBasicData;
-  NativeBasicDataImpl nativeBasicData2 = backend2.nativeBasicData;
+  NativeBasicDataImpl nativeBasicData1 =
+      compiler1.frontendStrategy.nativeBasicData;
+  NativeBasicDataImpl nativeBasicData2 =
+      compiler2.frontendStrategy.nativeBasicData;
   NativeDataImpl nativeData1 = closedWorld1.nativeData;
   NativeDataImpl nativeData2 = closedWorld2.nativeData;
 

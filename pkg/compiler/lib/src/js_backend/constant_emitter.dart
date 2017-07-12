@@ -5,16 +5,20 @@
 import '../common.dart';
 import '../common_elements.dart';
 import '../constants/values.dart';
-import '../elements/resolution_types.dart';
 import '../elements/elements.dart';
+import '../elements/types.dart' show TypeVariableType;
+import '../elements/entities.dart';
+import '../elements/resolution_types.dart';
 import '../io/code_output.dart';
 import '../js/js.dart' as jsAst;
 import '../js/js.dart' show js;
 import '../js_emitter/code_emitter_task.dart';
 import '../options.dart';
-import 'js_backend.dart';
+import '../universe/world_builder.dart';
 import 'constant_system_javascript.dart';
+import 'js_backend.dart';
 import 'namer.dart';
+import 'runtime_types.dart';
 
 typedef jsAst.Expression _ConstantReferenceGenerator(ConstantValue constant);
 
@@ -35,6 +39,7 @@ class ConstantEmitter implements ConstantValueVisitor<jsAst.Expression, Null> {
 
   final CompilerOptions _options;
   final CommonElements _commonElements;
+  final CodegenWorldBuilder _worldBuilder;
   final RuntimeTypesNeed _rtiNeed;
   final RuntimeTypesEncoder _rtiEncoder;
   final Namer _namer;
@@ -50,6 +55,7 @@ class ConstantEmitter implements ConstantValueVisitor<jsAst.Expression, Null> {
   ConstantEmitter(
       this._options,
       this._commonElements,
+      this._worldBuilder,
       this._rtiNeed,
       this._rtiEncoder,
       this._namer,
@@ -282,7 +288,7 @@ class ConstantEmitter implements ConstantValueVisitor<jsAst.Expression, Null> {
 
   @override
   jsAst.Expression visitInterceptor(InterceptorConstantValue constant, [_]) {
-    ClassElement interceptorClass = constant.cls;
+    ClassEntity interceptorClass = constant.cls;
     return _task.interceptorPrototypeAccess(interceptorClass);
   }
 
@@ -303,7 +309,7 @@ class ConstantEmitter implements ConstantValueVisitor<jsAst.Expression, Null> {
 
   @override
   jsAst.Expression visitConstructed(ConstructedConstantValue constant, [_]) {
-    ClassElement element = constant.type.element;
+    ClassEntity element = constant.type.element;
     if (element == _commonElements.jsConstClass) {
       StringConstantValue str = constant.fields.values.single;
       String value = str.primitiveValue;
@@ -312,9 +318,9 @@ class ConstantEmitter implements ConstantValueVisitor<jsAst.Expression, Null> {
     jsAst.Expression constructor =
         _emitter.constructorAccess(constant.type.element);
     List<jsAst.Expression> fields = <jsAst.Expression>[];
-    element.forEachInstanceField((_, FieldElement field) {
+    _worldBuilder.forEachInstanceField(element, (_, FieldEntity field) {
       fields.add(constantReferenceGenerator(constant.fields[field]));
-    }, includeSuperAndInjectedMembers: true);
+    });
     if (_rtiNeed.classNeedsRtiField(constant.type.element)) {
       fields.add(_reifiedTypeArguments(constant.type));
     }
@@ -339,7 +345,8 @@ class ConstantEmitter implements ConstantValueVisitor<jsAst.Expression, Null> {
   }
 
   jsAst.Expression _reifiedTypeArguments(ResolutionInterfaceType type) {
-    jsAst.Expression unexpected(ResolutionTypeVariableType variable) {
+    jsAst.Expression unexpected(TypeVariableType _variable) {
+      ResolutionTypeVariableType variable = _variable;
       throw new SpannableAssertionFailure(
           NO_LOCATION_SPANNABLE,
           "Unexpected type variable '${variable.getStringAsDeclared(null)}'"

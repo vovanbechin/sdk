@@ -13,6 +13,7 @@ static method main() → dynamic {
           break #L1;
           ;
         }
+        throw new core::FallThroughError::_create("pkg/front_end/testcases/rasta/switch_fall_through.dart", 7);
       }
     #L3:
     case 2:
@@ -23,7 +24,7 @@ static method main() → dynamic {
             break #L1;
           }
         }
-        throw core::_fallThroughError();
+        throw new core::FallThroughError::_create("pkg/front_end/testcases/rasta/switch_fall_through.dart", 13);
       }
     #L4:
     case 3:
@@ -34,6 +35,7 @@ static method main() → dynamic {
         finally {
           break #L1;
         }
+        throw new core::FallThroughError::_create("pkg/front_end/testcases/rasta/switch_fall_through.dart", 20);
       }
     #L5:
     case 4:
@@ -44,6 +46,7 @@ static method main() → dynamic {
         }
         finally {
         }
+        throw new core::FallThroughError::_create("pkg/front_end/testcases/rasta/switch_fall_through.dart", 26);
       }
     #L6:
     case 5:
@@ -53,7 +56,7 @@ static method main() → dynamic {
         }
         finally {
         }
-        throw core::_fallThroughError();
+        throw new core::FallThroughError::_create("pkg/front_end/testcases/rasta/switch_fall_through.dart", 31);
       }
     #L7:
     case 10000:

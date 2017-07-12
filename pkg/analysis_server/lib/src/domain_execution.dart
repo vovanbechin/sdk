@@ -2,19 +2,16 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library domain.execution;
-
 import 'dart:async';
 import 'dart:collection';
 import 'dart:core';
 
 import 'package:analysis_server/protocol/protocol.dart';
+import 'package:analysis_server/protocol/protocol_constants.dart';
 import 'package:analysis_server/protocol/protocol_generated.dart';
 import 'package:analysis_server/src/analysis_server.dart';
-import 'package:analysis_server/src/constants.dart';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/src/dart/analysis/driver.dart';
-import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/source.dart';
 
 /**
@@ -72,13 +69,13 @@ class ExecutionDomainHandler implements RequestHandler {
   Response handleRequest(Request request) {
     try {
       String requestName = request.method;
-      if (requestName == EXECUTION_CREATE_CONTEXT) {
+      if (requestName == EXECUTION_REQUEST_CREATE_CONTEXT) {
         return createContext(request);
-      } else if (requestName == EXECUTION_DELETE_CONTEXT) {
+      } else if (requestName == EXECUTION_REQUEST_DELETE_CONTEXT) {
         return deleteContext(request);
-      } else if (requestName == EXECUTION_MAP_URI) {
+      } else if (requestName == EXECUTION_REQUEST_MAP_URI) {
         return mapUri(request);
-      } else if (requestName == EXECUTION_SET_SUBSCRIPTIONS) {
+      } else if (requestName == EXECUTION_REQUEST_SET_SUBSCRIPTIONS) {
         return setSubscriptions(request);
       }
     } on RequestFailure catch (exception) {
@@ -100,21 +97,11 @@ class ExecutionDomainHandler implements RequestHandler {
           'There is no execution context with an id of $contextId');
     }
 
-    SourceFactory sourceFactory;
-    AnalysisDriver driver;
-    if (server.options.enableNewAnalysisDriver) {
-      driver = server.getAnalysisDriver(path);
-      if (driver == null) {
-        return new Response.invalidExecutionContext(request, contextId);
-      }
-      sourceFactory = driver.sourceFactory;
-    } else {
-      AnalysisContext context = server.getContainingContext(path);
-      if (context == null) {
-        return new Response.invalidExecutionContext(request, contextId);
-      }
-      sourceFactory = context.sourceFactory;
+    AnalysisDriver driver = server.getAnalysisDriver(path);
+    if (driver == null) {
+      return new Response.invalidExecutionContext(request, contextId);
     }
+    SourceFactory sourceFactory = driver.sourceFactory;
 
     String file = params.file;
     String uri = params.uri;
@@ -131,13 +118,7 @@ class ExecutionDomainHandler implements RequestHandler {
             request, 'file', 'Must not refer to a directory');
       }
 
-      Source source;
-      if (server.options.enableNewAnalysisDriver) {
-        source = driver.fsState.getFileForPath(file).source;
-      } else {
-        ContextSourcePair contextSource = server.getContextSourcePair(file);
-        source = contextSource.source;
-      }
+      Source source = driver.fsState.getFileForPath(file).source;
       if (source.uriKind != UriKind.FILE_URI) {
         uri = source.uri.toString();
       } else {
@@ -160,112 +141,7 @@ class ExecutionDomainHandler implements RequestHandler {
    * Implement the 'execution.setSubscriptions' request.
    */
   Response setSubscriptions(Request request) {
-    if (server.options.enableNewAnalysisDriver) {
-      // Under the analysis driver, setSubscriptions() becomes a no-op.
-      return new ExecutionSetSubscriptionsResult().toResponse(request.id);
-    } else {
-      List<ExecutionService> subscriptions =
-          new ExecutionSetSubscriptionsParams.fromRequest(request)
-              .subscriptions;
-      if (subscriptions.contains(ExecutionService.LAUNCH_DATA)) {
-        if (onFileAnalyzed == null) {
-          onFileAnalyzed = server.onFileAnalyzed.listen(_fileAnalyzed);
-          _reportCurrentFileStatus();
-        }
-      } else {
-        if (onFileAnalyzed != null) {
-          onFileAnalyzed.cancel();
-          onFileAnalyzed = null;
-        }
-      }
-      return new ExecutionSetSubscriptionsResult().toResponse(request.id);
-    }
-  }
-
-  void _fileAnalyzed(ChangeNotice notice) {
-    ServerPerformanceStatistics.executionNotifications.makeCurrentWhile(() {
-      Source source = notice.source;
-      String filePath = source.fullName;
-      // check files
-      bool isDartFile = notice.resolvedDartUnit != null;
-      if (!isDartFile) {
-        return;
-      }
-      // prepare context
-      AnalysisContext context = server.getContainingContext(filePath);
-      if (context == null) {
-        return;
-      }
-      // analyze the file
-      if (isDartFile) {
-        ExecutableKind kind = ExecutableKind.NOT_EXECUTABLE;
-        if (context.isClientLibrary(source)) {
-          kind = ExecutableKind.CLIENT;
-          if (context.isServerLibrary(source)) {
-            kind = ExecutableKind.EITHER;
-          }
-        } else if (context.isServerLibrary(source)) {
-          kind = ExecutableKind.SERVER;
-        }
-        server.sendNotification(
-            new ExecutionLaunchDataParams(filePath, kind: kind)
-                .toNotification());
-      }
-    });
-  }
-
-  /**
-   * Return `true` if the given [filePath] represents a file that is in an
-   * analysis root.
-   */
-  bool _isInAnalysisRoot(String filePath) =>
-      server.contextManager.isInAnalysisRoot(filePath);
-
-  void _reportCurrentFileStatus() {
-    for (AnalysisContext context in server.analysisContexts) {
-      List<Source> librarySources = context.librarySources;
-      List<Source> clientSources = context.launchableClientLibrarySources;
-      List<Source> serverSources = context.launchableServerLibrarySources;
-      for (Source source in clientSources) {
-        if (serverSources.remove(source)) {
-          _sendKindNotification(source.fullName, ExecutableKind.EITHER);
-        } else {
-          _sendKindNotification(source.fullName, ExecutableKind.CLIENT);
-        }
-        librarySources.remove(source);
-      }
-      for (Source source in serverSources) {
-        _sendKindNotification(source.fullName, ExecutableKind.SERVER);
-        librarySources.remove(source);
-      }
-      for (Source source in librarySources) {
-        _sendKindNotification(source.fullName, ExecutableKind.NOT_EXECUTABLE);
-      }
-      for (Source source in context.htmlSources) {
-        String filePath = source.fullName;
-        if (_isInAnalysisRoot(filePath)) {
-          List<Source> libraries =
-              context.getLibrariesReferencedFromHtml(source);
-          server.sendNotification(new ExecutionLaunchDataParams(filePath,
-                  referencedFiles: _getFullNames(libraries))
-              .toNotification());
-        }
-      }
-    }
-  }
-
-  /**
-   * Send a notification indicating the [kind] of the file with the given
-   * [filePath], but only if the file is in an analysis root.
-   */
-  void _sendKindNotification(String filePath, ExecutableKind kind) {
-    if (_isInAnalysisRoot(filePath)) {
-      server.sendNotification(
-          new ExecutionLaunchDataParams(filePath, kind: kind).toNotification());
-    }
-  }
-
-  static List<String> _getFullNames(List<Source> sources) {
-    return sources.map((Source source) => source.fullName).toList();
+    // Under the analysis driver, setSubscriptions() becomes a no-op.
+    return new ExecutionSetSubscriptionsResult().toResponse(request.id);
   }
 }

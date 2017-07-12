@@ -6,8 +6,6 @@
 /// library. This only matters for dart:-libraries, so this test mocks up two
 /// dart:-libraries.
 
-import "dart:io";
-
 import "dart:async";
 
 import "memory_source_file_helper.dart";
@@ -16,10 +14,10 @@ import "package:async_helper/async_helper.dart";
 
 import 'package:expect/expect.dart' show Expect;
 
+import 'package:compiler/compiler_new.dart';
+
 import 'package:compiler/src/diagnostics/messages.dart'
     show MessageKind, MessageTemplate;
-
-import 'package:compiler/src/elements/elements.dart' show LibraryElement;
 
 import 'package:compiler/src/library_loader.dart' show LoadedLibraries;
 
@@ -49,14 +47,15 @@ main() async {
   var provider = new MemorySourceFileProvider(MEMORY_SOURCE_FILES);
   var handler = new FormattingDiagnosticHandler(provider);
 
-  Future wrappedProvider(Uri uri) {
+  Future wrappedProvider(Uri uri) async {
     if (uri == mock1LibraryUri) {
-      return provider.readUtf8BytesFromUri(Uri.parse('memory:mock1.dart'));
+      uri = Uri.parse('memory:mock1.dart');
     }
     if (uri == mock2LibraryUri) {
-      return provider.readUtf8BytesFromUri(Uri.parse('memory:mock2.dart'));
+      uri = Uri.parse('memory:mock2.dart');
     }
-    return provider.readUtf8BytesFromUri(uri);
+    Input input = await provider.readBytesFromUri(uri, InputKind.utf8);
+    return input.data;
   }
 
   String expectedMessage = MessageTemplate

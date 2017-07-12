@@ -4,11 +4,11 @@
 
 import 'dart:async';
 
-import 'package:analysis_server/protocol/protocol_generated.dart' hide Element;
 import 'package:analysis_server/src/services/correction/status.dart';
 import 'package:analysis_server/src/services/refactoring/inline_method.dart';
 import 'package:analysis_server/src/services/refactoring/refactoring.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:analyzer_plugin/protocol/protocol_common.dart' hide Element;
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
@@ -249,6 +249,51 @@ main() {
     _createRefactoring('test() {');
     // error
     return _assertConditionsError('Ambiguous return value.');
+  }
+
+  test_cascadeInCascade() async {
+    await indexTestUnit(r'''
+class Inner {
+  String a;
+  String b;
+}
+
+class Outer {
+  Inner inner;
+}
+
+void main() {
+  Inner createInner() => new Inner()
+      ..a = 'a'
+      ..b = 'b';
+
+  final value = new Outer()
+      ..inner = createInner();
+}
+''');
+    _createRefactoring('createInner();');
+    // validate change
+    return _assertSuccessfulRefactoring(r'''
+class Inner {
+  String a;
+  String b;
+}
+
+class Outer {
+  Inner inner;
+}
+
+void main() {
+  Inner createInner() => new Inner()
+      ..a = 'a'
+      ..b = 'b';
+
+  final value = new Outer()
+      ..inner = (new Inner()
+      ..a = 'a'
+      ..b = 'b');
+}
+''');
   }
 
   test_fieldAccessor_getter() async {

@@ -25,6 +25,8 @@ DART_USE_TSAN = "DART_USE_TSAN"  # Use instead of --tsan
 DART_USE_WHEEZY = "DART_USE_WHEEZY"  # Use instread of --wheezy
 DART_USE_TOOLCHAIN = "DART_USE_TOOLCHAIN"  # Use instread of --toolchain-prefix
 DART_USE_SYSROOT = "DART_USE_SYSROOT"  # Use instead of --target-sysroot
+# use instead of --platform-sdk
+DART_MAKE_PLATFORM_SDK = "DART_MAKE_PLATFORM_SDK"
 
 def UseASAN():
   return DART_USE_ASAN in os.environ
@@ -54,6 +56,10 @@ def TargetSysroot(args):
   return os.environ.get(DART_USE_SYSROOT)
 
 
+def MakePlatformSDK():
+  return DART_MAKE_PLATFORM_SDK in os.environ
+
+
 def GetOutDir(mode, arch, target_os):
   return utils.GetBuildRoot(HOST_OS, mode, arch, target_os)
 
@@ -62,13 +68,15 @@ def ToCommandLine(gn_args):
   def merge(key, value):
     if type(value) is bool:
       return '%s=%s' % (key, 'true' if value else 'false')
+    elif type(value) is int:
+      return '%s=%d' % (key, value)
     return '%s="%s"' % (key, value)
   return [merge(x, y) for x, y in gn_args.iteritems()]
 
 
 def HostCpuForArch(arch):
-  if arch in ['ia32', 'arm', 'armv6', 'armv5te', 'mips',
-              'simarm', 'simarmv6', 'simarmv5te', 'simmips', 'simdbc',
+  if arch in ['ia32', 'arm', 'armv6', 'armv5te',
+              'simarm', 'simarmv6', 'simarmv5te', 'simdbc',
               'armsimdbc']:
     return 'x86'
   if arch in ['x64', 'arm64', 'simarm64', 'simdbc64', 'armsimdbc64']:
@@ -76,12 +84,10 @@ def HostCpuForArch(arch):
 
 
 def TargetCpuForArch(arch, target_os):
-  if arch in ['ia32', 'simarm', 'simarmv6', 'simarmv5te', 'simmips']:
+  if arch in ['ia32', 'simarm', 'simarmv6', 'simarmv5te']:
     return 'x86'
   if arch in ['simarm64']:
     return 'x64'
-  if arch == 'mips':
-    return 'mipsel'
   if arch == 'simdbc':
     return 'arm' if target_os == 'android' else 'x86'
   if arch == 'simdbc64':
@@ -119,14 +125,12 @@ def DontUseClang(args, target_os, host_cpu, target_cpu):
   # We don't have clang on Windows.
   return (target_os == 'win'
          # TODO(zra): Experiment with using clang for the arm cross-builds.
-         or (target_os == 'linux'
-             and (target_cpu.startswith('arm') or
-                  target_cpu.startswith('mips'))
+         or (target_os == 'linux' and target_cpu.startswith('arm'))
          # TODO(zra): Only use clang when a sanitizer build is specified until
          # clang bugs in tcmalloc inline assembly for ia32 are fixed.
          or (target_os == 'linux'
              and host_cpu == 'x86'
-             and not UseSanitizer(args))))
+             and not UseSanitizer(args)))
 
 
 def ToGnArgs(args, mode, arch, target_os):
@@ -142,11 +146,6 @@ def ToGnArgs(args, mode, arch, target_os):
   gn_args['target_cpu'] = TargetCpuForArch(arch, target_os)
   gn_args['host_cpu'] = HostCpuForArch(arch)
   crossbuild = gn_args['target_cpu'] != gn_args['host_cpu']
-
-  # See: runtime/observatory/BUILD.gn.
-  # This allows the standalone build of the observatory to fall back on
-  # dart_bootstrap if the prebuilt SDK doesn't work.
-  gn_args['dart_host_pub_exe'] = ""
 
   if arch != HostCpuForArch(arch):
     # Training an app-jit snapshot under a simulator is slow. Use script
@@ -168,13 +167,17 @@ def ToGnArgs(args, mode, arch, target_os):
 
   if gn_args['target_os'] == 'linux':
     if gn_args['target_cpu'] == 'arm':
-      # Force -mfloat-abi=hard and -mfpu=neon for arm on Linux as we're
-      # specifying a gnueabihf compiler in //build/toolchain/linux BUILD.gn.
-      gn_args['arm_arch'] = 'armv7'
-      gn_args['arm_float_abi'] = 'hard'
+      # Default to -mfloat-abi=hard and -mfpu=neon for arm on Linux as we're
+      # specifying a gnueabihf compiler in //build/toolchain/linux/BUILD.gn.
+      floatabi = 'hard' if args.arm_float_abi == '' else args.arm_float_abi
+      gn_args['arm_version'] = 7
+      gn_args['arm_float_abi'] = floatabi
       gn_args['arm_use_neon'] = True
     elif gn_args['target_cpu'] == 'armv6':
-      raise Exception("GN support for armv6 unimplemented")
+      floatabi = 'softfp' if args.arm_float_abi == '' else args.arm_float_abi
+      gn_args['target_cpu'] = 'arm'
+      gn_args['arm_version'] = 6
+      gn_args['arm_float_abi'] = floatabi
     elif gn_args['target_cpu'] == 'armv5te':
       raise Exception("GN support for armv5te unimplemented")
 
@@ -186,7 +189,10 @@ def ToGnArgs(args, mode, arch, target_os):
   # This setting is only meaningful for Flutter. Standalone builds of the VM
   # should leave this set to 'develop', which causes the build to defer to
   # 'is_debug', 'is_release' and 'is_product'.
-  gn_args['dart_runtime_mode'] = 'develop'
+  if mode == 'product':
+    gn_args['dart_runtime_mode'] = 'release'
+  else:
+    gn_args['dart_runtime_mode'] = 'develop'
 
   dont_use_clang = DontUseClang(args, gn_args['target_os'],
                                       gn_args['host_cpu'],
@@ -196,6 +202,8 @@ def ToGnArgs(args, mode, arch, target_os):
   gn_args['is_asan'] = args.asan and gn_args['is_clang']
   gn_args['is_msan'] = args.msan and gn_args['is_clang']
   gn_args['is_tsan'] = args.tsan and gn_args['is_clang']
+
+  gn_args['dart_platform_sdk'] = args.platform_sdk
 
   # Setup the user-defined sysroot.
   if gn_args['target_os'] == 'linux' and args.wheezy and not crossbuild:
@@ -236,7 +244,7 @@ def ProcessOsOption(os_name):
 
 def ProcessOptions(args):
   if args.arch == 'all':
-    args.arch = 'ia32,x64,simarm,simarm64,simmips,simdbc64'
+    args.arch = 'ia32,x64,simarm,simarm64,simdbc64'
   if args.mode == 'all':
     args.mode = 'debug,release,product'
   if args.os == 'all':
@@ -250,7 +258,7 @@ def ProcessOptions(args):
       return False
   for arch in args.arch:
     archs = ['ia32', 'x64', 'simarm', 'arm', 'simarmv6', 'armv6',
-             'simarmv5te', 'armv5te', 'simmips', 'mips', 'simarm64', 'arm64',
+             'simarmv5te', 'armv5te', 'simarm64', 'arm64',
              'simdbc', 'simdbc64', 'armsimdbc', 'armsimdbc64']
     if not arch in archs:
       print "Unknown arch %s" % arch
@@ -268,7 +276,7 @@ def ProcessOptions(args):
         print ("Cross-compilation to %s is not supported on host os %s."
                % (os_name, HOST_OS))
         return False
-      if not arch in ['ia32', 'x64', 'arm', 'armv6', 'armv5te', 'arm64', 'mips',
+      if not arch in ['ia32', 'x64', 'arm', 'armv6', 'armv5te', 'arm64',
                       'simdbc', 'simdbc64']:
         print ("Cross-compilation to %s is not supported for architecture %s."
                % (os_name, arch))
@@ -301,7 +309,7 @@ def parse_args(args):
       type=str,
       help='Target architectures (comma-separated).',
       metavar='[all,ia32,x64,simarm,arm,simarmv6,armv6,simarmv5te,armv5te,'
-              'simmips,mips,simarm64,arm64,simdbc,armsimdbc]',
+              'simarm64,arm64,simdbc,armsimdbc]',
       default='x64')
   common_group.add_argument('--mode', '-m',
       type=str,
@@ -315,8 +323,14 @@ def parse_args(args):
       default='host')
   common_group.add_argument("-v", "--verbose",
       help='Verbose output.',
-      default=False, action="store_true")
+      default=False,
+      action="store_true")
 
+  other_group.add_argument('--arm-float-abi',
+      type=str,
+      help='The ARM float ABI (soft, softfp, hard)',
+      metavar='[soft,softfp,hard]',
+      default='')
   other_group.add_argument('--asan',
       help='Build with ASAN',
       default=UseASAN(),
@@ -357,6 +371,14 @@ def parse_args(args):
       help='Disable MSAN',
       dest='msan',
       action='store_false')
+  other_group.add_argument('--gn-args',
+      help='Set extra GN args',
+      dest='gn_args',
+      action='append')
+  other_group.add_argument('--platform-sdk',
+      help='Directs the create_sdk target to create a smaller "Platform" SDK',
+      default=MakePlatformSDK(),
+      action='store_true')
   other_group.add_argument('--target-sysroot', '-s',
       type=str,
       help='Comma-separated list of arch=/path/to/sysroot mappings')
@@ -426,6 +448,8 @@ def Main(argv):
         out_dir = GetOutDir(mode, arch, target_os)
         command = [gn, 'gen', out_dir, '--check']
         gn_args = ToCommandLine(ToGnArgs(args, mode, arch, target_os))
+        if args.gn_args != None:
+          gn_args += args.gn_args
         if args.verbose:
           print "gn gen --check in %s" % out_dir
         if args.ide:

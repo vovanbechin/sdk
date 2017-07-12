@@ -5,7 +5,6 @@
 // Test that constants depended on by other constants are correctly deferred.
 
 import 'package:async_helper/async_helper.dart';
-import 'package:compiler/src/common.dart';
 import 'package:compiler/src/constants/values.dart';
 import 'package:compiler/src/compiler.dart';
 import 'package:expect/expect.dart';
@@ -16,12 +15,8 @@ void main() {
     CompilationResult result =
         await runCompiler(memorySourceFiles: MEMORY_SOURCE_FILES);
     Compiler compiler = result.compiler;
-    var outputUnitForElement = compiler.deferredLoadTask.outputUnitForElement;
     var outputUnitForConstant = compiler.deferredLoadTask.outputUnitForConstant;
     var mainOutputUnit = compiler.deferredLoadTask.mainOutputUnit;
-    var lib =
-        compiler.libraryLoader.lookupLibrary(Uri.parse("memory:lib.dart"));
-    var backend = compiler.backend;
     List<ConstantValue> allConstants = [];
 
     addConstantWithDependendencies(ConstantValue c) {
@@ -29,9 +24,11 @@ void main() {
       c.getDependencies().forEach(addConstantWithDependendencies);
     }
 
-    backend.constants.compiledConstants.forEach(addConstantWithDependendencies);
+    dynamic codegenWorldBuilder = compiler.codegenWorldBuilder;
+    codegenWorldBuilder.compiledConstants
+        .forEach(addConstantWithDependendencies);
     for (String stringValue in ["cA", "cB", "cC"]) {
-      ConstantValue constant = allConstants.firstWhere((constant) {
+      ConstantValue constant = allConstants.firstWhere((dynamic constant) {
         return constant.isString && constant.primitiveValue == stringValue;
       });
       Expect.notEquals(null, outputUnitForConstant(constant),

@@ -6,6 +6,8 @@ packages/*: Skip # Skip packages folder
 
 analyze_test: Slow, Pass
 
+analyze_dart_test: Slow, Pass
+
 compile_with_empty_libraries_test: Fail # Issue 24223
 
 kernel/*: Slow, Pass
@@ -69,7 +71,7 @@ check_elements_invariants_test: Slow, Pass, Timeout # Slow due to inlining in th
 
 uri_retention_test: Fail # Issue 26504
 
-[ $unchecked ]
+[ ! $checked ]
 exit_code_test: Skip # This tests requires checked mode.
 serialization*: Slow, Pass
 

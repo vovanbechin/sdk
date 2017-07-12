@@ -34,7 +34,6 @@ import 'elements/elements.dart'
         TypedefElement;
 import 'elements/entities.dart';
 import 'js_backend/js_backend.dart' show JavaScriptBackend;
-import 'js_backend/backend_usage.dart' show BackendUsage;
 import 'resolution/resolution.dart' show AnalyzableElementX;
 import 'resolution/tree_elements.dart' show TreeElements;
 import 'tree/tree.dart' as ast;
@@ -44,6 +43,7 @@ import 'universe/world_impact.dart'
 import 'util/setlet.dart' show Setlet;
 import 'util/uri_extras.dart' as uri_extras;
 import 'util/util.dart' show makeUnique;
+import 'world.dart' show ClosedWorld;
 
 /// A "hunk" of the program that will be loaded whenever one of its [imports]
 /// are loaded.
@@ -70,8 +70,9 @@ class OutputUnit {
 
   String toString() => "OutputUnit($name)";
 
-  bool operator ==(OutputUnit other) {
-    return imports.length == other.imports.length &&
+  bool operator ==(other) {
+    return other is OutputUnit &&
+        imports.length == other.imports.length &&
         imports.containsAll(other.imports);
   }
 
@@ -93,7 +94,7 @@ class DeferredLoadTask extends CompilerTask {
 
   /// DeferredLibrary from dart:async
   ClassElement get deferredLibraryClass =>
-      compiler.commonElements.deferredLibraryClass;
+      compiler.resolution.commonElements.deferredLibraryClass;
 
   /// A synthetic import representing the loading of the main program.
   final _DeferredImport _fakeMainImport = const _DeferredImport();
@@ -162,12 +163,13 @@ class DeferredLoadTask extends CompilerTask {
 
   JavaScriptBackend get backend => compiler.backend;
   DiagnosticReporter get reporter => compiler.reporter;
-  BackendUsage get _backendUsage => backend.backendUsage;
 
   /// Returns the [OutputUnit] where [element] belongs.
-  OutputUnit outputUnitForElement(Element element) {
+  OutputUnit outputUnitForElement(Entity entity) {
+    // TODO(johnniwinther): Support use of entities by splitting maps by
+    // entity kind.
     if (!isProgramSplit) return mainOutputUnit;
-
+    Element element = entity;
     element = element.implementation;
     while (!_elementToOutputUnit.containsKey(element)) {
       // TODO(21051): workaround: it looks like we output annotation constants
@@ -185,12 +187,12 @@ class DeferredLoadTask extends CompilerTask {
   }
 
   /// Returns the [OutputUnit] where [element] belongs.
-  OutputUnit outputUnitForClass(ClassElement element) {
+  OutputUnit outputUnitForClass(ClassEntity element) {
     return outputUnitForElement(element);
   }
 
   /// Returns the [OutputUnit] where [element] belongs.
-  OutputUnit outputUnitForMember(MemberElement element) {
+  OutputUnit outputUnitForMember(MemberEntity element) {
     return outputUnitForElement(element);
   }
 
@@ -407,15 +409,20 @@ class DeferredLoadTask extends CompilerTask {
           if (backend.constants.hasConstantValue(expression)) {
             ConstantValue value =
                 backend.constants.getConstantValue(expression);
-            assert(invariant(node, value != null,
-                message: "Constant expression without value: "
+            assert(
+                value != null,
+                failedAt(
+                    node,
+                    "Constant expression without value: "
                     "${expression.toStructuredText()}."));
             constants.add(value);
           } else {
             assert(
-                invariant(node, expression.isImplicit || expression.isPotential,
-                    message: "Unexpected unevaluated constant expression: "
-                        "${expression.toStructuredText()}."));
+                expression.isImplicit || expression.isPotential,
+                failedAt(
+                    node,
+                    "Unexpected unevaluated constant expression: "
+                    "${expression.toStructuredText()}."));
           }
         });
       }
@@ -438,7 +445,8 @@ class DeferredLoadTask extends CompilerTask {
       // If we see a class, add everything its live instance members refer
       // to.  Static members are not relevant, unless we are processing
       // extra dependencies due to mirrors.
-      void addLiveInstanceMember(_, MemberElement element) {
+      void addLiveInstanceMember(_, _element) {
+        MemberElement element = _element;
         if (!compiler.resolutionWorldBuilder.isMemberUsed(element)) return;
         if (!isMirrorUsage && !element.isInstanceMember) return;
         elements.add(element);
@@ -499,7 +507,7 @@ class DeferredLoadTask extends CompilerTask {
     }
 
     traverseLibrary(root);
-    result.add(compiler.commonElements.coreLibrary);
+    result.add(compiler.resolution.commonElements.coreLibrary);
     return result;
   }
 
@@ -676,7 +684,7 @@ class DeferredLoadTask extends CompilerTask {
     }
   }
 
-  void onResolutionComplete(FunctionEntity main) {
+  void onResolutionComplete(FunctionEntity main, ClosedWorld closedWorld) {
     if (!isProgramSplit) {
       allOutputUnits.add(mainOutputUnit);
       return;
@@ -700,19 +708,19 @@ class DeferredLoadTask extends CompilerTask {
               // particular element, for example, startRootIsolate.  This set
               // also contains elements for which we lack precise information.
               for (MethodElement element
-                  in _backendUsage.globalFunctionDependencies) {
+                  in closedWorld.backendUsage.globalFunctionDependencies) {
                 _mapDependencies(
                     element: element.implementation, import: _fakeMainImport);
               }
               for (ClassElement element
-                  in _backendUsage.globalClassDependencies) {
+                  in closedWorld.backendUsage.globalClassDependencies) {
                 _mapDependencies(
                     element: element.implementation, import: _fakeMainImport);
               }
 
               // Now check to see if we have to add more elements due to
               // mirrors.
-              if (compiler.commonElements.mirrorsLibrary != null) {
+              if (closedWorld.backendUsage.isMirrorsUsed) {
                 _addMirrorElements();
               }
 
@@ -784,11 +792,11 @@ class DeferredLoadTask extends CompilerTask {
     compiler.impactStrategy.onImpactUsed(IMPACT_USE);
   }
 
-  void beforeResolution(Compiler compiler) {
-    if (compiler.mainApp == null) return;
+  void beforeResolution(LibraryEntity mainLibrary) {
+    if (mainLibrary == null) return;
     // TODO(johnniwinther): Support deferred load for kernel based elements.
     if (compiler.options.loadFromDill) return;
-    _allDeferredImports[_fakeMainImport] = compiler.mainApp;
+    _allDeferredImports[_fakeMainImport] = mainLibrary;
     var lastDeferred;
     // When detecting duplicate prefixes of deferred libraries there are 4
     // cases of duplicate prefixes:
@@ -825,7 +833,8 @@ class DeferredLoadTask extends CompilerTask {
               metadata.ensureResolved(compiler.resolution);
               ConstantValue value =
                   compiler.constants.getConstantValue(metadata.constant);
-              ResolutionDartType type = value.getType(compiler.commonElements);
+              ResolutionDartType type =
+                  value.getType(compiler.resolution.commonElements);
               Element element = type.element;
               if (element == deferredLibraryClass) {
                 reporter.reportErrorMessage(
@@ -847,8 +856,9 @@ class DeferredLoadTask extends CompilerTask {
                   import, MessageKind.DEFERRED_LIBRARY_WITHOUT_PREFIX);
             } else {
               prefixDeferredImport[prefix] = import;
+              Uri mainLibraryUri = compiler.mainLibraryUri;
               _deferredImportDescriptions[key] =
-                  new ImportDescription(import, library, compiler);
+                  new ImportDescription(import, library, mainLibraryUri);
             }
             isProgramSplit = true;
             lastDeferred = import;
@@ -1023,9 +1033,9 @@ class ImportDescription {
   final LibraryElement _importingLibrary;
 
   ImportDescription(
-      ImportElement import, LibraryElement importingLibrary, Compiler compiler)
-      : importingUri = uri_extras.relativize(compiler.mainApp.canonicalUri,
-            importingLibrary.canonicalUri, false),
+      ImportElement import, LibraryElement importingLibrary, Uri mainLibraryUri)
+      : importingUri = uri_extras.relativize(
+            mainLibraryUri, importingLibrary.canonicalUri, false),
         prefix = import.prefix.name,
         _importingLibrary = importingLibrary;
 
@@ -1075,9 +1085,11 @@ class _DeclaredDeferredImport implements _DeferredImport {
         metadata.ensureResolved(compiler.resolution);
         ConstantValue value =
             compiler.constants.getConstantValue(metadata.constant);
-        ResolutionDartType type = value.getType(compiler.commonElements);
+        ResolutionDartType type =
+            value.getType(compiler.resolution.commonElements);
         Element element = type.element;
-        if (element == compiler.commonElements.deferredLibraryClass) {
+        if (element ==
+            compiler.resolution.commonElements.deferredLibraryClass) {
           ConstructedConstantValue constant = value;
           StringConstantValue s = constant.fields.values.single;
           result = s.primitiveValue;

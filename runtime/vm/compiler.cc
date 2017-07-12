@@ -107,7 +107,6 @@ DEFINE_FLAG(bool,
 
 DECLARE_FLAG(bool, huge_method_cutoff_in_code_size);
 DECLARE_FLAG(bool, trace_failed_optimization_attempts);
-DECLARE_FLAG(bool, trace_irregexp);
 
 
 #ifndef DART_PRECOMPILED_RUNTIME
@@ -115,7 +114,7 @@ DECLARE_FLAG(bool, trace_irregexp);
 
 bool UseKernelFrontEndFor(ParsedFunction* parsed_function) {
   const Function& function = parsed_function->function();
-  return (function.kernel_function() != NULL) ||
+  return (function.kernel_offset() > 0) ||
          (function.kind() == RawFunction::kNoSuchMethodDispatcher) ||
          (function.kind() == RawFunction::kInvokeFieldDispatcher);
 }
@@ -135,17 +134,18 @@ FlowGraph* DartCompilationPipeline::BuildFlowGraph(
     const ZoneGrowableArray<const ICData*>& ic_data_array,
     intptr_t osr_id) {
   if (UseKernelFrontEndFor(parsed_function)) {
-    kernel::TreeNode* node = static_cast<kernel::TreeNode*>(
-        parsed_function->function().kernel_function());
-    kernel::FlowGraphBuilder builder(node, parsed_function, ic_data_array, NULL,
-                                     osr_id);
+    kernel::FlowGraphBuilder builder(
+        parsed_function->function().kernel_offset(), parsed_function,
+        ic_data_array,
+        /* not building var desc */ NULL,
+        /* not inlining */ NULL, osr_id);
     FlowGraph* graph = builder.BuildGraph();
     ASSERT(graph != NULL);
     return graph;
   }
   FlowGraphBuilder builder(*parsed_function, ic_data_array,
-                           NULL,  // NULL = not inlining.
-                           osr_id);
+                           /* not building var desc */ NULL,
+                           /* not inlining */ NULL, osr_id);
 
   return builder.BuildGraph();
 }
@@ -156,7 +156,29 @@ void DartCompilationPipeline::FinalizeCompilation(FlowGraph* flow_graph) {}
 
 void IrregexpCompilationPipeline::ParseFunction(
     ParsedFunction* parsed_function) {
-  RegExpParser::ParseFunction(parsed_function);
+  VMTagScope tagScope(parsed_function->thread(),
+                      VMTag::kCompileParseRegExpTagId);
+  Zone* zone = parsed_function->zone();
+  RegExp& regexp = RegExp::Handle(parsed_function->function().regexp());
+
+  const String& pattern = String::Handle(regexp.pattern());
+  const bool multiline = regexp.is_multi_line();
+
+  RegExpCompileData* compile_data = new (zone) RegExpCompileData();
+  if (!RegExpParser::ParseRegExp(pattern, multiline, compile_data)) {
+    // Parsing failures are handled in the RegExp factory constructor.
+    UNREACHABLE();
+  }
+
+  regexp.set_num_bracket_expressions(compile_data->capture_count);
+  if (compile_data->simple) {
+    regexp.set_is_simple();
+  } else {
+    regexp.set_is_complex();
+  }
+
+  parsed_function->SetRegExpCompileData(compile_data);
+
   // Variables are allocated after compilation.
 }
 
@@ -167,17 +189,21 @@ FlowGraph* IrregexpCompilationPipeline::BuildFlowGraph(
     const ZoneGrowableArray<const ICData*>& ic_data_array,
     intptr_t osr_id) {
   // Compile to the dart IR.
-  RegExpEngine::CompilationResult result = RegExpEngine::CompileIR(
-      parsed_function->regexp_compile_data(), parsed_function, ic_data_array);
+  RegExpEngine::CompilationResult result =
+      RegExpEngine::CompileIR(parsed_function->regexp_compile_data(),
+                              parsed_function, ic_data_array, osr_id);
   backtrack_goto_ = result.backtrack_goto;
 
   // Allocate variables now that we know the number of locals.
   parsed_function->AllocateIrregexpVariables(result.num_stack_locals);
 
-  // Build the flow graph.
-  FlowGraphBuilder builder(*parsed_function, ic_data_array,
-                           NULL,  // NULL = not inlining.
-                           osr_id);
+  // When compiling for OSR, use a depth first search to find the OSR
+  // entry and make graph entry jump to it instead of normal entry.
+  // Catch entries are always considered reachable, even if they
+  // become unreachable after OSR.
+  if (osr_id != Compiler::kNoOSRDeoptId) {
+    result.graph_entry->RelinkToOsrEntry(zone, result.num_blocks);
+  }
 
   return new (zone)
       FlowGraph(*parsed_function, result.graph_entry, result.num_blocks);
@@ -474,7 +500,8 @@ RawError* Compiler::CompileClass(const Class& cls) {
         parse_class.reset_is_marked_for_parsing();
       }
     }
-    Error& error = Error::Handle(zone.GetZone());
+    Thread* thread = Thread::Current();
+    Error& error = Error::Handle(thread->zone());
     error = thread->sticky_error();
     thread->clear_sticky_error();
     return error.raw();
@@ -714,11 +741,10 @@ RawCode* CompileParsedFunctionHelper::Compile(CompilationPipeline* pipeline) {
   HANDLESCOPE(thread());
 
   // We may reattempt compilation if the function needs to be assembled using
-  // far branches on ARM and MIPS. In the else branch of the setjmp call,
-  // done is set to false, and use_far_branches is set to true if there is a
-  // longjmp from the ARM or MIPS assemblers. In all other paths through this
-  // while loop, done is set to true. use_far_branches is always false on ia32
-  // and x64.
+  // far branches on ARM. In the else branch of the setjmp call, done is set to
+  // false, and use_far_branches is set to true if there is a longjmp from the
+  // ARM assembler. In all other paths through this while loop, done is set to
+  // true. use_far_branches is always false on ia32 and x64.
   volatile bool done = false;
   // volatile because the variable may be clobbered by a longjmp.
   volatile bool use_far_branches = false;
@@ -1586,22 +1612,41 @@ void Compiler::ComputeLocalVarDescriptors(const Code& code) {
   ASSERT(!function.IsIrregexpFunction());
   // In background compilation, parser can produce 'errors": bailouts
   // if state changed while compiling in background.
+  const intptr_t prev_deopt_id = Thread::Current()->deopt_id();
+  Thread::Current()->set_deopt_id(0);
   LongJumpScope jump;
   if (setjmp(*jump.Set()) == 0) {
-    if (function.kernel_function() == NULL) {
+    ZoneGrowableArray<const ICData*>* ic_data_array =
+        new ZoneGrowableArray<const ICData*>();
+    ZoneGrowableArray<intptr_t>* context_level_array =
+        new ZoneGrowableArray<intptr_t>();
+
+    if (!UseKernelFrontEndFor(parsed_function)) {
       Parser::ParseFunction(parsed_function);
       parsed_function->AllocateVariables();
+      FlowGraphBuilder builder(
+          *parsed_function, *ic_data_array, context_level_array,
+          /* not inlining */ NULL, Compiler::kNoOSRDeoptId);
+      builder.BuildGraph();
     } else {
       parsed_function->EnsureKernelScopes();
+      kernel::FlowGraphBuilder builder(
+          parsed_function->function().kernel_offset(), parsed_function,
+          *ic_data_array, context_level_array,
+          /* not inlining */ NULL, Compiler::kNoOSRDeoptId);
+      builder.BuildGraph();
     }
+
     const LocalVarDescriptors& var_descs = LocalVarDescriptors::Handle(
-        parsed_function->node_sequence()->scope()->GetVarDescriptors(function));
+        parsed_function->node_sequence()->scope()->GetVarDescriptors(
+            function, context_level_array));
     ASSERT(!var_descs.IsNull());
     code.set_var_descriptors(var_descs);
   } else {
     // Only possible with background compilation.
     ASSERT(Compiler::IsBackgroundCompilation());
   }
+  Thread::Current()->set_deopt_id(prev_deopt_id);
 }
 
 
@@ -1710,7 +1755,7 @@ RawObject* Compiler::EvaluateStaticInitializer(const Field& field) {
 
       // Create a one-time-use function to evaluate the initializer and invoke
       // it immediately.
-      if (field.kernel_field() != NULL) {
+      if (field.kernel_offset() > 0) {
         parsed_function = kernel::ParseStaticFieldInitializer(zone, field);
       } else {
         parsed_function = Parser::ParseStaticFieldInitializer(field);

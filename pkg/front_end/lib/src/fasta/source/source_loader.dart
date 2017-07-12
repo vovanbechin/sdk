@@ -11,11 +11,6 @@ import 'dart:typed_data' show Uint8List;
 import 'package:front_end/file_system.dart';
 import 'package:front_end/src/base/instrumentation.dart' show Instrumentation;
 
-import 'package:front_end/src/fasta/builder/ast_factory.dart' show AstFactory;
-
-import 'package:front_end/src/fasta/kernel/kernel_ast_factory.dart'
-    show KernelAstFactory;
-
 import 'package:front_end/src/fasta/kernel/kernel_shadow_ast.dart'
     show KernelTypeInferenceEngine;
 
@@ -25,11 +20,14 @@ import 'package:front_end/src/fasta/kernel/kernel_target.dart'
 import 'package:front_end/src/fasta/type_inference/type_inference_engine.dart'
     show TypeInferenceEngine;
 
-import 'package:kernel/ast.dart' show Program;
+import 'package:kernel/ast.dart' show Arguments, Expression, Program;
 
 import 'package:kernel/class_hierarchy.dart' show ClassHierarchy;
 
 import 'package:kernel/core_types.dart' show CoreTypes;
+
+import 'package:kernel/src/incremental_class_hierarchy.dart'
+    show IncrementalClassHierarchy;
 
 import '../builder/builder.dart'
     show
@@ -42,7 +40,7 @@ import '../builder/builder.dart'
 
 import '../compiler_context.dart' show CompilerContext;
 
-import '../errors.dart' show inputError;
+import '../deprecated_problems.dart' show deprecated_inputError;
 
 import '../export.dart' show Export;
 
@@ -73,8 +71,6 @@ class SourceLoader<L> extends Loader<L> {
   ClassHierarchy hierarchy;
   CoreTypes coreTypes;
 
-  final AstFactory astFactory = new KernelAstFactory();
-
   TypeInferenceEngine typeInferenceEngine;
 
   Instrumentation instrumentation;
@@ -84,8 +80,11 @@ class SourceLoader<L> extends Loader<L> {
   Future<Token> tokenize(SourceLibraryBuilder library,
       {bool suppressLexicalErrors: false}) async {
     Uri uri = library.fileUri;
-    if (uri == null || uri.scheme != "file") {
-      return inputError(library.uri, -1, "Not found: ${library.uri}.");
+    // TODO(sigmund): source-loader shouldn't check schemes, but defer to the
+    // underlying file system to decide whether it is supported.
+    if (uri == null || uri.scheme != "file" && uri.scheme != "multi-root") {
+      return deprecated_inputError(
+          library.uri, -1, "Not found: ${library.uri}.");
     }
 
     // Get the library text from the cache, or read from the file system.
@@ -98,7 +97,7 @@ class SourceLoader<L> extends Loader<L> {
         bytes = zeroTerminatedBytes;
         sourceBytes[uri] = bytes;
       } on FileSystemException catch (e) {
-        return inputError(uri, -1, e.message);
+        return deprecated_inputError(uri, -1, e.message);
       }
     }
 
@@ -112,7 +111,8 @@ class SourceLoader<L> extends Loader<L> {
     while (token is ErrorToken) {
       if (!suppressLexicalErrors) {
         ErrorToken error = token;
-        library.addCompileTimeError(token.charOffset, error.assertionMessage,
+        library.deprecated_addCompileTimeError(
+            token.charOffset, error.assertionMessage,
             fileUri: uri);
       }
       token = token.next;
@@ -367,7 +367,7 @@ class SourceLoader<L> extends Loader<L> {
         }
         String involvedString =
             involved.map((c) => c.fullNameForErrors).join("', '");
-        cls.addCompileTimeError(
+        cls.deprecated_addCompileTimeError(
             cls.charOffset,
             "'${cls.fullNameForErrors}' is a supertype of itself via "
             "'$involvedString'.");
@@ -387,13 +387,13 @@ class SourceLoader<L> extends Loader<L> {
       target.addDirectSupertype(cls, directSupertypes);
       for (ClassBuilder supertype in directSupertypes) {
         if (supertype is EnumBuilder) {
-          cls.addCompileTimeError(
+          cls.deprecated_addCompileTimeError(
               cls.charOffset,
               "'${supertype.name}' is an enum and can't be extended or "
               "implemented.");
-        } else if (cls.library != coreLibrary &&
+        } else if (!cls.library.mayImplementRestrictedTypes &&
             blackListedClasses.contains(supertype)) {
-          cls.addCompileTimeError(
+          cls.deprecated_addCompileTimeError(
               cls.charOffset,
               "'${supertype.name}' is restricted and can't be extended or "
               "implemented.");
@@ -408,11 +408,11 @@ class SourceLoader<L> extends Loader<L> {
             isClassBuilder = true;
             for (Builder constructory in builder.constructors.local.values) {
               if (constructory.isConstructor && !constructory.isSynthetic) {
-                cls.addCompileTimeError(
+                cls.deprecated_addCompileTimeError(
                     cls.charOffset,
                     "Can't use '${builder.fullNameForErrors}' as a mixin "
                     "because it has constructors.");
-                builder.addCompileTimeError(
+                builder.deprecated_addCompileTimeError(
                     constructory.charOffset,
                     "This constructor prevents using "
                     "'${builder.fullNameForErrors}' as a mixin.");
@@ -421,7 +421,7 @@ class SourceLoader<L> extends Loader<L> {
           }
         }
         if (!isClassBuilder) {
-          cls.addCompileTimeError(cls.charOffset,
+          cls.deprecated_addCompileTimeError(cls.charOffset,
               "The type '${mixedInType.fullNameForErrors}' can't be mixed in.");
         }
       }
@@ -439,7 +439,7 @@ class SourceLoader<L> extends Loader<L> {
   }
 
   void computeHierarchy(Program program) {
-    hierarchy = new ClassHierarchy(program);
+    hierarchy = new IncrementalClassHierarchy();
     ticker.logMs("Computed class hierarchy");
     coreTypes = new CoreTypes(program);
     ticker.logMs("Computed core types");
@@ -481,4 +481,45 @@ class SourceLoader<L> extends Loader<L> {
   }
 
   List<Uri> getDependencies() => sourceBytes.keys.toList();
+
+  Expression instantiateInvocation(Expression receiver, String name,
+      Arguments arguments, int offset, bool isSuper) {
+    return target.backendTarget.instantiateInvocation(
+        coreTypes, receiver, name, arguments, offset, isSuper);
+  }
+
+  Expression instantiateNoSuchMethodError(
+      Expression receiver, String name, Arguments arguments, int offset,
+      {bool isMethod: false,
+      bool isGetter: false,
+      bool isSetter: false,
+      bool isField: false,
+      bool isLocalVariable: false,
+      bool isDynamic: false,
+      bool isSuper: false,
+      bool isStatic: false,
+      bool isConstructor: false,
+      bool isTopLevel: false}) {
+    return target.backendTarget.instantiateNoSuchMethodError(
+        coreTypes, receiver, name, arguments, offset,
+        isMethod: isMethod,
+        isGetter: isGetter,
+        isSetter: isSetter,
+        isField: isField,
+        isLocalVariable: isLocalVariable,
+        isDynamic: isDynamic,
+        isSuper: isSuper,
+        isStatic: isStatic,
+        isConstructor: isConstructor,
+        isTopLevel: isTopLevel);
+  }
+
+  Expression throwCompileConstantError(Expression error) {
+    return target.backendTarget.throwCompileConstantError(coreTypes, error);
+  }
+
+  Expression deprecated_buildCompileTimeError(String message, int offset) {
+    return target.backendTarget
+        .buildCompileTimeError(coreTypes, message, offset);
+  }
 }

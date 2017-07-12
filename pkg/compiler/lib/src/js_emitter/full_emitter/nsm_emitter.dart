@@ -35,7 +35,7 @@ class NsmEmitter extends CodeEmitterHelper {
 
   void emitNoSuchMethodHandlers(AddPropertyFunction addProperty) {
     ClassStubGenerator generator = new ClassStubGenerator(task.emitter,
-        compiler.commonElements, namer, codegenWorldBuilder, closedWorld,
+        closedWorld.commonElements, namer, codegenWorldBuilder, closedWorld,
         enableMinification: compiler.options.enableMinification);
 
     // Keep track of the JavaScript names we've already added so we
@@ -51,7 +51,8 @@ class NsmEmitter extends CodeEmitterHelper {
     List<jsAst.Name> names = addedJsNames.keys.toList()..sort();
     for (jsAst.Name jsName in names) {
       Selector selector = addedJsNames[jsName];
-      String reflectionName = emitter.getReflectionName(selector, jsName);
+      String reflectionName =
+          emitter.getReflectionSelectorName(selector, jsName);
 
       if (reflectionName != null) {
         emitter.mangledFieldNames[jsName] = reflectionName;
@@ -174,9 +175,10 @@ class NsmEmitter extends CodeEmitterHelper {
     }
     // Startup code that loops over the method names and puts handlers on the
     // Object class to catch noSuchMethod invocations.
-    ClassEntity objectClass = compiler.commonElements.objectClass;
+    ClassEntity objectClass = closedWorld.commonElements.objectClass;
     jsAst.Expression createInvocationMirror = backend.emitter
-        .staticFunctionAccess(compiler.commonElements.createInvocationMirror);
+        .staticFunctionAccess(
+            closedWorld.commonElements.createInvocationMirror);
     if (useDiffEncoding) {
       statements.add(js.statement(
           '''{

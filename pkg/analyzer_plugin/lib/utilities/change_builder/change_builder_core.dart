@@ -4,10 +4,9 @@
 
 import 'dart:async';
 
-import 'package:analysis_server/protocol/protocol_generated.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:analyzer_plugin/protocol/protocol_common.dart';
 import 'package:analyzer_plugin/src/utilities/change_builder/change_builder_core.dart';
-import 'package:meta/meta.dart';
 
 /**
  * A builder used to build a [SourceChange].
@@ -29,12 +28,10 @@ abstract class ChangeBuilder {
   /**
    * Use the [buildFileEdit] function to create a collection of edits to the
    * file with the given [path]. The edits will be added to the source change
-   * that is being built. The [timeStamp] is the time at which the file was last
-   * modified and is used by clients to ensure that it is safe to apply the
-   * edits.
+   * that is being built.
    */
   Future<Null> addFileEdit(
-      String path, int timeStamp, void buildFileEdit(FileEditBuilder builder));
+      String path, void buildFileEdit(FileEditBuilder builder));
 
   /**
    * Set the selection for the change being built to the given [position].
@@ -58,9 +55,25 @@ abstract class EditBuilder {
       String groupName, void buildLinkedEdit(LinkedEditBuilder builder));
 
   /**
-   * Set the selection to the given location within the edit being built.
+   * Add the given text as a linked edit group with the given [groupName]. If
+   * both a [kind] and a list of [suggestions] are provided, they will be added
+   * as suggestions to the group with the given kind.
+   *
+   * Throws an [ArgumentError] if either [kind] or [suggestions] are provided
+   * without the other.
    */
-  @experimental
+  void addSimpleLinkedEdit(String groupName, String text,
+      {LinkedEditSuggestionKind kind, List<String> suggestions});
+
+  /**
+   * Set the selection to the given location within the edit being built.
+   *
+   * This method only works correctly if all of the edits that will applied to
+   * text before the current edit have already been created. Those edits are
+   * needed in order to convert the current offset (as of the time this method
+   * is invoked) into an offset relative to the text resulting from applying all
+   * of the edits.
+   */
   void selectHere();
 
   /**
@@ -104,6 +117,11 @@ abstract class FileEditBuilder {
    * source. This is typically used to include pre-existing regions of text in a
    * group. If the region to be included is part of newly generated text, then
    * the method [EditBuilder.addLinkedEdit] should be used instead.
+   *
+   * This method only works correctly if all of the edits that will applied to
+   * text before the given range have already been created. Those edits are
+   * needed in order to convert the range into a range relative to the text
+   * resulting from applying all of the edits.
    */
   void addLinkedPosition(SourceRange range, String groupName);
 

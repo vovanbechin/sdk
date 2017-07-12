@@ -440,7 +440,7 @@ class Expect {
       [_CheckExceptionFn check = null, String reason = null]) {
     String msg = reason == null ? "" : "($reason)";
     if (f is! _Nullary) {
-      // Only throws from executing the funtion body should count as throwing.
+      // Only throws from executing the function body should count as throwing.
       // The failure to even call `f` should throw outside the try/catch.
       _fail("Expect.throws$msg: Function f not callable with zero arguments");
     }
@@ -503,3 +503,28 @@ class TrustTypeAnnotations {
 class AssumeDynamic {
   const AssumeDynamic();
 }
+
+/// Is true iff type assertions are enabled.
+final bool typeAssertionsEnabled = (() {
+  try {
+    dynamic i = 42;
+    String s = i;
+  } on TypeError catch (e) {
+    return true;
+  }
+  return false;
+})();
+
+/// Is true iff `assert` statements are enabled.
+final bool assertStatementsEnabled = (() {
+  try {
+    assert(false);
+  } on AssertionError catch (e) {
+    return true;
+  }
+  return false;
+})();
+
+/// Is true iff checked mode is enabled.
+final bool checkedModeEnabled =
+    typeAssertionsEnabled && assertStatementsEnabled;

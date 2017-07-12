@@ -4,7 +4,7 @@
 
 library fasta.unhandled_listener;
 
-import '../scanner/token.dart' show Token;
+import '../../scanner/token.dart' show Token;
 
 import 'stack_listener.dart' show NullValue, StackListener;
 
@@ -78,5 +78,13 @@ abstract class UnhandledListener extends StackListener {
     debugEvent("DottedName");
     popIdentifierList(count);
     push(Unhandled.DottedName);
+  }
+
+  @override
+  void endFunctionType(Token functionToken, Token endToken) {
+    pop(); // Formals.
+    pop(); // Return type.
+    pop(); // Type variables.
+    push(NullValue.Type);
   }
 }

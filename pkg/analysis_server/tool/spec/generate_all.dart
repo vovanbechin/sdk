@@ -12,6 +12,7 @@ import 'codegen_dart_protocol.dart' as codegen_dart_protocol;
 import 'codegen_inttest_methods.dart' as codegen_inttest_methods;
 import 'codegen_java_types.dart' as codegen_java_types;
 import 'codegen_matchers.dart' as codegen_matchers;
+import 'codegen_protocol_constants.dart' as codegen_protocol_constants;
 import 'to_html.dart' as to_html;
 
 /**
@@ -29,10 +30,11 @@ main() {
 List<GeneratedContent> get allTargets {
   List<GeneratedContent> targets = <GeneratedContent>[];
   targets.add(codegen_analysis_server.target);
-  targets.add(codegen_dart_protocol.target);
+  targets.add(codegen_dart_protocol.target(false));
   targets.add(codegen_java_types.targetDir);
   targets.add(codegen_inttest_methods.target);
   targets.add(codegen_matchers.target);
+  targets.add(codegen_protocol_constants.target);
   targets.add(to_html.target);
   return targets;
 }

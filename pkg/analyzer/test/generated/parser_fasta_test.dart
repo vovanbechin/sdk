@@ -6,10 +6,12 @@ import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/token.dart' as analyzer;
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/error.dart';
+import 'package:analyzer/src/dart/scanner/scanner.dart';
 import 'package:analyzer/src/fasta/ast_builder.dart';
 import 'package:analyzer/src/fasta/element_store.dart';
 import 'package:analyzer/src/generated/parser.dart' as analyzer;
 import 'package:analyzer/src/generated/utilities_dart.dart';
+import 'package:analyzer/src/string_source.dart';
 import 'package:front_end/src/fasta/kernel/kernel_builder.dart';
 import 'package:front_end/src/fasta/kernel/kernel_library_builder.dart';
 import 'package:front_end/src/fasta/parser/identifier_context.dart'
@@ -21,6 +23,7 @@ import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
 import 'parser_test.dart';
+import 'test_support.dart';
 
 main() {
   defineReflectiveSuite(() {
@@ -36,7 +39,7 @@ main() {
 /**
  * Type of the "parse..." methods defined in the Fasta parser.
  */
-typedef fasta.Token ParseFunction(fasta.Token token);
+typedef analyzer.Token ParseFunction(analyzer.Token token);
 
 /**
  * Proxy implementation of [Builder] used by Fasta parser tests.
@@ -229,7 +232,6 @@ class ExpressionParserTest_Fasta extends FastaParserTestCase
   }
 
   @override
-  @failingTest
   void test_parseListLiteral_empty_oneToken_withComment() {
     super.test_parseListLiteral_empty_oneToken_withComment();
   }
@@ -273,6 +275,7 @@ class FastaParserTestCase extends Object
     with ParserTestHelpers
     implements AbstractParserTestCase {
   ParserProxy _parserProxy;
+  analyzer.Token _fastaTokens;
 
   /**
    * Whether generic method comments should be enabled for the test.
@@ -318,6 +321,9 @@ class FastaParserTestCase extends Object
   analyzer.Parser get parser => _parserProxy;
 
   @override
+  bool get usingFasta => true;
+
+  @override
   void assertErrorsWithCodes(List<ErrorCode> expectedErrorCodes) {
     // TODO(scheglov): implement assertErrorsWithCodes
     fail('Not implemented');
@@ -332,7 +338,8 @@ class FastaParserTestCase extends Object
   void createParser(String content) {
     var scanner = new StringScanner(content, includeComments: true);
     scanner.scanGenericMethodComments = enableGenericMethodComments;
-    _parserProxy = new ParserProxy(scanner.tokenize(),
+    _fastaTokens = scanner.tokenize();
+    _parserProxy = new ParserProxy(_fastaTokens,
         enableGenericMethodComments: enableGenericMethodComments);
   }
 
@@ -386,10 +393,24 @@ class FastaParserTestCase extends Object
   }
 
   @override
-  CompilationUnit parseCompilationUnit(String source,
-      [List<ErrorCode> errorCodes = const <ErrorCode>[]]) {
-    return _runParser(source, (parser) => parser.parseUnit, errorCodes)
-        as CompilationUnit;
+  CompilationUnit parseCompilationUnit(String content,
+      [List<ErrorCode> expectedErrorCodes = const <ErrorCode>[]]) {
+    // Scan tokens
+    var source = new StringSource(content, 'parser_test_StringSource.dart');
+    GatheringErrorListener listener = new GatheringErrorListener();
+    var scanner = new Scanner.fasta(source, listener);
+    scanner.scanGenericMethodComments = enableGenericMethodComments;
+    _fastaTokens = scanner.tokenize();
+
+    // Run parser
+    analyzer.Parser parser =
+        new analyzer.Parser(source, listener, useFasta: true);
+    CompilationUnit unit = parser.parseCompilationUnit(_fastaTokens);
+
+    // Assert and return result
+    listener.assertErrorsWithCodes(expectedErrorCodes);
+    expect(unit, isNotNull);
+    return unit;
   }
 
   @override
@@ -464,23 +485,24 @@ class FastaParserTestCase extends Object
       List<ErrorCode> errorCodes: const <ErrorCode>[]}) {
     return _runParser(
         code,
-        (parser) => (fasta.Token token) {
-              return parser.parseFormalParameters(token,
-                  inFunctionType: inFunctionType);
+        (parser) => (analyzer.Token token) {
+              return parser.parseFormalParameters(
+                  token,
+                  inFunctionType
+                      ? fasta.MemberKind.GeneralizedFunctionType
+                      : fasta.MemberKind.NonStaticMethod);
             },
         errorCodes) as FormalParameterList;
   }
 
   @override
   CompilationUnitMember parseFullCompilationUnitMember() {
-    return _parserProxy._run((parser) => parser.parseTopLevelDeclaration)
-        as CompilationUnitMember;
+    return _parserProxy._run((parser) => parser.parseTopLevelDeclaration);
   }
 
   @override
   Directive parseFullDirective() {
-    return _parserProxy._run((parser) => parser.parseTopLevelDeclaration)
-        as Directive;
+    return _parserProxy._run((parser) => parser.parseTopLevelDeclaration);
   }
 
   @override
@@ -678,6 +700,18 @@ class FormalParameterParserTest_Fasta extends FastaParserTestCase
 
   @override
   @failingTest
+  void test_parseNormalFormalParameter_field_const_noType() {
+    super.test_parseNormalFormalParameter_field_const_noType();
+  }
+
+  @override
+  @failingTest
+  void test_parseNormalFormalParameter_field_const_type() {
+    super.test_parseNormalFormalParameter_field_const_type();
+  }
+
+  @override
+  @failingTest
   void test_parseNormalFormalParameter_function_noType_nullable() {
     // TODO(scheglov): Not implemented: Nnbd
     super.test_parseNormalFormalParameter_function_noType_nullable();
@@ -721,6 +755,18 @@ class FormalParameterParserTest_Fasta extends FastaParserTestCase
     super
         .test_parseNormalFormalParameter_function_void_typeParameters_nullable();
   }
+
+  @override
+  @failingTest
+  void test_parseNormalFormalParameter_simple_const_noType() {
+    super.test_parseNormalFormalParameter_simple_const_noType();
+  }
+
+  @override
+  @failingTest
+  void test_parseNormalFormalParameter_simple_const_type() {
+    super.test_parseNormalFormalParameter_simple_const_type();
+  }
 }
 
 /**
@@ -744,6 +790,12 @@ class KernelLibraryBuilderProxy implements KernelLibraryBuilder {
   @override
   Uri get fileUri => uri;
 
+  @override
+  void deprecated_addCompileTimeError(int charOffset, Object message,
+      {Uri fileUri, bool silent: false, bool wasHandled: false}) {
+    fail('$message');
+  }
+
   noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
@@ -758,7 +810,7 @@ class ParserProxy implements analyzer.Parser {
   /**
    * The token to parse next.
    */
-  fasta.Token _currentFastaToken;
+  analyzer.Token _currentFastaToken;
 
   /**
    * The fasta parser being wrapped.
@@ -775,13 +827,14 @@ class ParserProxy implements analyzer.Parser {
    * Creates a [ParserProxy] which is prepared to begin parsing at the given
    * Fasta token.
    */
-  factory ParserProxy(fasta.Token startingToken,
+  factory ParserProxy(analyzer.Token startingToken,
       {bool enableGenericMethodComments: false}) {
     var library = new KernelLibraryBuilderProxy();
     var member = new BuilderProxy();
     var elementStore = new ElementStoreProxy();
     var scope = new ScopeProxy();
-    var astBuilder = new AstBuilder(null, library, member, elementStore, scope);
+    var astBuilder =
+        new AstBuilder(null, library, member, elementStore, scope, true);
     astBuilder.parseGenericMethodComments = enableGenericMethodComments;
     var fastaParser = new fasta.Parser(astBuilder);
     astBuilder.parser = fastaParser;
@@ -827,13 +880,14 @@ class ScopeProxy implements Scope {
   final _locals = <String, Builder>{};
 
   @override
-  void operator []=(String name, Builder member) {
-    _locals[name] = member;
+  Scope createNestedScope({bool isModifiable: true}) {
+    return new Scope.nested(this, isModifiable: isModifiable);
   }
 
   @override
-  Scope createNestedScope({bool isModifiable: true}) {
-    return new Scope.nested(this, isModifiable: isModifiable);
+  declare(String name, Builder builder, int charOffset, Uri fileUri) {
+    _locals[name] = builder;
+    return null;
   }
 
   @override
@@ -850,6 +904,18 @@ class ScopeProxy implements Scope {
 @reflectiveTest
 class StatementParserTest_Fasta extends FastaParserTestCase
     with StatementParserTestMixin {
+  @override
+  @failingTest
+  void test_parseAssertStatement_trailingComma_message() {
+    super.test_parseAssertStatement_trailingComma_message();
+  }
+
+  @override
+  @failingTest
+  void test_parseAssertStatement_trailingComma_noMessage() {
+    super.test_parseAssertStatement_trailingComma_noMessage();
+  }
+
   @override
   @failingTest
   void test_parseBreakStatement_noLabel() {
@@ -927,13 +993,6 @@ class TopLevelParserTest_Fasta extends FastaParserTestCase
   void test_parseCompilationUnit_exportAsPrefix_parameterized() {
     // TODO(paulberry): As of commit 5de9108 this syntax is invalid.
     super.test_parseCompilationUnit_exportAsPrefix_parameterized();
-  }
-
-  @override
-  @failingTest
-  void test_parseCompilationUnit_typedefAsPrefix() {
-    // TODO(paulberry): As of commit 5de9108 this syntax is invalid.
-    super.test_parseCompilationUnit_typedefAsPrefix();
   }
 
   @override

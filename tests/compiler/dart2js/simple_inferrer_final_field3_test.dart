@@ -31,10 +31,10 @@ void main() {
         var closedWorld = typesInferrer.closedWorld;
 
         checkFieldTypeInClass(String className, String fieldName, type) {
-          var cls = findElement(compiler, className);
+          dynamic cls = findElement(compiler, className);
           var element = cls.lookupLocalMember(fieldName);
           Expect.equals(type,
-              simplify(typesInferrer.getTypeOfElement(element), closedWorld));
+              simplify(typesInferrer.getTypeOfMember(element), closedWorld));
         }
 
         checkFieldTypeInClass(

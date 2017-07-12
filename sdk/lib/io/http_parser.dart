@@ -212,7 +212,7 @@ class _HttpDetachedIncoming extends Stream<List<int>> {
 /**
  * HTTP parser which parses the data stream given to [consume].
  *
- * If an HTTP parser error occours, the parser will signal an error to either
+ * If an HTTP parser error occurs, the parser will signal an error to either
  * the current _HttpIncoming or the _parser itself.
  *
  * The connection upgrades (e.g. switching from HTTP/1.1 to the
@@ -754,7 +754,7 @@ class _HttpParser extends Stream<_HttpIncoming> {
             dataAvailable = _remainingContent;
           }
           // Always present the data as a view. This way we can handle all
-          // cases like this, and the user will not experince different data
+          // cases like this, and the user will not experience different data
           // typed (which could lead to polymorphic user code).
           List<int> data = new Uint8List.view(
               _buffer.buffer, _buffer.offsetInBytes + _index, dataAvailable);

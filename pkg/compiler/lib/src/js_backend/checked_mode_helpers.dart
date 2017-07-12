@@ -43,7 +43,7 @@ class MalformedCheckedModeHelper extends CheckedModeHelper {
 
   void generateAdditionalArguments(SsaCodeGenerator codegen, Namer namer,
       HTypeConversion node, List<jsAst.Expression> arguments) {
-    // TODO(johnniwinther): Support malformed types in [types.dart].
+    // TODO(redemption): Support malformed types in [types.dart].
     MalformedType type = node.typeExpression;
     ErroneousElement element = type.element;
     arguments.add(js.escapedString(element.message));
@@ -212,8 +212,8 @@ class CheckedModeHelpers {
       return typeCast ? 'functionTypeCast' : 'functionTypeCheck';
     }
 
-    assert(invariant(NO_LOCATION_SPANNABLE, type.isInterfaceType,
-        message: "Unexpected type: $type"));
+    assert(type.isInterfaceType,
+        failedAt(NO_LOCATION_SPANNABLE, "Unexpected type: $type"));
     InterfaceType interfaceType = type;
     ClassEntity element = interfaceType.element;
     bool nativeCheck = true;

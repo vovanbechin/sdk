@@ -59,7 +59,7 @@ class PlatformWin {
     // See: https://msdn.microsoft.com/en-us/library/windows/desktop/ms680621(v=vs.85).aspx
     SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
     // Set up a signal handler that restores the console state on a
-    // CTRL_C_EVENT signal. This will only run when there is no signal hanlder
+    // CTRL_C_EVENT signal. This will only run when there is no signal handler
     // registered for the CTRL_C_EVENT from Dart code.
     SetConsoleCtrlHandler(SignalHandler, TRUE);
   }
@@ -78,10 +78,16 @@ class PlatformWin {
     // Set both the input and output code pages to UTF8.
     ASSERT(saved_output_cp_ == -1);
     ASSERT(saved_input_cp_ == -1);
-    saved_output_cp_ = GetConsoleOutputCP();
-    saved_input_cp_ = GetConsoleCP();
-    SetConsoleOutputCP(CP_UTF8);
-    SetConsoleCP(CP_UTF8);
+    const int output_cp = GetConsoleOutputCP();
+    const int input_cp = GetConsoleCP();
+    if (output_cp != CP_UTF8) {
+      SetConsoleOutputCP(CP_UTF8);
+      saved_output_cp_ = output_cp;
+    }
+    if (input_cp != CP_UTF8) {
+      SetConsoleCP(CP_UTF8);
+      saved_input_cp_ = input_cp;
+    }
 
     // Try to set the bits for ANSI support, but swallow any failures.
     HANDLE out = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -250,6 +256,11 @@ char** Platform::Environment(intptr_t* count) {
   }
   FreeEnvironmentStringsW(strings);
   return result;
+}
+
+
+const char* Platform::GetExecutableName() {
+  return executable_name_;
 }
 
 

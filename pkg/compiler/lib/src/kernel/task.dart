@@ -29,7 +29,8 @@ class KernelTask extends CompilerTask {
   ///
   /// May enqueue more elements to the resolution queue.
   void buildKernelIr() => measure(() {
-        program = buildProgram(_compiler.mainApp);
+        program = buildProgram(
+            _compiler.frontendStrategy.elementEnvironment.mainLibrary);
       });
 
   /// Builds the kernel IR program for the main function exported from
@@ -37,11 +38,12 @@ class KernelTask extends CompilerTask {
   ///
   /// May enqueue more elements to the resolution queue.
   ir.Program buildProgram(LibraryElement library) {
-    var main = library.findExported(Identifiers.main);
+    MethodElement main = library.findExported(Identifiers.main);
     if (main == null) {
-      main = _compiler.backend.helperForMissingMain();
+      main = _compiler.frontendStrategy.commonElements.missingMain;
     }
-    return new ir.Program(kernel.libraryDependencies(library.canonicalUri))
+    return new ir.Program(
+        libraries: kernel.libraryDependencies(library.canonicalUri))
       ..mainMethod = kernel.functionToIr(main);
   }
 }

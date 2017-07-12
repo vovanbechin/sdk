@@ -12,7 +12,6 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/dart/constant/value.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
-import 'package:analyzer/dart/element/visitor.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
 import 'package:analyzer/src/dart/constant/value.dart';
 import 'package:analyzer/src/dart/element/handle.dart';
@@ -116,8 +115,7 @@ abstract class AbstractClassElementImpl extends ElementImpl
   ElementKind get kind => ElementKind.CLASS;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitClassElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitClassElement(this);
 
   @override
   NamedCompilationUnitMember computeNode() {
@@ -259,7 +257,7 @@ abstract class AbstractClassElementImpl extends ElementImpl
    * Return the first element from the given [iterable], or `null` if the
    * iterable is empty.
    */
-  Object/*=E*/ _first/*<E>*/(Iterable/*<E>*/ iterable) {
+  E _first<E>(Iterable<E> iterable) {
     if (iterable.isEmpty) {
       return null;
     }
@@ -1337,11 +1335,6 @@ class CompilationUnitElementImpl extends UriReferencedElementImpl
   List<TopLevelVariableElement> _variables;
 
   /**
-   * A map from offsets to elements of this unit at these offsets.
-   */
-  final Map<int, Element> _offsetToElementMap = new HashMap<int, Element>();
-
-  /**
    * Resynthesized explicit top-level property accessors.
    */
   UnitExplicitTopLevelAccessors _explicitTopLevelAccessors;
@@ -1612,15 +1605,8 @@ class CompilationUnitElementImpl extends UriReferencedElementImpl
       object is CompilationUnitElementImpl && source == object.source;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitCompilationUnitElement(this);
-
-  /**
-   * This method is invoked after this unit was incrementally resolved.
-   */
-  void afterIncrementalResolution() {
-    _offsetToElementMap.clear();
-  }
 
   @override
   void appendTo(StringBuffer buffer) {
@@ -1690,14 +1676,6 @@ class CompilationUnitElementImpl extends UriReferencedElementImpl
       }
     }
     return null;
-  }
-
-  @override
-  Element getElementAt(int offset) {
-    if (_offsetToElementMap.isEmpty) {
-      accept(new _BuildOffsetToElementMap(_offsetToElementMap));
-    }
-    return _offsetToElementMap[offset];
   }
 
   @override
@@ -1937,13 +1915,6 @@ class ConstLocalVariableElementImpl extends LocalVariableElementImpl
    * Initialize a newly created local variable element to have the given [name].
    */
   ConstLocalVariableElementImpl.forNode(Identifier name) : super.forNode(name);
-
-  /**
-   * Initialize using the given serialized information.
-   */
-  ConstLocalVariableElementImpl.forSerialized(UnlinkedVariable unlinkedVariable,
-      ExecutableElementImpl enclosingExecutable)
-      : super.forSerialized(unlinkedVariable, enclosingExecutable);
 }
 
 /**
@@ -2167,7 +2138,7 @@ class ConstructorElementImpl extends ExecutableElementImpl
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitConstructorElement(this);
 
   @override
@@ -2434,7 +2405,7 @@ class DynamicElementImpl extends ElementImpl implements TypeDefiningElement {
   ElementKind get kind => ElementKind.DYNAMIC;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) => null;
+  T accept<T>(ElementVisitor<T> visitor) => null;
 }
 
 /**
@@ -2774,8 +2745,6 @@ abstract class ElementImpl implements Element {
 
   /**
    * Set the enclosing element of this element to the given [element].
-   *
-   * Throws [FrozenHashCodeException] if the hashCode can't be changed.
    */
   void set enclosingElement(Element element) {
     _enclosingElement = element as ElementImpl;
@@ -2924,8 +2893,6 @@ abstract class ElementImpl implements Element {
 
   /**
    * Changes the name of this element.
-   *
-   * Throws [FrozenHashCodeException] if the hashCode can't be changed.
    */
   void set name(String name) {
     this._name = name;
@@ -2940,8 +2907,6 @@ abstract class ElementImpl implements Element {
   /**
    * Sets the offset of the name of this element in the file that contains the
    * declaration of this element.
-   *
-   * Throws [FrozenHashCodeException] if the hashCode can't be changed.
    */
   void set nameOffset(int offset) {
     _nameOffset = offset;
@@ -3024,14 +2989,22 @@ abstract class ElementImpl implements Element {
     element.enclosingElement = this;
   }
 
+  /**
+   * Set this element as the enclosing element for given [elements].
+   */
+  void encloseElements(List<Element> elements) {
+    for (Element element in elements) {
+      (element as ElementImpl)._enclosingElement = this;
+    }
+  }
+
   @override
-  Element/*=E*/ getAncestor/*<E extends Element >*/(
-      Predicate<Element> predicate) {
+  E getAncestor<E extends Element>(Predicate<Element> predicate) {
     Element ancestor = _enclosingElement;
     while (ancestor != null && !predicate(ancestor)) {
       ancestor = ancestor.enclosingElement;
     }
-    return ancestor as Element/*=E*/;
+    return ancestor as E;
   }
 
   /**
@@ -3582,17 +3555,6 @@ abstract class ExecutableElementImpl extends ElementImpl
   List<FunctionElement> _functions;
 
   /**
-   * A list containing all of the labels defined within this executable element.
-   */
-  List<LabelElement> _labels;
-
-  /**
-   * A list containing all of the local variables defined within this executable
-   * element.
-   */
-  List<LocalVariableElement> _localVariables;
-
-  /**
    * A list containing all of the parameters defined by this executable element.
    */
   List<ParameterElement> _parameters;
@@ -3772,60 +3734,6 @@ abstract class ExecutableElementImpl extends ElementImpl
   bool get isSynchronous => !isAsynchronous;
 
   @override
-  List<LabelElement> get labels {
-    if (serializedExecutable != null) {
-      _labels ??= LabelElementImpl.resynthesizeList(
-          this, serializedExecutable.localLabels);
-    }
-    return _labels ?? const <LabelElement>[];
-  }
-
-  /**
-   * Set the labels defined within this executable element to the given
-   * [labels].
-   */
-  void set labels(List<LabelElement> labels) {
-    _assertNotResynthesized(serializedExecutable);
-    for (LabelElement label in labels) {
-      (label as LabelElementImpl).enclosingElement = this;
-    }
-    this._labels = labels;
-  }
-
-  @override
-  List<LocalVariableElement> get localVariables {
-    if (serializedExecutable != null && _localVariables == null) {
-      List<UnlinkedVariable> unlinkedVariables =
-          serializedExecutable.localVariables;
-      int length = unlinkedVariables.length;
-      if (length != 0) {
-        List<LocalVariableElementImpl> localVariables =
-            new List<LocalVariableElementImpl>(length);
-        for (int i = 0; i < length; i++) {
-          localVariables[i] = new LocalVariableElementImpl.forSerializedFactory(
-              unlinkedVariables[i], this);
-        }
-        _localVariables = localVariables;
-      } else {
-        _localVariables = const <LocalVariableElement>[];
-      }
-    }
-    return _localVariables ?? const <LocalVariableElement>[];
-  }
-
-  /**
-   * Set the local variables defined within this executable element to the given
-   * [variables].
-   */
-  void set localVariables(List<LocalVariableElement> variables) {
-    _assertNotResynthesized(serializedExecutable);
-    for (LocalVariableElement variable in variables) {
-      (variable as LocalVariableElementImpl).enclosingElement = this;
-    }
-    this._localVariables = variables;
-  }
-
-  @override
   List<ElementAnnotation> get metadata {
     if (serializedExecutable != null) {
       return _metadata ??=
@@ -3984,18 +3892,6 @@ abstract class ExecutableElementImpl extends ElementImpl
         return functionImpl;
       }
     }
-    for (LabelElement label in _labels) {
-      LabelElementImpl labelImpl = label;
-      if (labelImpl.identifier == identifier) {
-        return labelImpl;
-      }
-    }
-    for (LocalVariableElement variable in _localVariables) {
-      LocalVariableElementImpl variableImpl = variable;
-      if (variableImpl.identifier == identifier) {
-        return variableImpl;
-      }
-    }
     for (ParameterElement parameter in parameters) {
       ParameterElementImpl parameterImpl = parameter;
       if (parameterImpl.identifier == identifier) {
@@ -4011,9 +3907,6 @@ abstract class ExecutableElementImpl extends ElementImpl
     _safelyVisitPossibleChild(returnType, visitor);
     safelyVisitChildren(typeParameters, visitor);
     safelyVisitChildren(parameters, visitor);
-    safelyVisitChildren(functions, visitor);
-    safelyVisitChildren(labels, visitor);
-    safelyVisitChildren(localVariables, visitor);
   }
 }
 
@@ -4165,8 +4058,7 @@ class ExportElementImpl extends UriReferencedElementImpl
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitExportElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitExportElement(this);
 
   @override
   void appendTo(StringBuffer buffer) {
@@ -4262,8 +4154,7 @@ class FieldElementImpl extends PropertyInducingElementImpl
   ElementKind get kind => ElementKind.FIELD;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitFieldElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitFieldElement(this);
 
   @override
   AstNode computeNode() {
@@ -4346,7 +4237,7 @@ class FieldFormalParameterElementImpl extends ParameterElementImpl
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitFieldFormalParameterElement(this);
 }
 
@@ -4448,8 +4339,7 @@ class FunctionElementImpl extends ExecutableElementImpl
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitFunctionElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitFunctionElement(this);
 
   @override
   void appendTo(StringBuffer buffer) {
@@ -4770,7 +4660,7 @@ class FunctionTypeAliasElementImpl extends ElementImpl
       _unlinkedTypedef?.typeParameters;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitFunctionTypeAliasElement(this);
 
   @override
@@ -5181,7 +5071,7 @@ class GenericTypeAliasElementImpl extends ElementImpl
       _unlinkedTypedef?.typeParameters;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitFunctionTypeAliasElement(this);
 
   @override
@@ -5535,8 +5425,7 @@ class ImportElementImpl extends UriReferencedElementImpl
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitImportElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitImportElement(this);
 
   @override
   void appendTo(StringBuffer buffer) {
@@ -5574,11 +5463,6 @@ class ImportElementImpl extends UriReferencedElementImpl
  */
 class LabelElementImpl extends ElementImpl implements LabelElement {
   /**
-   * The unlinked representation of the label in the summary.
-   */
-  final UnlinkedLabel _unlinkedLabel;
-
-  /**
    * A flag indicating whether this label is associated with a `switch`
    * statement.
    */
@@ -5600,8 +5484,7 @@ class LabelElementImpl extends ElementImpl implements LabelElement {
    */
   LabelElementImpl(String name, int nameOffset, this._onSwitchStatement,
       this._onSwitchMember)
-      : _unlinkedLabel = null,
-        super(name, nameOffset);
+      : super(name, nameOffset);
 
   /**
    * Initialize a newly created label element to have the given [name].
@@ -5611,18 +5494,7 @@ class LabelElementImpl extends ElementImpl implements LabelElement {
    */
   LabelElementImpl.forNode(
       Identifier name, this._onSwitchStatement, this._onSwitchMember)
-      : _unlinkedLabel = null,
-        super.forNode(name);
-
-  /**
-   * Initialize using the given serialized information.
-   */
-  LabelElementImpl.forSerialized(
-      UnlinkedLabel unlinkedLabel, ExecutableElementImpl enclosingExecutable)
-      : _unlinkedLabel = unlinkedLabel,
-        _onSwitchStatement = unlinkedLabel.isOnSwitchStatement,
-        _onSwitchMember = unlinkedLabel.isOnSwitchMember,
-        super.forSerialized(enclosingExecutable);
+      : super.forNode(name);
 
   @override
   String get displayName => name;
@@ -5646,46 +5518,7 @@ class LabelElementImpl extends ElementImpl implements LabelElement {
   ElementKind get kind => ElementKind.LABEL;
 
   @override
-  String get name {
-    if (_unlinkedLabel != null) {
-      return _unlinkedLabel.name;
-    }
-    return super.name;
-  }
-
-  @override
-  int get nameOffset {
-    int offset = super.nameOffset;
-    if (offset == 0 &&
-        _unlinkedLabel != null &&
-        _unlinkedLabel.nameOffset != 0) {
-      return _unlinkedLabel.nameOffset;
-    }
-    return offset;
-  }
-
-  @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitLabelElement(this);
-
-  /**
-   * Create and return [LabelElement]s for the given [unlinkedLabels].
-   */
-  static List<LabelElement> resynthesizeList(
-      ExecutableElementImpl enclosingExecutable,
-      List<UnlinkedLabel> unlinkedLabels) {
-    int length = unlinkedLabels.length;
-    if (length != 0) {
-      List<LabelElement> elements = new List<LabelElement>(length);
-      for (int i = 0; i < length; i++) {
-        elements[i] = new LabelElementImpl.forSerialized(
-            unlinkedLabels[i], enclosingExecutable);
-      }
-      return elements;
-    } else {
-      return const <LabelElement>[];
-    }
-  }
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitLabelElement(this);
 }
 
 /**
@@ -6217,8 +6050,7 @@ class LibraryElementImpl extends ElementImpl implements LibraryElement {
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitLibraryElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitLibraryElement(this);
 
   /**
    * Create the [FunctionElement] to be returned by [loadLibraryFunction],
@@ -6458,39 +6290,9 @@ class LocalVariableElementImpl extends NonParameterVariableElementImpl
    */
   LocalVariableElementImpl.forNode(Identifier name) : super.forNode(name);
 
-  /**
-   * Initialize using the given serialized information.
-   */
-  LocalVariableElementImpl.forSerialized(UnlinkedVariable unlinkedVariable,
-      ExecutableElementImpl enclosingExecutable)
-      : super.forSerialized(unlinkedVariable, enclosingExecutable);
-
-  /**
-   * Initialize using the given serialized information.
-   */
-  factory LocalVariableElementImpl.forSerializedFactory(
-      UnlinkedVariable unlinkedVariable,
-      ExecutableElementImpl enclosingExecutable) {
-    if (unlinkedVariable.isConst &&
-        unlinkedVariable.initializer?.bodyExpr != null) {
-      return new ConstLocalVariableElementImpl.forSerialized(
-          unlinkedVariable, enclosingExecutable);
-    } else {
-      return new LocalVariableElementImpl.forSerialized(
-          unlinkedVariable, enclosingExecutable);
-    }
-  }
-
   @override
   String get identifier {
-    String identifier = super.identifier;
-    Element enclosing = this.enclosingElement;
-    if (enclosing is ExecutableElement) {
-      int id = ElementImpl.findElementIndexUsingIdentical(
-          enclosing.localVariables, this);
-      identifier += "@$id";
-    }
-    return identifier;
+    return '$name$nameOffset';
   }
 
   @override
@@ -6518,7 +6320,7 @@ class LocalVariableElementImpl extends NonParameterVariableElementImpl
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitLocalVariableElement(this);
 
   @override
@@ -6639,8 +6441,7 @@ class MethodElementImpl extends ExecutableElementImpl implements MethodElement {
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitMethodElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitMethodElement(this);
 
   @override
   void appendTo(StringBuffer buffer) {
@@ -6671,7 +6472,7 @@ class MethodElementImpl extends ExecutableElementImpl implements MethodElement {
     List<ParameterElement> covariantParameters = parameters.map((parameter) {
       DartType type = parameter.isCovariant ? objectType : parameter.type;
       return new ParameterElementImpl.synthetic(
-          parameter.name, objectType, parameter.parameterKind);
+          parameter.name, type, parameter.parameterKind);
     }).toList();
 
     return new FunctionElementImpl.synthetic(covariantParameters, returnType)
@@ -6963,7 +6764,7 @@ class MultiplyDefinedElementImpl implements MultiplyDefinedElement {
   CompilationUnit get unit => null;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitMultiplyDefinedElement(this);
 
   @override
@@ -6973,9 +6774,7 @@ class MultiplyDefinedElementImpl implements MultiplyDefinedElement {
   AstNode computeNode() => null;
 
   @override
-  Element/*=E*/ getAncestor/*<E extends Element >*/(
-          Predicate<Element> predicate) =>
-      null;
+  E getAncestor<E extends Element>(Predicate<Element> predicate) => null;
 
   @override
   String getExtendedDisplayName(String shortName) {
@@ -7449,7 +7248,7 @@ class ParameterElementImpl extends VariableElementImpl
   @override
   bool get hasImplicitType {
     if (_unlinkedParam != null) {
-      return _unlinkedParam.type == null;
+      return _unlinkedParam.type == null && !_unlinkedParam.isFunctionTyped;
     }
     return super.hasImplicitType;
   }
@@ -7600,6 +7399,7 @@ class ParameterElementImpl extends VariableElementImpl
     if (offset == 0 && _unlinkedParam != null) {
       if (isSynthetic ||
           (_unlinkedParam.name.isEmpty &&
+              _unlinkedParam.kind != UnlinkedParamKind.named &&
               enclosingElement is GenericFunctionTypeElement)) {
         return -1;
       }
@@ -7699,8 +7499,7 @@ class ParameterElementImpl extends VariableElementImpl
   UnlinkedExpr get _unlinkedConst => _unlinkedParam?.initializer?.bodyExpr;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitParameterElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitParameterElement(this);
 
   @override
   void appendTo(StringBuffer buffer) {
@@ -7959,8 +7758,7 @@ class PrefixElementImpl extends ElementImpl implements PrefixElement {
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitPrefixElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitPrefixElement(this);
 
   @override
   void appendTo(StringBuffer buffer) {
@@ -8132,7 +7930,7 @@ class PropertyAccessorElementImpl extends ExecutableElementImpl
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitPropertyAccessorElement(this);
 
   @override
@@ -8498,7 +8296,7 @@ class TopLevelVariableElementImpl extends PropertyInducingElementImpl
   ElementKind get kind => ElementKind.TOP_LEVEL_VARIABLE;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitTopLevelVariableElement(this);
 
   @override
@@ -8647,7 +8445,7 @@ class TypeParameterElementImpl extends ElementImpl
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitTypeParameterElement(this);
 
   @override
@@ -9079,23 +8877,5 @@ abstract class VariableElementImpl extends ElementImpl
   void visitChildren(ElementVisitor visitor) {
     super.visitChildren(visitor);
     _initializer?.accept(visitor);
-  }
-}
-
-/**
- * A visitor that visit all the elements recursively and fill the given [map].
- */
-class _BuildOffsetToElementMap extends GeneralizingElementVisitor {
-  final Map<int, Element> map;
-
-  _BuildOffsetToElementMap(this.map);
-
-  @override
-  void visitElement(Element element) {
-    int offset = element.nameOffset;
-    if (offset != -1) {
-      map[offset] = element;
-    }
-    super.visitElement(element);
   }
 }

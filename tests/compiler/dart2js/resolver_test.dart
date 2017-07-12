@@ -134,8 +134,6 @@ class Foo extends X<Foo> {}
 class Bar extends Foo implements X<Bar> {}
 """);
       compiler.resolveStatement("Bar bar;");
-      LibraryElement mainApp = compiler.mainApp;
-      ClassElement classBar = mainApp.find("Bar");
       DiagnosticCollector collector = compiler.diagnosticCollector;
       Expect.equals(0, collector.warnings.length);
       Expect.equals(1, collector.errors.length);
@@ -171,8 +169,8 @@ Future testTypeVariables() {
       LibraryElement mainApp = compiler.mainApp;
       ClassElement foo = mainApp.find('Foo');
       matchResolvedTypes(visitor, 'Foo<int, String> x;', 'Foo', [
-        compiler.commonElements.intClass,
-        compiler.commonElements.stringClass
+        compiler.resolution.commonElements.intClass,
+        compiler.resolution.commonElements.stringClass
       ]);
       matchResolvedTypes(visitor, 'Foo<Foo, Foo> x;', 'Foo', [foo, foo]);
     }),
@@ -256,7 +254,7 @@ Future testSwitch() {
     MethodElement funElement = fooElement.lookupLocalMember("foo");
     compiler.enqueuer.resolution.applyImpact(new WorldImpactBuilderImpl()
       ..registerStaticUse(new StaticUse.implicitInvoke(funElement)));
-    compiler.processQueue(
+    compiler.processQueue(compiler.frontendStrategy.elementEnvironment,
         compiler.enqueuer.resolution, null, compiler.libraryLoader.libraries);
     DiagnosticCollector collector = compiler.diagnosticCollector;
     Expect.equals(0, collector.warnings.length);
@@ -289,7 +287,6 @@ Future testThis() {
           (funElement as FunctionElementX).parseNode(compiler.parsingContext);
       visitor.visit(function.body);
       Map mapping = map(visitor);
-      List<Element> values = mapping.values.toList();
       DiagnosticCollector collector = compiler.diagnosticCollector;
       Expect.equals(0, mapping.length);
       Expect.equals(0, collector.warnings.length);
@@ -628,11 +625,6 @@ Future testOneInterface() {
     // correctly.
     compiler.parseScript("abstract class Bar {}");
 
-    ResolverVisitor visitor = new ResolverVisitor(
-        compiler.resolution,
-        null,
-        new ResolutionRegistry(
-            compiler.backend.target, new CollectingTreeElements(null)));
     compiler.resolveStatement("Foo bar;");
 
     LibraryElement mainApp = compiler.mainApp;

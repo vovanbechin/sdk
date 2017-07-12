@@ -4,13 +4,15 @@
 
 library fasta.kernel_class_builder;
 
+import 'package:front_end/src/fasta/kernel/kernel_shadow_ast.dart'
+    show KernelMember;
+
 import 'package:kernel/ast.dart'
     show
         Class,
         Constructor,
         DartType,
         Expression,
-        ExpressionStatement,
         Field,
         FunctionNode,
         InterfaceType,
@@ -20,16 +22,14 @@ import 'package:kernel/ast.dart'
         Procedure,
         ProcedureKind,
         StaticGet,
-        StringLiteral,
         Supertype,
-        Throw,
         VariableDeclaration;
 
 import 'package:kernel/class_hierarchy.dart' show ClassHierarchy;
 
-import '../errors.dart' show internalError;
+import '../deprecated_problems.dart' show deprecated_internalProblem;
 
-import '../messages.dart' show warning;
+import '../fasta_codes.dart' show templateRedirectionTargetNotFound;
 
 import '../dill/dill_member_builder.dart' show DillMemberBuilder;
 
@@ -84,7 +84,7 @@ abstract class KernelClassBuilder
     for (KernelTypeBuilder builder in arguments) {
       DartType type = builder.build(library);
       if (type == null) {
-        internalError("Bad type: ${builder.runtimeType}");
+        deprecated_internalProblem("Bad type: ${builder.runtimeType}");
       }
       typeArguments.add(type);
     }
@@ -133,13 +133,17 @@ abstract class KernelClassBuilder
             } else if (targetBuilder is DillMemberBuilder) {
               builder.body = new RedirectingFactoryBody(targetBuilder.member);
             } else {
-              // TODO(ahe): Throw NSM error. This requires access to core
-              // types.
-              String message = "Redirection constructor target not found: "
-                  "${redirectionTarget.fullNameForErrors}";
-              warning(library.fileUri, -1, message);
-              builder.body = new ExpressionStatement(
-                  new Throw(new StringLiteral(message)));
+              var message = templateRedirectionTargetNotFound
+                  .withArguments(redirectionTarget.fullNameForErrors);
+              if (builder.isConst) {
+                addCompileTimeError(message, builder.charOffset);
+              } else {
+                addWarning(message, builder.charOffset);
+              }
+              // CoreTypes aren't computed yet, and this is the outline
+              // phase. So we can't and shouldn't create a method body.
+              builder.body = new RedirectingFactoryBody.unresolved(
+                  redirectionTarget.fullNameForErrors);
             }
           }
         }
@@ -161,7 +165,7 @@ abstract class KernelClassBuilder
     // Where each c1 ... cn are an instance of [StaticGet] whose target is
     // [constructor.target].
     //
-    // TODO(ahe): Generate the correct factory body instead.
+    // TODO(ahe): Add a kernel node to represent redirecting factory bodies.
     DillMemberBuilder constructorsField =
         scope.local.putIfAbsent("_redirecting#", () {
       ListLiteral literal = new ListLiteral(<Expression>[]);
@@ -180,22 +184,41 @@ abstract class KernelClassBuilder
 
   void checkOverrides(ClassHierarchy hierarchy) {
     hierarchy.forEachOverridePair(cls, checkOverride);
+    hierarchy.forEachCrossOverridePair(cls, handleCrossOverride);
   }
 
   void checkOverride(
       Member declaredMember, Member interfaceMember, bool isSetter) {
     if (declaredMember is Constructor || interfaceMember is Constructor) {
-      internalError(
+      deprecated_internalProblem(
           "Constructor in override check.", fileUri, declaredMember.fileOffset);
     }
     if (declaredMember is Procedure && interfaceMember is Procedure) {
       if (declaredMember.kind == ProcedureKind.Method &&
           interfaceMember.kind == ProcedureKind.Method) {
         checkMethodOverride(declaredMember, interfaceMember);
-        return;
       }
     }
     // TODO(ahe): Handle other cases: accessors, operators, and fields.
+
+    // Also record any cases where a field or getter/setter overrides something
+    // in a superclass, since this information will be needed for type
+    // inference.
+    if (declaredMember is KernelMember &&
+        identical(declaredMember.enclosingClass, cls)) {
+      KernelMember.recordOverride(declaredMember, interfaceMember);
+    }
+  }
+
+  void handleCrossOverride(
+      Member declaredMember, Member interfaceMember, bool isSetter) {
+    // Record any cases where a field or getter/setter has a corresponding (but
+    // opposite) getter/setter in a superclass, since this information will be
+    // needed for type inference.
+    if (declaredMember is KernelMember &&
+        identical(declaredMember.enclosingClass, cls)) {
+      KernelMember.recordCrossOverride(declaredMember, interfaceMember);
+    }
   }
 
   void checkMethodOverride(
@@ -211,7 +234,7 @@ abstract class KernelClassBuilder
     FunctionNode interfaceFunction = interfaceMember.function;
     if (declaredFunction.typeParameters?.length !=
         interfaceFunction.typeParameters?.length) {
-      addWarning(
+      deprecated_addWarning(
           declaredMember.fileOffset,
           "Declared type variables of '$name::${declaredMember.name.name}' "
           "doesn't match those on overridden method "
@@ -222,7 +245,7 @@ abstract class KernelClassBuilder
             interfaceFunction.requiredParameterCount ||
         declaredFunction.positionalParameters.length <
             interfaceFunction.positionalParameters.length) {
-      addWarning(
+      deprecated_addWarning(
           declaredMember.fileOffset,
           "The method '$name::${declaredMember.name.name}' has fewer "
           "positional arguments than those of overridden method "
@@ -231,7 +254,7 @@ abstract class KernelClassBuilder
     }
     if (interfaceFunction.requiredParameterCount <
         declaredFunction.requiredParameterCount) {
-      addWarning(
+      deprecated_addWarning(
           declaredMember.fileOffset,
           "The method '$name::${declaredMember.name.name}' has more "
           "required arguments than those of overridden method "
@@ -244,7 +267,7 @@ abstract class KernelClassBuilder
     }
     if (declaredFunction.namedParameters.length <
         interfaceFunction.namedParameters.length) {
-      addWarning(
+      deprecated_addWarning(
           declaredMember.fileOffset,
           "The method '$name::${declaredMember.name.name}' has fewer named "
           "arguments than those of overridden method "
@@ -261,7 +284,7 @@ abstract class KernelClassBuilder
       while (declaredNamedParameters.current.name !=
           interfaceNamedParameters.current.name) {
         if (!declaredNamedParameters.moveNext()) {
-          addWarning(
+          deprecated_addWarning(
               declaredMember.fileOffset,
               "The method '$name::${declaredMember.name.name}' doesn't have "
               "the named parameter '${interfaceNamedParameters.current.name}' "

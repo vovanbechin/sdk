@@ -12,12 +12,6 @@
 #define USING_DBC false
 #endif
 
-#if defined(HOST_OS_FUCHSIA)
-#define USING_FUCHSIA true
-#else
-#define USING_FUCHSIA false
-#endif
-
 // Don't use USING_MULTICORE outside of this file.
 #if defined(ARCH_IS_MULTI_CORE)
 #define USING_MULTICORE true
@@ -25,10 +19,11 @@
 #define USING_MULTICORE false
 #endif
 
-#if defined(DART_PRECOMPILER)
-#define USING_PRECOMPILER true
+// Don't use USING_PRODUCT outside of this file.
+#if defined(PRODUCT)
+#define USING_PRODUCT true
 #else
-#define USING_PRECOMPILER false
+#define USING_PRODUCT false
 #endif
 
 // List of all flags in the VM.
@@ -99,8 +94,7 @@
   P(interpret_irregexp, bool, USING_DBC, "Use irregexp bytecode interpreter")  \
   P(lazy_dispatchers, bool, true, "Generate dispatchers lazily")               \
   P(link_natives_lazily, bool, false, "Link native calls lazily")              \
-  R(limit_ints_to_64_bits, false, bool, false,                                 \
-    "Throw a RangeError on 64-bit integer overflow");                          \
+  P(limit_ints_to_64_bits, bool, false, "Truncate integers to 64 bits")        \
   C(load_deferred_eagerly, true, true, bool, false,                            \
     "Load deferred libraries eagerly.")                                        \
   R(log_marker_tasks, false, bool, false,                                      \
@@ -140,17 +134,16 @@
   C(print_stop_message, false, false, bool, false, "Print stop message.")      \
   D(print_variable_descriptors, bool, false,                                   \
     "Print variable descriptors in disassembly.")                              \
-  R(profiler, false, bool, !USING_DBC && !USING_FUCHSIA,                       \
-    "Enable the profiler.")                                                    \
+  R(profiler, false, bool, !USING_DBC, "Enable the profiler.")                 \
   R(profiler_native_memory, false, bool, false,                                \
     "Enable native memory statistic collection.")                              \
   P(reify_generic_functions, bool, false,                                      \
     "Enable reification of generic functions (not yet supported).")            \
   P(reorder_basic_blocks, bool, true, "Reorder basic blocks")                  \
-  C(causal_async_stacks, false, false, bool, true, "Improved async stacks")    \
+  P(causal_async_stacks, bool, !USING_PRODUCT, "Improved async stacks")        \
   C(stress_async_stacks, false, false, bool, false,                            \
     "Stress test async stack traces")                                          \
-  C(async_debugger, false, false, bool, false,                                 \
+  C(async_debugger, false, false, bool, true,                                  \
     "Debugger support async functions.")                                       \
   R(support_ast_printer, false, bool, true, "Support the AST printer.")        \
   R(support_compiler_stats, false, bool, true, "Support compiler stats.")      \
@@ -162,6 +155,7 @@
   R(support_timeline, false, bool, true, "Support timeline.")                  \
   D(trace_cha, bool, false, "Trace CHA operations")                            \
   D(trace_field_guards, bool, false, "Trace changes in field's cids.")         \
+  C(trace_irregexp, false, false, bool, false, "Trace irregexps.")             \
   D(trace_isolates, bool, false, "Trace isolate creation and shut down.")      \
   D(trace_handles, bool, false, "Traces allocation of handles.")               \
   D(trace_kernel_binary, bool, false, "Trace Kernel reader/writer.")           \
@@ -176,7 +170,7 @@
     "Use class hierarchy analysis even if it can cause deoptimization.")       \
   P(use_field_guards, bool, !USING_DBC,                                        \
     "Use field guards and track field types")                                  \
-  C(use_osr, false, !USING_PRECOMPILER, bool, !USING_PRECOMPILER, "Use OSR")   \
+  C(use_osr, false, true, bool, true, "Use OSR")                               \
   P(verbose_gc, bool, false, "Enables verbose GC.")                            \
   P(verbose_gc_hdr, int, 40, "Print verbose GC header interval.")              \
   R(verify_after_gc, false, bool, false,                                       \

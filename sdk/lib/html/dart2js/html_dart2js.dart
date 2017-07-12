@@ -39,10 +39,10 @@ import 'dart:svg' show Matrix;
 import 'dart:svg' show SvgSvgElement;
 import 'dart:web_audio' as web_audio;
 import 'dart:web_gl' as gl;
-import 'dart:web_gl' show RenderingContext;
+import 'dart:web_gl' show RenderingContext, RenderingContext2;
 import 'dart:web_sql';
 import 'dart:_isolate_helper' show IsolateNatives;
-import 'dart:_foreign_helper' show JS, JS_INTERCEPTOR_CONSTANT, JS_CONST;
+import 'dart:_foreign_helper' show JS, JS_INTERCEPTOR_CONSTANT;
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -135,7 +135,6 @@ createCustomUpgrader(Type customElementClass, $this) => $this;
 @Experimental() // untriaged
 typedef void FontFaceSetForEachCallback(
     FontFace fontFace, FontFace fontFaceAgain, FontFaceSet set);
-
 // Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -1010,7 +1009,9 @@ class AudioTrack extends Interceptor {
 @DomName('AudioTrackList')
 @Experimental() // untriaged
 @Native("AudioTrackList")
-class AudioTrackList extends EventTarget {
+class AudioTrackList extends EventTarget
+    with ListMixin<AudioTrack>, ImmutableListMixin<AudioTrack>
+    implements JavaScriptIndexingBehavior<AudioTrack>, List<AudioTrack> {
   // To suppress missing implicit constructor warnings.
   factory AudioTrackList._() {
     throw new UnsupportedError("Not supported");
@@ -1025,7 +1026,50 @@ class AudioTrackList extends EventTarget {
   @DomName('AudioTrackList.length')
   @DocsEditable()
   @Experimental() // untriaged
-  final int length;
+  int get length => JS("int", "#.length", this);
+
+  AudioTrack operator [](int index) {
+    if (JS("bool", "# >>> 0 !== # || # >= #", index, index, index, length))
+      throw new RangeError.index(index, this);
+    return JS("AudioTrack", "#[#]", this, index);
+  }
+
+  void operator []=(int index, AudioTrack value) {
+    throw new UnsupportedError("Cannot assign element of immutable List.");
+  }
+  // -- start List<AudioTrack> mixins.
+  // AudioTrack is the element type.
+
+  set length(int value) {
+    throw new UnsupportedError("Cannot resize immutable List.");
+  }
+
+  AudioTrack get first {
+    if (this.length > 0) {
+      return JS('AudioTrack', '#[0]', this);
+    }
+    throw new StateError("No elements");
+  }
+
+  AudioTrack get last {
+    int len = this.length;
+    if (len > 0) {
+      return JS('AudioTrack', '#[#]', this, len - 1);
+    }
+    throw new StateError("No elements");
+  }
+
+  AudioTrack get single {
+    int len = this.length;
+    if (len == 1) {
+      return JS('AudioTrack', '#[0]', this);
+    }
+    if (len == 0) throw new StateError("No elements");
+    throw new StateError("More than one element");
+  }
+
+  AudioTrack elementAt(int index) => this[index];
+  // -- end List<AudioTrack> mixins.
 
   @DomName('AudioTrackList.__getter__')
   @DocsEditable()
@@ -1979,8 +2023,8 @@ class CanvasElement extends HtmlElement implements CanvasImageSource {
 
   @DomName('HTMLCanvasElement.getContext')
   @DocsEditable()
-  @Creates('CanvasRenderingContext2D|RenderingContext')
-  @Returns('CanvasRenderingContext2D|RenderingContext|Null')
+  @Creates('CanvasRenderingContext2D|RenderingContext|RenderingContext2')
+  @Returns('CanvasRenderingContext2D|RenderingContext|RenderingContext2|Null')
   Object getContext(String contextId, [Map attributes]) {
     if (attributes != null) {
       var attributes_1 = convertDartToNative_Dictionary(attributes);
@@ -1992,14 +2036,14 @@ class CanvasElement extends HtmlElement implements CanvasImageSource {
   @JSName('getContext')
   @DomName('HTMLCanvasElement.getContext')
   @DocsEditable()
-  @Creates('CanvasRenderingContext2D|RenderingContext')
-  @Returns('CanvasRenderingContext2D|RenderingContext|Null')
+  @Creates('CanvasRenderingContext2D|RenderingContext|RenderingContext2')
+  @Returns('CanvasRenderingContext2D|RenderingContext|RenderingContext2|Null')
   Object _getContext_1(contextId, attributes) native;
   @JSName('getContext')
   @DomName('HTMLCanvasElement.getContext')
   @DocsEditable()
-  @Creates('CanvasRenderingContext2D|RenderingContext')
-  @Returns('CanvasRenderingContext2D|RenderingContext|Null')
+  @Creates('CanvasRenderingContext2D|RenderingContext|RenderingContext2')
+  @Returns('CanvasRenderingContext2D|RenderingContext|RenderingContext2|Null')
   Object _getContext_2(contextId) native;
 
   @DomName('HTMLCanvasElement.toBlob')
@@ -4312,10 +4356,11 @@ class CssStyleDeclaration extends Interceptor with CssStyleDeclarationBase {
 
   static String _camelCase(String hyphenated) {
     var replacedMs = JS('String', r'#.replace(/^-ms-/, "ms-")', hyphenated);
-
-    var fToUpper =
-        const JS_CONST(r'function(_, letter) { return letter.toUpperCase(); }');
-    return JS('String', r'#.replace(/-([\da-z])/ig, #)', replacedMs, fToUpper);
+    return JS(
+        'String',
+        r'#.replace(/-([\da-z])/ig,'
+        r'function(_, letter) { return letter.toUpperCase();})',
+        replacedMs);
   }
 
   void _setPropertyHelper(String propertyName, String value,
@@ -11666,7 +11711,7 @@ class DomRectReadOnly extends Interceptor implements Rectangle {
 @Native("DOMStringList")
 class DomStringList extends Interceptor
     with ListMixin<String>, ImmutableListMixin<String>
-    implements List<String> {
+    implements JavaScriptIndexingBehavior<String>, List<String> {
   // To suppress missing implicit constructor warnings.
   factory DomStringList._() {
     throw new UnsupportedError("Not supported");
@@ -11679,7 +11724,7 @@ class DomStringList extends Interceptor
   String operator [](int index) {
     if (JS("bool", "# >>> 0 !== # || # >= #", index, index, index, length))
       throw new RangeError.index(index, this);
-    return this.item(index);
+    return JS("String", "#[#]", this, index);
   }
 
   void operator []=(int index, String value) {
@@ -11901,8 +11946,7 @@ class _ChildrenElementList extends ListBase<Element>
     for (var e in removed) e.remove();
   }
 
-  void setRange(int start, int end, Iterable<Element> iterable,
-      [int skipCount = 0]) {
+  void fillRange(int start, int end, [Element fillValue]) {
     throw new UnimplementedError();
   }
 
@@ -11910,7 +11954,12 @@ class _ChildrenElementList extends ListBase<Element>
     throw new UnimplementedError();
   }
 
-  void fillRange(int start, int end, [Element fillValue]) {
+  void removeRange(int start, int end) {
+    throw new UnimplementedError();
+  }
+
+  void setRange(int start, int end, Iterable<Element> iterable,
+      [int skipCount = 0]) {
     throw new UnimplementedError();
   }
 
@@ -15338,6 +15387,8 @@ class Element extends Node
    */
   @DomName('Element.getBoundingClientRect')
   @DocsEditable()
+  @Creates('_ClientRect')
+  @Returns('_ClientRect|Null')
   Rectangle getBoundingClientRect() native;
 
   /**
@@ -16783,7 +16834,7 @@ class Events {
 
   Events(this._ptr);
 
-  Stream operator [](String type) {
+  Stream<Event> operator [](String type) {
     return new _EventStream(_ptr, type, false);
   }
 }
@@ -16808,7 +16859,7 @@ class ElementEvents extends Events {
 
   ElementEvents(Element ptr) : super(ptr);
 
-  Stream operator [](String type) {
+  Stream<Event> operator [](String type) {
     if (webkitEvents.keys.contains(type.toLowerCase())) {
       if (Device.isWebKit) {
         return new _ElementEventStreamImpl(
@@ -16865,7 +16916,7 @@ class EventTarget extends Interceptor {
   @JSName('addEventListener')
   @DomName('EventTarget.addEventListener')
   @DocsEditable()
-  void _addEventListener(String type, EventListener listener, [Object options])
+  void _addEventListener(String type, EventListener listener, [bool options])
       native;
 
   @DomName('EventTarget.dispatchEvent')
@@ -16875,8 +16926,8 @@ class EventTarget extends Interceptor {
   @JSName('removeEventListener')
   @DomName('EventTarget.removeEventListener')
   @DocsEditable()
-  void _removeEventListener(String type, EventListener listener,
-      [Object options]) native;
+  void _removeEventListener(String type, EventListener listener, [bool options])
+      native;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -16928,6 +16979,8 @@ class ExtendableMessageEvent extends ExtendableEvent {
   @DomName('ExtendableMessageEvent.data')
   @DocsEditable()
   @Experimental() // untriaged
+  @annotation_Creates_SerializedScriptValue
+  @annotation_Returns_SerializedScriptValue
   final Object data;
 
   @DomName('ExtendableMessageEvent.lastEventId')
@@ -16948,6 +17001,8 @@ class ExtendableMessageEvent extends ExtendableEvent {
   @DomName('ExtendableMessageEvent.source')
   @DocsEditable()
   @Experimental() // untriaged
+  @Creates('Client|_ServiceWorker|MessagePort')
+  @Returns('Client|_ServiceWorker|MessagePort|Null')
   final Object source;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
@@ -22070,7 +22125,8 @@ class KeyboardEvent extends UIEvent {
       {Window view,
       bool canBubble: true,
       bool cancelable: true,
-      int keyLocation: 1,
+      int location,
+      int keyLocation, // Legacy alias for location
       bool ctrlKey: false,
       bool altKey: false,
       bool shiftKey: false,
@@ -22078,8 +22134,9 @@ class KeyboardEvent extends UIEvent {
     if (view == null) {
       view = window;
     }
+    location ??= keyLocation ?? 1;
     KeyboardEvent e = document._createEvent("KeyboardEvent");
-    e._initKeyboardEvent(type, canBubble, cancelable, view, "", keyLocation,
+    e._initKeyboardEvent(type, canBubble, cancelable, view, "", location,
         ctrlKey, altKey, shiftKey, metaKey);
     return e;
   }
@@ -22091,7 +22148,7 @@ class KeyboardEvent extends UIEvent {
       bool cancelable,
       Window view,
       String keyIdentifier,
-      int keyLocation,
+      int location,
       bool ctrlKey,
       bool altKey,
       bool shiftKey,
@@ -22114,7 +22171,7 @@ class KeyboardEvent extends UIEvent {
           cancelable,
           view,
           keyIdentifier,
-          keyLocation,
+          location,
           ctrlKey,
           altKey,
           shiftKey,
@@ -22123,10 +22180,10 @@ class KeyboardEvent extends UIEvent {
   }
 
   @DomName('KeyboardEvent.keyCode')
-  int get keyCode => _keyCode;
+  final int keyCode;
 
   @DomName('KeyboardEvent.charCode')
-  int get charCode => _charCode;
+  final int charCode;
 
   @DomName('KeyboardEvent.which')
   int get which => _which;
@@ -22169,6 +22226,12 @@ class KeyboardEvent extends UIEvent {
   @DocsEditable()
   final bool altKey;
 
+  @JSName('charCode')
+  @DomName('KeyboardEvent.charCode')
+  @DocsEditable()
+  @Experimental() // untriaged
+  final int _charCode;
+
   @DomName('KeyboardEvent.code')
   @DocsEditable()
   @Experimental() // untriaged
@@ -22182,6 +22245,12 @@ class KeyboardEvent extends UIEvent {
   @DocsEditable()
   @Experimental() // untriaged
   final String key;
+
+  @JSName('keyCode')
+  @DomName('KeyboardEvent.keyCode')
+  @DocsEditable()
+  @Experimental() // untriaged
+  final int _keyCode;
 
   @JSName('keyIdentifier')
   @DomName('KeyboardEvent.keyIdentifier')
@@ -22206,6 +22275,9 @@ class KeyboardEvent extends UIEvent {
   @DomName('KeyboardEvent.shiftKey')
   @DocsEditable()
   final bool shiftKey;
+
+  // Use implementation from UIEvent.
+  // final int _which;
 
   @DomName('KeyboardEvent.getModifierState')
   @DocsEditable()
@@ -23059,7 +23131,9 @@ class MediaElement extends HtmlElement {
   @DomName('HTMLMediaElement.audioTracks')
   @DocsEditable()
   @Experimental() // untriaged
-  final AudioTrackList audioTracks;
+  @Returns('AudioTrackList|Null')
+  @Creates('AudioTrackList')
+  final List<AudioTrack> audioTracks;
 
   @DomName('HTMLMediaElement.autoplay')
   @DocsEditable()
@@ -25311,6 +25385,10 @@ class MouseEvent extends UIEvent {
   @DomName('MouseEvent.pageX')
   @DomName('MouseEvent.pageY')
   Point get page => new Point/*<num>*/(_pageX, _pageY);
+
+  @DomName('MouseEvent.dataTransfer')
+  DataTransfer get dataTransfer =>
+      JS('DataTransfer', "#['dataTransfer']", this);
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -26126,6 +26204,10 @@ class _ChildNodeListLazy extends ListBase<Node> implements NodeListWrapper {
 
   void fillRange(int start, int end, [Node fill]) {
     throw new UnsupportedError("Cannot fillRange on Node list");
+  }
+
+  void removeRange(int start, int end) {
+    throw new UnsupportedError("Cannot removeRange on Node list");
   }
   // -- end List<Node> mixins.
 
@@ -30437,49 +30519,6 @@ class RtcStatsResponse extends Interceptor {
   @DocsEditable()
   List<RtcStatsReport> result() native;
 }
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-@DocsEditable()
-@DomName('Scale')
-@Experimental() // untriaged
-@Native("Scale")
-class Scale extends TransformComponent {
-  // To suppress missing implicit constructor warnings.
-  factory Scale._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('Scale.Scale')
-  @DocsEditable()
-  factory Scale(num x, num y, [num z]) {
-    if ((y is num) && (x is num) && z == null) {
-      return Scale._create_1(x, y);
-    }
-    if ((z is num) && (y is num) && (x is num)) {
-      return Scale._create_2(x, y, z);
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
-  static Scale _create_1(x, y) => JS('Scale', 'new Scale(#,#)', x, y);
-  static Scale _create_2(x, y, z) => JS('Scale', 'new Scale(#,#,#)', x, y, z);
-
-  @DomName('Scale.x')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final double x;
-
-  @DomName('Scale.y')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final double y;
-
-  @DomName('Scale.z')
-  @DocsEditable()
-  @Experimental() // untriaged
-  final double z;
-}
 // Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -30966,8 +31005,8 @@ class SelectElement extends HtmlElement {
   // Override default options, since IE returns SelectElement itself and it
   // does not operate as a List.
   List<OptionElement> get options {
-    var options = new List<OptionElement>.from(this.querySelectorAll('option'));
-    return new UnmodifiableListView(options);
+    var options = this.querySelectorAll<OptionElement>('option');
+    return new UnmodifiableListView(options.toList());
   }
 
   List<OptionElement> get selectedOptions {
@@ -34458,7 +34497,7 @@ class TextTrackCue extends EventTarget {
 @Native("TextTrackCueList")
 class TextTrackCueList extends Interceptor
     with ListMixin<TextTrackCue>, ImmutableListMixin<TextTrackCue>
-    implements List<TextTrackCue> {
+    implements List<TextTrackCue>, JavaScriptIndexingBehavior<TextTrackCue> {
   // To suppress missing implicit constructor warnings.
   factory TextTrackCueList._() {
     throw new UnsupportedError("Not supported");
@@ -34467,6 +34506,12 @@ class TextTrackCueList extends Interceptor
   @DomName('TextTrackCueList.length')
   @DocsEditable()
   int get length => JS("int", "#.length", this);
+
+  TextTrackCue operator [](int index) {
+    if (JS("bool", "# >>> 0 !== # || # >= #", index, index, index, length))
+      throw new RangeError.index(index, this);
+    return JS("TextTrackCue", "#[#]", this, index);
+  }
 
   void operator []=(int index, TextTrackCue value) {
     throw new UnsupportedError("Cannot assign element of immutable List.");
@@ -34525,7 +34570,7 @@ class TextTrackCueList extends Interceptor
 @Native("TextTrackList")
 class TextTrackList extends EventTarget
     with ListMixin<TextTrack>, ImmutableListMixin<TextTrack>
-    implements List<TextTrack> {
+    implements List<TextTrack>, JavaScriptIndexingBehavior<TextTrack> {
   // To suppress missing implicit constructor warnings.
   factory TextTrackList._() {
     throw new UnsupportedError("Not supported");
@@ -34551,6 +34596,12 @@ class TextTrackList extends EventTarget
   @DomName('TextTrackList.length')
   @DocsEditable()
   int get length => JS("int", "#.length", this);
+
+  TextTrack operator [](int index) {
+    if (JS("bool", "# >>> 0 !== # || # >= #", index, index, index, length))
+      throw new RangeError.index(index, this);
+    return JS("TextTrack", "#[#]", this, index);
+  }
 
   void operator []=(int index, TextTrack value) {
     throw new UnsupportedError("Cannot assign element of immutable List.");
@@ -40053,7 +40104,7 @@ class _JenkinsSmiHash {
 @Native("ClientRectList,DOMRectList")
 class _ClientRectList extends Interceptor
     with ListMixin<Rectangle>, ImmutableListMixin<Rectangle>
-    implements List<Rectangle> {
+    implements List<Rectangle>, JavaScriptIndexingBehavior<Rectangle> {
   // To suppress missing implicit constructor warnings.
   factory _ClientRectList._() {
     throw new UnsupportedError("Not supported");
@@ -40066,7 +40117,7 @@ class _ClientRectList extends Interceptor
   Rectangle operator [](int index) {
     if (JS("bool", "# >>> 0 !== # || # >= #", index, index, index, length))
       throw new RangeError.index(index, this);
-    return this.item(index);
+    return JS("Rectangle", "#[#]", this, index);
   }
 
   void operator []=(int index, Rectangle value) {
@@ -41441,7 +41492,7 @@ abstract class _AttributeMap implements Map<String, String> {
   /**
    * Checks to see if the node should be included in this map.
    */
-  bool _matches(Node node);
+  bool _matches(_Attr node);
 }
 
 /**
@@ -41475,7 +41526,7 @@ class _ElementAttributeMap extends _AttributeMap {
     return keys.length;
   }
 
-  bool _matches(Node node) => node._namespaceUri == null;
+  bool _matches(_Attr node) => node._namespaceUri == null;
 }
 
 /**
@@ -41511,7 +41562,7 @@ class _NamespacedAttributeMap extends _AttributeMap {
     return keys.length;
   }
 
-  bool _matches(Node node) => node._namespaceUri == _namespace;
+  bool _matches(_Attr node) => node._namespaceUri == _namespace;
 }
 
 /**
@@ -42874,7 +42925,7 @@ class _EventStreamSubscription<T extends Event> extends StreamSubscription<T> {
       this._target, this._eventType, void onData(T event), this._useCapture)
       : _onData = onData == null
             ? null
-            : _wrapZone/*<Event, dynamic>*/((e) => (onData as dynamic)(e)) {
+            : _wrapZone<Event, dynamic>((e) => (onData as dynamic)(e)) {
     _tryResume();
   }
 
@@ -42936,9 +42987,9 @@ class _EventStreamSubscription<T extends Event> extends StreamSubscription<T> {
     }
   }
 
-  Future/*<E>*/ asFuture/*<E>*/([var/*=E*/ futureValue]) {
+  Future<E> asFuture<E>([E futureValue]) {
     // We just need a future that will never succeed or fail.
-    var completer = new Completer/*<E>*/();
+    var completer = new Completer<E>();
     return completer.future;
   }
 }
@@ -44608,7 +44659,7 @@ class _KeyboardEventHandler extends EventStreamProvider<KeyEvent> {
    * keypress events.
    */
   int _findCharCodeKeyDown(KeyboardEvent event) {
-    if (event.keyLocation == 3) {
+    if (event.location == 3) {
       // Numpad keys.
       switch (event.keyCode) {
         case KeyCode.NUM_ZERO:
@@ -44802,7 +44853,7 @@ class _KeyboardEventHandler extends EventStreamProvider<KeyEvent> {
       // Opera reports the character code in the keyCode field.
       e._shadowCharCode = KeyCode.isCharacterKey(e.keyCode) ? e.keyCode : 0;
     }
-    // Now we guestimate about what the keycode is that was actually
+    // Now we guesstimate about what the keycode is that was actually
     // pressed, given previous keydown information.
     e._shadowKeyCode = _determineKeyCodeForKeypress(e);
 
@@ -45993,7 +46044,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
       bool cancelable: true,
       int keyCode: 0,
       int charCode: 0,
-      int keyLocation: 1,
+      int location: 1,
       bool ctrlKey: false,
       bool altKey: false,
       bool shiftKey: false,
@@ -46019,7 +46070,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
       JS('void', '#.which = #', eventObj, keyCode);
       JS('void', '#.charCode = #', eventObj, charCode);
 
-      JS('void', '#.keyLocation = #', eventObj, keyLocation);
+      JS('void', '#.location = #', eventObj, location);
       JS('void', '#.ctrlKey = #', eventObj, ctrlKey);
       JS('void', '#.altKey = #', eventObj, altKey);
       JS('void', '#.shiftKey = #', eventObj, shiftKey);
@@ -46055,7 +46106,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
 
       var keyIdentifier = _convertToHexString(charCode, keyCode);
       eventObj._initKeyboardEvent(type, canBubble, cancelable, view,
-          keyIdentifier, keyLocation, ctrlKey, altKey, shiftKey, metaKey);
+          keyIdentifier, location, ctrlKey, altKey, shiftKey, metaKey);
       JS('void', '#.keyCodeVal = #', eventObj, keyCode);
       JS('void', '#.charCodeVal = #', eventObj, charCode);
     }
@@ -46113,7 +46164,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
    * KeyLocation.STANDARD, KeyLocation.RIGHT, KeyLocation.LEFT,
    * KeyLocation.NUMPAD, KeyLocation.MOBILE, KeyLocation.JOYSTICK).
    */
-  int get keyLocation => _parent.keyLocation;
+  int get location => _parent.location;
   /** True if the Meta (or Mac command) key is pressed during this event. */
   bool get metaKey => _parent.metaKey;
   /** True if the shift key was pressed during this event. */
@@ -46140,7 +46191,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
       bool cancelable,
       Window view,
       String keyIdentifier,
-      int keyLocation,
+      int location,
       bool ctrlKey,
       bool altKey,
       bool shiftKey,
@@ -46151,8 +46202,7 @@ class KeyEvent extends _WrappedEvent implements KeyboardEvent {
 
   @Experimental() // untriaged
   bool getModifierState(String keyArgument) => throw new UnimplementedError();
-  @Experimental() // untriaged
-  int get location => throw new UnimplementedError();
+
   @Experimental() // untriaged
   bool get repeat => throw new UnimplementedError();
   dynamic get _get_view => throw new UnimplementedError();

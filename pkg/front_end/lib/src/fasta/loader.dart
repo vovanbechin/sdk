@@ -10,7 +10,10 @@ import 'dart:collection' show Queue;
 
 import 'builder/builder.dart' show Builder, LibraryBuilder;
 
-import 'errors.dart' show InputError, firstSourceUri;
+import 'deprecated_problems.dart'
+    show firstSourceUri, deprecated_printUnexpected;
+
+import 'messages.dart' show LocatedMessage, Message, templateUnspecified;
 
 import 'target_implementation.dart' show TargetImplementation;
 
@@ -24,6 +27,20 @@ abstract class Loader<L> {
   final List<L> libraries = <L>[];
 
   final TargetImplementation target;
+
+  /// List of all handled compile-time errors seen so far by libraries loaded
+  /// by this loader.
+  ///
+  /// A handled error is an error that has been added to the generated AST
+  /// already, for example, as a throw expression.
+  final List<LocatedMessage> handledErrors = <LocatedMessage>[];
+
+  /// List of all unhandled compile-time errors seen so far by libraries loaded
+  /// by this loader.
+  ///
+  /// An unhandled error is an error that hasn't been handled, see
+  /// [handledErrors].
+  final List<LocatedMessage> unhandledErrors = <LocatedMessage>[];
 
   LibraryBuilder coreLibrary;
 
@@ -43,7 +60,13 @@ abstract class Loader<L> {
   ///
   /// Canonical URIs have schemes like "dart", or "package", and the actual
   /// location is often a file URI.
-  LibraryBuilder read(Uri uri, [Uri fileUri]) {
+  ///
+  /// The [accessor] is the library that's trying to import, export, or include
+  /// as part [uri], and [charOffset] is the location of the corresponding
+  /// directive. If [accessor] isn't allowed to access [uri], it's a
+  /// compile-time error.
+  LibraryBuilder read(Uri uri, int charOffset,
+      {Uri fileUri, LibraryBuilder accessor, bool isPatch: false}) {
     firstSourceUri ??= uri;
     LibraryBuilder builder = builders.putIfAbsent(uri, () {
       if (fileUri == null) {
@@ -58,10 +81,17 @@ abstract class Loader<L> {
             break;
         }
       }
-      LibraryBuilder library = target.createLibraryBuilder(uri, fileUri);
+      LibraryBuilder library =
+          target.createLibraryBuilder(uri, fileUri, isPatch);
       if (uri.scheme == "dart" && uri.path == "core") {
         coreLibrary = library;
         target.loadExtraRequiredLibraries(this);
+      }
+      if (target.backendTarget.mayDefineRestrictedType(uri)) {
+        library.mayImplementRestrictedTypes = true;
+      }
+      if (uri.scheme == "dart") {
+        target.readPatchFiles(library);
       }
       first ??= library;
       if (library.loader == this) {
@@ -69,12 +99,19 @@ abstract class Loader<L> {
       }
       return library;
     });
+    if (accessor != null &&
+        uri.scheme == "dart" &&
+        uri.path.startsWith("_") &&
+        accessor.uri.scheme != "dart") {
+      accessor.deprecated_addCompileTimeError(
+          charOffset, "Can't access platform private library.");
+    }
     return builder;
   }
 
   void ensureCoreLibrary() {
     if (coreLibrary == null) {
-      read(Uri.parse("dart:core"));
+      read(Uri.parse("dart:core"), -1);
       assert(coreLibrary != null);
     }
   }
@@ -126,23 +163,44 @@ ${format(ms / libraryCount, 3, 12)} ms/compilation unit.""");
   /// Builds all the method bodies found in the given [library].
   Future<Null> buildBody(covariant LibraryBuilder library);
 
-  List<InputError> collectCompileTimeErrors() {
-    List<InputError> errors = <InputError>[];
-    for (LibraryBuilder library in builders.values) {
-      if (library.loader == this) {
-        errors.addAll(library.compileTimeErrors);
-      }
+  /// Register [message] as a compile-time error.
+  ///
+  /// If [silent] is true, no error is printed as it is assumed the error has
+  /// been previously reported.
+  ///
+  /// If [wasHandled] is true, this error is added to [handledErrors],
+  /// otherwise it is added to [unhandledErrors].
+  void addCompileTimeError(Message message, int charOffset, Uri fileUri,
+      {bool silent: false, bool wasHandled: false}) {
+    if (!silent) {
+      deprecated_printUnexpected(fileUri, charOffset, message.message);
     }
-    return errors;
+    (wasHandled ? handledErrors : unhandledErrors)
+        .add(message.withLocation(fileUri, charOffset));
   }
 
-  Builder getCompileTimeError() => target.getCompileTimeError(this);
-
-  Builder getNativeAnnotation() => target.getNativeAnnotation(this);
+  void deprecated_addCompileTimeError(
+      Uri fileUri, int charOffset, String message,
+      {bool silent: false, bool wasHandled: false}) {
+    if (!silent) {
+      deprecated_printUnexpected(fileUri, charOffset, message);
+    }
+    (wasHandled ? handledErrors : unhandledErrors).add(templateUnspecified
+        .withArguments(message)
+        .withLocation(fileUri, charOffset));
+  }
 
   Builder getAbstractClassInstantiationError() {
     return target.getAbstractClassInstantiationError(this);
   }
+
+  Builder getCompileTimeError() => target.getCompileTimeError(this);
+
+  Builder getDuplicatedFieldInitializerError() {
+    return target.getDuplicatedFieldInitializerError(this);
+  }
+
+  Builder getNativeAnnotation() => target.getNativeAnnotation(this);
 }
 
 String format(double d, int fractionDigits, int width) {

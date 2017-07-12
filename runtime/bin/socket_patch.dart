@@ -14,8 +14,9 @@ class RawServerSocket {
 @patch
 class RawSocket {
   @patch
-  static Future<RawSocket> connect(host, int port, {sourceAddress}) {
-    return _RawSocket.connect(host, port, sourceAddress);
+  static Future<RawSocket> connect(host, int port,
+      {sourceAddress, Duration timeout}) {
+    return _RawSocket.connect(host, port, sourceAddress, timeout);
   }
 }
 
@@ -394,7 +395,8 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
     });
   }
 
-  static Future<_NativeSocket> connect(host, int port, sourceAddress) {
+  static Future<_NativeSocket> connect(
+      host, int port, sourceAddress, Duration timeout) {
     _throwOnBadPort(port);
     if (sourceAddress != null && sourceAddress is! _InternetAddress) {
       if (sourceAddress is String) {
@@ -415,10 +417,29 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
       var it = addresses.iterator;
       var error = null;
       var connecting = new HashMap();
+      Timer timeoutTimer = null;
+      void timeoutHandler() {
+        connecting.forEach((s, t) {
+          t.cancel();
+          s.close();
+          s.setHandlers();
+          s.setListening(read: false, write: false);
+          error = createError(
+              null, "Connection timed out, host: ${host}, port: ${port}");
+          completer.completeError(error);
+        });
+      }
+
       void connectNext() {
+        if ((timeout != null) && (timeoutTimer == null)) {
+          timeoutTimer = new Timer(timeout, timeoutHandler);
+        }
         if (!it.moveNext()) {
           if (connecting.isEmpty) {
             assert(error != null);
+            if (timeoutTimer != null) {
+              timeoutTimer.cancel();
+            }
             completer.completeError(error);
           }
           return;
@@ -465,6 +486,9 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
           // indicate that the socket is fully connected.
           socket.setHandlers(write: () {
             timer.cancel();
+            if (timeoutTimer != null) {
+              timeoutTimer.cancel();
+            }
             socket.setListening(read: false, write: false);
             completer.complete(socket);
             connecting.remove(socket);
@@ -1029,7 +1053,7 @@ class _NativeSocket extends _NativeSocketNativeWrapper with _ServiceObject {
             "The network interface does not have an address "
             "of the same family as the multicast address");
       } else {
-        // Default to the ANY address if no iterface is specified.
+        // Default to the ANY address if no interface is specified.
         return InternetAddress.ANY_IP_V4;
       }
     } else {
@@ -1185,9 +1209,10 @@ class _RawSocket extends Stream<RawSocketEvent> implements RawSocket {
   // Flag to handle Ctrl-D closing of stdio on Mac OS.
   bool _isMacOSTerminalInput = false;
 
-  static Future<RawSocket> connect(host, int port, sourceAddress) {
+  static Future<RawSocket> connect(
+      host, int port, sourceAddress, Duration timeout) {
     return _NativeSocket
-        .connect(host, port, sourceAddress)
+        .connect(host, port, sourceAddress, timeout)
         .then((socket) => new _RawSocket(socket));
   }
 
@@ -1204,7 +1229,7 @@ class _RawSocket extends Stream<RawSocketEvent> implements RawSocket {
         write: () {
           // The write event handler is automatically disabled by the
           // event handler when it fires.
-          _writeEventsEnabled = false;
+          writeEventsEnabled = false;
           _controller.add(RawSocketEvent.WRITE);
         },
         closed: () => _controller.add(RawSocketEvent.READ_CLOSED),
@@ -1366,9 +1391,10 @@ class _ServerSocket extends Stream<Socket> implements ServerSocket {
 @patch
 class Socket {
   @patch
-  static Future<Socket> connect(host, int port, {sourceAddress}) {
+  static Future<Socket> connect(host, int port,
+      {sourceAddress, Duration timeout}) {
     return RawSocket
-        .connect(host, port, sourceAddress: sourceAddress)
+        .connect(host, port, sourceAddress: sourceAddress, timeout: timeout)
         .then((socket) => new _Socket(socket));
   }
 }
@@ -1700,7 +1726,7 @@ class _RawDatagramSocket extends Stream implements RawDatagramSocket {
         write: () {
           // The write event handler is automatically disabled by the
           // event handler when it fires.
-          _writeEventsEnabled = false;
+          writeEventsEnabled = false;
           _controller.add(RawSocketEvent.WRITE);
         },
         closed: () => _controller.add(RawSocketEvent.READ_CLOSED),

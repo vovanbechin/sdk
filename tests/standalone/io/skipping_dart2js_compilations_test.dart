@@ -11,20 +11,18 @@
  * modified date of the output of a dart2js compilation is newer than
  *   - the dart application to compile (including it's dependencies)
  *   - the dart2js snapshot
- * Furtheremore it ensure that a compilations is not skipped if any of the
+ * Furthermore it ensures that a compilation is not skipped if any of the
  * necessary files could not be found (dart2js snapshots, previous dart2js
  * output (+deps file), dart application)
  */
 
 import 'package:expect/expect.dart';
-import 'package:path/path.dart';
 import 'dart:async';
 import 'dart:io';
+import '../../../tools/testing/dart/command.dart';
+import '../../../tools/testing/dart/command_output.dart';
 import '../../../tools/testing/dart/path.dart';
-import '../../../tools/testing/dart/test_suite.dart' as suite;
 import '../../../tools/testing/dart/test_runner.dart' as runner;
-import '../../../tools/testing/dart/test_options.dart' as options;
-import '../../../tools/testing/dart/status_file_parser.dart' as status;
 import '../../../tools/testing/dart/utils.dart';
 
 /**
@@ -59,9 +57,8 @@ class FileUtils {
     }
     if (createJsDeps) {
       testJsDeps = _createFile(testJsDepsFilePath);
-      var path = suite.TestUtils
-          .absolutePath(new Path(tempDir.path))
-          .append("test.dart");
+      var path =
+          TestUtils.absolutePath(new Path(tempDir.path)).append("test.dart");
       _writeToFile(testJsDeps, "file://$path");
     }
   }
@@ -82,27 +79,25 @@ class FileUtils {
   }
 
   Path get scriptOutputPath {
-    return suite.TestUtils.absolutePath(
+    return TestUtils.absolutePath(
         new Path(tempDir.path).append('created_if_command_did_run.txt'));
   }
 
   Path get testDartFilePath {
-    return suite.TestUtils
-        .absolutePath(new Path(tempDir.path).append('test.dart'));
+    return TestUtils.absolutePath(new Path(tempDir.path).append('test.dart'));
   }
 
   Path get testJsFilePath {
-    return suite.TestUtils
-        .absolutePath(new Path(tempDir.path).append('test.js'));
+    return TestUtils.absolutePath(new Path(tempDir.path).append('test.js'));
   }
 
   Path get testJsDepsFilePath {
-    return suite.TestUtils
+    return TestUtils
         .absolutePath(new Path(tempDir.path).append('test.js.deps'));
   }
 
   Path get testSnapshotFilePath {
-    return suite.TestUtils
+    return TestUtils
         .absolutePath(new Path(tempDir.path).append('test_dart2js.snapshot'));
   }
 
@@ -132,16 +127,15 @@ class FileUtils {
 
 class CommandCompletedHandler {
   FileUtils fileUtils;
-  DateTime _expectedTimestamp;
   bool _shouldHaveRun;
 
   CommandCompletedHandler(FileUtils this.fileUtils, bool this._shouldHaveRun);
 
-  void processCompletedTest(runner.CommandOutput output) {
-    Expect.isTrue(output.exitCode == 0);
-    Expect.isTrue(output.stderr.length == 0);
+  void processCompletedTest(CommandOutput output) {
+    Expect.equals(0, output.exitCode);
+    Expect.equals(0, output.stderr.length);
     if (_shouldHaveRun) {
-      Expect.isTrue(output.stdout.length == 0);
+      Expect.equals(0, output.stdout.length);
       Expect.isTrue(
           new File(fileUtils.scriptOutputPath.toNativePath()).existsSync());
     } else {
@@ -151,26 +145,21 @@ class CommandCompletedHandler {
   }
 }
 
-runner.Command makeCompilationCommand(String testName, FileUtils fileUtils) {
-  var config = new options.TestOptionsParser().parse(['--timeout', '2'])[0];
+Command makeCompilationCommand(String testName, FileUtils fileUtils) {
   var createFileScript = Platform.script
       .resolve('skipping_dart2js_compilations_helper.dart')
       .toFilePath();
   var executable = Platform.executable;
   var arguments = [createFileScript, fileUtils.scriptOutputPath.toNativePath()];
   var bootstrapDeps = [Uri.parse("file://${fileUtils.testSnapshotFilePath}")];
-  return runner.CommandBuilder.instance.getCompilationCommand(
-      'dart2js',
-      fileUtils.testJsFilePath.toNativePath(),
-      false,
-      bootstrapDeps,
-      executable,
-      arguments, {});
+  return Command.compilation('dart2js', fileUtils.testJsFilePath.toNativePath(),
+      bootstrapDeps, executable, arguments, {},
+      alwaysCompile: false);
 }
 
 void main() {
   // This script is in [sdk]/tests/standalone/io.
-  suite.TestUtils.setDartDirUri(Platform.script.resolve('../../..'));
+  TestUtils.setDartDirUri(Platform.script.resolve('../../..'));
 
   var fs_noTestJs = new FileUtils(
       createJs: false,
@@ -226,12 +215,12 @@ void main() {
       var completedHandler = new CommandCompletedHandler(fileUtils, shouldRun);
       var command = makeCompilationCommand(name, fileUtils);
       var process = new runner.RunningProcess(command, 60);
-      return process.run().then((runner.CommandOutput output) {
+      return process.run().then((CommandOutput output) {
         completedHandler.processCompletedTest(output);
       });
     }
 
-    // We run the tests in sequence, so that if one of them failes we clean up
+    // We run the tests in sequence, so that if one of them fails we clean up
     // everything and throw.
     runTest("fs_noTestJs", fs_noTestJs, true).then((_) {
       return runTest("fs_noTestJsDeps", fs_noTestJsDeps, true);

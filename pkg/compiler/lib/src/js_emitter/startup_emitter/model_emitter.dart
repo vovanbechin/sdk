@@ -37,6 +37,7 @@ import '../../compiler.dart' show Compiler;
 import '../../constants/values.dart' show ConstantValue, FunctionConstantValue;
 import '../../common_elements.dart' show CommonElements;
 import '../../elements/elements.dart' show ClassElement, MethodElement;
+import '../../elements/entities.dart';
 import '../../hash/sha1.dart' show Hasher;
 import '../../io/code_output.dart';
 import '../../io/location_provider.dart' show LocationCollector;
@@ -83,7 +84,8 @@ class ModelEmitter {
     this.constantEmitter = new ConstantEmitter(
         compiler.options,
         _closedWorld.commonElements,
-        compiler.backend.rtiNeed,
+        compiler.codegenWorldBuilder,
+        _closedWorld.rtiNeed,
         compiler.backend.rtiEncoder,
         namer,
         task,
@@ -92,8 +94,6 @@ class ModelEmitter {
   }
 
   DiagnosticReporter get reporter => compiler.reporter;
-
-  InterceptorData get _interceptorData => _closedWorld.interceptorData;
 
   js.Expression constantListGenerator(js.Expression array) {
     // TODO(floitsch): remove hard-coded name.
@@ -140,8 +140,10 @@ class ModelEmitter {
   }
 
   js.Expression generateStaticClosureAccess(MethodElement element) {
-    return js.js('#.#()',
-        [namer.globalObjectFor(element), namer.staticClosureName(element)]);
+    return js.js('#.#()', [
+      namer.globalObjectForMember(element),
+      namer.staticClosureName(element)
+    ]);
   }
 
   js.Expression generateConstantReference(ConstantValue value) {
@@ -165,7 +167,7 @@ class ModelEmitter {
         new List<DeferredFragment>.from(program.deferredFragments);
 
     FragmentEmitter fragmentEmitter = new FragmentEmitter(
-        compiler, namer, backend, constantEmitter, this, _interceptorData);
+        compiler, namer, backend, constantEmitter, this, _closedWorld);
 
     Map<DeferredFragment, _DeferredFragmentHash> deferredHashTokens =
         new Map<DeferredFragment, _DeferredFragmentHash>();
@@ -207,7 +209,8 @@ class ModelEmitter {
             program.hasSoftDeferredClasses ||
             compiler.options.experimentalTrackAllocations);
 
-    if (backend.backendUsage.requiresPreamble && !backend.htmlLibraryIsLoaded) {
+    if (_closedWorld.backendUsage.requiresPreamble &&
+        !backend.htmlLibraryIsLoaded) {
       reporter.reportHintMessage(NO_LOCATION_SPANNABLE, MessageKind.PREAMBLE);
     }
 

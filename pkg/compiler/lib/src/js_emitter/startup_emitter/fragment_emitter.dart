@@ -60,7 +60,8 @@ const String mainBoilerplate = '''
 function copyProperties(from, to) {
   var keys = Object.keys(from);
   for (var i = 0; i < keys.length; i++) {
-    to[keys[i]] = from[keys[i]];
+    var key = keys[i];
+    to[key] = from[key];
   }
 }
 
@@ -72,9 +73,6 @@ var functionsHaveName = (function() {
   function t() {};
   return (typeof t.name == 'string')
 })();
-
-var isChrome = (typeof window != 'undefined') &&
-    (typeof window.chrome != 'undefined');
 
 // Sets the name property of functions, if the JS engine doesn't set the name
 // itself.
@@ -275,15 +273,7 @@ function updateTypes(newTypes) {
 // Updates the given holder with the properties of the [newHolder].
 // This function is used when a deferred fragment is initialized.
 function updateHolder(holder, newHolder) {
-  // Firefox doesn't like when important objects have their prototype chain
-  // updated. We therefore do this only on V8.
-  if (isChrome) {
-    var oldPrototype = holder.__proto__;
-    newHolder.__proto__ = oldPrototype;
-    holder.__proto__ = newHolder;
-  } else {
-    copyProperties(newHolder, holder);
-  }
+  copyProperties(newHolder, holder);
   return holder;
 }
 
@@ -487,10 +477,12 @@ class FragmentEmitter {
   final JavaScriptBackend backend;
   final ConstantEmitter constantEmitter;
   final ModelEmitter modelEmitter;
-  final InterceptorData _interceptorData;
+  final ClosedWorld _closedWorld;
 
   FragmentEmitter(this.compiler, this.namer, this.backend, this.constantEmitter,
-      this.modelEmitter, this._interceptorData);
+      this.modelEmitter, this._closedWorld);
+
+  InterceptorData get _interceptorData => _closedWorld.interceptorData;
 
   js.Expression generateEmbeddedGlobalAccess(String global) =>
       modelEmitter.generateEmbeddedGlobalAccess(global);
@@ -515,10 +507,10 @@ class FragmentEmitter {
       'directAccessTestExpression': js.js(directAccessTestExpression),
       'typeNameProperty': js.string(ModelEmitter.typeNameProperty),
       'cyclicThrow': backend.emitter
-          .staticFunctionAccess(compiler.commonElements.cyclicThrowHelper),
+          .staticFunctionAccess(_closedWorld.commonElements.cyclicThrowHelper),
       'operatorIsPrefix': js.string(namer.operatorIsPrefix),
       'tearOffCode': new js.Block(buildTearOffCode(compiler.options,
-          backend.emitter.emitter, backend.namer, compiler.commonElements)),
+          backend.emitter.emitter, backend.namer, _closedWorld.commonElements)),
       'embeddedTypes': generateEmbeddedGlobalAccess(TYPES),
       'embeddedInterceptorTags':
           generateEmbeddedGlobalAccess(INTERCEPTORS_BY_TAG),
@@ -549,7 +541,7 @@ class FragmentEmitter {
       'nativeSupport': program.needsNativeSupport
           ? emitNativeSupport(fragment)
           : new js.EmptyStatement(),
-      'jsInteropSupport': backend.nativeBasicData.isJsInteropUsed
+      'jsInteropSupport': _closedWorld.nativeData.isJsInteropUsed
           ? backend.jsInteropAnalysis.buildJsInteropBootstrap()
           : new js.EmptyStatement(),
       'invokeMain': fragment.invokeMain,
@@ -790,7 +782,7 @@ class FragmentEmitter {
         .map((Class cls) {
       var proto = js.js.statement(
           '#.prototype = #;', [classReference(cls), emitPrototype(cls)]);
-      ClassElement element = cls.element;
+      ClassEntity element = cls.element;
       compiler.dumpInfoTask.registerElementAst(element, proto);
       compiler.dumpInfoTask.registerElementAst(element.library, proto);
       return proto;
@@ -1176,7 +1168,7 @@ class FragmentEmitter {
       }
       for (Class cls in library.classes) {
         if (cls.isSoftDeferred != softDeferred) continue;
-        var methods = cls.methods.where((m) => m.needsTearOff).toList();
+        var methods = cls.methods.where((dynamic m) => m.needsTearOff).toList();
         js.Expression container = js.js("#.prototype", classReference(cls));
         js.Expression reference = container;
         if (methods.length > 1) {
@@ -1268,7 +1260,7 @@ class FragmentEmitter {
     List<js.Property> globals = <js.Property>[];
 
     js.ArrayInitializer fragmentUris(List<Fragment> fragments) {
-      return js.stringArray(fragments.map((DeferredFragment fragment) =>
+      return js.stringArray(fragments.map((Fragment fragment) =>
           "${fragment.outputFileName}.${ModelEmitter.deferredExtension}"));
     }
 
@@ -1335,7 +1327,7 @@ class FragmentEmitter {
   js.Property emitMangledGlobalNames() {
     List<js.Property> names = <js.Property>[];
 
-    CommonElements commonElements = compiler.commonElements;
+    CommonElements commonElements = _closedWorld.commonElements;
     // We want to keep the original names for the most common core classes when
     // calling toString on them.
     List<ClassElement> nativeClassesNeedingUnmangledName = [
@@ -1510,9 +1502,10 @@ class FragmentEmitter {
 
     // The isolate-affinity tag must only be initialized once per program.
     if (fragment.isMainFragment &&
-        NativeGenerator.needsIsolateAffinityTagInitialization(backend)) {
+        NativeGenerator
+            .needsIsolateAffinityTagInitialization(_closedWorld.backendUsage)) {
       statements.add(NativeGenerator.generateIsolateAffinityTagInitialization(
-          backend,
+          _closedWorld.backendUsage,
           generateEmbeddedGlobalAccess,
           js.js(
               """

@@ -390,7 +390,8 @@ static void PrintTypeCheck(const char* message,
 
   const AbstractType& instance_type =
       AbstractType::Handle(instance.GetType(Heap::kNew));
-  ASSERT(instance_type.IsInstantiated());
+  ASSERT(instance_type.IsInstantiated() ||
+         (instance.IsClosure() && instance_type.IsInstantiated(kCurrentClass)));
   if (type.IsInstantiated()) {
     OS::PrintErr("%s: '%s' %" Pd " %s '%s' %" Pd " (pc: %#" Px ").\n", message,
                  String::Handle(instance_type.Name()).ToCString(),
@@ -518,8 +519,7 @@ static void UpdateTypeTestCache(
         (last_instance_type_arguments.raw() == instance_type_arguments.raw()) &&
         (last_instantiator_type_arguments.raw() ==
          instantiator_type_arguments.raw()) &&
-        (last_function_type_arguments.raw() ==
-         last_function_type_arguments.raw())) {
+        (last_function_type_arguments.raw() == function_type_arguments.raw())) {
       OS::PrintErr("  Error in test cache %p ix: %" Pd ",", new_cache.raw(), i);
       PrintTypeCheck(" duplicate cache entry", instance, type,
                      instantiator_type_arguments, function_type_arguments,
@@ -549,8 +549,7 @@ static void UpdateTypeTestCache(
         "    instance  [class: (%p '%s' cid: %" Pd
         "),    type-args: %p %s]\n"
         "    test-type [class: (%p '%s' cid: %" Pd
-        "), i-type-args: %p %s, "
-        ", f-type-args: %p %s]\n",
+        "), i-type-args: %p %s, f-type-args: %p %s]\n",
         new_cache.raw(), len,
 
         instance_class_id_or_function.raw(), instance_type_arguments.raw(),
@@ -566,9 +565,8 @@ static void UpdateTypeTestCache(
             .ToCString(),
         Class::Handle(test_type.type_class()).id(),
         instantiator_type_arguments.raw(),
-        instantiator_type_arguments.ToCString(),
-        instantiator_type_arguments.raw(),
-        instantiator_type_arguments.ToCString());
+        instantiator_type_arguments.ToCString(), function_type_arguments.raw(),
+        function_type_arguments.ToCString());
   }
 }
 
@@ -858,9 +856,10 @@ static bool ResolveCallThroughGetter(const Instance& receiver,
                                      Function* result) {
   // 1. Check if there is a getter with the same name.
   const String& getter_name = String::Handle(Field::GetterName(target_name));
+  const int kTypeArgsLen = 0;
   const int kNumArguments = 1;
   ArgumentsDescriptor args_desc(
-      Array::Handle(ArgumentsDescriptor::New(kNumArguments)));
+      Array::Handle(ArgumentsDescriptor::New(kTypeArgsLen, kNumArguments)));
   const Function& getter =
       Function::Handle(Resolver::ResolveDynamicForReceiverClass(
           receiver_class, getter_name, args_desc));
@@ -930,7 +929,7 @@ static RawFunction* ComputeTypeCheckTarget(const Instance& receiver,
 
 
 static RawFunction* InlineCacheMissHandler(
-    const GrowableArray<const Instance*>& args,
+    const GrowableArray<const Instance*>& args,  // Checked arguments only.
     const ICData& ic_data) {
   const Instance& receiver = *args[0];
   ArgumentsDescriptor arguments_descriptor(
@@ -1144,8 +1143,11 @@ DEFINE_RUNTIME_ENTRY(SingleTargetMiss, 1) {
   // We lost the original ICData when we patched to the monomorphic case.
   const String& name = String::Handle(zone, old_target.name());
   ASSERT(!old_target.HasOptionalParameters());
-  const Array& descriptor = Array::Handle(
-      zone, ArgumentsDescriptor::New(old_target.num_fixed_parameters()));
+  ASSERT(!old_target.IsGeneric());
+  const int kTypeArgsLen = 0;
+  const Array& descriptor =
+      Array::Handle(zone, ArgumentsDescriptor::New(
+                              kTypeArgsLen, old_target.num_fixed_parameters()));
   const ICData& ic_data =
       ICData::Handle(zone, ICData::New(caller_function, name, descriptor,
                                        Thread::kNoDeoptId, 1, /* args_tested */
@@ -1241,7 +1243,8 @@ DEFINE_RUNTIME_ENTRY(UnlinkedCall, 2) {
     ic_data.AddReceiverCheck(receiver.GetClassId(), target_function);
   }
 
-  if (!target_function.IsNull() && !target_function.HasOptionalParameters()) {
+  if (!target_function.IsNull() && !target_function.HasOptionalParameters() &&
+      !target_function.IsGeneric()) {
     // Patch to monomorphic call.
     ASSERT(target_function.HasCode());
     const Code& target_code = Code::Handle(zone, target_function.CurrentCode());
@@ -1299,8 +1302,11 @@ DEFINE_RUNTIME_ENTRY(MonomorphicMiss, 1) {
   // We lost the original ICData when we patched to the monomorphic case.
   const String& name = String::Handle(zone, old_target.name());
   ASSERT(!old_target.HasOptionalParameters());
-  const Array& descriptor = Array::Handle(
-      zone, ArgumentsDescriptor::New(old_target.num_fixed_parameters()));
+  ASSERT(!old_target.IsGeneric());
+  const int kTypeArgsLen = 0;
+  const Array& descriptor =
+      Array::Handle(zone, ArgumentsDescriptor::New(
+                              kTypeArgsLen, old_target.num_fixed_parameters()));
   const ICData& ic_data =
       ICData::Handle(zone, ICData::New(caller_function, name, descriptor,
                                        Thread::kNoDeoptId, 1, /* args_tested */
@@ -1409,7 +1415,8 @@ DEFINE_RUNTIME_ENTRY(MegamorphicCacheMissHandler, 3) {
     const ICData& ic_data = ICData::Cast(ic_data_or_cache);
     const intptr_t number_of_checks = ic_data.NumberOfChecks();
 
-    if (number_of_checks == 0 && !target_function.HasOptionalParameters() &&
+    if ((number_of_checks == 0) && !target_function.HasOptionalParameters() &&
+        !target_function.IsGeneric() &&
         !Isolate::Current()->compilation_allowed()) {
       // This call site is unlinked: transition to a monomorphic direct call.
       // Note we cannot do this if the target has optional parameters because
@@ -2305,7 +2312,7 @@ END_LEAF_RUNTIME_ENTRY
 double DartModulo(double left, double right) {
   double remainder = fmod_ieee(left, right);
   if (remainder == 0.0) {
-    // We explicitely switch to the positive 0.0 (just in case it was negative).
+    // We explicitly switch to the positive 0.0 (just in case it was negative).
     remainder = +0.0;
   } else if (remainder < 0.0) {
     if (right < 0) {
@@ -2334,21 +2341,88 @@ DEFINE_RUNTIME_ENTRY(InitStaticField, 1) {
   field.EvaluateInitializer();
 }
 
+// Use expected function signatures to help MSVC compiler resolve overloading.
+typedef double (*UnaryMathCFunction)(double x);
+typedef double (*BinaryMathCFunction)(double x, double y);
 
-DEFINE_RUNTIME_ENTRY(GrowRegExpStack, 1) {
-  const Array& typed_data_cell = Array::CheckedHandle(arguments.ArgAt(0));
-  ASSERT(!typed_data_cell.IsNull() && typed_data_cell.Length() == 1);
-  const TypedData& old_data = TypedData::CheckedHandle(typed_data_cell.At(0));
-  ASSERT(!old_data.IsNull());
-  const intptr_t cid = old_data.GetClassId();
-  const intptr_t old_size = old_data.Length();
-  const intptr_t new_size = 2 * old_size;
-  const intptr_t elm_size = old_data.ElementSizeInBytes();
-  const TypedData& new_data =
-      TypedData::Handle(TypedData::New(cid, new_size, Heap::kOld));
-  TypedData::Copy(new_data, 0, old_data, 0, old_size * elm_size);
-  typed_data_cell.SetAt(0, new_data);
-  arguments.SetReturn(new_data);
-}
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcPow,
+    2,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<BinaryMathCFunction>(&pow)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    DartModulo,
+    2,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(
+        static_cast<BinaryMathCFunction>(&DartModulo)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcAtan2,
+    2,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(
+        static_cast<BinaryMathCFunction>(&atan2_ieee)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcFloor,
+    1,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<UnaryMathCFunction>(&floor)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcCeil,
+    1,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<UnaryMathCFunction>(&ceil)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcTrunc,
+    1,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<UnaryMathCFunction>(&trunc)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcRound,
+    1,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<UnaryMathCFunction>(&round)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcCos,
+    1,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<UnaryMathCFunction>(&cos)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcSin,
+    1,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<UnaryMathCFunction>(&sin)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcAsin,
+    1,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<UnaryMathCFunction>(&asin)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcAcos,
+    1,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<UnaryMathCFunction>(&acos)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcTan,
+    1,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<UnaryMathCFunction>(&tan)));
+
+DEFINE_RAW_LEAF_RUNTIME_ENTRY(
+    LibcAtan,
+    1,
+    true /* is_float */,
+    reinterpret_cast<RuntimeFunction>(static_cast<UnaryMathCFunction>(&atan)));
 
 }  // namespace dart

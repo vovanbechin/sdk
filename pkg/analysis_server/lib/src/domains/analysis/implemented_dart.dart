@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library domains.analysis.implemented_dart;
-
 import 'package:analysis_server/src/protocol_server.dart' as protocol;
 import 'package:analysis_server/src/services/search/search_engine.dart';
 import 'package:analyzer/dart/element/element.dart';
@@ -15,13 +13,13 @@ class ImplementedComputer {
   List<protocol.ImplementedClass> classes = <protocol.ImplementedClass>[];
   List<protocol.ImplementedMember> members = <protocol.ImplementedMember>[];
 
-  Set<ClassElement> subtypes;
+  Set<String> subtypeMembers;
 
   ImplementedComputer(this.searchEngine, this.unitElement);
 
   compute() async {
     for (ClassElement type in unitElement.types) {
-      // always include Object and its members
+      // Always include Object and its members.
       if (type.supertype == null) {
         _addImplementedClass(type);
         type.accessors.forEach(_addImplementedMember);
@@ -29,14 +27,15 @@ class ImplementedComputer {
         type.methods.forEach(_addImplementedMember);
         continue;
       }
-      // analyze ancestors
-      subtypes = await searchEngine.searchAllSubtypes(type);
-      if (subtypes.isNotEmpty) {
+
+      // Analyze subtypes.
+      subtypeMembers = await searchEngine.membersOfSubtypes(type);
+      if (subtypeMembers != null) {
         _addImplementedClass(type);
+        type.accessors.forEach(_addMemberIfImplemented);
+        type.fields.forEach(_addMemberIfImplemented);
+        type.methods.forEach(_addMemberIfImplemented);
       }
-      type.accessors.forEach(_addMemberIfImplemented);
-      type.fields.forEach(_addMemberIfImplemented);
-      type.methods.forEach(_addMemberIfImplemented);
     }
   }
 
@@ -63,19 +62,7 @@ class ImplementedComputer {
 
   bool _hasOverride(Element element) {
     String name = element.displayName;
-    LibraryElement library = element.library;
-    for (ClassElement subtype in subtypes) {
-      ClassMemberElement subElement = subtype.getMethod(name);
-      if (subElement == null) {
-        subElement = subtype.getField(name);
-      }
-      if (subElement != null &&
-          !subElement.isStatic &&
-          subElement.isAccessibleIn(library)) {
-        return true;
-      }
-    }
-    return false;
+    return subtypeMembers.contains(name);
   }
 
   /**

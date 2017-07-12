@@ -2,7 +2,7 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library analyzer.src.generated.parser;
+library analyzer.parser;
 
 import 'dart:collection';
 import "dart:math" as math;
@@ -18,14 +18,21 @@ import 'package:analyzer/src/dart/error/syntactic_errors.dart';
 import 'package:analyzer/src/dart/scanner/reader.dart';
 import 'package:analyzer/src/dart/scanner/scanner.dart';
 import 'package:analyzer/src/error/codes.dart';
+import 'package:analyzer/src/fasta/ast_builder.dart';
+import 'package:analyzer/src/fasta/element_store.dart';
 import 'package:analyzer/src/generated/engine.dart' show AnalysisEngine;
 import 'package:analyzer/src/generated/java_core.dart';
 import 'package:analyzer/src/generated/java_engine.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/utilities_dart.dart';
+import 'package:front_end/src/fasta/kernel/kernel_builder.dart';
+import 'package:front_end/src/fasta/kernel/kernel_library_builder.dart';
+import 'package:front_end/src/fasta/parser/parser.dart' as fasta;
 
 export 'package:analyzer/src/dart/ast/utilities.dart' show ResolutionCopier;
 export 'package:analyzer/src/dart/error/syntactic_errors.dart';
+
+part 'parser_fasta.dart';
 
 /**
  * A simple data-holder for a method that needs to return multiple values.
@@ -173,6 +180,12 @@ class Parser {
   static const int _MAX_TREE_DEPTH = 300;
 
   /**
+   * A flag indicating whether the analyzer [Parser] factory method
+   * will return a fasta based parser or an analyzer based parser.
+   */
+  static bool useFasta = const bool.fromEnvironment("useFastaParser");
+
+  /**
    * The source being parsed.
    */
   final Source _source;
@@ -266,7 +279,16 @@ class Parser {
    * Initialize a newly created parser to parse tokens in the given [_source]
    * and to report any errors that are found to the given [_errorListener].
    */
-  Parser(this._source, this._errorListener);
+  factory Parser(Source source, AnalysisErrorListener errorListener,
+      {bool useFasta}) {
+    if (useFasta ?? Parser.useFasta) {
+      return new _Parser2(source, errorListener);
+    } else {
+      return new Parser.withoutFasta(source, errorListener);
+    }
+  }
+
+  Parser.withoutFasta(this._source, this._errorListener);
 
   /**
    * Return the current token.
@@ -779,10 +801,19 @@ class Parser {
     Expression message;
     if (_matches(TokenType.COMMA)) {
       comma = getAndAdvance();
-      message = parseExpression2();
+      if (_matches(TokenType.CLOSE_PAREN)) {
+        comma = null;
+      } else {
+        message = parseExpression2();
+        if (_matches(TokenType.COMMA)) {
+          getAndAdvance();
+        }
+      }
     }
     Token rightParen = _expect(TokenType.CLOSE_PAREN);
     Token semicolon = _expect(TokenType.SEMICOLON);
+    // TODO(brianwilkerson) We should capture the trailing comma in the AST, but
+    // that would be a breaking change, so we drop it for now.
     return astFactory.assertStatement(
         keyword, leftParen, expression, comma, message, rightParen, semicolon);
   }
@@ -1277,7 +1308,8 @@ class Parser {
         _validateModifiersForGetterOrSetterOrMethod(modifiers);
         return parseSetter(commentAndMetadata, modifiers.externalKeyword,
             modifiers.staticKeyword, returnType);
-      } else if (keyword == Keyword.OPERATOR && _isOperator(next)) {
+      } else if (keyword == Keyword.OPERATOR &&
+          (_isOperator(next) || next.type == TokenType.EQ_EQ_EQ)) {
         _validateModifiersForOperator(modifiers);
         return _parseOperatorAfterKeyword(commentAndMetadata,
             modifiers.externalKeyword, returnType, getAndAdvance());
@@ -1840,7 +1872,7 @@ class Parser {
               nameToken = new SyntheticStringToken(
                   TokenType.IDENTIFIER, '', nameOffset);
             }
-            nameToken.setNext(new SimpleToken(TokenType.EOF, nameToken.end));
+            nameToken.setNext(new Token.eof(nameToken.end));
             references.add(astFactory.commentReference(
                 null, astFactory.simpleIdentifier(nameToken)));
             token.references.add(nameToken);
@@ -1973,9 +2005,7 @@ class Parser {
           member = parseCompilationUnitMember(commentAndMetadata);
         } on _TooDeepTreeError {
           _reportErrorForToken(ParserErrorCode.STACK_OVERFLOW, _currentToken);
-          Token eof = new Token(TokenType.EOF, 0);
-          eof.previous = eof;
-          eof.setNext(eof);
+          Token eof = new Token.eof(0);
           return astFactory.compilationUnit(eof, null, null, null, eof);
         }
         if (member != null) {
@@ -2867,6 +2897,21 @@ class Parser {
     } else if (inFunctionType && _matchesIdentifier()) {
       type = parseTypeAnnotation(false);
     } else if (!optional) {
+      // If there is a valid type immediately following an unexpected token,
+      // then report and skip the unexpected token.
+      Token next = _peek();
+      Keyword nextKeyword = next.keyword;
+      if (nextKeyword == Keyword.FINAL ||
+          nextKeyword == Keyword.CONST ||
+          nextKeyword == Keyword.VAR ||
+          _isTypedIdentifier(next) ||
+          inFunctionType && _tokenMatchesIdentifier(next)) {
+        _reportErrorForCurrentToken(
+            ParserErrorCode.UNEXPECTED_TOKEN, [_currentToken.lexeme]);
+        _advance();
+        return parseFinalConstVarOrType(optional,
+            inFunctionType: inFunctionType);
+      }
       _reportErrorForCurrentToken(
           ParserErrorCode.MISSING_CONST_FINAL_VAR_OR_TYPE);
     } else {
@@ -2911,6 +2956,7 @@ class Parser {
           parameter.identifier == null) {
         _reportErrorForCurrentToken(
             ParserErrorCode.MISSING_NAME_FOR_NAMED_PARAMETER);
+        parameter.identifier = createSyntheticIdentifier(isDeclaration: true);
       }
       return astFactory.defaultFormalParameter(
           parameter, kind, separator, defaultValue);
@@ -2934,6 +2980,7 @@ class Parser {
           parameter.identifier == null) {
         _reportErrorForCurrentToken(
             ParserErrorCode.MISSING_NAME_FOR_NAMED_PARAMETER);
+        parameter.identifier = createSyntheticIdentifier(isDeclaration: true);
       }
       return astFactory.defaultFormalParameter(
           parameter, kind, separator, defaultValue);
@@ -2943,6 +2990,7 @@ class Parser {
           parameter.identifier == null) {
         _reportErrorForCurrentToken(
             ParserErrorCode.MISSING_NAME_FOR_NAMED_PARAMETER);
+        parameter.identifier = createSyntheticIdentifier(isDeclaration: true);
       }
       return astFactory.defaultFormalParameter(parameter, kind, null, null);
     }
@@ -5517,7 +5565,7 @@ class Parser {
     if (!_tokenMatches(startToken, TokenType.OPEN_PAREN)) {
       return null;
     }
-    return (startToken as BeginToken).endToken.next;
+    return (startToken as BeginToken).endToken?.next;
   }
 
   /**
@@ -5820,8 +5868,7 @@ class Parser {
       return null;
     }
     token = token is CommentToken ? token.parent : token;
-    Token head = new Token(TokenType.EOF, -1);
-    head.setNext(head);
+    Token head = new Token.eof(-1);
     Token current = head;
     while (token.type != TokenType.EOF) {
       Token clone = token.copy();
@@ -5829,8 +5876,7 @@ class Parser {
       current = clone;
       token = token.next;
     }
-    Token tail = new Token(TokenType.EOF, 0);
-    tail.setNext(tail);
+    Token tail = new Token.eof(0);
     current.setNext(tail);
     return head.next;
   }
@@ -7212,7 +7258,10 @@ class Parser {
       Token operatorKeyword) {
     if (!_currentToken.isUserDefinableOperator) {
       _reportErrorForCurrentToken(
-          ParserErrorCode.NON_USER_DEFINABLE_OPERATOR, [_currentToken.lexeme]);
+          _currentToken.type == TokenType.EQ_EQ_EQ
+              ? ParserErrorCode.INVALID_OPERATOR
+              : ParserErrorCode.NON_USER_DEFINABLE_OPERATOR,
+          [_currentToken.lexeme]);
     }
     SimpleIdentifier name =
         astFactory.simpleIdentifier(getAndAdvance(), isDeclaration: true);

@@ -29,7 +29,7 @@ abstract class ResolutionWorldBuilder implements WorldBuilder, OpenWorld {
   /// subtypes. The latter case only contains spurious information from
   /// instantiations through factory constructors and mixins.
   // TODO(johnniwinther): Improve semantic precision.
-  bool isImplemented(ClassEntity cls);
+  bool isImplemented(covariant ClassEntity cls);
 
   /// Set of all fields that are statically known to be written to.
   Iterable<FieldEntity> get fieldSetters;
@@ -285,13 +285,21 @@ abstract class ResolutionWorldBuilderBase
   final Map<ClassEntity, _ClassUsage> _processedClasses =
       <ClassEntity, _ClassUsage>{};
 
+  Map<ClassEntity, _ClassUsage> get classUsageForTesting => _processedClasses;
+
   /// Map of registered usage of static members of live classes.
   final Map<Entity, _StaticMemberUsage> _staticMemberUsage =
       <Entity, _StaticMemberUsage>{};
 
+  Map<Entity, _StaticMemberUsage> get staticMemberUsageForTesting =>
+      _staticMemberUsage;
+
   /// Map of registered usage of instance members of live classes.
   final Map<MemberEntity, _MemberUsage> _instanceMemberUsage =
       <MemberEntity, _MemberUsage>{};
+
+  Map<MemberEntity, _MemberUsage> get instanceMemberUsageForTesting =>
+      _instanceMemberUsage;
 
   /// Map containing instance members of live classes that are not yet live
   /// themselves.
@@ -328,13 +336,18 @@ abstract class ResolutionWorldBuilderBase
   final Set<FunctionEntity> closurizedMembersWithFreeTypeVariables =
       new Set<FunctionEntity>();
 
+  final CompilerOptions _options;
   final ElementEnvironment _elementEnvironment;
-
+  final DartTypes _dartTypes;
   final CommonElements _commonElements;
+  final ConstantSystem _constantSystem;
 
   final NativeBasicData _nativeBasicData;
   final NativeDataBuilder _nativeDataBuilder;
   final InterceptorDataBuilder _interceptorDataBuilder;
+  final BackendUsageBuilder _backendUsageBuilder;
+  final RuntimeTypesNeedBuilder _rtiNeedBuilder;
+  final NativeResolutionEnqueuer _nativeResolutionEnqueuer;
 
   final SelectorConstraintsStrategy selectorConstraintsStrategy;
 
@@ -344,7 +357,7 @@ abstract class ResolutionWorldBuilderBase
 
   bool _closed = false;
   ClosedWorld _closedWorldCache;
-  FunctionSetBuilder _allFunctions;
+  final Set<MemberEntity> _liveInstanceMembers = new Set<MemberEntity>();
 
   final Set<TypedefElement> _allTypedefs = new Set<TypedefElement>();
 
@@ -362,14 +375,18 @@ abstract class ResolutionWorldBuilderBase
   bool get isClosed => _closed;
 
   ResolutionWorldBuilderBase(
+      this._options,
       this._elementEnvironment,
+      this._dartTypes,
       this._commonElements,
+      this._constantSystem,
       this._nativeBasicData,
       this._nativeDataBuilder,
       this._interceptorDataBuilder,
-      this.selectorConstraintsStrategy) {
-    _allFunctions = new FunctionSetBuilder();
-  }
+      this._backendUsageBuilder,
+      this._rtiNeedBuilder,
+      this._nativeResolutionEnqueuer,
+      this.selectorConstraintsStrategy);
 
   Iterable<ClassEntity> get processedClasses => _processedClasses.keys
       .where((cls) => _processedClasses[cls].isInstantiated);
@@ -419,7 +436,7 @@ abstract class ResolutionWorldBuilderBase
     return _implementedClasses.contains(cls);
   }
 
-  void registerClosurizedMember(FunctionEntity element) {
+  void registerClosurizedMember(MemberEntity element) {
     closurizedMembers.add(element);
     FunctionType type = _elementEnvironment.getFunctionType(element);
     if (type.containsTypeVariables) {
@@ -563,7 +580,7 @@ abstract class ResolutionWorldBuilderBase
     return constraints.addReceiverConstraint(mask);
   }
 
-  void registerIsCheck(DartType type) {
+  void registerIsCheck(covariant DartType type) {
     isChecks.add(type);
   }
 
@@ -628,8 +645,7 @@ abstract class ResolutionWorldBuilderBase
         useSet.addAll(usage.normalUse());
         break;
       case StaticUseKind.DIRECT_INVOKE:
-        invariant(
-            element, 'Direct static use is not supported for resolution.');
+        failedAt(element, 'Direct static use is not supported for resolution.');
         break;
       case StaticUseKind.INLINING:
         throw new SpannableAssertionFailure(CURRENT_ELEMENT_SPANNABLE,
@@ -643,7 +659,8 @@ abstract class ResolutionWorldBuilderBase
   /// Called to create a [_ClassUsage] for [cls].
   ///
   /// Subclasses override this to ensure needed invariants on [cls].
-  _ClassUsage _createClassUsage(ClassEntity cls) => new _ClassUsage(cls);
+  _ClassUsage _createClassUsage(covariant ClassEntity cls) =>
+      new _ClassUsage(cls);
 
   /// Return the canonical [_ClassUsage] for [cls].
   _ClassUsage _getClassUsage(ClassEntity cls) {
@@ -698,8 +715,8 @@ abstract class ResolutionWorldBuilderBase
     map[memberName].addAll(remaining);
   }
 
-  void _processInstantiatedClassMember(
-      ClassEntity cls, MemberEntity member, MemberUsedCallback memberUsed) {
+  void _processInstantiatedClassMember(ClassEntity cls,
+      covariant MemberEntity member, MemberUsedCallback memberUsed) {
     if (!member.isInstanceMember) return;
     String memberName = member.name;
     // The obvious thing to test here would be "member.isNative",
@@ -763,7 +780,8 @@ abstract class ResolutionWorldBuilderBase
     _allTypedefs.add(typdef);
   }
 
-  void registerMixinUse(ClassEntity mixinApplication, ClassEntity mixin) {
+  void registerMixinUse(
+      covariant ClassEntity mixinApplication, covariant ClassEntity mixin) {
     // TODO(johnniwinther): Add map restricted to live classes.
     // We don't support patch classes as mixin.
     Set<ClassEntity> users =
@@ -773,7 +791,7 @@ abstract class ResolutionWorldBuilderBase
 
   void registerUsedElement(MemberEntity element) {
     if (element.isInstanceMember && !element.isAbstract) {
-      _allFunctions.add(element);
+      _liveInstanceMembers.add(element);
     }
   }
 
@@ -792,24 +810,24 @@ abstract class ResolutionWorldBuilderBase
     return usage != null && usage.hasUse;
   }
 
-  bool checkClass(ClassEntity cls);
-  bool validateClass(ClassEntity cls);
+  bool checkClass(covariant ClassEntity cls);
+  bool validateClass(covariant ClassEntity cls);
 
   /// Returns the class mixed into [cls] if any.
-  ClassEntity getAppliedMixin(ClassEntity cls);
+  ClassEntity getAppliedMixin(covariant ClassEntity cls);
 
   /// Returns the hierarchy depth of [cls].
-  int getHierarchyDepth(ClassEntity cls);
+  int getHierarchyDepth(covariant ClassEntity cls);
 
   /// Returns `true` if [cls] implements `Function` either explicitly or through
   /// a `call` method.
-  bool implementsFunction(ClassEntity cls);
+  bool implementsFunction(covariant ClassEntity cls);
 
   /// Returns the superclass of [cls] if any.
-  ClassEntity getSuperClass(ClassEntity cls);
+  ClassEntity getSuperClass(covariant ClassEntity cls);
 
   /// Returns all supertypes of [cls].
-  Iterable<InterfaceType> getSupertypes(ClassEntity cls);
+  Iterable<InterfaceType> getSupertypes(covariant ClassEntity cls);
 
   ClassHierarchyNode _ensureClassHierarchyNode(ClassEntity cls) {
     assert(checkClass(cls));
@@ -912,42 +930,79 @@ abstract class ResolutionWorldBuilderBase
     // variables to the super constructor.
     forEachInstantiatedClass(addSubtypes);
 
+    _classHierarchyNodes.keys.toList().forEach(_ensureClassSet);
+
     return typesImplementedBySubclasses;
+  }
+
+  Iterable<MemberEntity> computeAssignedInstanceMembers() {
+    Set<MemberEntity> assignedInstanceMembers = new Set<MemberEntity>();
+    for (MemberEntity instanceMember in _liveInstanceMembers) {
+      if (hasInvokedSetter(instanceMember)) {
+        assignedInstanceMembers.add(instanceMember);
+      }
+    }
+    assignedInstanceMembers.addAll(fieldSetters);
+    return assignedInstanceMembers;
   }
 }
 
 abstract class KernelResolutionWorldBuilderBase
     extends ResolutionWorldBuilderBase {
+  KernelToElementMapForImpactImpl get elementMap;
+
   KernelResolutionWorldBuilderBase(
+      CompilerOptions options,
       ElementEnvironment elementEnvironment,
+      DartTypes dartTypes,
       CommonElements commonElements,
+      ConstantSystem constantSystem,
       NativeBasicData nativeBasicData,
       NativeDataBuilder nativeDataBuilder,
       InterceptorDataBuilder interceptorDataBuilder,
+      BackendUsageBuilder backendUsageBuilder,
+      RuntimeTypesNeedBuilder rtiNeedBuilder,
+      NativeResolutionEnqueuer nativeResolutionEnqueuer,
       SelectorConstraintsStrategy selectorConstraintsStrategy)
       : super(
+            options,
             elementEnvironment,
+            dartTypes,
             commonElements,
+            constantSystem,
             nativeBasicData,
             nativeDataBuilder,
             interceptorDataBuilder,
+            backendUsageBuilder,
+            rtiNeedBuilder,
+            nativeResolutionEnqueuer,
             selectorConstraintsStrategy);
 
   @override
   ClosedWorld closeWorld() {
     Map<ClassEntity, Set<ClassEntity>> typesImplementedBySubclasses =
         populateHierarchyNodes();
+    _classHierarchyNodes.keys.toList().forEach(_ensureClassSet);
     _closed = true;
-    // TODO(johnniwinther): Implement this.
-    return _closedWorldCache = new KernelClosedWorld(
+    assert(
+        _classHierarchyNodes.length == _classSets.length,
+        "ClassHierarchyNode/ClassSet mismatch: "
+        "$_classHierarchyNodes vs $_classSets");
+    return _closedWorldCache = new KernelClosedWorld(elementMap,
+        options: _options,
+        elementEnvironment: _elementEnvironment,
+        dartTypes: _dartTypes,
         commonElements: _commonElements,
-        // TODO(johnniwinther): Compute these.
-        constantSystem: null,
         nativeData: _nativeDataBuilder.close(),
-        interceptorData: null,
-        backendUsage: null,
+        interceptorData: _interceptorDataBuilder.close(),
+        backendUsage: _backendUsageBuilder.close(),
         resolutionWorldBuilder: this,
-        functionSet: _allFunctions.close(),
+        rtiNeedBuilder: _rtiNeedBuilder,
+        constantSystem: _constantSystem,
+        implementedClasses: _implementedClasses,
+        liveNativeClasses: _nativeResolutionEnqueuer.liveNativeClasses,
+        liveInstanceMembers: _liveInstanceMembers,
+        assignedInstanceMembers: computeAssignedInstanceMembers(),
         allTypedefs: _allTypedefs,
         mixinUses: _mixinUses,
         typesImplementedBySubclasses: typesImplementedBySubclasses,

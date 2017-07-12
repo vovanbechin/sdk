@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library services.src.refactoring.extract_method;
-
 import 'dart:async';
 
 import 'package:analysis_server/src/protocol_server.dart' hide Element;
@@ -17,7 +15,6 @@ import 'package:analysis_server/src/services/refactoring/refactoring.dart';
 import 'package:analysis_server/src/services/refactoring/refactoring_internal.dart';
 import 'package:analysis_server/src/services/refactoring/rename_class_member.dart';
 import 'package:analysis_server/src/services/refactoring/rename_unit_member.dart';
-import 'package:analysis_server/src/services/search/element_visitors.dart';
 import 'package:analysis_server/src/services/search/search_engine.dart';
 import 'package:analyzer/dart/ast/ast.dart';
 import 'package:analyzer/dart/ast/standard_resolution_map.dart';
@@ -26,6 +23,7 @@ import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
+import 'package:analyzer/src/dart/element/ast_provider.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/java_core.dart';
 import 'package:analyzer/src/generated/resolver.dart' show ExitDetector;
@@ -74,6 +72,7 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
       'execution flows exit. Semantics may not be preserved.';
 
   final SearchEngine searchEngine;
+  final AstProvider astProvider;
   final CompilationUnit unit;
   final int selectionOffset;
   final int selectionLength;
@@ -120,7 +119,7 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
   List<_Occurrence> _occurrences = [];
   bool _staticContext = false;
 
-  ExtractMethodRefactoringImpl(this.searchEngine, this.unit,
+  ExtractMethodRefactoringImpl(this.searchEngine, this.astProvider, this.unit,
       this.selectionOffset, this.selectionLength) {
     unitElement = unit.element;
     libraryElement = unitElement.library;
@@ -325,7 +324,8 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
         String returnExpressionSource = _getMethodBodySource();
         // closure
         if (_selectionFunctionExpression != null) {
-          declarationSource = '$name$returnExpressionSource';
+          String returnTypeCode = _getExpectedClosureReturnTypeCode();
+          declarationSource = '$returnTypeCode$name$returnExpressionSource';
           if (_selectionFunctionExpression.body is ExpressionFunctionBody) {
             declarationSource += ';';
           }
@@ -419,7 +419,8 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
     // method of class
     if (parent is ClassDeclaration) {
       ClassElement classElement = parent.element;
-      return validateCreateMethod(searchEngine, classElement, name);
+      return validateCreateMethod(
+          searchEngine, astProvider, classElement, name);
     }
     // OK
     return new Future<RefactoringStatus>.value(result);
@@ -430,36 +431,48 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
    * location of this [DartExpression] in AST allows extracting.
    */
   RefactoringStatus _checkSelection() {
+    // Check for implicitly selected closure.
+    {
+      FunctionExpression function = _findFunctionExpression();
+      if (function != null) {
+        _selectionFunctionExpression = function;
+        selectionRange = range.node(function);
+        _parentMember = getEnclosingClassOrUnitMember(function);
+        return new RefactoringStatus();
+      }
+    }
+
     _ExtractMethodAnalyzer selectionAnalyzer =
         new _ExtractMethodAnalyzer(unit, selectionRange);
     unit.accept(selectionAnalyzer);
-    // may be fatal error
+    // May be a fatal error.
     {
       RefactoringStatus status = selectionAnalyzer.status;
       if (status.hasFatalError) {
         return status;
       }
     }
-    // check selected nodes
     List<AstNode> selectedNodes = selectionAnalyzer.selectedNodes;
+
+    // Check selected nodes.
     if (!selectedNodes.isEmpty) {
-      AstNode coveringNode = selectionAnalyzer.coveringNode;
-      _parentMember = getEnclosingClassOrUnitMember(coveringNode);
+      AstNode selectedNode = selectedNodes.first;
+      _parentMember = getEnclosingClassOrUnitMember(selectedNode);
       // single expression selected
-      if (selectedNodes.length == 1 &&
-          !utils.selectionIncludesNonWhitespaceOutsideNode(
-              selectionRange, selectionAnalyzer.firstSelectedNode)) {
-        AstNode selectedNode = selectionAnalyzer.firstSelectedNode;
-        if (selectedNode is Expression) {
-          _selectionExpression = selectedNode;
-          // additional check for closure
-          if (_selectionExpression is FunctionExpression) {
-            _selectionFunctionExpression =
-                _selectionExpression as FunctionExpression;
-            _selectionExpression = null;
+      if (selectedNodes.length == 1) {
+        if (!utils.selectionIncludesNonWhitespaceOutsideNode(
+            selectionRange, selectedNode)) {
+          if (selectedNode is Expression) {
+            _selectionExpression = selectedNode;
+            // additional check for closure
+            if (_selectionExpression is FunctionExpression) {
+              _selectionFunctionExpression =
+                  _selectionExpression as FunctionExpression;
+              _selectionExpression = null;
+            }
+            // OK
+            return new RefactoringStatus();
           }
-          // OK
-          return new RefactoringStatus();
         }
       }
       // statements selected
@@ -505,6 +518,66 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
     }
     // OK
     return true;
+  }
+
+  /**
+   * If the [selectionRange] is associated with a [FunctionExpression], return
+   * this [FunctionExpression].
+   */
+  FunctionExpression _findFunctionExpression() {
+    if (selectionRange.length != 0) {
+      return null;
+    }
+    int offset = selectionRange.offset;
+    AstNode node = new NodeLocator2(offset, offset).searchWithin(unit);
+
+    // Check for the parameter list of a FunctionExpression.
+    {
+      FunctionExpression function =
+          node?.getAncestor((n) => n is FunctionExpression);
+      if (function != null &&
+          function.parameters != null &&
+          range.node(function.parameters).contains(offset)) {
+        return function;
+      }
+    }
+
+    // Check for the name of the named argument with the closure expression.
+    if (node is SimpleIdentifier &&
+        node.parent is Label &&
+        node.parent.parent is NamedExpression) {
+      NamedExpression namedExpression = node.parent.parent;
+      Expression expression = namedExpression.expression;
+      if (expression is FunctionExpression) {
+        return expression;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * If the selected closure (i.e. [_selectionFunctionExpression]) is an
+   * argument for a function typed parameter (as it should be), and the
+   * function type has the return type specified, return this return type's
+   * code. Otherwise return the empty string.
+   */
+  String _getExpectedClosureReturnTypeCode() {
+    Expression argument = _selectionFunctionExpression;
+    if (argument.parent is NamedExpression) {
+      argument = argument.parent as NamedExpression;
+    }
+    ParameterElement parameter = argument.bestParameterElement;
+    if (parameter != null) {
+      DartType parameterType = parameter.type;
+      if (parameterType is FunctionType) {
+        String typeCode = _getTypeCode(parameterType.returnType);
+        if (typeCode != 'dynamic') {
+          return typeCode + ' ';
+        }
+      }
+    }
+    return '';
   }
 
   /**
@@ -732,19 +805,8 @@ class ExtractMethodRefactoringImpl extends RefactoringImpl
    */
   void _prepareExcludedNames() {
     _excludedNames.clear();
-    ExecutableElement enclosingExecutable =
-        getEnclosingExecutableElement(_parentMember);
-    if (enclosingExecutable != null) {
-      visitChildren(enclosingExecutable, (Element element) {
-        if (element is LocalElement) {
-          SourceRange elementRange = element.visibleRange;
-          if (elementRange != null) {
-            _excludedNames.add(element.displayName);
-          }
-        }
-        return true;
-      });
-    }
+    List<LocalElement> localElements = getDefinedLocalElements(_parentMember);
+    _excludedNames.addAll(localElements.map((e) => e.name));
   }
 
   void _prepareNames() {

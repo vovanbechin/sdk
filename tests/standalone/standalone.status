@@ -94,7 +94,7 @@ regress_26031_test: SkipByDesign # Standalone only test
 env_test: Skip # This is testing a vm command line parsing scenario.
 dart_developer_disabled_env_test: SkipByDesign # Dartium does not respect VMOptions
 
-[ $compiler == dartanalyzer || $compiler == dart2analyzer ]
+[ $compiler == dart2analyzer ]
 issue14236_test: Skip # Analyzer can't handle Script snapshots.
 
 # test issue https://code.google.com/p/dart/issues/detail?id=11518
@@ -112,87 +112,27 @@ io/web_socket_protocol_processor_test: Pass, StaticWarning, CompileTimeError # I
 *: Skip # Issue 28649
 
 [ $compiler == dart2js ]
-regress_29350_test: MissingCompileTimeError
-number_identity_test: Skip # Bigints and int/double diff. not supported.
-typed_data_test: Skip # dart:typed_data support needed.
-bytedata_test: Skip # dart:typed_data support needed.
-typed_data_view_test: Skip # dart:typed_data support needed.
-typed_data_isolate_test: Skip # dart:typed_data support needed.
-typed_array_int64_uint64_test: Skip # dart:typed_data on dart2js does not support 64-bit ints.
-float_array_test: Skip # dart:typed_data support needed.
-int_array_test: Skip  # dart:typed_data support needed.
-io/web_socket_protocol_processor_test: Skip  # Importing code with external keyword
-int_array_load_elimination_test: Skip  # This is a VM test
-medium_integer_test: RuntimeError, OK # Test fails with JS number semantics: issue 1533.
-io/process_exit_negative_test: Fail, OK # relies on a static error that is a warning now.
-package/package_isolate_test: Skip # spawnUri does not work in dart2js. See issue 3051
-package/package_test: Fail, OK # dart2js does not support 'package:foo.dart' imports
-package/package1_test: Fail, OK # dart2js does not support 'package:foo.dart' imports
-package/scenarios/invalid/*: CompileTimeError  # Negative tests expecting CompileTimeErrors.
-left_shift_bit_and_op_test: Skip # Integers exceed dart2js precision.
-pow_test: Skip # Precision > 53 bits.
-double_smi_comparison_test: Skip # Precision > 53 bits.
-http_launch_test: Skip
-oom_error_stacktrace_test: RuntimeError, OK # (OOM on JS may produce a stacktrace).
-vmservice/*: Skip # Do not run standalone vm service tests with dart2js.
-issue14236_test: Skip # dart2js does not deal with Script snapshots.
-unboxed_int_converter_test: Skip
-pair_location_remapping_test: Skip
-regress_25335_test: Skip # Int64List not supported.
-deferred_transitive_import_error_test: Skip # Contains intentional errors.
-dart_developer_env_test: SkipByDesign # Unsupported by dart2js
-dart_developer_disabled_env_test: SkipByDesign # Unsupported by dart2js
+*: SkipByDesign
 
 [ $runtime == vm && ($arch == arm || $arch == arm64) ]
 io/file_stream_test: Skip # Issue 26109
 io/file_typed_data_test: Skip # Issue 26109
 io/file_input_stream_test: Skip # Issue 26109
 
-[ $compiler == dart2js && $jscl ]
-assert_test: RuntimeError, OK # Assumes unspecified fields on the AssertionError.
-deoptimization_test: RuntimeError, OK # Requires bigint.
-out_of_memory_test: RuntimeError, OK # d8 handles much larger arrays than Dart VM.
-io/arguments_test: CompileTimeError, OK # Cannot pass arguments to d8.
+[ $runtime != vm || $arch == arm || $arch == arm64 || ($system == windows && $mode == debug) ]
+fragmentation_test: Skip # VM test uses too much memory for small systems.
 
-[ $compiler == dart2js && $runtime == none ]
-io/arguments_test: Fail # DartOptions not supported by dart2js, and issue 14200.
-medium_integer_test: Pass # The test only fails at runtime, not at compilation.
-oom_error_stacktrace_test: Pass # The test only fails at runtime.
-
-[ $compiler == dart2js && $fast_startup ]
-io/skipping_dart2js_compilations_test: CompileTimeError # Imports dart:mirrors
-io/test_harness_analyzer_test: CompileTimeError # Imports dart:mirrors
-io/test_runner_test: CompileTimeError # Imports dart:mirrors
-
-[ $compiler == dart2js && $browser ]
-*: Skip
-
-[ $arch == simarm || $arch == simarmv6 || $arch == simarmv5te || $arch == simmips ]
+[ $arch == simarm || $arch == simarmv6 || $arch == simarmv5te ]
 out_of_memory_test: Skip # passes on Mac, crashes on Linux
 oom_error_stacktrace_test: Skip # Fails on Linux
-
-[ $arch == simmips ]
-io/socket_bind_test: Pass, Fail # Issue 28315
-io/http_server_response_test: Pass, Crash # Issue 29012
 
 [ ($arch == simarm || $arch == simdbc || $arch == simdbc64) && $mode == debug && $checked ]
 io/web_socket_test: Pass, Fail # Issue 26814
 
-[ $arch == mips ]
-io/file_stat_test: Fail # Issue 17440
-io/process_sync_test: Skip # Starts 10 dart subprocesses, uses too much memory.
-io/signals_test: Skip # Starts 10 dart subprocesses, uses too much memory
-io/socket_source_address_test: Fail # Issue 22597
-
-[ $arch == mips && $mode == debug ]
-io/web_socket_test: SkipSlow # Times out. Issue 20352
-io/test_runner_test: Skip # Flakily times out in a subtest. Issue 201351
-io/http_client_stays_alive_test: Skip # Timing dependent test, MIPS machine too slow.
-
-[ $compiler == none && $runtime == dartium && $unchecked ]
+[ $compiler == none && $runtime == dartium && ! $checked ]
 assert_test: Fail # Issue 14651.
 
-[ $compiler == dartanalyzer || $compiler == dart2analyzer ]
+[ $compiler == dart2analyzer ]
 io/directory_invalid_arguments_test: StaticWarning
 io/process_invalid_arguments_test: StaticWarning
 io/raw_secure_server_socket_argument_test: StaticWarning
@@ -327,10 +267,8 @@ io/named_pipe_script_test: Pass, RuntimeError # Issue 28737
 [ $runtime == vm && $system == linux && $mode == release && $arch == ia32 && $builder_tag == asan ]
 io/socket_close_test: Pass, Timeout # Issue 28502: timeout.
 
-[ $runtime == dart_precompiled || $mode == product && ($compiler != dartk && $compiler != dartkp)]
-io/skipping_dart2js_compilations_test: CompileTimeError # Imports dart:mirrors
-io/test_harness_analyzer_test: CompileTimeError # Imports dart:mirrors
-io/test_runner_test: CompileTimeError # Imports dart:mirrors
+[ $runtime == dart_precompiled ]
+io/skipping_dart2js_compilations_test: RuntimeError # Issue 30008
 
 [ $compiler == app_jit ]
 assert_test: RuntimeError # Script name change?
@@ -424,6 +362,7 @@ io/skipping_dart2js_compilations_test: Pass, Slow # Slow.
 io/raw_datagram_socket_test: SkipByDesign
 io/socket_source_address_test: SkipByDesign
 io/socket_bind_test: SkipByDesign
+io/http_loopback_test: SkipByDesign
 io/http_proxy_advanced_test: SkipByDesign
 io/http_ipv6_test: SkipByDesign
 io/socket_ipv6_test: SkipByDesign
@@ -434,13 +373,24 @@ io/process_detached_test: Pass, Slow
 io/named_pipe_script_test: RuntimeError
 
 [ $compiler == dartk || $compiler == dartkp ]
+io/http_client_connect_test: Skip # Flaky.
 io/http_content_length_test: Skip # Flaky.
 io/http_proxy_test: Skip # Flaky.
 io/http_response_deadline_test: Skip # Flaky.
 io/http_reuse_server_port_test: Skip # Flaky.
 io/http_server_close_response_after_error_test: Skip # Flaky.
+io/http_shutdown_test: Skip # Flaky.
 io/raw_datagram_socket_test: Skip # Flaky.
+io/raw_secure_server_closing_test: Skip # Flaky
+io/raw_secure_server_closing_test: Skip # Flaky.
+io/secure_multiple_client_server_test: Skip # Flaky.
+io/secure_server_closing_test: Skip # Flaky.
+io/secure_server_socket_test: Skip # Flaky.
+io/web_socket_error_test: Skip # Flaky
+io/web_socket_ping_test: Skip # Flaky.
 io/web_socket_test: Skip # Flaky.
+no_support_debugger_test: Skip # kernel-service snapshot not compatible with flag disabled
+package/scenarios/invalid/*: DartkCrash # Issue 30110
 
 regress_29350_test: MissingCompileTimeError
 assert_test: RuntimeError
@@ -455,6 +405,9 @@ package/scenarios/invalid/invalid_utf8_test: CompileTimeError
 package/scenarios/invalid/non_existent_packages_file_test: CompileTimeError
 package/scenarios/invalid/same_package_twice_test: CompileTimeError
 package/scenarios/packages_dir_only/packages_dir_only_test: CompileTimeError
+
+[ $compiler == dartkp ]
+causal_async_stack_test: Fail
 
 [ $runtime == flutter ]
 io/raw_datagram_socket_test: Crash # Flutter Issue 9115
@@ -541,7 +494,9 @@ package/package_test: Fail # Unable to parse package files Flutter Issue 9115
 #unboxed_int_converter_test: Fail # Unable to parse package files Flutter Issue 9115
 io/process_run_output_test: Fail # Unable to parse package files Flutter Issue 9115
 
-io/test_harness_analyzer_test: CompileTimeError # Uses mirrors
+io/dependency_graph_test: CompileTimeError # Imports dart:mirrors
 io/skipping_dart2js_compilations_test: CompileTimeError # Uses mirrors
+io/status_file_parser_test: CompileTimeError # Uses mirrors
+io/test_harness_analyzer_test: CompileTimeError # Uses mirrors
 io/test_runner_test: CompileTimeError # Uses mirrors
-
+status_expression_test: CompileTimeError # Uses mirrors

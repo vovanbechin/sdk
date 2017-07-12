@@ -580,7 +580,7 @@ ASSEMBLER_TEST_GENERATE(Semaphore, assembler) {
 
 ASSEMBLER_TEST_RUN(Semaphore, test) {
   EXPECT(test != NULL);
-  typedef int (*Semaphore)() DART_UNUSED;
+  typedef intptr_t (*Semaphore)() DART_UNUSED;
   EXPECT_EQ(42, EXECUTE_TEST_CODE_INT64(Semaphore, test->entry()));
 }
 
@@ -602,8 +602,70 @@ ASSEMBLER_TEST_GENERATE(FailedSemaphore, assembler) {
 
 ASSEMBLER_TEST_RUN(FailedSemaphore, test) {
   EXPECT(test != NULL);
-  typedef int (*FailedSemaphore)() DART_UNUSED;
+  typedef intptr_t (*FailedSemaphore)() DART_UNUSED;
   EXPECT_EQ(41, EXECUTE_TEST_CODE_INT64(FailedSemaphore, test->entry()));
+}
+
+
+ASSEMBLER_TEST_GENERATE(Semaphore32, assembler) {
+  __ SetupDartSP();
+  __ movz(R0, Immediate(40), 0);
+  __ add(R0, R0, Operand(R0, LSL, 32));
+  __ Push(R0);
+
+  __ movz(R0, Immediate(40), 0);
+  __ movz(R1, Immediate(42), 0);
+
+  Label retry;
+  __ Bind(&retry);
+  __ ldxr(R0, SP, kWord);
+  // 32 bit operation should ignore the high word of R0 that was pushed on the
+  // stack.
+  __ stxr(TMP, R1, SP, kWord);  // IP == 0, success
+  __ cmp(TMP, Operand(0));
+  __ b(&retry, NE);  // NE if context switch occurred between ldrex and strex.
+  __ Pop(R0);        // 42 + 42 * 2**32
+  __ RestoreCSP();
+  __ ret();
+}
+
+
+ASSEMBLER_TEST_RUN(Semaphore32, test) {
+  EXPECT(test != NULL);
+  typedef intptr_t (*Semaphore32)() DART_UNUSED;
+  // Lower word has been atomically switched from 40 to 42k, whereas upper word
+  // is unchanged at 40.
+  EXPECT_EQ(42 + (40l << 32),
+            EXECUTE_TEST_CODE_INT64(Semaphore32, test->entry()));
+}
+
+
+ASSEMBLER_TEST_GENERATE(FailedSemaphore32, assembler) {
+  __ SetupDartSP();
+  __ movz(R0, Immediate(40), 0);
+  __ add(R0, R0, Operand(R0, LSL, 32));
+  __ Push(R0);
+
+  __ movz(R0, Immediate(40), 0);
+  __ movz(R1, Immediate(42), 0);
+
+  __ ldxr(R0, SP, kWord);
+  __ clrex();                   // Simulate a context switch.
+  __ stxr(TMP, R1, SP, kWord);  // IP == 1, failure
+  __ Pop(R0);                   // 40
+  __ add(R0, R0, Operand(TMP));
+  __ RestoreCSP();
+  __ ret();
+}
+
+
+ASSEMBLER_TEST_RUN(FailedSemaphore32, test) {
+  EXPECT(test != NULL);
+  typedef intptr_t (*FailedSemaphore32)() DART_UNUSED;
+  // Lower word has had the failure code (1) added to it.  Upper word is
+  // unchanged at 40.
+  EXPECT_EQ(41 + (40l << 32),
+            EXECUTE_TEST_CODE_INT64(FailedSemaphore32, test->entry()));
 }
 
 
@@ -2113,6 +2175,38 @@ ASSEMBLER_TEST_RUN(Fmovdr, test) {
 }
 
 
+ASSEMBLER_TEST_GENERATE(Fmovrs, assembler) {
+  __ LoadDImmediate(V2, 1.0);
+  __ fcvtsd(V1, V2);
+  __ fmovrs(R0, V1);
+  __ ret();
+}
+
+
+ASSEMBLER_TEST_RUN(Fmovrs, test) {
+  typedef int64_t (*Int64Return)() DART_UNUSED;
+  int64_t result = EXECUTE_TEST_CODE_INT64(Int64Return, test->entry());
+  const uint32_t one = bit_cast<uint32_t, float>(1.0f);
+  EXPECT_EQ(one, static_cast<uint32_t>(result));
+}
+
+
+ASSEMBLER_TEST_GENERATE(Fmovsr, assembler) {
+  __ LoadImmediate(R2, bit_cast<uint32_t, float>(1.0f));
+  __ fmovsr(V1, R2);
+  __ fmovrs(R0, V1);
+  __ ret();
+}
+
+
+ASSEMBLER_TEST_RUN(Fmovsr, test) {
+  typedef int64_t (*Int64Return)() DART_UNUSED;
+  int64_t result = EXECUTE_TEST_CODE_INT64(Int64Return, test->entry());
+  const uint32_t one = bit_cast<uint32_t, float>(1.0f);
+  EXPECT_EQ(one, static_cast<uint32_t>(result));
+}
+
+
 ASSEMBLER_TEST_GENERATE(FldrdFstrdPrePostIndex, assembler) {
   __ SetupDartSP();
   __ LoadDImmediate(V1, 42.0);
@@ -2341,7 +2435,7 @@ ASSEMBLER_TEST_GENERATE(FldrdFstrdHeapTag, assembler) {
   __ add(R2, SP, Operand(1));
   __ fstrd(V1, Address(R2, -1));
   __ fldrd(V0, Address(R2, -1));
-  __ AddImmediate(SP, SP, 1 * kWordSize);
+  __ AddImmediate(SP, 1 * kWordSize);
   __ RestoreCSP();
   __ ret();
 }

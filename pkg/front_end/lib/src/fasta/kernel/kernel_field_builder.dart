@@ -11,7 +11,7 @@ import 'package:front_end/src/fasta/kernel/kernel_shadow_ast.dart'
 
 import 'package:front_end/src/fasta/parser/parser.dart' show Parser;
 
-import 'package:front_end/src/fasta/scanner/token.dart' show Token;
+import 'package:front_end/src/scanner/token.dart' show Token;
 
 import 'package:front_end/src/fasta/builder/class_builder.dart'
     show ClassBuilder;
@@ -19,26 +19,47 @@ import 'package:front_end/src/fasta/builder/class_builder.dart'
 import 'package:front_end/src/fasta/source/source_library_builder.dart'
     show SourceLibraryBuilder;
 
-import 'package:kernel/ast.dart' show Expression, Field, Name;
+import 'package:front_end/src/fasta/type_inference/type_inference_listener.dart'
+    show TypeInferenceListener;
+
+import 'package:kernel/ast.dart'
+    show DartType, Expression, Field, Name, NullLiteral;
+
+import '../deprecated_problems.dart' show deprecated_internalProblem;
 
 import 'kernel_builder.dart'
     show Builder, FieldBuilder, KernelTypeBuilder, MetadataBuilder;
 
 class KernelFieldBuilder extends FieldBuilder<Expression> {
-  final Field field;
+  final KernelField field;
   final List<MetadataBuilder> metadata;
   final KernelTypeBuilder type;
-  final Token initializerToken;
+  final Token initializerTokenForInference;
+  final bool hasInitializer;
 
-  KernelFieldBuilder(this.metadata, this.type, String name, int modifiers,
-      Builder compilationUnit, int charOffset, this.initializerToken)
+  KernelFieldBuilder(
+      this.metadata,
+      this.type,
+      String name,
+      int modifiers,
+      Builder compilationUnit,
+      int charOffset,
+      this.initializerTokenForInference,
+      this.hasInitializer)
       : field = new KernelField(null, fileUri: compilationUnit?.relativeFileUri)
           ..fileOffset = charOffset,
         super(name, modifiers, compilationUnit, charOffset);
 
   void set initializer(Expression value) {
+    if (!hasInitializer && value is! NullLiteral && !isConst && !isFinal) {
+      deprecated_internalProblem(
+          "Attempt to set initializer on field without initializer.");
+    }
     field.initializer = value..parent = field;
   }
+
+  bool get isEligibleForInference =>
+      type == null && (hasInitializer || isInstanceMember);
 
   Field build(SourceLibraryBuilder library) {
     field.name ??= new Name(name, library.target);
@@ -52,8 +73,8 @@ class KernelFieldBuilder extends FieldBuilder<Expression> {
       ..hasImplicitGetter = isInstanceMember
       ..hasImplicitSetter = isInstanceMember && !isConst && !isFinal
       ..isStatic = !isInstanceMember;
-    if (initializerToken != null) {
-      library.loader.typeInferenceEngine.recordField(field);
+    if (!library.disableTypeInference && isEligibleForInference) {
+      library.loader.typeInferenceEngine.recordMember(field);
     }
     return field;
   }
@@ -63,32 +84,37 @@ class KernelFieldBuilder extends FieldBuilder<Expression> {
   @override
   void prepareInitializerInference(
       SourceLibraryBuilder library, ClassBuilder currentClass) {
-    if (initializerToken != null) {
+    if (!library.disableTypeInference && isEligibleForInference) {
       var memberScope =
           currentClass == null ? library.scope : currentClass.scope;
-      // TODO(paulberry): Is it correct to pass library.uri into BodyBuilder, or
-      // should it be the part URI?
       var typeInferenceEngine = library.loader.typeInferenceEngine;
-      var astFactory = library.loader.astFactory;
-      var typeInferrer = typeInferenceEngine.createTopLevelTypeInferrer(field);
-      var bodyBuilder = new BodyBuilder(
-          library,
-          this,
-          memberScope,
-          null,
-          typeInferenceEngine.classHierarchy,
-          typeInferenceEngine.coreTypes,
-          currentClass,
-          isInstanceMember,
-          library.uri,
-          typeInferrer,
-          astFactory,
-          fieldDependencies: typeInferenceEngine.getFieldDependencies(field));
-      Parser parser = new Parser(bodyBuilder);
-      Token token = parser.parseExpression(initializerToken);
-      Expression expression = bodyBuilder.popForValue();
-      bodyBuilder.checkEmpty(token.charOffset);
-      initializer = expression;
+      var listener = new TypeInferenceListener();
+      var typeInferrer = typeInferenceEngine.createTopLevelTypeInferrer(
+          listener, field.enclosingClass?.thisType, field);
+      if (hasInitializer) {
+        var bodyBuilder = new BodyBuilder(
+            library,
+            this,
+            memberScope,
+            null,
+            typeInferenceEngine.classHierarchy,
+            typeInferenceEngine.coreTypes,
+            currentClass,
+            isInstanceMember,
+            fileUri,
+            typeInferrer);
+        Parser parser = new Parser(bodyBuilder);
+        Token token = parser.parseExpression(initializerTokenForInference);
+        Expression expression = bodyBuilder.popForValue();
+        bodyBuilder.checkEmpty(token.charOffset);
+        initializer = expression;
+      }
     }
   }
+
+  @override
+  DartType get builtType => field.type;
+
+  @override
+  bool get hasImplicitType => type == null;
 }

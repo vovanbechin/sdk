@@ -8,90 +8,34 @@ import 'dart:async' show Future;
 
 import 'dart:io' show File;
 
-import 'package:front_end/physical_file_system.dart';
 import 'package:testing/testing.dart'
-    show Chain, ChainContext, Result, Step, TestDescription, runMe;
+    show Chain, ChainContext, Result, Step, runMe;
 
 import 'package:kernel/ast.dart' show Program, Library;
 
-import 'package:front_end/src/fasta/testing/kernel_chain.dart' show runDiff;
-
-import 'package:front_end/src/fasta/ticker.dart' show Ticker;
-
-import 'package:front_end/src/fasta/dill/dill_target.dart' show DillTarget;
-
-import 'package:front_end/src/fasta/kernel/kernel_target.dart'
-    show KernelTarget;
-
-import 'package:front_end/src/fasta/translate_uri.dart' show TranslateUri;
-
-import 'package:front_end/src/fasta/errors.dart' show InputError;
-
-import 'package:front_end/src/fasta/testing/patched_sdk_location.dart';
-
-import 'package:kernel/kernel.dart' show loadProgramFromBinary;
+import 'package:front_end/src/fasta/testing/kernel_chain.dart'
+    show runDiff, Compile, CompileContext;
 
 import 'package:kernel/interpreter/interpreter.dart';
 
 const String STRONG_MODE = " strong mode ";
 
-class InterpreterContext extends ChainContext {
+class InterpreterContext extends ChainContext implements CompileContext {
   final bool strongMode;
-
-  final TranslateUri uriTranslator;
 
   final List<Step> steps;
 
-  Future<Program> platform;
-
-  InterpreterContext(this.strongMode, this.uriTranslator)
+  InterpreterContext(this.strongMode)
       : steps = <Step>[
-          const FastaCompile(),
+          const Compile(),
           const Interpret(),
           const MatchLogExpectation(".expect"),
         ];
 
-  Future<Program> loadPlatform() async {
-    Uri sdk = await computePatchedSdk();
-    return loadProgramFromBinary(sdk.resolve('platform.dill').toFilePath());
-  }
-
   static Future<InterpreterContext> create(
       Chain suite, Map<String, String> environment) async {
-    Uri packages = Uri.base.resolve(".packages");
     bool strongMode = environment.containsKey(STRONG_MODE);
-    TranslateUri uriTranslator =
-        await TranslateUri.parse(PhysicalFileSystem.instance, packages);
-    return new InterpreterContext(strongMode, uriTranslator);
-  }
-}
-
-class FastaCompile extends Step<TestDescription, Program, InterpreterContext> {
-  const FastaCompile();
-
-  String get name => "fasta compile";
-
-  Future<Result<Program>> run(
-      TestDescription description, InterpreterContext context) async {
-    Program platform = await context.loadPlatform();
-    Ticker ticker = new Ticker();
-    DillTarget dillTarget = new DillTarget(ticker, context.uriTranslator);
-    dillTarget.loader
-      ..input = Uri.parse("org.dartlang:platform") // Make up a name.
-      ..setProgram(platform);
-    KernelTarget sourceTarget = new KernelTarget(PhysicalFileSystem.instance,
-        dillTarget, context.uriTranslator, context.strongMode);
-
-    Program p;
-    try {
-      sourceTarget.read(description.uri);
-      await dillTarget.writeOutline(null);
-      await sourceTarget.writeOutline(null);
-      p = await sourceTarget.writeProgram(null);
-    } on InputError catch (e, s) {
-      return fail(null, e.error, s);
-    }
-    return pass(p);
+    return new InterpreterContext(strongMode);
   }
 }
 

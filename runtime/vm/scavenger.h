@@ -32,7 +32,9 @@ class SemiSpace {
 
   // Get a space of the given size. Returns NULL on out of memory. If size is 0,
   // returns an empty space: pointer(), start() and end() all return NULL.
-  static SemiSpace* New(intptr_t size_in_words);
+  // The name parameter may be NULL. If non-NULL it is ued to give the OS a name
+  // for the underlying virtual memory region.
+  static SemiSpace* New(intptr_t size_in_words, const char* name);
 
   // Hand back an unused space.
   void Delete();
@@ -54,7 +56,7 @@ class SemiSpace {
   explicit SemiSpace(VirtualMemory* reserved);
   ~SemiSpace();
 
-  VirtualMemory* reserved_;  // NULL for an emtpy space.
+  VirtualMemory* reserved_;  // NULL for an empty space.
   MemoryRegion region_;
 
   static SemiSpace* cache_;
@@ -147,11 +149,7 @@ class Scavenger {
   void Scavenge(bool invoke_api_callbacks);
 
   // Promote all live objects.
-  void Evacuate() {
-    Scavenge();
-    Scavenge();
-    ASSERT(UsedInWords() == 0);
-  }
+  void Evacuate();
 
   // Accessors to generate code for inlined allocation.
   uword* TopAddress() { return &top_; }
@@ -294,6 +292,8 @@ class Scavenger {
 
   // The total size of external data associated with objects in this scavenger.
   intptr_t external_size_;
+
+  bool failed_to_promote_;
 
   friend class ScavengerVisitor;
   friend class ScavengerWeakVisitor;

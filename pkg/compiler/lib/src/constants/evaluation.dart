@@ -20,18 +20,20 @@ abstract class EvaluationEnvironment {
   String readFromEnvironment(String name);
 
   /// Returns the [ConstantExpression] for the value of the constant [local].
-  ConstantExpression getLocalConstant(Local local);
+  ConstantExpression getLocalConstant(covariant Local local);
 
   /// Returns the [ConstantExpression] for the value of the constant [field].
-  ConstantExpression getFieldConstant(FieldEntity field);
+  ConstantExpression getFieldConstant(covariant FieldEntity field);
 
   /// Returns the [ConstantConstructor] corresponding to the constant
   /// [constructor].
-  ConstantConstructor getConstructorConstant(ConstructorEntity constructor);
+  ConstantConstructor getConstructorConstant(
+      covariant ConstructorEntity constructor);
 
   /// Performs the substitution of the type arguments of [target] for their
   /// corresponding type variables in [type].
-  InterfaceType substByContext(InterfaceType base, InterfaceType target);
+  InterfaceType substByContext(
+      covariant InterfaceType base, covariant InterfaceType target);
 }
 
 /// The normalized arguments passed to a const constructor computed from the
@@ -48,14 +50,18 @@ class NormalizedArguments {
     int index = callStructure.namedArguments.indexOf(name);
     if (index == -1) {
       // The named argument is not provided.
-      invariant(CURRENT_ELEMENT_SPANNABLE, defaultValues[name] != null,
-          message: "No default value for named argument '$name' in $this.");
+      assert(
+          defaultValues[name] != null,
+          failedAt(CURRENT_ELEMENT_SPANNABLE,
+              "No default value for named argument '$name' in $this."));
       return defaultValues[name];
     }
     ConstantExpression value =
         arguments[index + callStructure.positionalArgumentCount];
-    invariant(CURRENT_ELEMENT_SPANNABLE, value != null,
-        message: "No value for named argument '$name' in $this.");
+    assert(
+        value != null,
+        failedAt(CURRENT_ELEMENT_SPANNABLE,
+            "No value for named argument '$name' in $this."));
     return value;
   }
 
@@ -63,13 +69,17 @@ class NormalizedArguments {
   ConstantExpression getPositionalArgument(int index) {
     if (index >= callStructure.positionalArgumentCount) {
       // The positional argument is not provided.
-      invariant(CURRENT_ELEMENT_SPANNABLE, defaultValues[index] != null,
-          message: "No default value for positional argument $index in $this.");
+      assert(
+          defaultValues[index] != null,
+          failedAt(CURRENT_ELEMENT_SPANNABLE,
+              "No default value for positional argument $index in $this."));
       return defaultValues[index];
     }
     ConstantExpression value = arguments[index];
-    invariant(CURRENT_ELEMENT_SPANNABLE, value != null,
-        message: "No value for positional argument $index in $this.");
+    assert(
+        value != null,
+        failedAt(CURRENT_ELEMENT_SPANNABLE,
+            "No value for positional argument $index in $this."));
     return value;
   }
 

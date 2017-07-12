@@ -76,8 +76,6 @@ def GuessArchitecture():
     return 'arm'
   elif os_id.startswith('aarch64'):
     return 'arm64'
-  elif os_id.startswith('mips'):
-    return 'mips'
   elif '64' in os_id:
     return 'x64'
   elif (not os_id) or (not re.match('(x|i[3-6])86', os_id) is None):
@@ -252,11 +250,9 @@ ARCH_FAMILY = {
   'armv6': 'arm',
   'armv5te': 'arm',
   'arm64': 'arm',
-  'mips': 'mips',
   'simarm': 'ia32',
   'simarmv6': 'ia32',
   'simarmv5te': 'ia32',
-  'simmips': 'ia32',
   'simarm64': 'ia32',
   'simdbc': 'ia32',
   'simdbc64': 'ia32',
@@ -294,7 +290,6 @@ def GetBuildConf(mode, arch, conf_os=None):
     host_arch = ARCH_GUESS
     cross_build = ''
     if GetArchFamily(host_arch) != GetArchFamily(arch):
-      print "GetBuildConf: Cross-build of %s on %s\n" % (arch, host_arch)
       cross_build = 'X'
     return '%s%s%s' % (GetBuildMode(mode), cross_build, arch.upper())
 
@@ -621,9 +616,7 @@ def CheckedInSdkExecutable():
     name = 'dart.exe'
   elif GuessOS() == 'linux':
     arch = GuessArchitecture()
-    if arch == 'mips':
-      name = 'dart-mips'
-    elif arch == 'arm':
+    if arch == 'arm':
       name = 'dart-arm'
     elif arch == 'arm64':
       name = 'dart-arm64'

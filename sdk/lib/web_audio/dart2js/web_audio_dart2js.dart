@@ -361,13 +361,6 @@ class AudioContext extends EventTarget {
   @DocsEditable()
   WaveShaperNode createWaveShaper() native;
 
-  @JSName('decodeAudioData')
-  @DomName('AudioContext.decodeAudioData')
-  @DocsEditable()
-  Future _decodeAudioData(ByteBuffer audioData,
-      [AudioBufferCallback successCallback,
-      AudioBufferCallback errorCallback]) native;
-
   @DomName('AudioContext.resume')
   @DocsEditable()
   @Experimental() // untriaged
@@ -408,6 +401,13 @@ class AudioContext extends EventTarget {
           'ScriptProcessorNode', '#.call(#, #)', function, this, bufferSize);
     }
   }
+
+  @JSName('decodeAudioData')
+  @DomName('AudioContext.decodeAudioData')
+  @DocsEditable()
+  Future _decodeAudioData(ByteBuffer audioData,
+      [AudioBufferCallback successCallback,
+      AudioBufferCallback errorCallback]) native;
 
   @DomName('AudioContext.decodeAudioData')
   Future<AudioBuffer> decodeAudioData(ByteBuffer audioData) {
@@ -925,10 +925,11 @@ class OfflineAudioContext extends AudioContext {
   @Experimental() // untriaged
   Future startRendering() native;
 
+  @JSName('suspend')
   @DomName('OfflineAudioContext.suspend')
   @DocsEditable()
   @Experimental() // untriaged
-  Future suspend(num suspendTime) native;
+  Future suspendFor(num suspendTime) native;
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a

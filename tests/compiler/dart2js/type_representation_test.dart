@@ -8,12 +8,12 @@ import 'package:expect/expect.dart';
 import "package:async_helper/async_helper.dart";
 import 'type_test_helper.dart';
 import 'package:compiler/src/elements/resolution_types.dart';
+import 'package:compiler/src/elements/types.dart';
 import 'package:compiler/src/js/js.dart';
 import 'package:compiler/src/elements/elements.dart' show Element, ClassElement;
-import 'package:compiler/src/js_backend/js_backend.dart'
-    show JavaScriptBackend, TypeRepresentationGenerator;
-import 'package:compiler/src/types/types.dart';
-import 'package:compiler/src/universe/world_builder.dart';
+import 'package:compiler/src/js_backend/backend.dart' show JavaScriptBackend;
+import 'package:compiler/src/js_backend/runtime_types.dart'
+    show TypeRepresentationGenerator;
 
 void main() {
   testTypeRepresentations();
@@ -43,20 +43,17 @@ void testTypeRepresentations() {
       m9(int a, String b, {List<int> c, d}) {}
       m10(void f(int a, [b])) {}
       """).then((env) {
-        var closedWorldRefiner = env.compiler.closeResolution();
+        var elementEnvironment =
+            env.compiler.frontendStrategy.elementEnvironment;
+        var closedWorldRefiner =
+            env.compiler.closeResolution(elementEnvironment.mainFunction);
         var closedWorld = closedWorldRefiner.closedWorld;
-        env.compiler.enqueuer.createCodegenEnqueuer(closedWorld);
-        env.compiler.backend.onCodegenStart(
-            closedWorld,
-            new CodegenWorldBuilderImpl(
-                env.compiler.backend.nativeBasicData,
-                closedWorld,
-                env.compiler.backend.constants,
-                const TypeMaskStrategy()));
+        env.compiler.startCodegen(closedWorld);
         TypeRepresentationGenerator typeRepresentation =
             new TypeRepresentationGenerator(env.compiler.backend.namer);
 
-        Expression onVariable(ResolutionTypeVariableType variable) {
+        Expression onVariable(TypeVariableType _variable) {
+          ResolutionTypeVariableType variable = _variable;
           return new VariableUse(variable.name);
         }
 
@@ -108,7 +105,6 @@ void testTypeRepresentations() {
         ResolutionTypeVariableType Map_K = Map_.typeVariables[0];
         ResolutionTypeVariableType Map_V = Map_.typeVariables[1];
 
-        ResolutionDartType Object_ = env['Object'];
         ResolutionDartType int_ = env['int'];
         ResolutionDartType String_ = env['String'];
         ResolutionDartType dynamic_ = env['dynamic'];
@@ -129,7 +125,6 @@ void testTypeRepresentations() {
         String Map_K_rep = stringify(onVariable(Map_K));
         String Map_V_rep = stringify(onVariable(Map_V));
 
-        String Object_rep = getJsName(Object_.element);
         String int_rep = getJsName(int_.element);
         String String_rep = getJsName(String_.element);
 
@@ -230,56 +225,60 @@ void testTypeRepresentations() {
             '[$Map_rep, $int_rep, $String_rep]');
 
         // void m1() {}
-        expect(env.getElement('m1').computeType(env.compiler.resolution),
+        expect(computeType(env.getElement('m1'), env.compiler.resolution),
             '{$func: 1, $retvoid: true}');
 
         // int m2() => 0;
-        expect(env.getElement('m2').computeType(env.compiler.resolution),
+        expect(computeType(env.getElement('m2'), env.compiler.resolution),
             '{$func: 1, $ret: $int_rep}');
 
         // List<int> m3() => null;
-        expect(env.getElement('m3').computeType(env.compiler.resolution),
+        expect(computeType(env.getElement('m3'), env.compiler.resolution),
             '{$func: 1, $ret: [$List_rep, $int_rep]}');
 
         // m4() {}
-        expect(env.getElement('m4').computeType(env.compiler.resolution),
+        expect(computeType(env.getElement('m4'), env.compiler.resolution),
             '{$func: 1}');
 
         // m5(int a, String b) {}
-        expect(env.getElement('m5').computeType(env.compiler.resolution),
+        expect(computeType(env.getElement('m5'), env.compiler.resolution),
             '{$func: 1, $args: [$int_rep, $String_rep]}');
 
         // m6(int a, [String b]) {}
         expect(
-            env.getElement('m6').computeType(env.compiler.resolution),
+            computeType(env.getElement('m6'), env.compiler.resolution),
             '{$func: 1, $args: [$int_rep],'
             ' $opt: [$String_rep]}');
 
         // m7(int a, String b, [List<int> c, d]) {}
         expect(
-            env.getElement('m7').computeType(env.compiler.resolution),
+            computeType(env.getElement('m7'), env.compiler.resolution),
             '{$func: 1,'
             ' $args: [$int_rep, $String_rep],'
             ' $opt: [[$List_rep, $int_rep],,]}');
 
         // m8(int a, {String b}) {}
         expect(
-            env.getElement('m8').computeType(env.compiler.resolution),
+            computeType(env.getElement('m8'), env.compiler.resolution),
             '{$func: 1,'
             ' $args: [$int_rep], $named: {b: $String_rep}}');
 
         // m9(int a, String b, {List<int> c, d}) {}
         expect(
-            env.getElement('m9').computeType(env.compiler.resolution),
+            computeType(env.getElement('m9'), env.compiler.resolution),
             '{$func: 1,'
             ' $args: [$int_rep, $String_rep],'
             ' $named: {c: [$List_rep, $int_rep], d: null}}');
 
         // m10(void f(int a, [b])) {}
         expect(
-            env.getElement('m10').computeType(env.compiler.resolution),
+            computeType(env.getElement('m10'), env.compiler.resolution),
             '{$func: 1, $args:'
             ' [{$func: 1,'
             ' $retvoid: true, $args: [$int_rep], $opt: [,]}]}');
       }));
+}
+
+computeType(element, resolution) {
+  return element.computeType(resolution);
 }

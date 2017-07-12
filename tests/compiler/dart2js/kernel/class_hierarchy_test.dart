@@ -7,7 +7,6 @@
 
 import 'package:compiler/src/commandline_options.dart' show Flags;
 import 'package:compiler/src/compiler.dart' show Compiler;
-import 'package:compiler/src/elements/elements.dart';
 import 'package:compiler/src/js_backend/backend.dart' show JavaScriptBackend;
 import 'package:compiler/src/library_loader.dart' show LoadedLibraries;
 import 'package:kernel/ast.dart' as ir;
@@ -43,7 +42,8 @@ main(List<String> arguments) {
     compiler.processLoadedLibraries(libraries);
     JavaScriptBackend backend = compiler.backend;
     ir.Program program = backend.kernelTask.buildProgram(libraries.rootLibrary);
-    ClassHierarchy hierarchy = new ClassHierarchy(program);
+    ClosedWorldClassHierarchy hierarchy =
+        new ClosedWorldClassHierarchy(program);
 
     ir.Class getClass(String name) {
       for (ir.Class cls in hierarchy.classes) {
@@ -59,6 +59,7 @@ main(List<String> arguments) {
         }
       }
       fail('Class $name not found.');
+      throw "Not reachable.";
     }
 
     ir.Class classS = getClass('S');

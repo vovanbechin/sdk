@@ -27,6 +27,7 @@ import 'package:analyzer/src/task/strong/ast_properties.dart' as strong_ast;
 import 'package:analyzer/task/dart.dart';
 import 'package:analyzer/task/general.dart';
 import 'package:analyzer/task/model.dart';
+import 'package:front_end/src/scanner/scanner.dart' as fe;
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
@@ -184,7 +185,7 @@ f() {
         <ConstantEvaluationTarget>[
       unitElement.accessors.firstWhere((e) => e.isGetter).variable,
       unitElement.types[0].fields[0],
-      unitElement.functions[0].localVariables[0],
+      findLocalVariable(unit, 'z'),
       unitElement.types[0].constructors[0],
       resolutionMap.elementAnnotationForAnnotation(annotation),
       unitElement.types[0].constructors[0].parameters[0]
@@ -3261,7 +3262,12 @@ class A {''');
     _assertHasCore(outputs[IMPORTED_LIBRARIES], 2);
     expect(outputs[INCLUDED_PARTS], hasLength(1));
     expect(outputs[LIBRARY_SPECIFIC_UNITS], hasLength(2));
-    expect(outputs[PARSE_ERRORS], hasLength(1));
+    if (fe.Scanner.useFasta) {
+      // Missing closing brace error is reported by the Fasta scanner.
+      expect(outputs[PARSE_ERRORS], hasLength(0));
+    } else {
+      expect(outputs[PARSE_ERRORS], hasLength(1));
+    }
     expect(outputs[PARSED_UNIT], isNotNull);
     expect(outputs[REFERENCED_SOURCES], hasLength(5));
     expect(outputs[SOURCE_KIND], SourceKind.LIBRARY);
@@ -4320,11 +4326,14 @@ main() {
     CompilationUnit unit = outputs[RESOLVED_UNIT6];
     FunctionDeclaration mainDeclaration = unit.declarations[0];
     FunctionBody body = mainDeclaration.functionExpression.body;
-    FunctionElement main = mainDeclaration.element;
-    expectMutated(body, main.localVariables[0], false, false);
-    expectMutated(body, main.localVariables[1], false, true);
-    expectMutated(body, main.localVariables[2], true, true);
-    expectMutated(body, main.localVariables[3], true, true);
+    LocalVariableElement v1 = findLocalVariable(unit, 'v1');
+    LocalVariableElement v2 = findLocalVariable(unit, 'v2');
+    LocalVariableElement v3 = findLocalVariable(unit, 'v3');
+    LocalVariableElement v4 = findLocalVariable(unit, 'v4');
+    expectMutated(body, v1, false, false);
+    expectMutated(body, v2, false, true);
+    expectMutated(body, v3, true, true);
+    expectMutated(body, v4, true, true);
   }
 
   test_perform_parameter() {
@@ -4360,16 +4369,20 @@ class ScanDartTaskTest extends _AbstractDartTaskTest {
   test_ignore_info() {
     _performScanTask('''
 //ignore: error_code
+//ignore_for_file: error_code
 var x = '';
 foo(); // ignore:   error_code_2
 bar(); //ignore: error_code, error_code_2
+// ignore_for_file:  error_code_2, error_code_3
 ''');
 
     IgnoreInfo info = outputs[IGNORE_INFO];
     expect(info.ignores.keys, hasLength(3));
     expect(info.ignores[1].first, 'error_code');
-    expect(info.ignores[3].first, 'error_code_2');
-    expect(info.ignores[4], unorderedEquals(['error_code', 'error_code_2']));
+    expect(info.ignores[4].first, 'error_code_2');
+    expect(info.ignores[5], unorderedEquals(['error_code', 'error_code_2']));
+    expect(info.ignoreForFiles,
+        unorderedEquals(['error_code', 'error_code_2', 'error_code_3']));
   }
 
   test_perform_errors() {
@@ -4377,6 +4390,23 @@ bar(); //ignore: error_code, error_code_2
     expect(outputs, hasLength(4));
     expect(outputs[LINE_INFO], isNotNull);
     expect(outputs[SCAN_ERRORS], hasLength(1));
+    expect(outputs[TOKEN_STREAM], isNotNull);
+    IgnoreInfo ignoreInfo = outputs[IGNORE_INFO];
+    expect(ignoreInfo, isNotNull);
+    expect(ignoreInfo.hasIgnores, isFalse);
+  }
+
+  test_perform_library() {
+    _performScanTask(r'''
+library lib;
+import 'lib2.dart';
+export 'lib3.dart';
+part 'part.dart';
+class A {''');
+    expect(outputs, hasLength(4));
+    expect(outputs[LINE_INFO], isNotNull);
+    // Missing closing brace error is reported by the Fasta scanner.
+    expect(outputs[SCAN_ERRORS], hasLength(fe.Scanner.useFasta ? 1 : 0));
     expect(outputs[TOKEN_STREAM], isNotNull);
     IgnoreInfo ignoreInfo = outputs[IGNORE_INFO];
     expect(ignoreInfo, isNotNull);
@@ -4414,7 +4444,12 @@ bar(); //ignore: error_code, error_code_2
 
     computeResult(script, TOKEN_STREAM, matcher: isScanDartTask);
     expect(outputs[LINE_INFO], isNotNull);
-    expect(outputs[SCAN_ERRORS], isEmpty);
+    if (fe.Scanner.useFasta) {
+      // Missing closing brace error is reported by Fasta scanner.
+      expect(outputs[SCAN_ERRORS], hasLength(1));
+    } else {
+      expect(outputs[SCAN_ERRORS], isEmpty);
+    }
     Token tokenStream = outputs[TOKEN_STREAM];
     expect(tokenStream, isNotNull);
     expect(tokenStream.lexeme, 'void');

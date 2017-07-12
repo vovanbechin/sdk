@@ -13,9 +13,11 @@ import '../elements/elements.dart'
     show ClassElement, FieldElement, MethodElement;
 import '../elements/entities.dart';
 import '../elements/resolution_types.dart';
+import '../elements/types.dart';
 import '../js/js.dart' as js;
-import '../js_backend/js_backend.dart';
+import '../js_backend/backend.dart';
 import '../js_backend/native_data.dart' show NativeData;
+import '../js_backend/runtime_types.dart';
 import '../native/native.dart' as native;
 import '../options.dart';
 import '../types/types.dart';
@@ -480,7 +482,7 @@ class SsaInstructionSimplifier extends HBaseVisitor
         // [:noSuchMethod:] we just ignore it.
         &&
         node.selector.applies(element)) {
-      MethodElement method = element;
+      FunctionEntity method = element;
 
       if (_nativeData.isNativeMember(method)) {
         HInstruction folded = tryInlineNativeMethod(node, method);
@@ -488,11 +490,9 @@ class SsaInstructionSimplifier extends HBaseVisitor
       } else {
         // TODO(ngeoffray): If the method has optional parameters,
         // we should pass the default values.
-        ResolutionFunctionType type = method.type;
-        int optionalParameterCount =
-            type.optionalParameterTypes.length + type.namedParameters.length;
-        if (optionalParameterCount == 0 ||
-            type.parameterTypes.length + optionalParameterCount ==
+        ParameterStructure parameters = method.parameterStructure;
+        if (parameters.optionalParameters == 0 ||
+            parameters.requiredParameters + parameters.optionalParameters ==
                 node.selector.argumentCount) {
           node.element = method;
         }
@@ -778,7 +778,7 @@ class SsaInstructionSimplifier extends HBaseVisitor
   }
 
   HInstruction visitIs(HIs node) {
-    ResolutionDartType type = node.typeExpression;
+    DartType type = node.typeExpression;
 
     if (!node.isRawCheck) {
       return node;
@@ -788,10 +788,10 @@ class SsaInstructionSimplifier extends HBaseVisitor
       return node;
     }
 
-    if (type.isObject || type.treatAsDynamic) {
+    if (type == commonElements.objectType || type.treatAsDynamic) {
       return _graph.addConstantBool(true, _closedWorld);
     }
-    ResolutionInterfaceType interfaceType = type;
+    InterfaceType interfaceType = type;
     ClassEntity element = interfaceType.element;
     HInstruction expression = node.expression;
     if (expression.isInteger(_closedWorld)) {
@@ -921,7 +921,7 @@ class SsaInstructionSimplifier extends HBaseVisitor
   }
 
   HInstruction visitGetLength(HGetLength node) {
-    var receiver = node.receiver;
+    dynamic receiver = node.receiver;
     if (_graph.allocatedFixedLists.contains(receiver)) {
       // TODO(ngeoffray): checking if the second input is an integer
       // should not be necessary but it currently makes it easier for
@@ -933,7 +933,7 @@ class SsaInstructionSimplifier extends HBaseVisitor
     } else if (receiver.isConstantList() || receiver.isConstantString()) {
       return _graph.addConstantInt(receiver.constant.length, _closedWorld);
     } else {
-      var type = receiver.instructionType;
+      dynamic type = receiver.instructionType;
       if (type.isContainer && type.length != null) {
         HInstruction constant =
             _graph.addConstantInt(type.length, _closedWorld);
@@ -961,7 +961,7 @@ class SsaInstructionSimplifier extends HBaseVisitor
 
   HInstruction visitIndex(HIndex node) {
     if (node.receiver.isConstantList() && node.index.isConstantInteger()) {
-      var instruction = node.receiver;
+      dynamic instruction = node.receiver;
       List<ConstantValue> entries = instruction.constant.entries;
       instruction = node.index;
       int index = instruction.constant.primitiveValue;
@@ -1023,14 +1023,16 @@ class SsaInstructionSimplifier extends HBaseVisitor
     }
 
     HInstruction receiver = node.getDartReceiver(_closedWorld);
-    FieldElement field =
+    FieldEntity field =
         findConcreteFieldForDynamicAccess(receiver, node.selector);
     if (field == null || !field.isAssignable) return node;
     // Use `node.inputs.last` in case the call follows the interceptor calling
     // convention, but is not a call on an interceptor.
     HInstruction value = node.inputs.last;
     if (_options.enableTypeAssertions) {
-      ResolutionDartType type = field.type;
+      // TODO(redemption): Support field entities.
+      FieldElement element = field;
+      DartType type = element.type;
       if (!type.treatAsRaw ||
           type.isTypeVariable ||
           type.unaliased.isFunctionType) {
@@ -1068,17 +1070,17 @@ class SsaInstructionSimplifier extends HBaseVisitor
           if (constant.constant.isTrue) return constant;
         }
       }
-    } else if (element == commonElements.checkInt) {
+    } else if (commonElements.isCheckInt(element)) {
       if (node.inputs.length == 1) {
         HInstruction argument = node.inputs[0];
         if (argument.isInteger(_closedWorld)) return argument;
       }
-    } else if (element == commonElements.checkNum) {
+    } else if (commonElements.isCheckNum(element)) {
       if (node.inputs.length == 1) {
         HInstruction argument = node.inputs[0];
         if (argument.isNumber(_closedWorld)) return argument;
       }
-    } else if (element == commonElements.checkString) {
+    } else if (commonElements.isCheckString(element)) {
       if (node.inputs.length == 1) {
         HInstruction argument = node.inputs[0];
         if (argument.isString(_closedWorld)) return argument;
@@ -2321,13 +2323,13 @@ class SsaTypeConversionInserter extends HBaseVisitor
   }
 
   void visitIs(HIs instruction) {
-    ResolutionDartType type = instruction.typeExpression;
+    DartType type = instruction.typeExpression;
     if (!instruction.isRawCheck) {
       return;
     } else if (type.isTypedef) {
       return;
     }
-    ResolutionInterfaceType interfaceType = type;
+    InterfaceType interfaceType = type;
     ClassEntity cls = interfaceType.element;
 
     List<HBasicBlock> trueTargets = <HBasicBlock>[];

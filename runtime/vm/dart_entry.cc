@@ -24,8 +24,9 @@ RawArray* ArgumentsDescriptor::cached_args_descriptors_[kCachedDescriptorCount];
 RawObject* DartEntry::InvokeFunction(const Function& function,
                                      const Array& arguments) {
   ASSERT(Thread::Current()->IsMutatorThread());
+  const int kTypeArgsLen = 0;  // No support to pass type args to generic func.
   const Array& arguments_descriptor =
-      Array::Handle(ArgumentsDescriptor::New(arguments.Length()));
+      Array::Handle(ArgumentsDescriptor::New(kTypeArgsLen, arguments.Length()));
   return InvokeFunction(function, arguments, arguments_descriptor);
 }
 
@@ -95,6 +96,11 @@ RawObject* DartEntry::InvokeFunction(const Function& function,
   Zone* zone = thread->zone();
   ASSERT(thread->IsMutatorThread());
   ScopedIsolateStackLimits stack_limit(thread, current_sp);
+  if (ArgumentsDescriptor(arguments_descriptor).TypeArgsLen() > 0) {
+    const String& message = String::Handle(String::New(
+        "Unsupported invocation of Dart generic function with type arguments"));
+    return ApiError::New(message);
+  }
   if (!function.HasCode()) {
     const Object& result =
         Object::Handle(zone, Compiler::CompileFunction(thread, function));
@@ -128,8 +134,9 @@ RawObject* DartEntry::InvokeFunction(const Function& function,
 
 
 RawObject* DartEntry::InvokeClosure(const Array& arguments) {
+  const int kTypeArgsLen = 0;  // No support to pass type args to generic func.
   const Array& arguments_descriptor =
-      Array::Handle(ArgumentsDescriptor::New(arguments.Length()));
+      Array::Handle(ArgumentsDescriptor::New(kTypeArgsLen, arguments.Length()));
   return InvokeClosure(arguments, arguments_descriptor);
 }
 
@@ -138,16 +145,18 @@ RawObject* DartEntry::InvokeClosure(const Array& arguments,
                                     const Array& arguments_descriptor) {
   Thread* thread = Thread::Current();
   Zone* zone = thread->zone();
+  const ArgumentsDescriptor args_desc(arguments_descriptor);
+  const intptr_t instance_index = args_desc.TypeArgsLen() == 0 ? 0 : 1;
   Instance& instance = Instance::Handle(zone);
-  instance ^= arguments.At(0);
+  instance ^= arguments.At(instance_index);
   // Get the entrypoint corresponding to the closure function or to the call
   // method of the instance. This will result in a compilation of the function
   // if it is not already compiled.
   Function& function = Function::Handle(zone);
   if (instance.IsCallable(&function)) {
     // Only invoke the function if its arguments are compatible.
-    const ArgumentsDescriptor args_desc(arguments_descriptor);
-    if (function.AreValidArgumentCounts(args_desc.Count(),
+    if (function.AreValidArgumentCounts(args_desc.TypeArgsLen(),
+                                        args_desc.Count(),
                                         args_desc.NamedCount(), NULL)) {
       // The closure or non-closure object (receiver) is passed as implicit
       // first argument. It is already included in the arguments array.
@@ -237,9 +246,10 @@ RawObject* DartEntry::InvokeNoSuchMethod(const Instance& receiver,
   }
 
   // Now use the invocation mirror object and invoke NoSuchMethod.
+  const int kTypeArgsLen = 0;
   const int kNumArguments = 2;
   ArgumentsDescriptor args_desc(
-      Array::Handle(ArgumentsDescriptor::New(kNumArguments)));
+      Array::Handle(ArgumentsDescriptor::New(kTypeArgsLen, kNumArguments)));
   Function& function = Function::Handle(
       Resolver::ResolveDynamic(receiver, Symbols::NoSuchMethod(), args_desc));
   if (function.IsNull()) {
@@ -260,6 +270,10 @@ RawObject* DartEntry::InvokeNoSuchMethod(const Instance& receiver,
 
 
 ArgumentsDescriptor::ArgumentsDescriptor(const Array& array) : array_(array) {}
+
+intptr_t ArgumentsDescriptor::TypeArgsLen() const {
+  return Smi::Cast(Object::Handle(array_.At(kTypeArgsLenIndex))).Value();
+}
 
 
 intptr_t ArgumentsDescriptor::Count() const {
@@ -294,6 +308,11 @@ bool ArgumentsDescriptor::MatchesNameAt(intptr_t index,
 }
 
 
+intptr_t ArgumentsDescriptor::type_args_len_offset() {
+  return Array::element_offset(kTypeArgsLenIndex);
+}
+
+
 intptr_t ArgumentsDescriptor::count_offset() {
   return Array::element_offset(kCountIndex);
 }
@@ -309,25 +328,31 @@ intptr_t ArgumentsDescriptor::first_named_entry_offset() {
 }
 
 
-RawArray* ArgumentsDescriptor::New(intptr_t num_arguments,
+RawArray* ArgumentsDescriptor::New(intptr_t type_args_len,
+                                   intptr_t num_arguments,
                                    const Array& optional_arguments_names) {
   const intptr_t num_named_args =
       optional_arguments_names.IsNull() ? 0 : optional_arguments_names.Length();
   if (num_named_args == 0) {
-    return ArgumentsDescriptor::New(num_arguments);
+    return ArgumentsDescriptor::New(type_args_len, num_arguments);
   }
+  ASSERT(type_args_len >= 0);
+  ASSERT(num_arguments >= 0);
   const intptr_t num_pos_args = num_arguments - num_named_args;
 
-  // Build the arguments descriptor array, which consists of the total
-  // argument count; the positional argument count; a sequence of (name,
-  // position) pairs, sorted by name, for each named optional argument; and
-  // a terminating null to simplify iterating in generated code.
+  // Build the arguments descriptor array, which consists of the the type
+  // argument vector length (0 if none); total argument count; the positional
+  // argument count; a sequence of (name, position) pairs, sorted by name, for
+  // each named optional argument; and a terminating null to simplify iterating
+  // in generated code.
   Thread* thread = Thread::Current();
   Zone* zone = thread->zone();
   const intptr_t descriptor_len = LengthFor(num_named_args);
   Array& descriptor =
       Array::Handle(zone, Array::New(descriptor_len, Heap::kOld));
 
+  // Set length of type argument vector.
+  descriptor.SetAt(kTypeArgsLenIndex, Smi::Handle(Smi::New(type_args_len)));
   // Set total number of passed arguments.
   descriptor.SetAt(kCountIndex, Smi::Handle(Smi::New(num_arguments)));
   // Set number of positional arguments.
@@ -368,26 +393,33 @@ RawArray* ArgumentsDescriptor::New(intptr_t num_arguments,
 }
 
 
-RawArray* ArgumentsDescriptor::New(intptr_t num_arguments) {
+RawArray* ArgumentsDescriptor::New(intptr_t type_args_len,
+                                   intptr_t num_arguments) {
+  ASSERT(type_args_len >= 0);
   ASSERT(num_arguments >= 0);
-  if (num_arguments < kCachedDescriptorCount) {
+  if ((type_args_len == 0) && (num_arguments < kCachedDescriptorCount)) {
     return cached_args_descriptors_[num_arguments];
   }
-  return NewNonCached(num_arguments);
+  return NewNonCached(type_args_len, num_arguments);
 }
 
 
-RawArray* ArgumentsDescriptor::NewNonCached(intptr_t num_arguments,
+RawArray* ArgumentsDescriptor::NewNonCached(intptr_t type_args_len,
+                                            intptr_t num_arguments,
                                             bool canonicalize) {
-  // Build the arguments descriptor array, which consists of the total
-  // argument count; the positional argument count; and
-  // a terminating null to simplify iterating in generated code.
+  // Build the arguments descriptor array, which consists of the length of the
+  // type argument vector, total argument count; the positional argument count;
+  // and a terminating null to simplify iterating in generated code.
   Thread* thread = Thread::Current();
   Zone* zone = thread->zone();
   const intptr_t descriptor_len = LengthFor(0);
   Array& descriptor =
       Array::Handle(zone, Array::New(descriptor_len, Heap::kOld));
   const Smi& arg_count = Smi::Handle(zone, Smi::New(num_arguments));
+
+  // Set type argument vector length.
+  descriptor.SetAt(kTypeArgsLenIndex,
+                   Smi::Handle(zone, Smi::New(type_args_len)));
 
   // Set total number of passed arguments.
   descriptor.SetAt(kCountIndex, arg_count);
@@ -410,7 +442,8 @@ RawArray* ArgumentsDescriptor::NewNonCached(intptr_t num_arguments,
 
 void ArgumentsDescriptor::InitOnce() {
   for (int i = 0; i < kCachedDescriptorCount; i++) {
-    cached_args_descriptors_[i] = ArgumentsDescriptor::NewNonCached(i, false);
+    cached_args_descriptors_[i] =
+        ArgumentsDescriptor::NewNonCached(/*type_args_len=*/0, i, false);
   }
 }
 
@@ -449,9 +482,10 @@ RawObject* DartLibraryCalls::InstanceCreate(const Library& lib,
 
 
 RawObject* DartLibraryCalls::ToString(const Instance& receiver) {
+  const int kTypeArgsLen = 0;
   const int kNumArguments = 1;  // Receiver.
   ArgumentsDescriptor args_desc(
-      Array::Handle(ArgumentsDescriptor::New(kNumArguments)));
+      Array::Handle(ArgumentsDescriptor::New(kTypeArgsLen, kNumArguments)));
   const Function& function = Function::Handle(
       Resolver::ResolveDynamic(receiver, Symbols::toString(), args_desc));
   ASSERT(!function.IsNull());
@@ -465,9 +499,10 @@ RawObject* DartLibraryCalls::ToString(const Instance& receiver) {
 
 
 RawObject* DartLibraryCalls::HashCode(const Instance& receiver) {
+  const int kTypeArgsLen = 0;
   const int kNumArguments = 1;  // Receiver.
   ArgumentsDescriptor args_desc(
-      Array::Handle(ArgumentsDescriptor::New(kNumArguments)));
+      Array::Handle(ArgumentsDescriptor::New(kTypeArgsLen, kNumArguments)));
   const Function& function = Function::Handle(
       Resolver::ResolveDynamic(receiver, Symbols::hashCode(), args_desc));
   ASSERT(!function.IsNull());
@@ -482,9 +517,10 @@ RawObject* DartLibraryCalls::HashCode(const Instance& receiver) {
 
 RawObject* DartLibraryCalls::Equals(const Instance& left,
                                     const Instance& right) {
+  const int kTypeArgsLen = 0;
   const int kNumArguments = 2;
   ArgumentsDescriptor args_desc(
-      Array::Handle(ArgumentsDescriptor::New(kNumArguments)));
+      Array::Handle(ArgumentsDescriptor::New(kTypeArgsLen, kNumArguments)));
   const Function& function = Function::Handle(
       Resolver::ResolveDynamic(left, Symbols::EqualOperator(), args_desc));
   ASSERT(!function.IsNull());
@@ -501,25 +537,28 @@ RawObject* DartLibraryCalls::Equals(const Instance& left,
 
 RawObject* DartLibraryCalls::LookupHandler(Dart_Port port_id) {
   Thread* thread = Thread::Current();
+  Zone* zone = thread->zone();
   Function& function = Function::Handle(
-      thread->zone(), thread->isolate()->object_store()->lookup_port_handler());
+      zone, thread->isolate()->object_store()->lookup_port_handler());
+  const int kTypeArgsLen = 0;
   const int kNumArguments = 1;
   if (function.IsNull()) {
-    Library& isolate_lib = Library::Handle(Library::IsolateLibrary());
+    Library& isolate_lib = Library::Handle(zone, Library::IsolateLibrary());
     ASSERT(!isolate_lib.IsNull());
-    const String& class_name =
-        String::Handle(isolate_lib.PrivateName(Symbols::_RawReceivePortImpl()));
-    const String& function_name =
-        String::Handle(isolate_lib.PrivateName(Symbols::_lookupHandler()));
+    const String& class_name = String::Handle(
+        zone, isolate_lib.PrivateName(Symbols::_RawReceivePortImpl()));
+    const String& function_name = String::Handle(
+        zone, isolate_lib.PrivateName(Symbols::_lookupHandler()));
     function = Resolver::ResolveStatic(isolate_lib, class_name, function_name,
-                                       kNumArguments, Object::empty_array());
+                                       kTypeArgsLen, kNumArguments,
+                                       Object::empty_array());
     ASSERT(!function.IsNull());
     thread->isolate()->object_store()->set_lookup_port_handler(function);
   }
-  const Array& args = Array::Handle(Array::New(kNumArguments));
-  args.SetAt(0, Integer::Handle(Integer::New(port_id)));
+  const Array& args = Array::Handle(zone, Array::New(kNumArguments));
+  args.SetAt(0, Integer::Handle(zone, Integer::New(port_id)));
   const Object& result =
-      Object::Handle(DartEntry::InvokeFunction(function, args));
+      Object::Handle(zone, DartEntry::InvokeFunction(function, args));
   return result.raw();
 }
 
@@ -531,6 +570,7 @@ RawObject* DartLibraryCalls::HandleMessage(const Object& handler,
   Isolate* isolate = thread->isolate();
   Function& function = Function::Handle(
       zone, isolate->object_store()->handle_message_function());
+  const int kTypeArgsLen = 0;
   const int kNumArguments = 2;
   if (function.IsNull()) {
     Library& isolate_lib = Library::Handle(zone, Library::IsolateLibrary());
@@ -540,7 +580,8 @@ RawObject* DartLibraryCalls::HandleMessage(const Object& handler,
     const String& function_name = String::Handle(
         zone, isolate_lib.PrivateName(Symbols::_handleMessage()));
     function = Resolver::ResolveStatic(isolate_lib, class_name, function_name,
-                                       kNumArguments, Object::empty_array());
+                                       kTypeArgsLen, kNumArguments,
+                                       Object::empty_array());
     ASSERT(!function.IsNull());
     isolate->object_store()->set_handle_message_function(function);
   }
@@ -577,9 +618,10 @@ RawObject* DartLibraryCalls::DrainMicrotaskQueue() {
 RawObject* DartLibraryCalls::MapSetAt(const Instance& map,
                                       const Instance& key,
                                       const Instance& value) {
+  const int kTypeArgsLen = 0;
   const int kNumArguments = 3;
   ArgumentsDescriptor args_desc(
-      Array::Handle(ArgumentsDescriptor::New(kNumArguments)));
+      Array::Handle(ArgumentsDescriptor::New(kTypeArgsLen, kNumArguments)));
   const Function& function = Function::Handle(
       Resolver::ResolveDynamic(map, Symbols::AssignIndexToken(), args_desc));
   ASSERT(!function.IsNull());

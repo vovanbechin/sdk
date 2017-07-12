@@ -519,7 +519,16 @@ static void GenerateDispatcherCode(Assembler* assembler,
   __ pushl(EAX);           // Receiver.
   __ pushl(ECX);           // ICData/MegamorphicCache.
   __ pushl(EDX);           // Arguments descriptor array.
+
+  // Adjust arguments count.
+  __ cmpl(FieldAddress(EDX, ArgumentsDescriptor::type_args_len_offset()),
+          Immediate(0));
   __ movl(EDX, EDI);
+  Label args_count_ok;
+  __ j(EQUAL, &args_count_ok, Assembler::kNearJump);
+  __ addl(EDX, Immediate(Smi::RawValue(1)));  // Include the type arguments.
+  __ Bind(&args_count_ok);
+
   // EDX: Smi-tagged arguments array length.
   PushArgumentsArray(assembler);
   const intptr_t kNumArgs = 4;
@@ -599,8 +608,10 @@ void StubCode::GenerateAllocateArrayStub(Assembler* assembler) {
   NOT_IN_PRODUCT(
       __ MaybeTraceAllocation(kArrayCid, EAX, &slow_case, Assembler::kFarJump));
 
-  const intptr_t fixed_size = sizeof(RawArray) + kObjectAlignment - 1;
-  __ leal(EBX, Address(EDX, TIMES_2, fixed_size));  // EDX is Smi.
+  const intptr_t fixed_size_plus_alignment_padding =
+      sizeof(RawArray) + kObjectAlignment - 1;
+  // EDX is Smi.
+  __ leal(EBX, Address(EDX, TIMES_2, fixed_size_plus_alignment_padding));
   ASSERT(kSmiTagShift == 1);
   __ andl(EBX, Immediate(-kObjectAlignment));
 
@@ -657,7 +668,7 @@ void StubCode::GenerateAllocateArrayStub(Assembler* assembler) {
   // ECX: array element type.
   // EDX: Array length as Smi (preserved).
   // Store the type argument field.
-  // No generetional barrier needed, since we store into a new object.
+  // No generational barrier needed, since we store into a new object.
   __ StoreIntoObjectNoBarrier(
       EAX, FieldAddress(EAX, Array::type_arguments_offset()), ECX);
 
@@ -756,6 +767,7 @@ void StubCode::GenerateInvokeDartCodeStub(Assembler* assembler) {
   __ movl(EDX, Address(EBP, kArgumentsDescOffset));
   __ movl(EDX, Address(EDX, VMHandles::kOffsetOfRawPtrInHandle));
 
+  // No need to check for type args, disallowed by DartEntry::InvokeFunction.
   // Load number of arguments into EBX.
   __ movl(EBX, FieldAddress(EDX, ArgumentsDescriptor::count_offset()));
   __ SmiUntag(EBX);
@@ -824,8 +836,9 @@ void StubCode::GenerateAllocateContextStub(Assembler* assembler) {
     Label slow_case;
     // First compute the rounded instance size.
     // EDX: number of context variables.
-    intptr_t fixed_size = (sizeof(RawContext) + kObjectAlignment - 1);
-    __ leal(EBX, Address(EDX, TIMES_4, fixed_size));
+    intptr_t fixed_size_plus_alignment_padding =
+        (sizeof(RawContext) + kObjectAlignment - 1);
+    __ leal(EBX, Address(EDX, TIMES_4, fixed_size_plus_alignment_padding));
     __ andl(EBX, Immediate(-kObjectAlignment));
 
     NOT_IN_PRODUCT(__ MaybeTraceAllocation(kContextCid, EAX, &slow_case,
@@ -871,7 +884,7 @@ void StubCode::GenerateAllocateContextStub(Assembler* assembler) {
     // EDX: number of context variables.
     {
       Label size_tag_overflow, done;
-      __ leal(EBX, Address(EDX, TIMES_4, fixed_size));
+      __ leal(EBX, Address(EDX, TIMES_4, fixed_size_plus_alignment_padding));
       __ andl(EBX, Immediate(-kObjectAlignment));
       __ cmpl(EBX, Immediate(RawObject::SizeTag::kMaxSizeTag));
       __ j(ABOVE, &size_tag_overflow, Assembler::kNearJump);
@@ -1065,7 +1078,7 @@ void StubCode::GenerateAllocationStubForClass(Assembler* assembler,
     // EBX: next object start.
     // EDX: new object type arguments (if is_cls_parameterized).
     // Set the tags.
-    uword tags = 0;
+    uint32_t tags = 0;
     tags = RawObject::SizeTag::update(instance_size, tags);
     ASSERT(cls.id() != kIllegalCid);
     tags = RawObject::ClassIdTag::update(cls.id(), tags);
@@ -1158,7 +1171,15 @@ void StubCode::GenerateCallClosureNoSuchMethodStub(Assembler* assembler) {
   __ pushl(EAX);           // Receiver.
   __ pushl(EDX);           // Arguments descriptor array.
 
+  // Adjust arguments count.
+  __ cmpl(FieldAddress(EDX, ArgumentsDescriptor::type_args_len_offset()),
+          Immediate(0));
   __ movl(EDX, EDI);
+  Label args_count_ok;
+  __ j(EQUAL, &args_count_ok, Assembler::kNearJump);
+  __ addl(EDX, Immediate(Smi::RawValue(1)));  // Include the type arguments.
+  __ Bind(&args_count_ok);
+
   // EDX: Smi-tagged arguments array length.
   PushArgumentsArray(assembler);
 
@@ -1810,7 +1831,7 @@ void StubCode::GenerateSubtype4TestCacheStub(Assembler* assembler) {
 // Return the current stack pointer address, used to do stack alignment checks.
 // TOS + 0: return address
 // Result in EAX.
-void StubCode::GenerateGetStackPointerStub(Assembler* assembler) {
+void StubCode::GenerateGetCStackPointerStub(Assembler* assembler) {
   __ leal(EAX, Address(ESP, kWordSize));
   __ ret();
 }
@@ -2070,7 +2091,7 @@ void StubCode::GenerateMegamorphicCallStub(Assembler* assembler) {
   __ cmpl(FieldAddress(EDI, EDX, TIMES_4, base), Immediate(kIllegalCid));
   __ j(ZERO, &load_target, Assembler::kNearJump);
 
-  // Try next extry in the table.
+  // Try next entry in the table.
   __ AddImmediate(EDX, Immediate(Smi::RawValue(1)));
   __ jmp(&loop);
 

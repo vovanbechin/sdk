@@ -2,13 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.edit.sort_members;
-
 import 'dart:async';
 
 import 'package:analysis_server/protocol/protocol.dart';
 import 'package:analysis_server/protocol/protocol_generated.dart';
 import 'package:analysis_server/src/edit/edit_domain.dart';
+import 'package:analyzer_plugin/protocol/protocol_common.dart';
 import 'package:plugin/manager.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
@@ -35,7 +34,9 @@ class SortMembersTest extends AbstractAnalysisTest {
     handler = new EditDomainHandler(server);
   }
 
+  @failingTest
   test_BAD_doesNotExist() async {
+    // The analysis driver fails to return an error
     Request request =
         new EditSortMembersParams('/no/such/file.dart').toRequest('0');
     Response response = await waitResponse(request);
@@ -179,8 +180,7 @@ class MyAnnotation {
 ''');
   }
 
-  @failingTest
-  test_OK_genericFunctionTypeInComments() async {
+  test_OK_genericFunctionType() async {
     addFile(
         projectPath + '/analysis_options.yaml',
         '''
@@ -203,14 +203,14 @@ class Super {}
 
 typedef dynamic Func(String x, String y);
 
-Function/*=F*/ allowInterop/*<F extends Function>*/(Function/*=F*/ f) => null;
+F allowInterop<F extends Function>(F f) => null;
 
 Func bar(Func f) {
   return allowInterop(f);
 }
 ''');
     return _assertSorted('''
-Function/*=F*/ allowInterop/*<F extends Function>*/(Function/*=F*/ f) => null;
+F allowInterop<F extends Function>(F f) => null;
 
 Func bar(Func f) {
   return allowInterop(f);

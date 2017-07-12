@@ -24,6 +24,7 @@ class Subclass extends Super {
 
 main() {
   var objects = [new Super(), new Subclass()];
+  reflect(objects[0]); // Trigger mirror usage.
 }
 """,
   'lib.dart': """
@@ -40,10 +41,10 @@ void main() {
     var result = await runCompiler(memorySourceFiles: MEMORY_SOURCE_FILES);
     var compiler = result.compiler;
 
-    var superclass =
+    dynamic superclass =
         findElement(compiler, 'Super', Uri.parse('memory:lib.dart'));
-    var subclass = findElement(compiler, 'Subclass');
-    var oracle = compiler.backend.mirrorsData.isAccessibleByReflection;
+    dynamic subclass = findElement(compiler, 'Subclass');
+    var oracle = compiler.backend.mirrorsData.isMemberAccessibleByReflection;
     print(superclass.lookupMember('_private'));
     Expect.isTrue(oracle(superclass.lookupMember('_private')));
     Expect.isFalse(oracle(subclass.lookupMember('_private')));

@@ -14,7 +14,7 @@ class ContainerTypeMask extends ForwardingTypeMask {
   final Node allocationNode;
 
   // The [Entity] where this type mask was created.
-  final Entity allocationElement;
+  final MemberEntity allocationElement;
 
   // The element type of this container.
   final TypeMask elementType;
@@ -56,7 +56,7 @@ class ContainerTypeMask extends ForwardingTypeMask {
     return forwardIntersection.isNullable ? nullable() : nonNullable();
   }
 
-  TypeMask union(other, ClosedWorld closedWorld) {
+  TypeMask union(dynamic other, ClosedWorld closedWorld) {
     if (this == other) {
       return this;
     } else if (equalsDisregardNull(other)) {

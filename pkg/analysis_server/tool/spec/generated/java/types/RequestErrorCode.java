@@ -58,6 +58,12 @@ public class RequestErrorCode {
   public static final String GET_ERRORS_INVALID_FILE = "GET_ERRORS_INVALID_FILE";
 
   /**
+   * An "analysis.getImportedElements" request specified a FilePath that does not match a file
+   * currently subject to analysis.
+   */
+  public static final String GET_IMPORTED_ELEMENTS_INVALID_FILE = "GET_IMPORTED_ELEMENTS_INVALID_FILE";
+
+  /**
    * An "analysis.getNavigation" request specified a FilePath which does not match a file currently
    * subject to analysis.
    */
@@ -68,6 +74,12 @@ public class RequestErrorCode {
    * currently subject to analysis.
    */
   public static final String GET_REACHABLE_SOURCES_INVALID_FILE = "GET_REACHABLE_SOURCES_INVALID_FILE";
+
+  /**
+   * An "edit.importElements" request specified a FilePath that does not match a file currently
+   * subject to analysis.
+   */
+  public static final String IMPORT_ELEMENTS_INVALID_FILE = "IMPORT_ELEMENTS_INVALID_FILE";
 
   /**
    * A path passed as an argument to a request (such as analysis.reanalyze) is required to be an
@@ -100,12 +112,6 @@ public class RequestErrorCode {
    * A malformed request was received.
    */
   public static final String INVALID_REQUEST = "INVALID_REQUEST";
-
-  /**
-   * The "--no-index" flag was passed when the analysis server created, but this API call requires an
-   * index to have been generated.
-   */
-  public static final String NO_INDEX_GENERATED = "NO_INDEX_GENERATED";
 
   /**
    * An "edit.organizeDirectives" request specified a Dart file that cannot be analyzed. The reason

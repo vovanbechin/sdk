@@ -82,7 +82,8 @@ main() {
     CompilationResult result =
         await runCompiler(memorySourceFiles: {'main.dart': SOURCE});
     Compiler compiler = result.compiler;
-    LibraryElement mainApp = compiler.mainApp;
+    LibraryElement mainApp =
+        compiler.frontendStrategy.elementEnvironment.mainLibrary;
 
     Element lookup(String name) {
       Element element;
@@ -104,11 +105,11 @@ main() {
       if (lookupName == null) {
         lookupName = expectedName;
       }
-      var element = lookup(lookupName);
+      dynamic element = lookup(lookupName);
       check(element, expectedName);
       if (element.isConstructor) {
         var constructorBody =
-            element.enclosingClass.lookupBackendMember(element.name);
+            element.enclosingClass.lookupConstructorBody(element.name);
         Expect.isNotNull(
             element, "Constructor body '${element.name}' not found.");
         check(constructorBody, expectedName);

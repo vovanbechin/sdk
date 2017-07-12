@@ -1225,11 +1225,29 @@ intptr_t Simulator::ReadExclusiveX(uword addr, Instr* instr) {
 }
 
 
+intptr_t Simulator::ReadExclusiveW(uword addr, Instr* instr) {
+  MutexLocker ml(exclusive_access_lock_);
+  SetExclusiveAccess(addr);
+  return ReadWU(addr, instr);
+}
+
+
 intptr_t Simulator::WriteExclusiveX(uword addr, intptr_t value, Instr* instr) {
   MutexLocker ml(exclusive_access_lock_);
   bool write_allowed = HasExclusiveAccessAndOpen(addr);
   if (write_allowed) {
     WriteX(addr, value, instr);
+    return 0;  // Success.
+  }
+  return 1;  // Failure.
+}
+
+
+intptr_t Simulator::WriteExclusiveW(uword addr, intptr_t value, Instr* instr) {
+  MutexLocker ml(exclusive_access_lock_);
+  bool write_allowed = HasExclusiveAccessAndOpen(addr);
+  if (write_allowed) {
+    WriteW(addr, value, instr);
     return 0;  // Success.
   }
   return 1;  // Failure.
@@ -2199,25 +2217,37 @@ void Simulator::DecodeLoadStoreExclusive(Instr* instr) {
     UNIMPLEMENTED();
   }
   const int32_t size = instr->Bits(30, 2);
-  if (size != 3) {
+  if (size != 3 && size != 2) {
     UNIMPLEMENTED();
   }
-
   const Register rs = instr->RsField();
   const Register rn = instr->RnField();
   const Register rt = instr->RtField();
   const bool is_load = instr->Bit(22) == 1;
   if (is_load) {
     // Format(instr, "ldxr 'rt, 'rn");
-    const int64_t addr = get_register(rn, R31IsSP);
-    intptr_t value = ReadExclusiveX(addr, instr);
-    set_register(instr, rt, value, R31IsSP);
+    if (size == 3) {
+      const int64_t addr = get_register(rn, R31IsSP);
+      intptr_t value = ReadExclusiveX(addr, instr);
+      set_register(instr, rt, value, R31IsSP);
+    } else {
+      const int64_t addr = get_register(rn, R31IsSP);
+      intptr_t value = ReadExclusiveW(addr, instr);
+      set_register(instr, rt, value, R31IsSP);
+    }
   } else {
     // Format(instr, "stxr 'rs, 'rt, 'rn");
-    uword value = get_register(rt, R31IsSP);
-    uword addr = get_register(rn, R31IsSP);
-    intptr_t status = WriteExclusiveX(addr, value, instr);
-    set_register(instr, rs, status, R31IsSP);
+    if (size == 3) {
+      uword value = get_register(rt, R31IsSP);
+      uword addr = get_register(rn, R31IsSP);
+      intptr_t status = WriteExclusiveX(addr, value, instr);
+      set_register(instr, rs, status, R31IsSP);
+    } else {
+      uint32_t value = get_register(rt, R31IsSP);
+      uword addr = get_register(rn, R31IsSP);
+      intptr_t status = WriteExclusiveW(addr, value, instr);
+      set_register(instr, rs, status, R31IsSP);
+    }
   }
 }
 
@@ -3251,33 +3281,52 @@ void Simulator::DecodeFPIntCvt(Instr* instr) {
   const Register rd = instr->RdField();
   const Register rn = instr->RnField();
 
-  if ((instr->Bit(29) != 0) || (instr->Bits(22, 2) != 1) ||
-      ((instr->SFField() == 0) && (instr->Bits(16, 5) != 2))) {
+  if (instr->Bit(29) != 0) {
     UnimplementedInstruction(instr);
     return;
   }
-  if (instr->Bits(16, 5) == 2) {
-    // Format(instr, "scvtfd'sf 'vd, 'rn");
-    const int64_t rn_val64 = get_register(rn, instr->RnMode());
-    const int32_t rn_val32 = get_wregister(rn, instr->RnMode());
-    const double vn_dbl = (instr->SFField() == 1)
-                              ? static_cast<double>(rn_val64)
-                              : static_cast<double>(rn_val32);
-    set_vregisterd(vd, 0, bit_cast<int64_t, double>(vn_dbl));
-    set_vregisterd(vd, 1, 0);
-  } else if (instr->Bits(16, 5) == 6) {
-    // Format(instr, "fmovrd'sf 'rd, 'vn");
-    const int64_t vn_val = get_vregisterd(vn, 0);
-    set_register(instr, rd, vn_val, R31IsZR);
-  } else if (instr->Bits(16, 5) == 7) {
-    // Format(instr, "fmovdr'sf 'vd, 'rn");
-    const int64_t rn_val = get_register(rn, R31IsZR);
-    set_vregisterd(vd, 0, rn_val);
-    set_vregisterd(vd, 1, 0);
-  } else if (instr->Bits(16, 5) == 24) {
-    // Format(instr, "fcvtzds'sf 'rd, 'vn");
-    const double vn_val = bit_cast<double, int64_t>(get_vregisterd(vn, 0));
-    set_register(instr, rd, static_cast<int64_t>(vn_val), instr->RdMode());
+
+  if ((instr->SFField() == 0) && (instr->Bits(22, 2) == 0)) {
+    if (instr->Bits(16, 5) == 6) {
+      // Format(instr, "fmovrs'sf 'rd, 'vn");
+      const int32_t vn_val = get_vregisters(vn, 0);
+      set_wregister(rd, vn_val, R31IsZR);
+    } else if (instr->Bits(16, 5) == 7) {
+      // Format(instr, "fmovsr'sf 'vd, 'rn");
+      const int32_t rn_val = get_wregister(rn, R31IsZR);
+      set_vregisters(vd, 0, rn_val);
+      set_vregisters(vd, 1, 0);
+      set_vregisters(vd, 2, 0);
+      set_vregisters(vd, 3, 0);
+    } else {
+      UnimplementedInstruction(instr);
+    }
+  } else if (instr->Bits(22, 2) == 1) {
+    if (instr->Bits(16, 5) == 2) {
+      // Format(instr, "scvtfd'sf 'vd, 'rn");
+      const int64_t rn_val64 = get_register(rn, instr->RnMode());
+      const int32_t rn_val32 = get_wregister(rn, instr->RnMode());
+      const double vn_dbl = (instr->SFField() == 1)
+                                ? static_cast<double>(rn_val64)
+                                : static_cast<double>(rn_val32);
+      set_vregisterd(vd, 0, bit_cast<int64_t, double>(vn_dbl));
+      set_vregisterd(vd, 1, 0);
+    } else if (instr->Bits(16, 5) == 6) {
+      // Format(instr, "fmovrd'sf 'rd, 'vn");
+      const int64_t vn_val = get_vregisterd(vn, 0);
+      set_register(instr, rd, vn_val, R31IsZR);
+    } else if (instr->Bits(16, 5) == 7) {
+      // Format(instr, "fmovdr'sf 'vd, 'rn");
+      const int64_t rn_val = get_register(rn, R31IsZR);
+      set_vregisterd(vd, 0, rn_val);
+      set_vregisterd(vd, 1, 0);
+    } else if (instr->Bits(16, 5) == 24) {
+      // Format(instr, "fcvtzds'sf 'rd, 'vn");
+      const double vn_val = bit_cast<double, int64_t>(get_vregisterd(vn, 0));
+      set_register(instr, rd, static_cast<int64_t>(vn_val), instr->RdMode());
+    } else {
+      UnimplementedInstruction(instr);
+    }
   } else {
     UnimplementedInstruction(instr);
   }

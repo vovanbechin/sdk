@@ -4,8 +4,17 @@
 
 library dart2js.backend_strategy;
 
-import 'compiler.dart';
+import 'closure.dart' show ClosureConversionTask;
+import 'common.dart';
+import 'common/tasks.dart';
+import 'enqueue.dart';
+import 'elements/entities.dart';
+import 'io/source_information.dart';
+import 'js_backend/js_backend.dart';
+import 'js_backend/native_data.dart';
 import 'js_emitter/sorter.dart';
+import 'ssa/ssa.dart';
+import 'universe/world_builder.dart';
 import 'world.dart';
 
 /// Strategy pattern that defines the element model used in type inference
@@ -14,26 +23,29 @@ abstract class BackendStrategy {
   /// Create the [ClosedWorldRefiner] for [closedWorld].
   ClosedWorldRefiner createClosedWorldRefiner(ClosedWorld closedWorld);
 
-  /// Create closure classes for local functions.
-  void convertClosures(ClosedWorldRefiner closedWorldRefiner);
+  /// Create the task that analyzes the code to see what closures need to be
+  /// rewritten.
+  ClosureConversionTask get closureDataLookup;
 
   /// The [Sorter] used for sorting elements in the generated code.
   Sorter get sorter;
-}
 
-/// Strategy for using the [Element] model from the resolver as the backend
-/// model.
-class ElementBackendStrategy implements BackendStrategy {
-  final Compiler _compiler;
+  /// Creates the [CodegenWorldBuilder] used by the codegen enqueuer.
+  CodegenWorldBuilder createCodegenWorldBuilder(
+      NativeBasicData nativeBasicData,
+      ClosedWorld closedWorld,
+      SelectorConstraintsStrategy selectorConstraintsStrategy);
 
-  ElementBackendStrategy(this._compiler);
+  /// Creates the [WorkItemBuilder] used by the codegen enqueuer.
+  WorkItemBuilder createCodegenWorkItemBuilder(ClosedWorld closedWorld);
 
-  ClosedWorldRefiner createClosedWorldRefiner(ClosedWorldImpl closedWorld) =>
-      closedWorld;
+  /// Creates the [SsaBuilder] used for the element model.
+  SsaBuilder createSsaBuilder(CompilerTask task, JavaScriptBackend backend,
+      SourceInformationStrategy sourceInformationStrategy);
 
-  Sorter get sorter => const ElementSorter();
+  /// Returns the [SourceInformationStrategy] use for the element model.
+  SourceInformationStrategy get sourceInformationStrategy;
 
-  void convertClosures(ClosedWorldRefiner closedWorldRefiner) {
-    _compiler.closureToClassMapper.createClosureClasses(closedWorldRefiner);
-  }
+  /// Creates a [SourceSpan] from [spannable] in context of [currentElement].
+  SourceSpan spanFromSpannable(Spannable spannable, Entity currentElement);
 }

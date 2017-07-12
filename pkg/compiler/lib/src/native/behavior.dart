@@ -523,14 +523,14 @@ class NativeBehavior {
       return new NativeBehavior();
     }
 
-    var specArgument = argNodes.head;
+    dynamic specArgument = argNodes.head;
     if (specArgument is! StringNode || specArgument.isInterpolation) {
       reporter.reportErrorMessage(
           specArgument, MessageKind.WRONG_ARGUMENT_FOR_JS_FIRST);
       return new NativeBehavior();
     }
 
-    var codeArgument = argNodes.tail.head;
+    dynamic codeArgument = argNodes.tail.head;
     if (codeArgument is! StringNode || codeArgument.isInterpolation) {
       reporter.reportErrorMessage(
           codeArgument, MessageKind.WRONG_ARGUMENT_FOR_JS_SECOND);
@@ -774,8 +774,8 @@ class NativeBehavior {
       metadata.add(compiler.constants.getConstantValue(annotation.constant));
     }
 
-    BehaviorBuilder builder =
-        new ResolverBehaviorBuilder(compiler, compiler.backend.nativeBasicData);
+    BehaviorBuilder builder = new ResolverBehaviorBuilder(
+        compiler, compiler.frontendStrategy.nativeBasicData);
     return builder.buildMethodBehavior(
         type, metadata, lookupFromElement(compiler.resolution, element),
         isJsInterop: isJsInterop);
@@ -792,8 +792,8 @@ class NativeBehavior {
       metadata.add(compiler.constants.getConstantValue(annotation.constant));
     }
 
-    BehaviorBuilder builder =
-        new ResolverBehaviorBuilder(compiler, compiler.backend.nativeBasicData);
+    BehaviorBuilder builder = new ResolverBehaviorBuilder(
+        compiler, compiler.frontendStrategy.nativeBasicData);
     return builder.buildFieldLoadBehavior(
         type, metadata, lookupFromElement(resolution, element),
         isJsInterop: isJsInterop);
@@ -801,8 +801,8 @@ class NativeBehavior {
 
   static NativeBehavior ofFieldElementStore(
       MemberElement field, Compiler compiler) {
-    BehaviorBuilder builder =
-        new ResolverBehaviorBuilder(compiler, compiler.backend.nativeBasicData);
+    BehaviorBuilder builder = new ResolverBehaviorBuilder(
+        compiler, compiler.frontendStrategy.nativeBasicData);
     ResolutionDartType type = field.computeType(compiler.resolution);
     return builder.buildFieldStoreBehavior(type);
   }
@@ -907,7 +907,7 @@ abstract class BehaviorBuilder {
     return types;
   }
 
-  /// Models the behavior of having intances of [type] escape from Dart code
+  /// Models the behavior of having instances of [type] escape from Dart code
   /// into native code.
   void _escape(DartType type) {
     if (type is ResolutionDartType) {
@@ -1040,7 +1040,7 @@ class ResolverBehaviorBuilder extends BehaviorBuilder {
   ResolverBehaviorBuilder(this.compiler, this.nativeBasicData);
 
   @override
-  CommonElements get commonElements => compiler.commonElements;
+  CommonElements get commonElements => resolution.commonElements;
 
   @override
   bool get trustJSInteropTypeAnnotations =>

@@ -28,10 +28,10 @@ class AnalyzerDietListener extends DietListener {
       : super(library, null, null, null);
 
   StackListener createListener(
-      MemberBuilder builder, Scope memberScope, bool isInstanceMember,
+      ModifierBuilder builder, Scope memberScope, bool isInstanceMember,
       [Scope formalParameterScope]) {
     return new AstBuilder(
-        null, library, builder, elementStore, memberScope, uri);
+        null, library, builder, elementStore, memberScope, false, uri);
   }
 
   @override

@@ -57,19 +57,18 @@ void main() {
 
         checkReturn(String name, TypeMask type) {
           var element = classA.lookupMember(name);
-          var mask = typesInferrer.getReturnTypeOfElement(element);
-          Expect.isTrue(type.containsMask(
-              typesInferrer.getReturnTypeOfElement(element), closedWorld));
+          var mask = typesInferrer.getReturnTypeOfMember(element);
+          Expect.isTrue(type.containsMask(mask, closedWorld));
         }
 
         checkType(String name, type) {
           var element = classA.lookupMember(name);
           Expect.isTrue(type.containsMask(
-              typesInferrer.getTypeOfElement(element), closedWorld));
+              typesInferrer.getTypeOfMember(element), closedWorld));
         }
 
-        var intMask =
-            new TypeMask.subtype(compiler.commonElements.intClass, closedWorld);
+        var intMask = new TypeMask.subtype(
+            closedWorld.commonElements.intClass, closedWorld);
 
         checkReturn('foo', intMask);
         checkReturn('faa', intMask);

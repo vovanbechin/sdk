@@ -27,6 +27,7 @@ import '../util/util.dart';
 import 'common.dart';
 import 'elements.dart';
 import 'entities.dart';
+import 'jumps.dart';
 import 'names.dart';
 import 'resolution_types.dart';
 import 'visitor.dart' show ElementVisitor;
@@ -249,8 +250,8 @@ class ErroneousElementX extends ElementX
   get functionSignature => unsupported();
   get parameterStructure => unsupported();
   get parameters => unsupported();
-  get patch => null;
-  get origin => this;
+  Element get patch => null;
+  Element get origin => this;
   get immediateRedirectionTarget => unsupported();
   get nestedClosures => unsupported();
   get memberContext => unsupported();
@@ -340,6 +341,16 @@ class ErroneousConstructorElementX extends ErroneousElementX
   }
 
   @override
+  get _asyncMarker {
+    throw new UnsupportedError("_asyncMarker");
+  }
+
+  @override
+  set _asyncMarker(_) {
+    throw new UnsupportedError("_asyncMarker=");
+  }
+
+  @override
   get effectiveTargetInternal {
     throw new UnsupportedError("effectiveTargetInternal");
   }
@@ -380,8 +391,7 @@ class ErroneousConstructorElementX extends ErroneousElementX
   }
 
   @override
-  void setEffectiveTarget(
-      ConstructorElement target, ResolutionInterfaceType type,
+  void setEffectiveTarget(ConstructorElement target, ResolutionDartType type,
       {bool isMalformed: false}) {
     throw new UnsupportedError("setEffectiveTarget");
   }
@@ -460,6 +470,21 @@ class ErroneousConstructorElementX extends ErroneousElementX
   set _redirectionDeferredPrefix(_) {
     throw new UnsupportedError("_redirectionDeferredPrefix=");
   }
+
+  // TODO(johnniwinther): Remove this.
+  ConstructorElementX get declaration => super.declaration;
+
+  // TODO(johnniwinther): Remove this.
+  ConstructorElementX get implementation => super.implementation;
+
+  // TODO(johnniwinther): Remove this.
+  ConstructorElementX get origin => super.origin;
+
+  // TODO(johnniwinther): Remove this.
+  ConstructorElementX get patch => super.patch;
+
+  ResolutionFunctionType computeType(Resolution resolution) =>
+      super.computeType(resolution);
 }
 
 /// A message attached to a [WarnOnUseElementX].
@@ -497,7 +522,7 @@ class WarnOnUseElementX extends ElementX implements WarnOnUseElement {
         super(wrappedElement.name, ElementKind.WARN_ON_USE, enclosingElement);
 
   Element unwrap(DiagnosticReporter reporter, Spannable usageSpannable) {
-    var unwrapped = wrappedElement;
+    dynamic unwrapped = wrappedElement;
     if (warning != null) {
       Spannable spannable = warning.sourceSpan;
       if (spannable == null) spannable = usageSpannable;
@@ -782,6 +807,10 @@ class CompilationUnitElementX extends ElementX
       String content = libraryReference.dartString.slowToString();
       Uri uri = this.script.readableUri.resolve(content);
       Uri expectedUri = library.canonicalUri;
+      // Also allow `string.dart` to refer to `dart:core` as `core.dart`.
+      if (library.isPlatformLibrary && !uri.isScheme("dart")) {
+        expectedUri = library.entryCompilationUnit.script.readableUri;
+      }
       if (uri != expectedUri) {
         // Consider finding a relative URI reference for the error message.
         reporter.reportWarningMessage(tag.name,
@@ -809,7 +838,7 @@ class CompilationUnitElementX extends ElementX
 
   bool get hasMembers => !localMembers.isEmpty;
 
-  Element get analyzableElement => library;
+  AnalyzableElement get analyzableElement => library;
 
   accept(ElementVisitor visitor, arg) {
     return visitor.visitCompilationUnitElement(this, arg);
@@ -1071,7 +1100,7 @@ class LibraryElementX extends ElementX
 
   CompilationUnitElement get compilationUnit => entryCompilationUnit;
 
-  Element get analyzableElement => this;
+  AnalyzableElement get analyzableElement => this;
 
   void addCompilationUnit(CompilationUnitElement element) {
     compilationUnits = compilationUnits.prepend(element);
@@ -1144,9 +1173,9 @@ class LibraryElementX extends ElementX
    * Sets the export scope of this library. This method can only be called once.
    */
   void setExports(Iterable<Element> exportedElements) {
-    assert(invariant(this, !exportsHandled,
-        message: 'Exports already set to $slotForExports on $this'));
-    assert(invariant(this, exportedElements != null));
+    assert(!exportsHandled,
+        failedAt(this, 'Exports already set to $slotForExports on $this'));
+    assert(exportedElements != null, failedAt(this));
     var builder = new LinkBuilder<Element>();
     for (Element export in exportedElements) {
       builder.addLast(export);
@@ -1191,8 +1220,7 @@ class LibraryElementX extends ElementX
   }
 
   Element findExported(String elementName) {
-    assert(invariant(this, exportsHandled,
-        message: 'Exports not handled on $this'));
+    assert(exportsHandled, failedAt(this, 'Exports not handled on $this'));
     for (Link link = slotForExports; !link.isEmpty; link = link.tail) {
       Element element = link.head;
       if (element.name == elementName) return element;
@@ -1201,8 +1229,7 @@ class LibraryElementX extends ElementX
   }
 
   void forEachExport(f(Element element)) {
-    assert(invariant(this, exportsHandled,
-        message: 'Exports not handled on $this'));
+    assert(exportsHandled, failedAt(this, 'Exports not handled on $this'));
     slotForExports.forEach((Element e) => f(e));
   }
 
@@ -1261,9 +1288,17 @@ class LibraryElementX extends ElementX
     return visitor.visitLibraryElement(this, arg);
   }
 
-  // TODO(johnniwinther): Remove these when issue 18630 is fixed.
-  LibraryElementX get patch => super.patch;
+  // TODO(johnniwinther): Remove this.
+  LibraryElementX get declaration => super.declaration;
+
+  // TODO(johnniwinther): Remove this.
+  LibraryElementX get implementation => super.implementation;
+
+  // TODO(johnniwinther): Remove this.
   LibraryElementX get origin => super.origin;
+
+  // TODO(johnniwinther): Remove this.
+  LibraryElementX get patch => super.patch;
 }
 
 class PrefixElementX extends ElementX implements PrefixElement {
@@ -1309,10 +1344,7 @@ class PrefixElementX extends ElementX implements PrefixElement {
 }
 
 class TypedefElementX extends ElementX
-    with
-        AstElementMixin,
-        AnalyzableElementX,
-        TypeDeclarationElementX<ResolutionTypedefType>
+    with AstElementMixin, AnalyzableElementX, TypeDeclarationElementX
     implements TypedefElement {
   Typedef cachedNode;
 
@@ -1322,8 +1354,8 @@ class TypedefElementX extends ElementX
   ResolutionDartType aliasCache;
 
   ResolutionDartType get alias {
-    assert(invariant(this, hasBeenCheckedForCycles,
-        message: "$this has not been checked for cycles."));
+    assert(hasBeenCheckedForCycles,
+        failedAt(this, "$this has not been checked for cycles."));
     return aliasCache;
   }
 
@@ -1338,8 +1370,8 @@ class TypedefElementX extends ElementX
   bool get hasNode => cachedNode != null;
 
   Typedef get node {
-    assert(invariant(this, cachedNode != null,
-        message: "Node has not been computed for $this."));
+    assert(cachedNode != null,
+        failedAt(this, "Node has not been computed for $this."));
     return cachedNode;
   }
 
@@ -1389,6 +1421,10 @@ class TypedefElementX extends ElementX
 
   // A typedef cannot be patched therefore defines itself.
   AstElement get definingElement => this;
+
+  ResolutionTypedefType get thisType => super.thisType;
+
+  ResolutionTypedefType get rawType => super.rawType;
 }
 
 // This class holds common information for a list of variable or field
@@ -1449,8 +1485,8 @@ abstract class ConstantVariableMixin implements VariableElement {
       ConstantVariableMixin originVariable = origin;
       return originVariable.constant;
     }
-    assert(invariant(this, !isConst || constantCache != null,
-        message: "Constant has not been computed for $this."));
+    assert(!isConst || constantCache != null,
+        failedAt(this, "Constant has not been computed for $this."));
     return constantCache;
   }
 
@@ -1474,9 +1510,11 @@ abstract class ConstantVariableMixin implements VariableElement {
       // computing the value we see that it isn't.
       // TODO(johnniwinther): Remove this exception when all constant
       // expressions are computed during resolution.
-      assert(invariant(
-          this, value == null || value.kind == ConstantExpressionKind.ERRONEOUS,
-          message: "Constant has already been computed for $this. "
+      assert(
+          value == null || value.kind == ConstantExpressionKind.ERRONEOUS,
+          failedAt(
+              this,
+              "Constant has already been computed for $this. "
               "Existing constant: "
               "${constantCache != null ? constantCache.toStructuredText() : ''}"
               ", New constant: "
@@ -1520,8 +1558,8 @@ abstract class VariableElementX extends ElementX
   bool get hasNode => definitionsCache != null;
 
   VariableDefinitions get node {
-    assert(invariant(this, definitionsCache != null,
-        message: "Node has not been computed for $this."));
+    assert(definitionsCache != null,
+        failedAt(this, "Node has not been computed for $this."));
     return definitionsCache;
   }
 
@@ -1530,14 +1568,14 @@ abstract class VariableElementX extends ElementX
   /// For instance in `var a, b = true`, the definitions nodes for fields 'a'
   /// and 'b' are the nodes for `a` and `b = true`, respectively.
   Expression get definition {
-    assert(invariant(this, definitionCache != null,
-        message: "Definition node has not been computed for $this."));
+    assert(definitionCache != null,
+        failedAt(this, "Definition node has not been computed for $this."));
     return definitionCache;
   }
 
   Expression get initializer {
-    assert(invariant(this, definitionsCache != null,
-        message: "Initializer has not been computed for $this."));
+    assert(definitionsCache != null,
+        failedAt(this, "Initializer has not been computed for $this."));
     return initializerCache;
   }
 
@@ -1550,8 +1588,10 @@ abstract class VariableElementX extends ElementX
   }
 
   void createDefinitions(VariableDefinitions definitions) {
-    assert(invariant(this, definitionsCache == null,
-        message: "VariableDefinitions has already been computed for $this."));
+    assert(
+        definitionsCache == null,
+        failedAt(
+            this, "VariableDefinitions has already been computed for $this."));
     for (Link<Node> link = definitions.definitions.nodes;
         !link.isEmpty;
         link = link.tail) {
@@ -1568,8 +1608,9 @@ abstract class VariableElementX extends ElementX
         definitionCache = initializedIdentifier;
       }
     }
-    invariant(definitions, definitionCache != null,
-        message: "Could not find '$name'.");
+    if (definitionCache == null) {
+      failedAt(definitionCache, "Could not find '$name'.");
+    }
     definitionsCache = definitions;
   }
 
@@ -1582,8 +1623,8 @@ abstract class VariableElementX extends ElementX
   }
 
   ResolutionDartType get type {
-    assert(invariant(this, variables.type != null,
-        message: "Type has not been computed for $this."));
+    assert(variables.type != null,
+        failedAt(this, "Type has not been computed for $this."));
     return variables.type;
   }
 
@@ -1771,26 +1812,28 @@ class FormalElementX extends ElementX
   Node parseNode(ParsingContext parsing) => definitions;
 
   ResolutionDartType computeType(Resolution resolution) {
-    assert(invariant(this, type != null,
-        message: "Parameter type has not been set for $this."));
+    assert(type != null,
+        failedAt(this, "Parameter type has not been set for $this."));
     return type;
   }
 
   ResolutionDartType get type {
-    assert(invariant(this, typeCache != null,
-        message: "Parameter type has not been set for $this."));
+    assert(typeCache != null,
+        failedAt(this, "Parameter type has not been set for $this."));
     return typeCache;
   }
 
   FunctionSignature get functionSignature {
-    assert(invariant(this, _functionSignatureCache != null,
-        message: "Parameter signature has not been computed for $this."));
+    assert(_functionSignatureCache != null,
+        failedAt(this, "Parameter signature has not been computed for $this."));
     return _functionSignatureCache;
   }
 
   void set functionSignature(FunctionSignature value) {
-    assert(invariant(this, _functionSignatureCache == null,
-        message: "Parameter signature has already been computed for $this."));
+    assert(
+        _functionSignatureCache == null,
+        failedAt(
+            this, "Parameter signature has already been computed for $this."));
     _functionSignatureCache = value;
     typeCache = _functionSignatureCache.type;
   }
@@ -1897,6 +1940,8 @@ class InitializingFormalElementX extends ParameterElementX
 
   @override
   bool get isLocal => true;
+
+  ConstructorElement get functionDeclaration => super.functionDeclaration;
 }
 
 class ErroneousInitializingFormalElementX extends ParameterElementX
@@ -1919,6 +1964,8 @@ class ErroneousInitializingFormalElementX extends ParameterElementX
   bool get isMalformed => true;
 
   ResolutionDynamicType get type => const ResolutionDynamicType();
+
+  ConstructorElement get functionDeclaration => super.functionDeclaration;
 }
 
 class AbstractFieldElementX extends ElementX
@@ -1973,27 +2020,26 @@ class AbstractFieldElementX extends ElementX
 
 // TODO(johnniwinther): [FunctionSignature] should be merged with
 // [FunctionType].
-// TODO(karlklose): all these lists should have element type [FormalElement].
 class FunctionSignatureX extends FunctionSignatureCommon
     implements FunctionSignature {
   final List<ResolutionDartType> typeVariables;
-  final List<Element> requiredParameters;
-  final List<Element> optionalParameters;
+  final List<FormalElement> requiredParameters;
+  final List<FormalElement> optionalParameters;
   final int requiredParameterCount;
   final int optionalParameterCount;
   final bool optionalParametersAreNamed;
-  final List<Element> orderedOptionalParameters;
+  final List<FormalElement> orderedOptionalParameters;
   final ResolutionFunctionType type;
   final bool hasOptionalParameters;
 
   FunctionSignatureX(
       {this.typeVariables: const <ResolutionDartType>[],
-      this.requiredParameters: const <Element>[],
+      this.requiredParameters: const <FormalElement>[],
       this.requiredParameterCount: 0,
-      List<Element> optionalParameters: const <Element>[],
+      List<Element> optionalParameters: const <FormalElement>[],
       this.optionalParameterCount: 0,
       this.optionalParametersAreNamed: false,
-      this.orderedOptionalParameters: const <Element>[],
+      this.orderedOptionalParameters: const <FormalElement>[],
       this.type})
       : optionalParameters = optionalParameters,
         hasOptionalParameters = !optionalParameters.isEmpty;
@@ -2009,12 +2055,28 @@ abstract class BaseFunctionElementX extends ElementX
 
   FunctionSignature _functionSignatureCache;
 
-  AsyncMarker asyncMarker = AsyncMarker.SYNC;
+  AsyncMarker _asyncMarker = AsyncMarker.SYNC;
 
   BaseFunctionElementX(String name, ElementKind kind, Modifiers this.modifiers,
       Element enclosing)
       : super(name, kind, enclosing) {
     assert(modifiers != null);
+  }
+
+  AsyncMarker get asyncMarker {
+    if (isPatched) {
+      return patch.asyncMarker;
+    }
+    return _asyncMarker;
+  }
+
+  void set asyncMarker(AsyncMarker value) {
+    if (isPatched) {
+      BaseFunctionElementX function = patch;
+      function.asyncMarker = value;
+    } else {
+      _asyncMarker = value;
+    }
   }
 
   bool get isExternal => modifiers.isExternal;
@@ -2034,16 +2096,18 @@ abstract class BaseFunctionElementX extends ElementX
   }
 
   FunctionSignature get functionSignature {
-    assert(invariant(this, hasFunctionSignature,
-        message: "Function signature has not been computed for $this."));
+    assert(hasFunctionSignature,
+        failedAt(this, "Function signature has not been computed for $this."));
     return _functionSignatureCache;
   }
 
   void set functionSignature(FunctionSignature value) {
     // TODO(johnniwinther): Strengthen the invariant to `!hasFunctionSignature`
     // when checked mode checks are not enqueued eagerly.
-    assert(invariant(this, !hasFunctionSignature || type == value.type,
-        message: "Function signature has already been computed for $this."));
+    assert(
+        !hasFunctionSignature || type == value.type,
+        failedAt(
+            this, "Function signature has already been computed for $this."));
     _functionSignatureCache = value;
     typeCache = _functionSignatureCache.type;
   }
@@ -2059,14 +2123,14 @@ abstract class BaseFunctionElementX extends ElementX
   ResolutionFunctionType computeType(Resolution resolution) {
     if (typeCache != null) return typeCache;
     _computeSignature(resolution);
-    assert(invariant(this, typeCache != null,
-        message: "Type cache expected to be set on $this."));
+    assert(typeCache != null,
+        failedAt(this, "Type cache expected to be set on $this."));
     return typeCache;
   }
 
   ResolutionFunctionType get type {
-    assert(invariant(this, typeCache != null,
-        message: "Type has not been computed for $this."));
+    assert(typeCache != null,
+        failedAt(this, "Type has not been computed for $this."));
     return typeCache;
   }
 
@@ -2092,6 +2156,18 @@ abstract class BaseFunctionElementX extends ElementX
 
   @override
   List<ResolutionDartType> get typeVariables => functionSignature.typeVariables;
+
+  // TODO(johnniwinther): Remove this.
+  FunctionElement get declaration => super.declaration;
+
+  // TODO(johnniwinther): Remove this.
+  FunctionElement get implementation => super.implementation;
+
+  // TODO(johnniwinther): Remove this.
+  FunctionElement get origin => super.origin;
+
+  // TODO(johnniwinther): Remove this.
+  FunctionElement get patch => super.patch;
 }
 
 abstract class FunctionElementX extends BaseFunctionElementX
@@ -2180,6 +2256,8 @@ class LocalFunctionElementX extends BaseFunctionElementX
     implements LocalFunctionElement {
   final FunctionExpression node;
 
+  MethodElement callMethod;
+
   LocalFunctionElementX(String name, FunctionExpression this.node,
       ElementKind kind, Modifiers modifiers, ExecutableElement enclosing)
       : super(name, kind, modifiers, enclosing);
@@ -2228,15 +2306,23 @@ abstract class ConstantConstructorMixin implements ConstructorElement {
       ConstantConstructorMixin originConstructor = origin;
       originConstructor.constantConstructor = value;
     } else {
-      assert(invariant(this, isConst,
-          message: "Constant constructor set on non-constant "
+      assert(
+          isConst,
+          failedAt(
+              this,
+              "Constant constructor set on non-constant "
               "constructor $this."));
-      assert(invariant(this, !isFromEnvironmentConstructor,
-          message: "Constant constructor set on fromEnvironment "
+      assert(
+          !isFromEnvironmentConstructor,
+          failedAt(
+              this,
+              "Constant constructor set on fromEnvironment "
               "constructor: $this."));
-      assert(invariant(
-          this, _constantConstructor == null || _constantConstructor == value,
-          message: "Constant constructor already computed for $this:"
+      assert(
+          _constantConstructor == null || _constantConstructor == value,
+          failedAt(
+              this,
+              "Constant constructor already computed for $this:"
               "Existing: $_constantConstructor, new: $value"));
       _constantConstructor = value;
     }
@@ -2258,8 +2344,6 @@ abstract class ConstructorElementX extends FunctionElementX
 
   ConstructorElement _immediateRedirectionTarget;
   PrefixElement _redirectionDeferredPrefix;
-
-  ConstructorElementX get patch => super.patch;
 
   bool get isRedirectingGenerative {
     if (isPatched) return patch.isRedirectingGenerative;
@@ -2291,9 +2375,10 @@ abstract class ConstructorElementX extends FunctionElementX
     if (isPatched) {
       patch.setImmediateRedirectionTarget(target, prefix);
     } else {
-      assert(invariant(this, _immediateRedirectionTarget == null,
-          message: "Immediate redirection target has already been "
-              "set on $this."));
+      assert(
+          _immediateRedirectionTarget == null,
+          failedAt(this,
+              "Immediate redirection target has already been set on $this."));
       _immediateRedirectionTarget = target;
       _redirectionDeferredPrefix = prefix;
     }
@@ -2318,15 +2403,23 @@ abstract class ConstructorElementX extends FunctionElementX
     if (isPatched) {
       patch.setEffectiveTarget(target, type, isMalformed: isMalformed);
     } else {
-      assert(invariant(this, target != null,
-          message: 'No effective target provided for $this.'));
-      assert(invariant(this, effectiveTargetInternal == null,
-          message: 'Effective target has already been computed for $this.'));
-      assert(invariant(this, !target.isMalformed || isMalformed,
-          message: 'Effective target is not marked as malformed for $this: '
+      assert(target != null,
+          failedAt(this, 'No effective target provided for $this.'));
+      assert(
+          effectiveTargetInternal == null,
+          failedAt(
+              this, 'Effective target has already been computed for $this.'));
+      assert(
+          !target.isMalformed || isMalformed,
+          failedAt(
+              this,
+              'Effective target is not marked as malformed for $this: '
               'target=$target, type=$type, isMalformed: $isMalformed'));
-      assert(invariant(this, isMalformed || type.isInterfaceType,
-          message: 'Effective target type is not an interface type for $this: '
+      assert(
+          isMalformed || type.isInterfaceType,
+          failedAt(
+              this,
+              'Effective target type is not an interface type for $this: '
               'target=$target, type=$type, isMalformed: $isMalformed'));
       effectiveTargetInternal = target;
       _effectiveTargetType = type;
@@ -2349,8 +2442,10 @@ abstract class ConstructorElementX extends FunctionElementX
     if (isPatched) {
       return patch.effectiveTargetType;
     }
-    assert(invariant(this, _effectiveTargetType != null,
-        message: 'Effective target type has not yet been computed for $this.'));
+    assert(
+        _effectiveTargetType != null,
+        failedAt(this,
+            'Effective target type has not yet been computed for $this.'));
     return _effectiveTargetType;
   }
 
@@ -2368,8 +2463,8 @@ abstract class ConstructorElementX extends FunctionElementX
       return patch.isEffectiveTargetMalformed;
     }
     if (!isRedirectingFactory) return false;
-    assert(invariant(this, _isEffectiveTargetMalformed != null,
-        message: 'Malformedness has not yet been computed for $this.'));
+    assert(_isEffectiveTargetMalformed != null,
+        failedAt(this, 'Malformedness has not yet been computed for $this.'));
     return _isEffectiveTargetMalformed == true;
   }
 
@@ -2380,10 +2475,21 @@ abstract class ConstructorElementX extends FunctionElementX
   ConstructorElement get definingConstructor => null;
 
   ClassElement get enclosingClass => enclosingElement.declaration;
+
+  // TODO(johnniwinther): Remove this.
+  ConstructorElementX get declaration => super.declaration;
+
+  // TODO(johnniwinther): Remove this.
+  ConstructorElementX get implementation => super.implementation;
+
+  // TODO(johnniwinther): Remove this.
+  ConstructorElementX get origin => super.origin;
+
+  // TODO(johnniwinther): Remove this.
+  ConstructorElementX get patch => super.patch;
 }
 
-class DeferredLoaderGetterElementX extends GetterElementX
-    implements GetterElement {
+class DeferredLoaderGetterElementX extends GetterElementX {
   final PrefixElement prefix;
 
   DeferredLoaderGetterElementX(PrefixElement prefix)
@@ -2453,20 +2559,17 @@ class ConstructorBodyElementX extends BaseFunctionElementX
     if (node.hasEmptyBody) return null;
     ClassElement classElement = constructor.enclosingClass;
     ConstructorBodyElement bodyElement;
-    classElement.forEachBackendMember((Element backendMember) {
-      if (backendMember.isGenerativeConstructorBody) {
-        ConstructorBodyElement body = backendMember;
-        if (body.constructor == constructor) {
-          // TODO(kasperl): Find a way of stopping the iteration
-          // through the backend members.
-          bodyElement = backendMember;
-        }
+    classElement.forEachConstructorBody((ConstructorBodyElement body) {
+      if (body.constructor == constructor) {
+        // TODO(kasperl): Find a way of stopping the iteration
+        // through the backend members.
+        bodyElement = body;
       }
     });
     if (bodyElement == null) {
       bodyElement =
           new ConstructorBodyElementX(constructorResolvedAst, constructor);
-      classElement.addBackendMember(bodyElement);
+      classElement.addConstructorBody(bodyElement);
 
       if (constructor.isPatch) {
         // Create origin body element for patched constructors.
@@ -2474,7 +2577,7 @@ class ConstructorBodyElementX extends BaseFunctionElementX
         ConstructorBodyElementX origin = new ConstructorBodyElementX(
             constructorResolvedAst, constructor.origin);
         origin.applyPatch(patch);
-        classElement.origin.addBackendMember(bodyElement.origin);
+        classElement.origin.addConstructorBody(bodyElement.origin);
       }
     }
     assert(bodyElement.isGenerativeConstructorBody);
@@ -2512,7 +2615,7 @@ class ConstructorBodyElementX extends BaseFunctionElementX
 
   Element get outermostEnclosingMemberOrTopLevel => constructor;
 
-  Element get analyzableElement => constructor.analyzableElement;
+  AnalyzableElement get analyzableElement => constructor.analyzableElement;
 
   accept(ElementVisitor visitor, arg) {
     return visitor.visitConstructorBodyElement(this, arg);
@@ -2568,7 +2671,7 @@ class SynthesizedConstructorElementX extends ConstructorElementX {
 
   ResolvedAst get resolvedAst => _resolvedAst;
 
-  ResolutionDartType get type {
+  ResolutionFunctionType get type {
     if (isDefaultConstructor) {
       return super.type;
     } else {
@@ -2596,8 +2699,7 @@ class SynthesizedConstructorElementX extends ConstructorElementX {
   }
 }
 
-abstract class TypeDeclarationElementX<T extends GenericType>
-    implements TypeDeclarationElement {
+abstract class TypeDeclarationElementX implements TypeDeclarationElement {
   /**
    * The `this type` for this type declaration.
    *
@@ -2609,7 +2711,7 @@ abstract class TypeDeclarationElementX<T extends GenericType>
    *
    * This type is computed in [computeType].
    */
-  T thisTypeCache;
+  GenericType thisTypeCache;
 
   /**
    * The raw type for this type declaration.
@@ -2629,27 +2731,27 @@ abstract class TypeDeclarationElementX<T extends GenericType>
    *
    * This type is computed together with [thisType] in [computeType].
    */
-  T rawTypeCache;
+  GenericType rawTypeCache;
 
-  T get thisType {
-    assert(invariant(this, thisTypeCache != null,
-        message: 'This type has not been computed for $this'));
+  GenericType get thisType {
+    assert(thisTypeCache != null,
+        failedAt(this, 'This type has not been computed for $this'));
     return thisTypeCache;
   }
 
-  T get rawType {
-    assert(invariant(this, rawTypeCache != null,
-        message: 'Raw type has not been computed for $this'));
+  GenericType get rawType {
+    assert(rawTypeCache != null,
+        failedAt(this, 'Raw type has not been computed for $this'));
     return rawTypeCache;
   }
 
-  T createType(List<ResolutionDartType> typeArguments);
+  GenericType createType(List<ResolutionDartType> typeArguments);
 
   void setThisAndRawTypes(List<ResolutionDartType> typeParameters) {
-    assert(invariant(this, thisTypeCache == null,
-        message: "This type has already been set on $this."));
-    assert(invariant(this, rawTypeCache == null,
-        message: "Raw type has already been set on $this."));
+    assert(thisTypeCache == null,
+        failedAt(this, "This type has already been set on $this."));
+    assert(rawTypeCache == null,
+        failedAt(this, "Raw type has already been set on $this."));
     thisTypeCache = createType(typeParameters);
     if (typeParameters.isEmpty) {
       rawTypeCache = thisTypeCache;
@@ -2697,7 +2799,7 @@ abstract class BaseClassElementX extends ElementX
         AstElementMixin,
         AnalyzableElementX,
         ClassElementCommon,
-        TypeDeclarationElementX<ResolutionInterfaceType>,
+        TypeDeclarationElementX,
         PatchMixin<ClassElement>,
         ClassMemberMixin
     implements ClassElement {
@@ -2756,8 +2858,8 @@ abstract class BaseClassElementX extends ElementX
   List<ResolutionDartType> computeTypeParameters(ParsingContext parsing);
 
   bool get isObject {
-    assert(invariant(this, isResolved,
-        message: "isObject has not been computed for $this."));
+    assert(isResolved,
+        failedAt(this, "isObject has not been computed for $this."));
     return supertype == null;
   }
 
@@ -2790,17 +2892,29 @@ abstract class BaseClassElementX extends ElementX
    * The returned element may not be resolved yet.
    */
   ClassElement get superclass {
-    assert(invariant(this, supertypeLoadState == STATE_DONE,
-        message: "Superclass has not been computed for $this."));
+    assert(supertypeLoadState == STATE_DONE,
+        failedAt(this, "Superclass has not been computed for $this."));
     return supertype == null ? null : supertype.element;
   }
 
-  // TODO(johnniwinther): Remove these when issue 18630 is fixed.
-  ClassElement get patch => super.patch;
-  ClassElement get origin => super.origin;
-
   // A class declaration is defined by the declaration element.
   AstElement get definingElement => declaration;
+
+  ResolutionInterfaceType get thisType => super.thisType;
+
+  ResolutionInterfaceType get rawType => super.rawType;
+
+  // TODO(johnniwinther): Remove this.
+  ClassElement get declaration => super.declaration;
+
+  // TODO(johnniwinther): Remove this.
+  ClassElement get implementation => super.implementation;
+
+  // TODO(johnniwinther): Remove this.
+  ClassElement get origin => super.origin;
+
+  // TODO(johnniwinther): Remove this.
+  ClassElement get patch => super.patch;
 }
 
 abstract class ClassElementX extends BaseClassElementX {
@@ -2907,7 +3021,7 @@ abstract class ClassElementX extends BaseClassElementX {
 class EnumClassElementX extends ClassElementX
     implements EnumClassElement, DeclarationSite {
   final Enum node;
-  List<FieldElement> _enumValues;
+  List<EnumConstantElement> _enumValues;
 
   EnumClassElementX(String name, Element enclosing, int id, this.node)
       : super(name, enclosing, id, STATE_NOT_STARTED);
@@ -2932,15 +3046,15 @@ class EnumClassElementX extends ClassElementX
   List<ResolutionDartType> computeTypeParameters(ParsingContext parsing) =>
       const <ResolutionDartType>[];
 
-  List<FieldElement> get enumValues {
-    assert(invariant(this, _enumValues != null,
-        message: "enumValues has not been computed for $this."));
+  List<EnumConstantElement> get enumValues {
+    assert(_enumValues != null,
+        failedAt(this, "enumValues has not been computed for $this."));
     return _enumValues;
   }
 
-  void set enumValues(List<FieldElement> values) {
-    assert(invariant(this, _enumValues == null,
-        message: "enumValues has already been computed for $this."));
+  void set enumValues(List<EnumConstantElement> values) {
+    assert(_enumValues == null,
+        failedAt(this, "enumValues has already been computed for $this."));
     _enumValues = values;
   }
 
@@ -3159,6 +3273,8 @@ class EnumConstantElementX extends EnumFieldElementX
     return new SourceSpan(enclosingClass.sourcePosition.uri,
         position.charOffset, position.charEnd);
   }
+
+  EnumClassElement get enclosingClass => super.enclosingClass;
 }
 
 abstract class MixinApplicationElementX extends BaseClassElementX
@@ -3249,10 +3365,10 @@ class UnnamedMixinApplicationElementX extends MixinApplicationElementX {
   bool get isAbstract => true;
 }
 
-class LabelDefinitionX implements LabelDefinition {
+class LabelDefinitionX extends LabelDefinition<Node> {
   final Label label;
   final String labelName;
-  final JumpTarget target;
+  final JumpTargetX target;
   bool isBreakTarget = false;
   bool isContinueTarget = false;
 
@@ -3274,16 +3390,14 @@ class LabelDefinitionX implements LabelDefinition {
     target.isContinueTarget = true;
   }
 
-  bool get isTarget => isBreakTarget || isContinueTarget;
-
   String toString() => 'Label:${name}';
 }
 
-class JumpTargetX implements JumpTarget {
+class JumpTargetX extends JumpTarget<Node> {
   final ExecutableElement executableContext;
   final Node statement;
   final int nestingLevel;
-  List<LabelDefinition> labels = <LabelDefinition>[];
+  List<LabelDefinition<Node>> labels = <LabelDefinition<Node>>[];
   bool isBreakTarget = false;
   bool isContinueTarget = false;
 
@@ -3294,13 +3408,13 @@ class JumpTargetX implements JumpTarget {
   @override
   MemberElement get memberContext => executableContext.memberContext;
 
-  String get name => "target";
-
-  bool get isTarget => isBreakTarget || isContinueTarget;
-
-  LabelDefinition addLabel(Label label, String labelName) {
-    LabelDefinition result = new LabelDefinitionX(label, labelName, this);
+  LabelDefinition<Node> addLabel(Label label, String labelName,
+      {bool isBreakTarget: false}) {
+    LabelDefinitionX result = new LabelDefinitionX(label, labelName, this);
     labels.add(result);
+    if (isBreakTarget) {
+      result.setBreakTarget();
+    }
     return result;
   }
 
@@ -3326,14 +3440,14 @@ class TypeVariableElementX extends ElementX
   ResolutionTypeVariableType computeType(Resolution resolution) => type;
 
   ResolutionTypeVariableType get type {
-    assert(invariant(this, typeCache != null,
-        message: "Type has not been set on $this."));
+    assert(
+        typeCache != null, failedAt(this, "Type has not been set on $this."));
     return typeCache;
   }
 
   ResolutionDartType get bound {
-    assert(invariant(this, boundCache != null,
-        message: "Bound has not been set on $this."));
+    assert(
+        boundCache != null, failedAt(this, "Bound has not been set on $this."));
     return boundCache;
   }
 
@@ -3435,11 +3549,11 @@ class ParameterMetadataAnnotation extends MetadataAnnotationX {
 
 /// Mixin for the implementation of patched elements.
 ///
-/// See [:patch_parser.dart:] for a description of the terminology.
+/// See `patch_parser.dart` for a description of the terminology.
 abstract class PatchMixin<E extends Element> implements Element {
-  // TODO(johnniwinther): Use type variables when issue 18630 is fixed.
-  Element /*E*/ patch = null;
-  Element /*E*/ origin = null;
+  // TODO(johnniwinther): Use type variables.
+  Element /* E */ patch = null;
+  Element /* E */ origin = null;
 
   bool get isPatch => origin != null;
   bool get isPatched => patch != null;
@@ -3447,19 +3561,15 @@ abstract class PatchMixin<E extends Element> implements Element {
   bool get isImplementation => !isPatched;
   bool get isDeclaration => !isPatch;
 
-  Element /*E*/ get implementation => isPatched ? patch : this;
-  Element /*E*/ get declaration => isPatch ? origin : this;
+  Element /* E */ get implementation => isPatched ? patch : this;
+  Element /* E */ get declaration => isPatch ? origin : this;
 
   /// Applies a patch to this element. This method must be called at most once.
   void applyPatch(PatchMixin<E> patch) {
-    assert(invariant(this, this.patch == null,
-        message: "Element is patched twice."));
-    assert(invariant(this, this.origin == null,
-        message: "Origin element is a patch."));
-    assert(invariant(patch, patch.origin == null,
-        message: "Element is patched twice."));
-    assert(invariant(patch, patch.patch == null,
-        message: "Patch element is patched."));
+    assert(this.patch == null, failedAt(this, "Element is patched twice."));
+    assert(this.origin == null, failedAt(this, "Origin element is a patch."));
+    assert(patch.origin == null, failedAt(patch, "Element is patched twice."));
+    assert(patch.patch == null, failedAt(patch, "Patch element is patched."));
     this.patch = patch;
     patch.origin = this;
   }

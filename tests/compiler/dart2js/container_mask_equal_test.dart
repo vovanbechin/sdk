@@ -33,17 +33,21 @@ main() {
     var typesInferrer = compiler.globalInference.typesInferrerInternal;
     var closedWorld = typesInferrer.closedWorld;
 
-    var element = compiler.mainApp.find('a');
-    var mask1 = typesInferrer.getReturnTypeOfElement(element);
+    var element =
+        compiler.frontendStrategy.elementEnvironment.mainLibrary.find('a');
+    var mask1 = typesInferrer.getReturnTypeOfMember(element);
 
-    element = compiler.mainApp.find('b');
-    var mask2 = typesInferrer.getReturnTypeOfElement(element);
+    element =
+        compiler.frontendStrategy.elementEnvironment.mainLibrary.find('b');
+    var mask2 = typesInferrer.getReturnTypeOfMember(element);
 
-    element = compiler.mainApp.find('c');
-    var mask3 = typesInferrer.getReturnTypeOfElement(element);
+    element =
+        compiler.frontendStrategy.elementEnvironment.mainLibrary.find('c');
+    var mask3 = typesInferrer.getReturnTypeOfMember(element);
 
-    element = compiler.mainApp.find('d');
-    var mask4 = typesInferrer.getReturnTypeOfElement(element);
+    element =
+        compiler.frontendStrategy.elementEnvironment.mainLibrary.find('d');
+    var mask4 = typesInferrer.getReturnTypeOfMember(element);
 
     Expect.notEquals(
         mask1.union(mask2, closedWorld), mask3.union(mask4, closedWorld));

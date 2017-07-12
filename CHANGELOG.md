@@ -1,60 +1,297 @@
-## 1.24.0
+## 1.25.0
+
+### Language
+* A string in a `part of` declaration may now be used to refer to the library
+  this file is part of.
+  A library part can now declare its library either as:
+  `part of name.of.library;` or as `part of "uriReferenceOfLibrary.dart";`.
+  This allows libraries with no library declarations (and therefore no name)
+  to have parts, and it allows tools to easily find the library of a part
+  file.
+
+#### Strong Mode
+
+### Core library changes
+
+* `dart:io`
+  * Unified backends for `SecureSocket`, `SecurityContext`, and
+    `X509Certificate` to be consistent across all platforms. All
+    `SecureSocket`, `SecurityContext`, and `X509Certificate` properties and
+    methods are now supported on iOS and OSX.
+  * Deprecated `SecurityContext.alpnSupported` as ALPN is now supported on all
+    platforms.
+  * Added 'timeout' parameter to 'Socket.connect', 'RawSocket.connect',
+    'SecureSocket.connect' and 'RawSecureSocket.connect. If a connection attempt
+    takes longer than the duration specified in 'timeout', a 'SocketException'
+    will be thrown. Note: if the duration specified in 'timeout' is greater than
+    the system level timeout duration, a timeout may occur sooner than specified
+    in 'timeout'.
+
+### Dart VM
+* Support for MIPS has been remvoed.
+
+### Tool Changes
+
+* Pub
+
+  * Git dependencies may now include a `path` parameter, indicating that the
+    package exists in a subdirectory of the Git repository. For example:
+
+    ```yaml
+    dependencies:
+      foobar:
+        git:
+          url: git://github.com/dart-lang/multi_package_repo
+          path: pkg/foobar
+    ```
+
+  * `pub get` and `pub upgrade` properly produce an error message and exit code
+    when no network is present.
+
+  * `pub serve` now waits for file watcher events to stabilize before scheduling
+     new builds. This helps specifically with `safe-write` features in editors,
+     as well as other situations such as `save all` which cause many fast edits.
+
+  * Added the `--build-delay` argument to `pub serve` which sets the amount of
+    time (in ms) to wait between file watcher events before scheduling a build.
+    Defaults to 50.
+
+  * Removed require.js module loading timeout for dartdevc, which resolves an
+    issue where the initial load of an app might give a timeout error.
+
+* dartfmt
+
+    * Support assert in const constructor initializer lists.
+    * Better formatting for multi-line strings in argument lists.
+
+## 1.24.2 - 22-06-2017
+
+* Fixes for debugging in Dartium.
+  * Fix DevConsole crash with JS
+      (https://github.com/dart-lang/sdk/issues/29873).
+  * Fix debugging in WebStorm, NULL returned for JS objects
+      (https://github.com/dart-lang/sdk/issues/29854).
+
+## 1.24.1 - 14-06-2017
+
+* Bug fixes for dartdevc support in `pub serve`.
+  * Fixed module config invalidation logic so modules are properly
+    recalculated when package layout changes.
+  * Fixed exception when handling require.js errors that aren't script load
+    errors.
+  * Fixed an issue where requesting the bootstrap.js file before the dart.js
+    file would result in a 404.
+  * Fixed a Safari issue during bootstrapping (note that Safari is still not
+    officially supported but does work for trivial examples).
+* Fix for a Dartium issue where there was no sound in checked mode
+    (https://github.com/dart-lang/sdk/issues/29810).
+
+## 1.24.0 - 12-06-2017
 
 ### Language
 * During a dynamic type check, `void` is not required to be `null` anymore.
   In practice, this makes overriding `void` functions with non-`void` functions
   safer.
 
-#### Strong Mode
+* During static analysis, a function or setter declared using `=>` with return
+  type `void` now allows the returned expression to have any type. For example,
+  assuming the declaration `int x;`, it is now type correct to have
+  `void f() => ++x;`.
 
-* Removed ad hoc Future.then inference in favor of using FutureOr.  Prior to
-adding FutureOr to the language, the analyzer implented an ad hoc type inference
-for Future.then (and overrides) treating it as if the onValue callback was typed
-to return FutureOr for the purposes of inference.  This ad hoc inference has
-been removed now that FutureOr has been added.
+* A new function-type syntax has been added to the language.
+  Intuitively, the type of a function can be constructed by textually replacing
+  the function's name with `Function` in its declaration. For instance, the
+  type of `void foo() {}` would be `void Function()`. The new syntax may be used
+  wherever a type can be written. It is thus now possible to declare fields
+  containing functions without needing to write typedefs: `void Function() x;`.
+  The new function type has one restriction: it may not contain the old-style
+  function-type syntax for its parameters. The following is thus illegal:
+  `void Function(int f())`.
+  `typedefs` have been updated to support this new syntax.
 
-Packages that implement `Future` must either type the `onValue` parameter to
-`.then` as returning `FutureOr<T>`, or else must leave the type of the parameter
-entirely to allow inference to fill in the type.
+  Examples:
 
+  ```dart
+  typedef F = void Function();  // F is the name for a `void` callback.
+  int Function(int) f;  // A field `f` that contains an int->int function.
+
+  class A<T> {
+    // The parameter `callback` is a function that takes a `T` and returns
+    // `void`.
+    void forEach(void Function(T) callback);
+  }
+
+  // The new function type supports generic arguments.
+  typedef Invoker = T Function<T>(T Function() callback);
+  ```
 
 ### Core library changes
+
+* `dart:async`, `dart:core`, `dart:io`
+    * Adding to a closed sink, including `IOSink`, is no longer not allowed. In
+      1.24, violations are only reported (on stdout or stderr), but a future
+      version of the Dart SDK will change this to throwing a `StateError`.
+
+* `dart:convert`
+  * **BREAKING** Removed the deprecated `ChunkedConverter` class.
+  * JSON maps are now typed as `Map<String, dynamic>` instead of
+    `Map<dynamic, dynamic>`. A JSON-map is not a `HashMap` or `LinkedHashMap`
+    anymore (but just a `Map`).
 
 * `dart:io`
   * Added `Platform.localeName`, needed for accessing the locale on platforms
     that don't store it in an environment variable.
   * Added `ProcessInfo.currentRss` and `ProcessInfo.maxRss` for inspecting
     the Dart VM process current and peak resident set size.
-  * Added 'RawSynchronousSocket', a basic synchronous socket implementation.
-* `dart:convert`
-  * Removed deprecated `ChunkedConverter` class.
-  * JSON maps are now typed as `Map<String, dynamic>` instead of
-    `Map<dynamic, dynamic>`. A JSON-map is not a `HashMap` or `LinkedHashMap`
-    anymore (but just a `Map`).
-* `dart:async`
-  * Add `groupBy` to `Stream`. Allows splitting a string into separate streams
-    depending on "key" property computed from the individual events.
-* `dart:async`, `dart:io`, `dart:core`
-    * Adding to a closed sink, including `IOSink`, is not allowed anymore. In
-      1.24, violations are only reported (on stdout or stderr), but a future
-      version of the Dart SDK will change this to throwing a `StateError`.
+  * Added `RawSynchronousSocket`, a basic synchronous socket implementation.
 
+* `dart:` web APIs have been updated to align with Chrome v50.
+   This change includes **a large number of changes**, many of which are
+   breaking. In some cases, new class names may conflict with names that exist
+   in existing code.
 
-### Dart VM
+* `dart:html`
+
+  * **REMOVED** classes: `Bluetooth`, `BluetoothDevice`,
+    `BluetoothGattCharacteristic`, `BluetoothGattRemoteServer`,
+    `BluetoothGattService`, `BluetoothUuid`, `CrossOriginConnectEvent`,
+    `DefaultSessionStartEvent`, `DomSettableTokenList`, `MediaKeyError`,
+    `PeriodicSyncEvent`, `PluginPlaceholderElement`, `ReadableStream`,
+    `StashedMessagePort`, `SyncRegistration`
+
+  * **REMOVED** members:
+    * `texImage2DCanvas` was removed from `RenderingContext`.
+    * `endClip` and `startClip` were removed from `Animation`.
+    * `after` and `before` were removed from `CharacterData`, `ChildNode` and
+      `Element`.
+    * `keyLocation` was removed from `KeyboardEvent`. Use `location` instead.
+    * `generateKeyRequest`, `keyAddedEvent`, `keyErrorEvent`, `keyMessageEvent`,
+      `mediaGroup`, `needKeyEvent`, `onKeyAdded`, `onKeyError`, `onKeyMessage`,
+      and `onNeedKey` were removed from `MediaElement`.
+    * `getStorageUpdates` was removed from `Navigator`
+    * `status` was removed from `PermissionStatus`
+    * `getAvailability` was removed from `PreElement`
+
+  * Other behavior changes:
+    * URLs returned in CSS or html are formatted with quoted string.
+      Like `url("http://google.com")` instead of `url(http://google.com)`.
+    * Event timestamp property type changed from `int` to `num`.
+    * Chrome introduced slight layout changes of UI objects.
+      In addition many height/width dimensions are returned in subpixel values
+      (`num` instead of whole numbers).
+    * `setRangeText` with a `selectionMode` value of 'invalid' is no longer
+      valid. Only "select", "start", "end", "preserve" are allowed.
+
+* `dart:svg`
+
+  * A large number of additions and removals. Review your use of `dart:svg`
+    carefully.
+
+* `dart:web_audio`
+
+  * new method on `AudioContext` – `createIirFilter` returns a new class
+    `IirFilterNode`.
+
+* `dart:web_gl`
+
+  * new classes: `CompressedTextureAstc`, `ExtColorBufferFloat`,
+    `ExtDisjointTimerQuery`, and `TimerQueryExt`.
+
+  * `ExtFragDepth` added: `readPixels2` and `texImage2D2`.
+
+#### Strong Mode
+
+* Removed ad hoc `Future.then` inference in favor of using `FutureOr`.  Prior to
+  adding `FutureOr` to the language, the analyzer implented an ad hoc type
+  inference for `Future.then` (and overrides) treating it as if the onValue
+  callback was typed to return `FutureOr` for the purposes of inference.
+  This ad hoc inference has been removed now that `FutureOr` has been added.
+
+  Packages that implement `Future` must either type the `onValue` parameter to
+  `.then` as returning `FutureOr<T>`, or else must leave the type of the parameter
+  entirely to allow inference to fill in the type.
+
+* During static analysis, a function or setter declared using `=>` with return
+  type `void` now allows the returned expression to have any type.
 
 ### Tool Changes
 
+* Dartium
+
+  Dartium is now based on Chrome v50. See *Core library changes* above for
+  details on the changed APIs.
+
 * Pub
+
+  * `pub build` and `pub serve`
+
+    * Added support for the Dart Development Compiler.
+
+      Unlike dart2js, this new compiler is modular, which allows pub to do
+      incremental re-builds for `pub serve`, and potentially `pub build` in the
+      future.
+
+      In practice what that means is you can edit your Dart files, refresh in
+      Chrome (or other supported browsers), and see your edits almost
+      immediately. This is because pub is only recompiling your package, not all
+      packages that you depend on.
+
+      There is one caveat with the new compiler, which is that your package and
+      your dependencies must all be strong mode clean. If you are getting an
+      error compiling one of your dependencies, you will need to file bugs or
+      send pull requests to get them strong mode clean.
+
+      There are two ways of opting into the new compiler:
+
+        * Use the new `--web-compiler` flag, which supports `dartdevc`,
+          `dart2js` or `none` as options. This is the easiest way to try things
+          out without changing the default.
+
+        * Add config to your pubspec. There is a new `web` key which supports a
+          single key called `compiler`. This is a map from mode names to
+          compiler to use. For example, to default to dartdevc in debug mode you
+          can add the following to your pubspec:
+
+          ```yaml
+          web:
+            compiler:
+              debug: dartdevc
+          ```
+
+      You can also use the new compiler to run your tests in Chrome much more
+      quickly than you can with dart2js. In order to do that, run
+      `pub serve test --web-compiler=dartdevc`, and then run
+      `pub run test -p chrome --pub-serve=8080`.
+
+    * The `--no-dart2js` flag has been deprecated in favor of
+      `--web-compiler=none`.
+
     * `pub build` will use a failing exit code if there are errors in any
       transformer.
-    * Allow publishing packages that depend on the Flutter SDK.
+
+  * `pub publish`
+
+    * Added support for the UNLICENSE file.
+
+    * Packages that depend on the Flutter SDK may be published.
+
+  * `pub get` and `pub upgrade`
+
+    * Don't dump a stack trace when a network error occurs while fetching
+      packages.
 
 * dartfmt
     * Preserve type parameters in new generic function typedef syntax.
     * Add self-test validation to ensure formatter bugs do not cause user code
       to be lost.
 
-## 1.23.0
+### Infrastructure changes
+
+* As of this release, we'll show a warning when using the MIPS architecture.
+  Unless we learn about any critical use of Dart on MIPS in the meantime, we're
+  planning to deprecate support for MIPS starting with the next stable release.
+
+## 1.23.0 - 2017-04-21
 
 #### Strong Mode
 
@@ -237,6 +474,15 @@ analyzer:
     it technically meant dartfmt could change the semantics of the code.
   * Preserve a blank line between enum cases.
   * Other small formatting tweaks.
+
+
+## 1.22.1 - 2017-02-22
+
+Patch release, resolves two issues:
+* Dart VM crash: [Issue 28072](https://github.com/dart-lang/sdk/issues/28757)
+
+* Dart VM bug combining types, await, and deferred loading: [Issue 28678](https://github.com/dart-lang/sdk/issues/28678)
+
 
 ## 1.22.0 - 2017-02-14
 
@@ -497,6 +743,12 @@ analyzer:
     release by setting the environment variable `DART_USE_GYP` before running
     `gclient sync` or `gclient runhooks`, but this will be removed in a future
     release.
+
+## 1.21.1 - 2017-01-13
+
+Patch release, resolves one issue:
+
+* Dart VM: Snapshots of generic functions fail. [Issue 28072](https://github.com/dart-lang/sdk/issues/28072)
 
 ## 1.21.0 - 2016-12-07
 
@@ -1089,7 +1341,7 @@ Then your library will work without any additional changes.
 ### Tool changes
 
 * Dartium and content shell
-  * The Chrome-based tools that ship as part of the Dart SDK – Dartium and
+  * The Chrome-based tools that ship as part of the Dart SDK – Dartium and
     content shell – are now based on Chrome version 45 (instead of Chrome 39).
   * Dart browser libraries (`dart:html`, `dart:svg`, etc) *have not* been
     updated.
@@ -1634,7 +1886,7 @@ Patch release, resolves three issues:
   dart2dart (aka `dart2js --output-type=dart`) utility as part
   of dart2js
 
-## 1.10.0 – 2015-04-29
+## 1.10.0 – 2015-04-29
 
 ### Core library changes
 
@@ -1698,7 +1950,7 @@ This is a bug fix release which merges a number of commits from `bleeding_edge`.
   Pub can fail to load transformers necessary for local development -
   [r44876](https://code.google.com/p/dart/source/detail?r=44876)
 
-## 1.9.1 – 2015-03-25
+## 1.9.1 – 2015-03-25
 
 ### Language changes
 
@@ -1812,7 +2064,7 @@ documentation on the [Dart API site](http://api.dartlang.org).
   * Isolates spawned via `Isolate.spawn` now allow most objects, including
     top-level and static functions, to be sent between them.
 
-## 1.8.5 – 2015-01-21
+## 1.8.5 – 2015-01-21
 
 * Code generation for SIMD on ARM and ARM64 is fixed.
 
@@ -1822,7 +2074,7 @@ documentation on the [Dart API site](http://api.dartlang.org).
 
 [issue 21795]: https://code.google.com/p/dart/issues/detail?id=21795
 
-## 1.8.3 – 2014-12-10
+## 1.8.3 – 2014-12-10
 
 * Breakpoints can be set in the Editor using file suffixes ([issue 21280][]).
 
@@ -1880,7 +2132,7 @@ documentation on the [Dart API site](http://api.dartlang.org).
 
 [alpn]: https://tools.ietf.org/html/rfc7301
 
-## 1.7.0 – 2014-10-15
+## 1.7.0 – 2014-10-15
 
 ### Tool changes
 

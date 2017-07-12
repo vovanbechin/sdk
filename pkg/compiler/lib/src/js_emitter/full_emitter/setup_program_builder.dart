@@ -26,8 +26,13 @@ const String setupProgramName = 'setupProgram';
 //   unlikely since it lives on types, but still.
 const String typeNameProperty = r'builtin$cls';
 
-jsAst.Statement buildSetupProgram(Program program, Compiler compiler,
-    JavaScriptBackend backend, Namer namer, Emitter emitter) {
+jsAst.Statement buildSetupProgram(
+    Program program,
+    Compiler compiler,
+    JavaScriptBackend backend,
+    Namer namer,
+    Emitter emitter,
+    ClosedWorld closedWorld) {
   jsAst.Expression typeInformationAccess =
       emitter.generateEmbeddedGlobalAccess(embeddedNames.TYPE_INFORMATION);
   jsAst.Expression globalFunctionsAccess =
@@ -103,7 +108,7 @@ jsAst.Statement buildSetupProgram(Program program, Compiler compiler,
     'staticsPropertyNameString': js.quoteName(namer.staticsPropertyName),
     'typeInformation': typeInformationAccess,
     'globalFunctions': globalFunctionsAccess,
-    'enabledInvokeOn': backend.backendUsage.isInvokeOnUsed,
+    'enabledInvokeOn': closedWorld.backendUsage.isInvokeOnUsed,
     'interceptedNames': interceptedNamesAccess,
     'interceptedNamesSet': emitter.generateInterceptedNamesSet(),
     'notInCspMode': !compiler.options.useContentSecurityPolicy,
@@ -124,23 +129,22 @@ jsAst.Statement buildSetupProgram(Program program, Compiler compiler,
     'finishedClassesAccess': finishedClassesAccess,
     'needsMixinSupport': emitter.needsMixinSupport,
     'needsNativeSupport': program.needsNativeSupport,
-    'enabledJsInterop': backend.nativeBasicData.isJsInteropUsed,
+    'enabledJsInterop': closedWorld.nativeData.isJsInteropUsed,
     'jsInteropBoostrap': backend.jsInteropAnalysis.buildJsInteropBootstrap(),
     'isInterceptorClass':
-        namer.operatorIs(compiler.commonElements.jsInterceptorClass),
-    'isObject': namer.operatorIs(compiler.commonElements.objectClass),
+        namer.operatorIs(closedWorld.commonElements.jsInterceptorClass),
+    'isObject': namer.operatorIs(closedWorld.commonElements.objectClass),
     'specProperty': js.string(namer.nativeSpecProperty),
     'trivialNsmHandlers': emitter.buildTrivialNsmHandlers(),
     'hasRetainedMetadata': backend.mirrorsData.hasRetainedMetadata,
     'types': typesAccess,
-    'objectClassName': js.quoteName(namer.runtimeTypeName(
-        // ignore: UNNECESSARY_CAST
-        compiler.commonElements.objectClass as Entity)),
+    'objectClassName': js.quoteName(
+        namer.runtimeTypeName(closedWorld.commonElements.objectClass)),
     'needsStructuredMemberInfo': emitter.needsStructuredMemberInfo,
-    'usesMangledNames': compiler.commonElements.mirrorsLibrary != null ||
-        backend.backendUsage.isFunctionApplyUsed,
-    'tearOffCode': buildTearOffCode(compiler.options, backend.emitter.emitter,
-        backend.namer, compiler.commonElements),
+    'usesMangledNames': closedWorld.backendUsage.isMirrorsUsed ||
+        closedWorld.backendUsage.isFunctionApplyUsed,
+    'tearOffCode': buildTearOffCode(
+        compiler.options, emitter, namer, closedWorld.commonElements),
     'nativeInfoHandler': nativeInfoHandler,
     'operatorIsPrefix': js.string(namer.operatorIsPrefix),
     'deferredActionString': js.string(namer.deferredAction)

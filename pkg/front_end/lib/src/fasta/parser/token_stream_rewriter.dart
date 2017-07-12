@@ -2,8 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:front_end/src/fasta/errors.dart';
-import 'package:front_end/src/fasta/scanner/token.dart';
+import 'package:front_end/src/fasta/deprecated_problems.dart';
+import 'package:front_end/src/scanner/token.dart' show BeginToken, Token;
 
 /// Provides the capability of inserting tokens into a token stream by rewriting
 /// the previous token to point to the inserted token.
@@ -26,19 +26,18 @@ class TokenStreamRewriter {
   /// Creates a [TokenStreamRewriter] which is prepared to rewrite the token
   /// stream whose first token is [firstToken].
   TokenStreamRewriter(Token firstToken)
-      : _head =
-            firstToken.previous ?? (new SymbolToken.eof(-1)..next = firstToken);
+      : _head = firstToken.previous ?? (new Token.eof(-1)..next = firstToken);
 
   /// Gets the first token in the stream (which may not be the same token that
   /// was passed to the constructor, if something was inserted before it).
   Token get firstToken => _head.next;
 
   /// Inserts [newToken] into the token stream just before [insertionPoint], and
-  /// fixes up all "next" and "previous" pointers.
+  /// fixes up all "next" and "previous" pointers. Returns [newToken].
   ///
   /// Caller is required to ensure that [insertionPoint] is actually present in
   /// the token stream.
-  void insertTokenBefore(Token newToken, Token insertionPoint) {
+  Token insertTokenBefore(Token newToken, Token insertionPoint) {
     Token previous = _findPreviousToken(insertionPoint);
     _lastPreviousToken = previous;
     newToken.next = insertionPoint;
@@ -50,6 +49,7 @@ class TokenStreamRewriter {
       insertionPoint.previous = newToken;
       newToken.previous = previous;
     }
+    return newToken;
   }
 
   /// Finds the token that immediately precedes [target].
@@ -74,7 +74,7 @@ class TokenStreamRewriter {
     // Otherwise scan forward from the start of the token stream.
     Token previous = _scanForPreviousToken(target, _head);
     if (previous == null) {
-      internalError('Could not find previous token');
+      deprecated_internalProblem('Could not find previous token');
     }
     return previous;
   }
@@ -88,7 +88,7 @@ class TokenStreamRewriter {
   Token _scanForPreviousToken(Token target, Token pos) {
     while (!identical(pos.next, target)) {
       Token nextPos;
-      if (pos is BeginGroupToken &&
+      if (pos is BeginToken &&
           pos.endGroup != null &&
           pos.endGroup.charOffset < target.charOffset) {
         nextPos = pos.endGroup;

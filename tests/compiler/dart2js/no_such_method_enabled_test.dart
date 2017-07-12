@@ -2,12 +2,12 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'dart:async';
 import 'package:async_helper/async_helper.dart';
 import 'package:compiler/src/common_elements.dart';
 import 'package:compiler/src/compiler.dart';
 import 'package:compiler/src/elements/entities.dart';
 import 'package:compiler/src/js_backend/no_such_method_registry.dart';
+import 'package:compiler/src/world.dart';
 import 'package:expect/expect.dart';
 import 'kernel/compiler_helper.dart';
 import 'compiler_helper.dart';
@@ -259,6 +259,7 @@ main() {
       print('---- testing with kernel --------------------------------------');
       print(sources[index]);
       Compiler compiler = await results[index]();
+      compiler.resolutionWorldBuilder.closeWorld();
       // Complex returns are computed during inference.
       checkTest(compiler, TESTS[index], testComplexReturns: false);
     }
@@ -266,16 +267,19 @@ main() {
 }
 
 checkTest(Compiler compiler, NoSuchMethodTest test, {bool testComplexReturns}) {
-  ElementEnvironment elementEnvironment = compiler.elementEnvironment;
+  ElementEnvironment elementEnvironment =
+      compiler.frontendStrategy.elementEnvironment;
   NoSuchMethodRegistry registry = compiler.backend.noSuchMethodRegistry;
   NoSuchMethodResolver resolver = registry.internalResolverForTesting;
   FunctionEntity ObjectNSM = elementEnvironment.lookupClassMember(
-      compiler.commonElements.objectClass, 'noSuchMethod');
+      compiler.frontendStrategy.commonElements.objectClass, 'noSuchMethod');
+  ClosedWorld closedWorld =
+      compiler.resolutionWorldBuilder.closedWorldForTesting;
 
   // Test [NoSuchMethodResolver] results for each method.
   for (NoSuchMethodInfo info in test.methods) {
-    ClassEntity cls =
-        elementEnvironment.lookupClass(compiler.mainApp, info.className);
+    ClassEntity cls = elementEnvironment.lookupClass(
+        elementEnvironment.mainLibrary, info.className);
     Expect.isNotNull(cls, "Class ${info.className} not found.");
     FunctionEntity noSuchMethod =
         elementEnvironment.lookupClassMember(cls, 'noSuchMethod');
@@ -284,8 +288,8 @@ checkTest(Compiler compiler, NoSuchMethodTest test, {bool testComplexReturns}) {
     if (info.superClassName == null) {
       Expect.equals(ObjectNSM, resolver.getSuperNoSuchMethod(noSuchMethod));
     } else {
-      ClassEntity superclass =
-          elementEnvironment.lookupClass(compiler.mainApp, info.superClassName);
+      ClassEntity superclass = elementEnvironment.lookupClass(
+          elementEnvironment.mainLibrary, info.superClassName);
       Expect.isNotNull(
           superclass, "Superclass ${info.superClassName} not found.");
       FunctionEntity superNoSuchMethod =
@@ -312,8 +316,8 @@ checkTest(Compiler compiler, NoSuchMethodTest test, {bool testComplexReturns}) {
   // the [NoSuchMethodResolver] results which are therefore tested for all
   // methods first.
   for (NoSuchMethodInfo info in test.methods) {
-    ClassEntity cls =
-        elementEnvironment.lookupClass(compiler.mainApp, info.className);
+    ClassEntity cls = elementEnvironment.lookupClass(
+        elementEnvironment.mainLibrary, info.className);
     Expect.isNotNull(cls, "Class ${info.className} not found.");
     FunctionEntity noSuchMethod =
         elementEnvironment.lookupClassMember(cls, 'noSuchMethod');
@@ -345,6 +349,6 @@ checkTest(Compiler compiler, NoSuchMethodTest test, {bool testComplexReturns}) {
 
   Expect.equals(
       test.isNoSuchMethodUsed,
-      compiler.backend.backendUsage.isNoSuchMethodUsed,
+      closedWorld.backendUsage.isNoSuchMethodUsed,
       "Unexpected isNoSuchMethodUsed result.");
 }

@@ -473,7 +473,7 @@ abstract class AbstractResynthesizeTest extends AbstractSingleUnitTest {
       } else if (o is BooleanLiteral && r is BooleanLiteral) {
         expect(r.value, o.value, reason: desc);
       } else if (o is IntegerLiteral && r is IntegerLiteral) {
-        expect(r.value, o.value, reason: desc);
+        expect(r.value ?? 0, o.value ?? 0, reason: desc);
       } else if (o is DoubleLiteral && r is DoubleLiteral) {
         if (r.value != null &&
             r.value.isNaN &&
@@ -886,24 +886,6 @@ abstract class AbstractResynthesizeTest extends AbstractSingleUnitTest {
       for (int i = 0; i < oFunctions.length; i++) {
         compareFunctionElements(rFunctions[i], oFunctions[i],
             '$desc local function ${oFunctions[i].name}');
-      }
-    }
-    if (original is! Member) {
-      List<LabelElement> rLabels = resynthesized.labels;
-      List<LabelElement> oLabels = original.labels;
-      expect(rLabels, hasLength(oLabels.length));
-      for (int i = 0; i < oLabels.length; i++) {
-        compareLabelElements(
-            rLabels[i], oLabels[i], '$desc label ${oLabels[i].name}');
-      }
-    }
-    if (original is! Member) {
-      List<LocalVariableElement> rVariables = resynthesized.localVariables;
-      List<LocalVariableElement> oVariables = original.localVariables;
-      expect(rVariables, hasLength(oVariables.length));
-      for (int i = 0; i < oVariables.length; i++) {
-        compareVariableElements(rVariables[i], oVariables[i],
-            '$desc local variable ${oVariables[i].name}');
       }
     }
   }
@@ -3293,6 +3275,19 @@ int foo() {}
     }
   }
 
+  test_const_invalid_intLiteral() {
+    var library = checkLibrary(
+        r'''
+const int x = 0x;
+''',
+        allowErrors: true);
+    checkElementText(
+        library,
+        r'''
+const int x = 0;
+''');
+  }
+
   test_const_invalid_topLevel() {
     variablesWithNotConstInitializers.add('v');
     var library = checkLibrary(
@@ -5107,7 +5102,7 @@ const int vBitShiftRight = 1 >> 2;
 const int vAdd = 1 + 2;
 const int vSubtract = 1 - 2;
 const int vMiltiply = 1 * 2;
-const num vDivide = 1 / 2;
+const double vDivide = 1 / 2;
 const int vFloorDivide = 1 ~/ 2;
 const int vModulo = 1 % 2;
 const bool vGreater = 1 > 2;
@@ -7852,7 +7847,7 @@ class C {
           r'''
 import 'a.dart';
 class C {
-  final num b =
+  final double b =
         a/*location: a.dart;a?*/ / 2;
 }
 ''');
@@ -7884,7 +7879,7 @@ class C {
 library lib;
 part 'a.dart';
 class C {
-  final num b =
+  final double b =
         a/*location: test.dart;a.dart;a?*/ / 2;
 }
 --------------------
@@ -8402,6 +8397,14 @@ void f<T, U>((U) → T x) {}
 void f<T, U>((U) → T x) {}
 ''');
     }
+  }
+
+  test_function_typed_parameter_implicit() {
+    var library = checkLibrary('f(g()) => null;');
+    expect(
+        library
+            .definingCompilationUnit.functions[0].parameters[0].hasImplicitType,
+        isFalse);
   }
 
   test_functions() {
@@ -10582,136 +10585,6 @@ dynamic main() {}
           library,
           r'''
 dynamic main() {}
-''');
-    }
-  }
-
-  test_localVariables_inConstructor() {
-    var library = checkLibrary(r'''
-class C {
-  C() {
-    int v;
-    f() {}
-  }
-}
-''');
-    if (isStrongMode) {
-      checkElementText(
-          library,
-          r'''
-class C {
-  C();
-}
-''');
-    } else {
-      checkElementText(
-          library,
-          r'''
-class C {
-  C();
-}
-''');
-    }
-  }
-
-  test_localVariables_inLocalFunction() {
-    var library = checkLibrary(r'''
-f() {
-  f1() {
-    int v1 = 1;
-  } // 2
-  f2() {
-    int v1 = 1;
-    f3() {
-      int v2 = 1;
-    }
-  }
-}
-''');
-    if (isStrongMode) {
-      checkElementText(
-          library,
-          r'''
-dynamic f() {}
-''');
-    } else {
-      checkElementText(
-          library,
-          r'''
-dynamic f() {}
-''');
-    }
-  }
-
-  test_localVariables_inMethod() {
-    var library = checkLibrary(r'''
-class C {
-  m() {
-    int v;
-  }
-}
-''');
-    if (isStrongMode) {
-      checkElementText(
-          library,
-          r'''
-class C {
-  dynamic m() {}
-}
-''');
-    } else {
-      checkElementText(
-          library,
-          r'''
-class C {
-  dynamic m() {}
-}
-''');
-    }
-  }
-
-  test_localVariables_inTopLevelFunction() {
-    var library = checkLibrary(r'''
-main() {
-  int v1 = 1;
-  {
-    const String v2 = 'bbb';
-  }
-  Map<int, List<double>> v3;
-}
-''');
-    if (isStrongMode) {
-      checkElementText(
-          library,
-          r'''
-dynamic main() {}
-''');
-    } else {
-      checkElementText(
-          library,
-          r'''
-dynamic main() {}
-''');
-    }
-  }
-
-  test_localVariables_inTopLevelGetter() {
-    var library = checkLibrary(r'''
-get g {
-  int v;
-}
-''');
-    if (isStrongMode) {
-      checkElementText(
-          library,
-          r'''
-dynamic get g {}
-''');
-    } else {
-      checkElementText(
-          library,
-          r'''
-dynamic get g {}
 ''');
     }
   }
@@ -15089,7 +14962,7 @@ const dynamic i = 0;
           library,
           r'''
 import 'a.dart';
-final num b;
+final double b;
 ''');
     } else {
       checkElementText(
@@ -15110,7 +14983,7 @@ final dynamic b;
           r'''
 library lib;
 part 'a.dart';
-final num b;
+final double b;
 --------------------
 unit: a.dart
 

@@ -7,10 +7,12 @@
 
 library analyzer.src.summary.format;
 
-import 'flat_buffers.dart' as fb;
-import 'idl.dart' as idl;
 import 'dart:convert' as convert;
-import 'api_signature.dart' as api_sig;
+
+import 'package:front_end/src/base/api_signature.dart' as api_sig;
+import 'package:front_end/src/base/flat_buffers.dart' as fb;
+
+import 'idl.dart' as idl;
 
 class _EntityRefKindReader extends fb.Reader<idl.EntityRefKind> {
   const _EntityRefKindReader() : super();
@@ -667,6 +669,172 @@ abstract class _AnalysisDriverResolvedUnitMixin
   String toString() => convert.JSON.encode(toJson());
 }
 
+class AnalysisDriverSubtypeBuilder extends Object
+    with _AnalysisDriverSubtypeMixin
+    implements idl.AnalysisDriverSubtype {
+  List<String> _members;
+  String _name;
+  List<String> _supertypes;
+
+  @override
+  List<String> get members => _members ??= <String>[];
+
+  /**
+   * The names of defined instance members.
+   * The list is sorted in ascending order.
+   */
+  void set members(List<String> value) {
+    this._members = value;
+  }
+
+  @override
+  String get name => _name ??= '';
+
+  /**
+   * The name of the class.
+   */
+  void set name(String value) {
+    this._name = value;
+  }
+
+  @override
+  List<String> get supertypes => _supertypes ??= <String>[];
+
+  /**
+   * The identifiers of the direct supertypes.
+   * The list is sorted in ascending order.
+   */
+  void set supertypes(List<String> value) {
+    this._supertypes = value;
+  }
+
+  AnalysisDriverSubtypeBuilder(
+      {List<String> members, String name, List<String> supertypes})
+      : _members = members,
+        _name = name,
+        _supertypes = supertypes;
+
+  /**
+   * Flush [informative] data recursively.
+   */
+  void flushInformative() {}
+
+  /**
+   * Accumulate non-[informative] data into [signature].
+   */
+  void collectApiSignature(api_sig.ApiSignature signature) {
+    signature.addString(this._name ?? '');
+    if (this._supertypes == null) {
+      signature.addInt(0);
+    } else {
+      signature.addInt(this._supertypes.length);
+      for (var x in this._supertypes) {
+        signature.addString(x);
+      }
+    }
+    if (this._members == null) {
+      signature.addInt(0);
+    } else {
+      signature.addInt(this._members.length);
+      for (var x in this._members) {
+        signature.addString(x);
+      }
+    }
+  }
+
+  fb.Offset finish(fb.Builder fbBuilder) {
+    fb.Offset offset_members;
+    fb.Offset offset_name;
+    fb.Offset offset_supertypes;
+    if (!(_members == null || _members.isEmpty)) {
+      offset_members = fbBuilder
+          .writeList(_members.map((b) => fbBuilder.writeString(b)).toList());
+    }
+    if (_name != null) {
+      offset_name = fbBuilder.writeString(_name);
+    }
+    if (!(_supertypes == null || _supertypes.isEmpty)) {
+      offset_supertypes = fbBuilder
+          .writeList(_supertypes.map((b) => fbBuilder.writeString(b)).toList());
+    }
+    fbBuilder.startTable();
+    if (offset_members != null) {
+      fbBuilder.addOffset(2, offset_members);
+    }
+    if (offset_name != null) {
+      fbBuilder.addOffset(0, offset_name);
+    }
+    if (offset_supertypes != null) {
+      fbBuilder.addOffset(1, offset_supertypes);
+    }
+    return fbBuilder.endTable();
+  }
+}
+
+class _AnalysisDriverSubtypeReader
+    extends fb.TableReader<_AnalysisDriverSubtypeImpl> {
+  const _AnalysisDriverSubtypeReader();
+
+  @override
+  _AnalysisDriverSubtypeImpl createObject(fb.BufferContext bc, int offset) =>
+      new _AnalysisDriverSubtypeImpl(bc, offset);
+}
+
+class _AnalysisDriverSubtypeImpl extends Object
+    with _AnalysisDriverSubtypeMixin
+    implements idl.AnalysisDriverSubtype {
+  final fb.BufferContext _bc;
+  final int _bcOffset;
+
+  _AnalysisDriverSubtypeImpl(this._bc, this._bcOffset);
+
+  List<String> _members;
+  String _name;
+  List<String> _supertypes;
+
+  @override
+  List<String> get members {
+    _members ??= const fb.ListReader<String>(const fb.StringReader())
+        .vTableGet(_bc, _bcOffset, 2, const <String>[]);
+    return _members;
+  }
+
+  @override
+  String get name {
+    _name ??= const fb.StringReader().vTableGet(_bc, _bcOffset, 0, '');
+    return _name;
+  }
+
+  @override
+  List<String> get supertypes {
+    _supertypes ??= const fb.ListReader<String>(const fb.StringReader())
+        .vTableGet(_bc, _bcOffset, 1, const <String>[]);
+    return _supertypes;
+  }
+}
+
+abstract class _AnalysisDriverSubtypeMixin
+    implements idl.AnalysisDriverSubtype {
+  @override
+  Map<String, Object> toJson() {
+    Map<String, Object> _result = <String, Object>{};
+    if (members.isNotEmpty) _result["members"] = members;
+    if (name != '') _result["name"] = name;
+    if (supertypes.isNotEmpty) _result["supertypes"] = supertypes;
+    return _result;
+  }
+
+  @override
+  Map<String, Object> toMap() => {
+        "members": members,
+        "name": name,
+        "supertypes": supertypes,
+      };
+
+  @override
+  String toString() => convert.JSON.encode(toJson());
+}
+
 class AnalysisDriverUnitErrorBuilder extends Object
     with _AnalysisDriverUnitErrorMixin
     implements idl.AnalysisDriverUnitError {
@@ -879,6 +1047,7 @@ class AnalysisDriverUnitIndexBuilder extends Object
   List<int> _elementUnits;
   int _nullStringId;
   List<String> _strings;
+  List<AnalysisDriverSubtypeBuilder> _subtypes;
   List<int> _unitLibraryUris;
   List<int> _unitUnitUris;
   List<bool> _usedElementIsQualifiedFlags;
@@ -981,6 +1150,17 @@ class AnalysisDriverUnitIndexBuilder extends Object
    */
   void set strings(List<String> value) {
     this._strings = value;
+  }
+
+  @override
+  List<AnalysisDriverSubtypeBuilder> get subtypes =>
+      _subtypes ??= <AnalysisDriverSubtypeBuilder>[];
+
+  /**
+   * The list of classes declared in the unit.
+   */
+  void set subtypes(List<AnalysisDriverSubtypeBuilder> value) {
+    this._subtypes = value;
   }
 
   @override
@@ -1123,6 +1303,7 @@ class AnalysisDriverUnitIndexBuilder extends Object
       List<int> elementUnits,
       int nullStringId,
       List<String> strings,
+      List<AnalysisDriverSubtypeBuilder> subtypes,
       List<int> unitLibraryUris,
       List<int> unitUnitUris,
       List<bool> usedElementIsQualifiedFlags,
@@ -1141,6 +1322,7 @@ class AnalysisDriverUnitIndexBuilder extends Object
         _elementUnits = elementUnits,
         _nullStringId = nullStringId,
         _strings = strings,
+        _subtypes = subtypes,
         _unitLibraryUris = unitLibraryUris,
         _unitUnitUris = unitUnitUris,
         _usedElementIsQualifiedFlags = usedElementIsQualifiedFlags,
@@ -1156,7 +1338,9 @@ class AnalysisDriverUnitIndexBuilder extends Object
   /**
    * Flush [informative] data recursively.
    */
-  void flushInformative() {}
+  void flushInformative() {
+    _subtypes?.forEach((b) => b.flushInformative());
+  }
 
   /**
    * Accumulate non-[informative] data into [signature].
@@ -1299,6 +1483,14 @@ class AnalysisDriverUnitIndexBuilder extends Object
         signature.addBool(x);
       }
     }
+    if (this._subtypes == null) {
+      signature.addInt(0);
+    } else {
+      signature.addInt(this._subtypes.length);
+      for (var x in this._subtypes) {
+        x?.collectApiSignature(signature);
+      }
+    }
   }
 
   List<int> toBuffer() {
@@ -1313,6 +1505,7 @@ class AnalysisDriverUnitIndexBuilder extends Object
     fb.Offset offset_elementNameUnitMemberIds;
     fb.Offset offset_elementUnits;
     fb.Offset offset_strings;
+    fb.Offset offset_subtypes;
     fb.Offset offset_unitLibraryUris;
     fb.Offset offset_unitUnitUris;
     fb.Offset offset_usedElementIsQualifiedFlags;
@@ -1349,6 +1542,10 @@ class AnalysisDriverUnitIndexBuilder extends Object
     if (!(_strings == null || _strings.isEmpty)) {
       offset_strings = fbBuilder
           .writeList(_strings.map((b) => fbBuilder.writeString(b)).toList());
+    }
+    if (!(_subtypes == null || _subtypes.isEmpty)) {
+      offset_subtypes = fbBuilder
+          .writeList(_subtypes.map((b) => b.finish(fbBuilder)).toList());
     }
     if (!(_unitLibraryUris == null || _unitLibraryUris.isEmpty)) {
       offset_unitLibraryUris = fbBuilder.writeListUint32(_unitLibraryUris);
@@ -1412,6 +1609,9 @@ class AnalysisDriverUnitIndexBuilder extends Object
     }
     if (offset_strings != null) {
       fbBuilder.addOffset(0, offset_strings);
+    }
+    if (offset_subtypes != null) {
+      fbBuilder.addOffset(18, offset_subtypes);
     }
     if (offset_unitLibraryUris != null) {
       fbBuilder.addOffset(2, offset_unitLibraryUris);
@@ -1479,6 +1679,7 @@ class _AnalysisDriverUnitIndexImpl extends Object
   List<int> _elementUnits;
   int _nullStringId;
   List<String> _strings;
+  List<idl.AnalysisDriverSubtype> _subtypes;
   List<int> _unitLibraryUris;
   List<int> _unitUnitUris;
   List<bool> _usedElementIsQualifiedFlags;
@@ -1538,6 +1739,14 @@ class _AnalysisDriverUnitIndexImpl extends Object
     _strings ??= const fb.ListReader<String>(const fb.StringReader())
         .vTableGet(_bc, _bcOffset, 0, const <String>[]);
     return _strings;
+  }
+
+  @override
+  List<idl.AnalysisDriverSubtype> get subtypes {
+    _subtypes ??= const fb.ListReader<idl.AnalysisDriverSubtype>(
+            const _AnalysisDriverSubtypeReader())
+        .vTableGet(_bc, _bcOffset, 18, const <idl.AnalysisDriverSubtype>[]);
+    return _subtypes;
   }
 
   @override
@@ -1638,6 +1847,8 @@ abstract class _AnalysisDriverUnitIndexMixin
     if (elementUnits.isNotEmpty) _result["elementUnits"] = elementUnits;
     if (nullStringId != 0) _result["nullStringId"] = nullStringId;
     if (strings.isNotEmpty) _result["strings"] = strings;
+    if (subtypes.isNotEmpty)
+      _result["subtypes"] = subtypes.map((_value) => _value.toJson()).toList();
     if (unitLibraryUris.isNotEmpty)
       _result["unitLibraryUris"] = unitLibraryUris;
     if (unitUnitUris.isNotEmpty) _result["unitUnitUris"] = unitUnitUris;
@@ -1673,6 +1884,7 @@ abstract class _AnalysisDriverUnitIndexMixin
         "elementUnits": elementUnits,
         "nullStringId": nullStringId,
         "strings": strings,
+        "subtypes": subtypes,
         "unitLibraryUris": unitLibraryUris,
         "unitUnitUris": unitUnitUris,
         "usedElementIsQualifiedFlags": usedElementIsQualifiedFlags,
@@ -1696,6 +1908,7 @@ class AnalysisDriverUnlinkedUnitBuilder extends Object
   List<String> _definedClassMemberNames;
   List<String> _definedTopLevelNames;
   List<String> _referencedNames;
+  List<String> _subtypedNames;
   UnlinkedUnitBuilder _unit;
 
   @override
@@ -1730,6 +1943,17 @@ class AnalysisDriverUnlinkedUnitBuilder extends Object
   }
 
   @override
+  List<String> get subtypedNames => _subtypedNames ??= <String>[];
+
+  /**
+   * List of names which are used in `extends`, `with` or `implements` clauses
+   * in the file. Import prefixes and type arguments are not included.
+   */
+  void set subtypedNames(List<String> value) {
+    this._subtypedNames = value;
+  }
+
+  @override
   UnlinkedUnitBuilder get unit => _unit;
 
   /**
@@ -1743,10 +1967,12 @@ class AnalysisDriverUnlinkedUnitBuilder extends Object
       {List<String> definedClassMemberNames,
       List<String> definedTopLevelNames,
       List<String> referencedNames,
+      List<String> subtypedNames,
       UnlinkedUnitBuilder unit})
       : _definedClassMemberNames = definedClassMemberNames,
         _definedTopLevelNames = definedTopLevelNames,
         _referencedNames = referencedNames,
+        _subtypedNames = subtypedNames,
         _unit = unit;
 
   /**
@@ -1786,6 +2012,14 @@ class AnalysisDriverUnlinkedUnitBuilder extends Object
         signature.addString(x);
       }
     }
+    if (this._subtypedNames == null) {
+      signature.addInt(0);
+    } else {
+      signature.addInt(this._subtypedNames.length);
+      for (var x in this._subtypedNames) {
+        signature.addString(x);
+      }
+    }
   }
 
   List<int> toBuffer() {
@@ -1797,6 +2031,7 @@ class AnalysisDriverUnlinkedUnitBuilder extends Object
     fb.Offset offset_definedClassMemberNames;
     fb.Offset offset_definedTopLevelNames;
     fb.Offset offset_referencedNames;
+    fb.Offset offset_subtypedNames;
     fb.Offset offset_unit;
     if (!(_definedClassMemberNames == null ||
         _definedClassMemberNames.isEmpty)) {
@@ -1813,6 +2048,10 @@ class AnalysisDriverUnlinkedUnitBuilder extends Object
       offset_referencedNames = fbBuilder.writeList(
           _referencedNames.map((b) => fbBuilder.writeString(b)).toList());
     }
+    if (!(_subtypedNames == null || _subtypedNames.isEmpty)) {
+      offset_subtypedNames = fbBuilder.writeList(
+          _subtypedNames.map((b) => fbBuilder.writeString(b)).toList());
+    }
     if (_unit != null) {
       offset_unit = _unit.finish(fbBuilder);
     }
@@ -1825,6 +2064,9 @@ class AnalysisDriverUnlinkedUnitBuilder extends Object
     }
     if (offset_referencedNames != null) {
       fbBuilder.addOffset(0, offset_referencedNames);
+    }
+    if (offset_subtypedNames != null) {
+      fbBuilder.addOffset(4, offset_subtypedNames);
     }
     if (offset_unit != null) {
       fbBuilder.addOffset(1, offset_unit);
@@ -1860,6 +2102,7 @@ class _AnalysisDriverUnlinkedUnitImpl extends Object
   List<String> _definedClassMemberNames;
   List<String> _definedTopLevelNames;
   List<String> _referencedNames;
+  List<String> _subtypedNames;
   idl.UnlinkedUnit _unit;
 
   @override
@@ -1886,6 +2129,13 @@ class _AnalysisDriverUnlinkedUnitImpl extends Object
   }
 
   @override
+  List<String> get subtypedNames {
+    _subtypedNames ??= const fb.ListReader<String>(const fb.StringReader())
+        .vTableGet(_bc, _bcOffset, 4, const <String>[]);
+    return _subtypedNames;
+  }
+
+  @override
   idl.UnlinkedUnit get unit {
     _unit ??= const _UnlinkedUnitReader().vTableGet(_bc, _bcOffset, 1, null);
     return _unit;
@@ -1903,6 +2153,7 @@ abstract class _AnalysisDriverUnlinkedUnitMixin
       _result["definedTopLevelNames"] = definedTopLevelNames;
     if (referencedNames.isNotEmpty)
       _result["referencedNames"] = referencedNames;
+    if (subtypedNames.isNotEmpty) _result["subtypedNames"] = subtypedNames;
     if (unit != null) _result["unit"] = unit.toJson();
     return _result;
   }
@@ -1912,6 +2163,7 @@ abstract class _AnalysisDriverUnlinkedUnitMixin
         "definedClassMemberNames": definedClassMemberNames,
         "definedTopLevelNames": definedTopLevelNames,
         "referencedNames": referencedNames,
+        "subtypedNames": subtypedNames,
         "unit": unit,
       };
 
@@ -3145,9 +3397,7 @@ class LinkedReferenceBuilder extends Object
   /**
    * If [kind] is [ReferenceKind.function] (that is, the entity being referred
    * to is a local function), the index of the function within
-   * [UnlinkedExecutable.localFunctions].  If [kind] is
-   * [ReferenceKind.variable], the index of the variable within
-   * [UnlinkedExecutable.localVariables].  Otherwise zero.
+   * [UnlinkedExecutable.localFunctions].  Otherwise zero.
    */
   void set localIndex(int value) {
     assert(value == null || value >= 0);
@@ -7133,8 +7383,6 @@ class UnlinkedExecutableBuilder extends Object
   bool _isStatic;
   idl.UnlinkedExecutableKind _kind;
   List<UnlinkedExecutableBuilder> _localFunctions;
-  List<UnlinkedLabelBuilder> _localLabels;
-  List<UnlinkedVariableBuilder> _localVariables;
   String _name;
   int _nameEnd;
   int _nameOffset;
@@ -7344,26 +7592,12 @@ class UnlinkedExecutableBuilder extends Object
   }
 
   @override
-  List<UnlinkedLabelBuilder> get localLabels =>
-      _localLabels ??= <UnlinkedLabelBuilder>[];
-
-  /**
-   * The list of local labels.
-   */
-  void set localLabels(List<UnlinkedLabelBuilder> value) {
-    this._localLabels = value;
-  }
+  List<String> get localLabels =>
+      throw new UnimplementedError('attempt to access deprecated field');
 
   @override
   List<UnlinkedVariableBuilder> get localVariables =>
-      _localVariables ??= <UnlinkedVariableBuilder>[];
-
-  /**
-   * The list of local variables.
-   */
-  void set localVariables(List<UnlinkedVariableBuilder> value) {
-    this._localVariables = value;
-  }
+      throw new UnimplementedError('attempt to access deprecated field');
 
   @override
   String get name => _name ??= '';
@@ -7517,8 +7751,6 @@ class UnlinkedExecutableBuilder extends Object
       bool isStatic,
       idl.UnlinkedExecutableKind kind,
       List<UnlinkedExecutableBuilder> localFunctions,
-      List<UnlinkedLabelBuilder> localLabels,
-      List<UnlinkedVariableBuilder> localVariables,
       String name,
       int nameEnd,
       int nameOffset,
@@ -7547,8 +7779,6 @@ class UnlinkedExecutableBuilder extends Object
         _isStatic = isStatic,
         _kind = kind,
         _localFunctions = localFunctions,
-        _localLabels = localLabels,
-        _localVariables = localVariables,
         _name = name,
         _nameEnd = nameEnd,
         _nameOffset = nameOffset,
@@ -7573,8 +7803,6 @@ class UnlinkedExecutableBuilder extends Object
     _isAsynchronous = null;
     _isGenerator = null;
     _localFunctions?.forEach((b) => b.flushInformative());
-    _localLabels = null;
-    _localVariables = null;
     _nameEnd = null;
     _nameOffset = null;
     _parameters?.forEach((b) => b.flushInformative());
@@ -7656,8 +7884,6 @@ class UnlinkedExecutableBuilder extends Object
     fb.Offset offset_constantInitializers;
     fb.Offset offset_documentationComment;
     fb.Offset offset_localFunctions;
-    fb.Offset offset_localLabels;
-    fb.Offset offset_localVariables;
     fb.Offset offset_name;
     fb.Offset offset_parameters;
     fb.Offset offset_redirectedConstructor;
@@ -7684,14 +7910,6 @@ class UnlinkedExecutableBuilder extends Object
     if (!(_localFunctions == null || _localFunctions.isEmpty)) {
       offset_localFunctions = fbBuilder
           .writeList(_localFunctions.map((b) => b.finish(fbBuilder)).toList());
-    }
-    if (!(_localLabels == null || _localLabels.isEmpty)) {
-      offset_localLabels = fbBuilder
-          .writeList(_localLabels.map((b) => b.finish(fbBuilder)).toList());
-    }
-    if (!(_localVariables == null || _localVariables.isEmpty)) {
-      offset_localVariables = fbBuilder
-          .writeList(_localVariables.map((b) => b.finish(fbBuilder)).toList());
     }
     if (_name != null) {
       offset_name = fbBuilder.writeString(_name);
@@ -7766,12 +7984,6 @@ class UnlinkedExecutableBuilder extends Object
     if (offset_localFunctions != null) {
       fbBuilder.addOffset(18, offset_localFunctions);
     }
-    if (offset_localLabels != null) {
-      fbBuilder.addOffset(22, offset_localLabels);
-    }
-    if (offset_localVariables != null) {
-      fbBuilder.addOffset(19, offset_localVariables);
-    }
     if (offset_name != null) {
       fbBuilder.addOffset(1, offset_name);
     }
@@ -7843,8 +8055,6 @@ class _UnlinkedExecutableImpl extends Object
   bool _isStatic;
   idl.UnlinkedExecutableKind _kind;
   List<idl.UnlinkedExecutable> _localFunctions;
-  List<idl.UnlinkedLabel> _localLabels;
-  List<idl.UnlinkedVariable> _localVariables;
   String _name;
   int _nameEnd;
   int _nameOffset;
@@ -7975,20 +8185,12 @@ class _UnlinkedExecutableImpl extends Object
   }
 
   @override
-  List<idl.UnlinkedLabel> get localLabels {
-    _localLabels ??=
-        const fb.ListReader<idl.UnlinkedLabel>(const _UnlinkedLabelReader())
-            .vTableGet(_bc, _bcOffset, 22, const <idl.UnlinkedLabel>[]);
-    return _localLabels;
-  }
+  List<String> get localLabels =>
+      throw new UnimplementedError('attempt to access deprecated field');
 
   @override
-  List<idl.UnlinkedVariable> get localVariables {
-    _localVariables ??= const fb.ListReader<idl.UnlinkedVariable>(
-            const _UnlinkedVariableReader())
-        .vTableGet(_bc, _bcOffset, 19, const <idl.UnlinkedVariable>[]);
-    return _localVariables;
-  }
+  List<idl.UnlinkedVariable> get localVariables =>
+      throw new UnimplementedError('attempt to access deprecated field');
 
   @override
   String get name {
@@ -8094,12 +8296,6 @@ abstract class _UnlinkedExecutableMixin implements idl.UnlinkedExecutable {
     if (localFunctions.isNotEmpty)
       _result["localFunctions"] =
           localFunctions.map((_value) => _value.toJson()).toList();
-    if (localLabels.isNotEmpty)
-      _result["localLabels"] =
-          localLabels.map((_value) => _value.toJson()).toList();
-    if (localVariables.isNotEmpty)
-      _result["localVariables"] =
-          localVariables.map((_value) => _value.toJson()).toList();
     if (name != '') _result["name"] = name;
     if (nameEnd != 0) _result["nameEnd"] = nameEnd;
     if (nameOffset != 0) _result["nameOffset"] = nameOffset;
@@ -8139,8 +8335,6 @@ abstract class _UnlinkedExecutableMixin implements idl.UnlinkedExecutable {
         "isStatic": isStatic,
         "kind": kind,
         "localFunctions": localFunctions,
-        "localLabels": localLabels,
-        "localVariables": localVariables,
         "name": name,
         "nameEnd": nameEnd,
         "nameOffset": nameOffset,
@@ -9271,177 +9465,6 @@ abstract class _UnlinkedImportMixin implements idl.UnlinkedImport {
         "uri": uri,
         "uriEnd": uriEnd,
         "uriOffset": uriOffset,
-      };
-
-  @override
-  String toString() => convert.JSON.encode(toJson());
-}
-
-class UnlinkedLabelBuilder extends Object
-    with _UnlinkedLabelMixin
-    implements idl.UnlinkedLabel {
-  bool _isOnSwitchMember;
-  bool _isOnSwitchStatement;
-  String _name;
-  int _nameOffset;
-
-  @override
-  bool get isOnSwitchMember => _isOnSwitchMember ??= false;
-
-  /**
-   * Return `true` if this label is associated with a `switch` member (`case` or
-   * `default`).
-   */
-  void set isOnSwitchMember(bool value) {
-    this._isOnSwitchMember = value;
-  }
-
-  @override
-  bool get isOnSwitchStatement => _isOnSwitchStatement ??= false;
-
-  /**
-   * Return `true` if this label is associated with a `switch` statement.
-   */
-  void set isOnSwitchStatement(bool value) {
-    this._isOnSwitchStatement = value;
-  }
-
-  @override
-  String get name => _name ??= '';
-
-  /**
-   * Name of the label.
-   */
-  void set name(String value) {
-    this._name = value;
-  }
-
-  @override
-  int get nameOffset => _nameOffset ??= 0;
-
-  /**
-   * Offset of the label relative to the beginning of the file.
-   */
-  void set nameOffset(int value) {
-    assert(value == null || value >= 0);
-    this._nameOffset = value;
-  }
-
-  UnlinkedLabelBuilder(
-      {bool isOnSwitchMember,
-      bool isOnSwitchStatement,
-      String name,
-      int nameOffset})
-      : _isOnSwitchMember = isOnSwitchMember,
-        _isOnSwitchStatement = isOnSwitchStatement,
-        _name = name,
-        _nameOffset = nameOffset;
-
-  /**
-   * Flush [informative] data recursively.
-   */
-  void flushInformative() {
-    _nameOffset = null;
-  }
-
-  /**
-   * Accumulate non-[informative] data into [signature].
-   */
-  void collectApiSignature(api_sig.ApiSignature signature) {
-    signature.addString(this._name ?? '');
-    signature.addBool(this._isOnSwitchMember == true);
-    signature.addBool(this._isOnSwitchStatement == true);
-  }
-
-  fb.Offset finish(fb.Builder fbBuilder) {
-    fb.Offset offset_name;
-    if (_name != null) {
-      offset_name = fbBuilder.writeString(_name);
-    }
-    fbBuilder.startTable();
-    if (_isOnSwitchMember == true) {
-      fbBuilder.addBool(2, true);
-    }
-    if (_isOnSwitchStatement == true) {
-      fbBuilder.addBool(3, true);
-    }
-    if (offset_name != null) {
-      fbBuilder.addOffset(0, offset_name);
-    }
-    if (_nameOffset != null && _nameOffset != 0) {
-      fbBuilder.addUint32(1, _nameOffset);
-    }
-    return fbBuilder.endTable();
-  }
-}
-
-class _UnlinkedLabelReader extends fb.TableReader<_UnlinkedLabelImpl> {
-  const _UnlinkedLabelReader();
-
-  @override
-  _UnlinkedLabelImpl createObject(fb.BufferContext bc, int offset) =>
-      new _UnlinkedLabelImpl(bc, offset);
-}
-
-class _UnlinkedLabelImpl extends Object
-    with _UnlinkedLabelMixin
-    implements idl.UnlinkedLabel {
-  final fb.BufferContext _bc;
-  final int _bcOffset;
-
-  _UnlinkedLabelImpl(this._bc, this._bcOffset);
-
-  bool _isOnSwitchMember;
-  bool _isOnSwitchStatement;
-  String _name;
-  int _nameOffset;
-
-  @override
-  bool get isOnSwitchMember {
-    _isOnSwitchMember ??=
-        const fb.BoolReader().vTableGet(_bc, _bcOffset, 2, false);
-    return _isOnSwitchMember;
-  }
-
-  @override
-  bool get isOnSwitchStatement {
-    _isOnSwitchStatement ??=
-        const fb.BoolReader().vTableGet(_bc, _bcOffset, 3, false);
-    return _isOnSwitchStatement;
-  }
-
-  @override
-  String get name {
-    _name ??= const fb.StringReader().vTableGet(_bc, _bcOffset, 0, '');
-    return _name;
-  }
-
-  @override
-  int get nameOffset {
-    _nameOffset ??= const fb.Uint32Reader().vTableGet(_bc, _bcOffset, 1, 0);
-    return _nameOffset;
-  }
-}
-
-abstract class _UnlinkedLabelMixin implements idl.UnlinkedLabel {
-  @override
-  Map<String, Object> toJson() {
-    Map<String, Object> _result = <String, Object>{};
-    if (isOnSwitchMember != false)
-      _result["isOnSwitchMember"] = isOnSwitchMember;
-    if (isOnSwitchStatement != false)
-      _result["isOnSwitchStatement"] = isOnSwitchStatement;
-    if (name != '') _result["name"] = name;
-    if (nameOffset != 0) _result["nameOffset"] = nameOffset;
-    return _result;
-  }
-
-  @override
-  Map<String, Object> toMap() => {
-        "isOnSwitchMember": isOnSwitchMember,
-        "isOnSwitchStatement": isOnSwitchStatement,
-        "name": name,
-        "nameOffset": nameOffset,
       };
 
   @override

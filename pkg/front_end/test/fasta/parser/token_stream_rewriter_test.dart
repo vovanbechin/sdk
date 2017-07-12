@@ -4,7 +4,8 @@
 
 import 'package:front_end/src/fasta/parser/token_stream_rewriter.dart';
 import 'package:front_end/src/fasta/scanner/token.dart';
-import 'package:front_end/src/scanner/token.dart' show TokenType;
+import 'package:front_end/src/scanner/token.dart'
+    show BeginToken, Token, TokenType;
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
@@ -25,7 +26,7 @@ abstract class TokenStreamRewriterTest {
     var b = _makeToken(1, 'b');
     var eof = _link([a]);
     var rewriter = new TokenStreamRewriter(a);
-    rewriter.insertTokenBefore(b, eof);
+    expect(rewriter.insertTokenBefore(b, eof), same(b));
     expect(rewriter.firstToken, same(a));
     expect(a.next, same(b));
     expect(b.next, same(eof));
@@ -38,7 +39,7 @@ abstract class TokenStreamRewriterTest {
     var b = _makeToken(1, 'b');
     _link([b]);
     var rewriter = new TokenStreamRewriter(b);
-    rewriter.insertTokenBefore(a, b);
+    expect(rewriter.insertTokenBefore(a, b), same(a));
     expect(rewriter.firstToken, same(a));
     expect(a.next, same(b));
     expect(a.previous.next, same(a));
@@ -104,7 +105,7 @@ abstract class TokenStreamRewriterTest {
   ///
   /// The EOF token is returned.
   Token _link(Iterable<Token> tokens) {
-    Token head = new SymbolToken.eof(-1);
+    Token head = new Token.eof(-1);
     if (!setPrevious) head.previous = null;
     for (var token in tokens) {
       head.next = token;
@@ -113,15 +114,15 @@ abstract class TokenStreamRewriterTest {
     }
     int eofOffset = head.charOffset + head.lexeme.length;
     if (eofOffset < 0) eofOffset = 0;
-    Token eof = new SymbolToken.eof(eofOffset);
+    Token eof = new Token.eof(eofOffset);
     if (!setPrevious) eof.previous = null;
     head.next = eof;
     if (setPrevious) eof.previous = head;
     return eof;
   }
 
-  BeginGroupToken _makeBeginGroupToken(int charOffset) {
-    return new BeginGroupToken(TokenType.OPEN_PAREN, charOffset);
+  BeginToken _makeBeginGroupToken(int charOffset) {
+    return new BeginToken(TokenType.OPEN_PAREN, charOffset);
   }
 
   StringToken _makeToken(int charOffset, String text) {
@@ -132,7 +133,7 @@ abstract class TokenStreamRewriterTest {
 /// Concrete implementation of [TokenStreamRewriterTest] in which
 /// [Token.previous] values are set to null.
 ///
-/// This forces [TokenStreamRewriter] to use its more complex heursitc for
+/// This forces [TokenStreamRewriter] to use its more complex heuristic for
 /// finding previous tokens.
 @reflectiveTest
 class TokenStreamRewriterTest_NoPrevious extends TokenStreamRewriterTest {

@@ -2,11 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.services.correction.name_suggestion;
-
 import 'package:analysis_server/src/services/correction/name_suggestion.dart';
 import 'package:analyzer/dart/ast/ast.dart';
-import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/dart/element/type.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
@@ -42,7 +39,7 @@ main() {
 }
 ''');
     Set<String> excluded = new Set<String>.from([]);
-    DartType expectedType = (findElement('node') as LocalVariableElement).type;
+    DartType expectedType = findLocalVariable('node').type;
     Expression assignedExpression =
         findNodeAtString('null;', (node) => node is NullLiteral);
     List<String> suggestions = getVariableNameSuggestionsForExpression(
@@ -56,7 +53,7 @@ main() {
   double res = 0.0;
 }
 ''');
-    DartType expectedType = (findElement('res') as LocalVariableElement).type;
+    DartType expectedType = findLocalVariable('res').type;
     Expression assignedExpression = findNodeAtString('0.0;');
     // first choice for "double" is "d"
     expect(
@@ -76,7 +73,7 @@ main() {
   int res = 0;
 }
 ''');
-    DartType expectedType = (findElement('res') as LocalVariableElement).type;
+    DartType expectedType = findLocalVariable('res').type;
     Expression assignedExpression = findNodeAtString('0;');
     // first choice for "int" is "i"
     expect(
@@ -96,7 +93,7 @@ main() {
   String res = 'abc';
 }
 ''');
-    DartType expectedType = (findElement('res') as LocalVariableElement).type;
+    DartType expectedType = findLocalVariable('res').type;
     Expression assignedExpression = findNodeAtString("'abc';");
     // first choice for "String" is "s"
     expect(

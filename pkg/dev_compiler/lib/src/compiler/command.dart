@@ -180,13 +180,21 @@ void _compile(ArgResults argResults, AnalyzerOptions analyzerOptions,
     modulePath = path.basenameWithoutExtension(firstOutPath);
   }
 
-  var unit = new BuildUnit(modulePath, libraryRoot, argResults.rest,
-      (source) => _moduleForLibrary(moduleRoot, source, compilerOpts));
+  var unit = new BuildUnit(
+      modulePath,
+      libraryRoot,
+      argResults.rest,
+      (source) =>
+          _moduleForLibrary(moduleRoot, source, analyzerOptions, compilerOpts));
 
   var module = compiler.compile(unit, compilerOpts);
   module.errors.forEach(printFn);
 
-  if (!module.isValid) throw new CompileErrorException();
+  if (!module.isValid) {
+    throw compilerOpts.unsafeForceCompile
+        ? new ForceCompileErrorException()
+        : new CompileErrorException();
+  }
 
   // Write JS file, as well as source map and summary (if requested).
   for (var i = 0; i < outPaths.length; i++) {
@@ -213,10 +221,15 @@ void _compile(ArgResults argResults, AnalyzerOptions analyzerOptions,
   }
 }
 
-String _moduleForLibrary(
-    String moduleRoot, Source source, CompilerOptions compilerOpts) {
+String _moduleForLibrary(String moduleRoot, Source source,
+    AnalyzerOptions analyzerOptions, CompilerOptions compilerOpts) {
   if (source is InSummarySource) {
     var summaryPath = source.summaryPath;
+
+    if (analyzerOptions.customSummaryModules.containsKey(summaryPath)) {
+      return analyzerOptions.customSummaryModules[summaryPath];
+    }
+
     var ext = '.${compilerOpts.summaryExtension}';
     if (path.isWithin(moduleRoot, summaryPath) && summaryPath.endsWith(ext)) {
       var buildUnitPath =
@@ -261,4 +274,10 @@ void _usageException(String message) {
 /// Thrown when the input source code has errors.
 class CompileErrorException implements Exception {
   toString() => '\nPlease fix all errors before compiling (warnings are okay).';
+}
+
+/// Thrown when force compilation failed (probably due to static errors).
+class ForceCompileErrorException extends CompileErrorException {
+  toString() =>
+      '\nForce-compilation not successful. Please check static errors.';
 }

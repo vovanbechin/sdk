@@ -322,6 +322,7 @@ class SimulatorHelpers {
       uword tags = 0;
       tags = RawObject::ClassIdTag::update(kDoubleCid, tags);
       tags = RawObject::SizeTag::update(instance_size, tags);
+      // Also writes zero in the hash_ field.
       *reinterpret_cast<uword*>(start + Double::tags_offset()) = tags;
       *reinterpret_cast<double*>(start + Double::value_offset()) = value;
       return reinterpret_cast<RawObject*>(start + kHeapObjectTag);
@@ -542,6 +543,8 @@ Simulator::Simulator() : stack_(NULL), fp_(NULL) {
                          sizeof(uintptr_t)];
   last_setjmp_buffer_ = NULL;
   top_exit_frame_info_ = 0;
+
+  NOT_IN_PRODUCT(icount_ = 0;)
 }
 
 
@@ -573,6 +576,26 @@ uword Simulator::StackTop() const {
   return StackBase() +
          (OSThread::GetSpecifiedStackSize() + OSThread::kStackSizeBuffer);
 }
+
+
+#if !defined(PRODUCT)
+// Returns true if tracing of executed instructions is enabled.
+DART_FORCE_INLINE bool Simulator::IsTracingExecution() const {
+  return icount_ > FLAG_trace_sim_after;
+}
+
+
+// Prints bytecode instruction at given pc for instruction tracing.
+DART_NOINLINE void Simulator::TraceInstruction(uint32_t* pc) const {
+  THR_Print("%" Pu64 " ", icount_);
+  if (FLAG_support_disassembler) {
+    Disassembler::Disassemble(reinterpret_cast<uword>(pc),
+                              reinterpret_cast<uword>(pc + 1));
+  } else {
+    THR_Print("Disassembler not supported in this mode.\n");
+  }
+}
+#endif  // !defined(PRODUCT)
 
 
 // Calls into the Dart runtime are based on this interface.
@@ -984,12 +1007,24 @@ static DART_NOINLINE bool InvokeNativeAutoScopeWrapper(Thread* thread,
 
 // Note: all macro helpers are intended to be used only inside Simulator::Call.
 
+// Counts and prints executed bytecode instructions (in a non-PRODUCT mode).
+#if !defined(PRODUCT)
+#define TRACE_INSTRUCTION                                                      \
+  icount_++;                                                                   \
+  if (IsTracingExecution()) {                                                  \
+    TraceInstruction(pc - 1);                                                  \
+  }
+#else
+#define TRACE_INSTRUCTION
+#endif  // !defined(PRODUCT)
+
 // Decode opcode and A part of the given value and dispatch to the
 // corresponding bytecode handler.
 #define DISPATCH_OP(val)                                                       \
   do {                                                                         \
     op = (val);                                                                \
     rA = ((op >> 8) & 0xFF);                                                   \
+    TRACE_INSTRUCTION                                                          \
     goto* dispatch[op & 0xFF];                                                 \
   } while (0)
 
@@ -1753,7 +1788,7 @@ RawObject* Simulator::Call(const Code& code,
     // Invoke target function.
     {
       const uint16_t argc = rA;
-      // Lookup the funciton in the ICData.
+      // Look up the function in the ICData.
       RawObject* ic_data_obj = SP[0];
       RawICData* ic_data = RAW_CAST(ICData, ic_data_obj);
       RawObject** data = ic_data->ptr()->ic_data_->ptr()->data();
@@ -2855,9 +2890,10 @@ RawObject* Simulator::Call(const Code& code,
     const intptr_t instance_size = Context::InstanceSize(num_context_variables);
     const uword start = thread->heap()->new_space()->TryAllocate(instance_size);
     if (LIKELY(start != 0)) {
-      uword tags = 0;
+      uint32_t tags = 0;
       tags = RawObject::ClassIdTag::update(kContextCid, tags);
       tags = RawObject::SizeTag::update(instance_size, tags);
+      // Also writes 0 in the hash_ field of the header.
       *reinterpret_cast<uword*>(start + Array::tags_offset()) = tags;
       *reinterpret_cast<uword*>(start + Context::num_variables_offset()) =
           num_context_variables;
@@ -2898,6 +2934,7 @@ RawObject* Simulator::Call(const Code& code,
     const intptr_t instance_size = RawObject::SizeTag::decode(tags);
     const uword start = thread->heap()->new_space()->TryAllocate(instance_size);
     if (LIKELY(start != 0)) {
+      // Writes both the tags and the initial identity hash on 64 bit platforms.
       *reinterpret_cast<uword*>(start + Instance::tags_offset()) = tags;
       for (intptr_t current_offset = sizeof(RawInstance);
            current_offset < instance_size; current_offset += kWordSize) {
@@ -2929,6 +2966,7 @@ RawObject* Simulator::Call(const Code& code,
     if (LIKELY(start != 0)) {
       RawObject* type_args = SP[0];
       const intptr_t type_args_offset = Bytecode::DecodeD(*pc);
+      // Writes both the tags and the initial identity hash on 64 bit platforms.
       *reinterpret_cast<uword*>(start + Instance::tags_offset()) = tags;
       for (intptr_t current_offset = sizeof(RawInstance);
            current_offset < instance_size; current_offset += kWordSize) {
@@ -2955,31 +2993,38 @@ RawObject* Simulator::Call(const Code& code,
 
   {
     BYTECODE(CreateArrayOpt, A_B_C);
-    const intptr_t length = Smi::Value(RAW_CAST(Smi, FP[rB]));
-    if (LIKELY(static_cast<uintptr_t>(length) <= Array::kMaxElements)) {
-      const intptr_t fixed_size = sizeof(RawArray) + kObjectAlignment - 1;
-      const intptr_t instance_size =
-          (fixed_size + length * kWordSize) & ~(kObjectAlignment - 1);
-      const uword start =
-          thread->heap()->new_space()->TryAllocate(instance_size);
-      if (LIKELY(start != 0)) {
-        const intptr_t cid = kArrayCid;
-        uword tags = 0;
-        if (LIKELY(instance_size < RawObject::SizeTag::kMaxSizeTag)) {
-          tags = RawObject::SizeTag::update(instance_size, tags);
+    if (LIKELY(!FP[rB]->IsHeapObject())) {
+      const intptr_t length = Smi::Value(RAW_CAST(Smi, FP[rB]));
+      if (LIKELY(static_cast<uintptr_t>(length) <= Array::kMaxElements)) {
+        const intptr_t fixed_size_plus_alignment_padding =
+            sizeof(RawArray) + kObjectAlignment - 1;
+        const intptr_t instance_size =
+            (fixed_size_plus_alignment_padding + length * kWordSize) &
+            ~(kObjectAlignment - 1);
+        const uword start =
+            thread->heap()->new_space()->TryAllocate(instance_size);
+        if (LIKELY(start != 0)) {
+          const intptr_t cid = kArrayCid;
+          uword tags = 0;
+          if (LIKELY(instance_size <= RawObject::SizeTag::kMaxSizeTag)) {
+            tags = RawObject::SizeTag::update(instance_size, tags);
+          }
+          tags = RawObject::ClassIdTag::update(cid, tags);
+          // Writes both the tags and the initial identity hash on 64 bit
+          // platforms.
+          *reinterpret_cast<uword*>(start + Instance::tags_offset()) = tags;
+          *reinterpret_cast<RawObject**>(start + Array::length_offset()) =
+              FP[rB];
+          *reinterpret_cast<RawObject**>(
+              start + Array::type_arguments_offset()) = FP[rC];
+          RawObject** data =
+              reinterpret_cast<RawObject**>(start + Array::data_offset());
+          for (intptr_t i = 0; i < length; i++) {
+            data[i] = null_value;
+          }
+          FP[rA] = reinterpret_cast<RawObject*>(start + kHeapObjectTag);
+          pc += 4;
         }
-        tags = RawObject::ClassIdTag::update(cid, tags);
-        *reinterpret_cast<uword*>(start + Instance::tags_offset()) = tags;
-        *reinterpret_cast<RawObject**>(start + Array::length_offset()) = FP[rB];
-        *reinterpret_cast<RawObject**>(start + Array::type_arguments_offset()) =
-            FP[rC];
-        RawObject** data =
-            reinterpret_cast<RawObject**>(start + Array::data_offset());
-        for (intptr_t i = 0; i < length; i++) {
-          data[i] = null_value;
-        }
-        FP[rA] = reinterpret_cast<RawObject*>(start + kHeapObjectTag);
-        pc += 4;
       }
     }
     DISPATCH();
@@ -3254,7 +3299,19 @@ RawObject* Simulator::Call(const Code& code,
   }
 
   {
-    BYTECODE(CheckDenseSwitch, A_D);
+    BYTECODE(CheckClassIdRange, A_D);
+    const intptr_t actual_cid =
+        reinterpret_cast<intptr_t>(FP[rA]) >> kSmiTagSize;
+    const uintptr_t cid_start = rD;
+    const uintptr_t cid_range = Bytecode::DecodeD(*pc);
+    // Unsigned comparison.  Skip either just the nop or both the nop and the
+    // following instruction.
+    pc += (actual_cid - cid_start <= cid_range) ? 2 : 1;
+    DISPATCH();
+  }
+
+  {
+    BYTECODE(CheckBitTest, A_D);
     const intptr_t raw_value = reinterpret_cast<intptr_t>(FP[rA]);
     const bool is_smi = ((raw_value & kSmiTagMask) == kSmiTag);
     const intptr_t cid_min = Bytecode::DecodeD(*pc);

@@ -516,7 +516,6 @@ final htmlBlinkMap = {
   'ResourceProgressEvent': () => _ResourceProgressEvent.instanceRuntimeType,
   'Response': () => _Response.instanceRuntimeType,
   'Rotation': () => Rotation.instanceRuntimeType,
-  'Scale': () => Scale.instanceRuntimeType,
   'Screen': () => Screen.instanceRuntimeType,
   'ScreenOrientation': () => ScreenOrientation.instanceRuntimeType,
   'ScrollState': () => ScrollState.instanceRuntimeType,
@@ -2127,7 +2126,9 @@ class AudioTrack extends DartHtmlDomObject {
 @DocsEditable()
 @DomName('AudioTrackList')
 @Experimental() // untriaged
-class AudioTrackList extends EventTarget {
+class AudioTrackList extends EventTarget
+    with ListMixin<AudioTrack>, ImmutableListMixin<AudioTrack>
+    implements List<AudioTrack> {
   // To suppress missing implicit constructor warnings.
   factory AudioTrackList._() {
     throw new UnsupportedError("Not supported");
@@ -2149,6 +2150,51 @@ class AudioTrackList extends EventTarget {
   @DocsEditable()
   @Experimental() // untriaged
   int get length => _blink.BlinkAudioTrackList.instance.length_Getter_(this);
+
+  AudioTrack operator [](int index) {
+    if (index < 0 || index >= length) throw new RangeError.index(index, this);
+    return _nativeIndexedGetter(index);
+  }
+
+  AudioTrack _nativeIndexedGetter(int index) =>
+      (_blink.BlinkAudioTrackList.instance.item_Callback_1_(this, index));
+
+  void operator []=(int index, AudioTrack value) {
+    throw new UnsupportedError("Cannot assign element of immutable List.");
+  }
+  // -- start List<AudioTrack> mixins.
+  // AudioTrack is the element type.
+
+  set length(int value) {
+    throw new UnsupportedError("Cannot resize immutable List.");
+  }
+
+  AudioTrack get first {
+    if (this.length > 0) {
+      return _nativeIndexedGetter(0);
+    }
+    throw new StateError("No elements");
+  }
+
+  AudioTrack get last {
+    int len = this.length;
+    if (len > 0) {
+      return _nativeIndexedGetter(len - 1);
+    }
+    throw new StateError("No elements");
+  }
+
+  AudioTrack get single {
+    int len = this.length;
+    if (len == 1) {
+      return _nativeIndexedGetter(0);
+    }
+    if (len == 0) throw new StateError("No elements");
+    throw new StateError("More than one element");
+  }
+
+  AudioTrack elementAt(int index) => this[index];
+  // -- end List<AudioTrack> mixins.
 
   @DomName('AudioTrackList.__getter__')
   @DocsEditable()
@@ -11679,13 +11725,6 @@ class DomException extends DartHtmlDomObject {
   }
 
   @Deprecated("Internal Use Only")
-  static DomException internalCreateDomException() {
-    return new DomException._internalWrap();
-  }
-
-  external factory DomException._internalWrap();
-
-  @Deprecated("Internal Use Only")
   DomException.internal_() {}
 
   @Deprecated("Internal Use Only")
@@ -11702,15 +11741,18 @@ class DomException extends DartHtmlDomObject {
 
   @DomName('DOMException.message')
   @DocsEditable()
-  String get message => _message;
+  String get message =>
+      _message ??
+      (_message = _blink.BlinkDOMException.instance.message_Getter_(this));
 
   @DomName('DOMException.name')
   @DocsEditable()
-  String get name => _name;
+  String get name =>
+      _name ?? (_name = _blink.BlinkDOMException.instance.name_Getter_(this));
 
   @DomName('DOMException.toString')
   @DocsEditable()
-  String toString() => "${_name}: $_message";
+  String toString() => "$name: $message";
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -13001,8 +13043,7 @@ class _ChildrenElementList extends ListBase<Element>
     for (var e in removed) e.remove();
   }
 
-  void setRange(int start, int end, Iterable<Element> iterable,
-      [int skipCount = 0]) {
+  void fillRange(int start, int end, [Element fillValue]) {
     throw new UnimplementedError();
   }
 
@@ -13010,7 +13051,12 @@ class _ChildrenElementList extends ListBase<Element>
     throw new UnimplementedError();
   }
 
-  void fillRange(int start, int end, [Element fillValue]) {
+  void removeRange(int start, int end) {
+    throw new UnimplementedError();
+  }
+
+  void setRange(int start, int end, Iterable<Element> iterable,
+      [int skipCount = 0]) {
     throw new UnimplementedError();
   }
 
@@ -17773,7 +17819,7 @@ class Events {
 
   Events(this._ptr);
 
-  Stream operator [](String type) {
+  Stream<Event> operator [](String type) {
     return new _EventStream(_ptr, type, false);
   }
 }
@@ -17798,7 +17844,7 @@ class ElementEvents extends Events {
 
   ElementEvents(Element ptr) : super(ptr);
 
-  Stream operator [](String type) {
+  Stream<Event> operator [](String type) {
     if (webkitEvents.keys.contains(type.toLowerCase())) {
       if (Device.isWebKit) {
         return new _ElementEventStreamImpl(
@@ -17863,8 +17909,7 @@ class EventTarget extends DartHtmlDomObject {
 
   @DomName('EventTarget.addEventListener')
   @DocsEditable()
-  void _addEventListener(String type, EventListener listener,
-          [Object options]) =>
+  void _addEventListener(String type, EventListener listener, [bool options]) =>
       _blink.BlinkEventTarget.instance
           .addEventListener_Callback_3_(this, type, listener, options);
 
@@ -17876,7 +17921,7 @@ class EventTarget extends DartHtmlDomObject {
   @DomName('EventTarget.removeEventListener')
   @DocsEditable()
   void _removeEventListener(String type, EventListener listener,
-          [Object options]) =>
+          [bool options]) =>
       _blink.BlinkEventTarget.instance
           .removeEventListener_Callback_3_(this, type, listener, options);
 }
@@ -24964,7 +25009,8 @@ class KeyboardEvent extends UIEvent {
       {Window view,
       bool canBubble: true,
       bool cancelable: true,
-      int keyLocation: 1,
+      int location,
+      int keyLocation, // Legacy alias for location
       bool ctrlKey: false,
       bool altKey: false,
       bool shiftKey: false,
@@ -24972,8 +25018,9 @@ class KeyboardEvent extends UIEvent {
     if (view == null) {
       view = window;
     }
+    location ??= keyLocation ?? 1;
     final e = document._createEvent("KeyboardEvent");
-    e._initKeyboardEvent(type, canBubble, cancelable, view, "", keyLocation,
+    e._initKeyboardEvent(type, canBubble, cancelable, view, "", location,
         ctrlKey, altKey, shiftKey, metaKey);
     return e;
   }
@@ -25028,6 +25075,12 @@ class KeyboardEvent extends UIEvent {
   @DocsEditable()
   bool get altKey => _blink.BlinkKeyboardEvent.instance.altKey_Getter_(this);
 
+  @DomName('KeyboardEvent.charCode')
+  @DocsEditable()
+  @Experimental() // untriaged
+  int get _charCode =>
+      _blink.BlinkKeyboardEvent.instance.charCode_Getter_(this);
+
   @DomName('KeyboardEvent.code')
   @DocsEditable()
   @Experimental() // untriaged
@@ -25041,6 +25094,11 @@ class KeyboardEvent extends UIEvent {
   @DocsEditable()
   @Experimental() // untriaged
   String get key => _blink.BlinkKeyboardEvent.instance.key_Getter_(this);
+
+  @DomName('KeyboardEvent.keyCode')
+  @DocsEditable()
+  @Experimental() // untriaged
+  int get _keyCode => _blink.BlinkKeyboardEvent.instance.keyCode_Getter_(this);
 
   @DomName('KeyboardEvent.keyIdentifier')
   @DocsEditable()
@@ -25066,6 +25124,11 @@ class KeyboardEvent extends UIEvent {
   @DocsEditable()
   bool get shiftKey =>
       _blink.BlinkKeyboardEvent.instance.shiftKey_Getter_(this);
+
+  @DomName('KeyboardEvent.which')
+  @DocsEditable()
+  @Experimental() // untriaged
+  int get _which => _blink.BlinkKeyboardEvent.instance.which_Getter_(this);
 
   @DomName('KeyboardEvent.getModifierState')
   @DocsEditable()
@@ -26160,8 +26223,8 @@ class MediaElement extends HtmlElement {
   @DomName('HTMLMediaElement.audioTracks')
   @DocsEditable()
   @Experimental() // untriaged
-  AudioTrackList get audioTracks =>
-      _blink.BlinkHTMLMediaElement.instance.audioTracks_Getter_(this);
+  List<AudioTrack> get audioTracks =>
+      (_blink.BlinkHTMLMediaElement.instance.audioTracks_Getter_(this));
 
   @DomName('HTMLMediaElement.autoplay')
   @DocsEditable()
@@ -28932,6 +28995,10 @@ class MouseEvent extends UIEvent {
   @DomName('MouseEvent.pageX')
   @DomName('MouseEvent.pageY')
   Point get page => new Point/*<num>*/(_pageX, _pageY);
+
+  @DomName('MouseEvent.dataTransfer')
+  DataTransfer get dataTransfer =>
+      js.JsNative.getProperty(this, 'dataTransfer');
 }
 // Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
@@ -29827,6 +29894,10 @@ class _ChildNodeListLazy extends ListBase<Node> implements NodeListWrapper {
 
   void fillRange(int start, int end, [Node fill]) {
     throw new UnsupportedError("Cannot fillRange on Node list");
+  }
+
+  void removeRange(int start, int end) {
+    throw new UnsupportedError("Cannot removeRange on Node list");
   }
   // -- end List<Node> mixins.
 
@@ -34993,54 +35064,6 @@ class RtcStatsResponse extends DartHtmlDomObject {
   List<RtcStatsReport> result() =>
       _blink.BlinkRTCStatsResponse.instance.result_Callback_0_(this);
 }
-// Copyright (c) 2012, the Dart project authors.  Please see the AUTHORS file
-// for details. All rights reserved. Use of this source code is governed by a
-// BSD-style license that can be found in the LICENSE file.
-
-// WARNING: Do not edit - generated code.
-
-@DocsEditable()
-@DomName('Scale')
-@Experimental() // untriaged
-class Scale extends TransformComponent {
-  // To suppress missing implicit constructor warnings.
-  factory Scale._() {
-    throw new UnsupportedError("Not supported");
-  }
-
-  @DomName('Scale.Scale')
-  @DocsEditable()
-  factory Scale(num x, num y, [num z]) {
-    if ((y is num) && (x is num) && z == null) {
-      return _blink.BlinkScale.instance.constructorCallback_2_(x, y);
-    }
-    if ((z is num) && (y is num) && (x is num)) {
-      return _blink.BlinkScale.instance.constructorCallback_3_(x, y, z);
-    }
-    throw new ArgumentError("Incorrect number or type of arguments");
-  }
-
-  @Deprecated("Internal Use Only")
-  external static Type get instanceRuntimeType;
-
-  @Deprecated("Internal Use Only")
-  Scale.internal_() : super.internal_();
-
-  @DomName('Scale.x')
-  @DocsEditable()
-  @Experimental() // untriaged
-  num get x => _blink.BlinkScale.instance.x_Getter_(this);
-
-  @DomName('Scale.y')
-  @DocsEditable()
-  @Experimental() // untriaged
-  num get y => _blink.BlinkScale.instance.y_Getter_(this);
-
-  @DomName('Scale.z')
-  @DocsEditable()
-  @Experimental() // untriaged
-  num get z => _blink.BlinkScale.instance.z_Getter_(this);
-}
 // Copyright (c) 2013, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
@@ -35688,8 +35711,8 @@ class SelectElement extends HtmlElement {
   // Override default options, since IE returns SelectElement itself and it
   // does not operate as a List.
   List<OptionElement> get options {
-    var options = new List<OptionElement>.from(this.querySelectorAll('option'));
-    return new UnmodifiableListView(options);
+    var options = this.querySelectorAll<OptionElement>('option');
+    return new UnmodifiableListView(options.toList());
   }
 
   List<OptionElement> get selectedOptions {
@@ -47774,7 +47797,7 @@ abstract class _AttributeMap implements Map<String, String> {
   /**
    * Checks to see if the node should be included in this map.
    */
-  bool _matches(Node node);
+  bool _matches(_Attr node);
 }
 
 /**
@@ -47808,7 +47831,7 @@ class _ElementAttributeMap extends _AttributeMap {
     return keys.length;
   }
 
-  bool _matches(Node node) => node._namespaceUri == null;
+  bool _matches(_Attr node) => node._namespaceUri == null;
 }
 
 /**
@@ -47844,7 +47867,7 @@ class _NamespacedAttributeMap extends _AttributeMap {
     return keys.length;
   }
 
-  bool _matches(Node node) => node._namespaceUri == _namespace;
+  bool _matches(_Attr node) => node._namespaceUri == _namespace;
 }
 
 /**
@@ -49039,7 +49062,7 @@ class _EventStreamSubscription<T extends Event> extends StreamSubscription<T> {
       this._target, this._eventType, void onData(T event), this._useCapture)
       : _onData = onData == null
             ? null
-            : _wrapZone/*<Event, dynamic>*/((e) => (onData as dynamic)(e)) {
+            : _wrapZone<Event, dynamic>((e) => (onData as dynamic)(e)) {
     _tryResume();
   }
 
@@ -49101,9 +49124,9 @@ class _EventStreamSubscription<T extends Event> extends StreamSubscription<T> {
     }
   }
 
-  Future/*<E>*/ asFuture/*<E>*/([var/*=E*/ futureValue]) {
+  Future<E> asFuture<E>([E futureValue]) {
     // We just need a future that will never succeed or fail.
-    var completer = new Completer/*<E>*/();
+    var completer = new Completer<E>();
     return completer.future;
   }
 }
@@ -50773,7 +50796,7 @@ class _KeyboardEventHandler extends EventStreamProvider<KeyEvent> {
    * keypress events.
    */
   int _findCharCodeKeyDown(KeyboardEvent event) {
-    if (event.keyLocation == 3) {
+    if (event.location == 3) {
       // Numpad keys.
       switch (event.keyCode) {
         case KeyCode.NUM_ZERO:
@@ -50967,7 +50990,7 @@ class _KeyboardEventHandler extends EventStreamProvider<KeyEvent> {
       // Opera reports the character code in the keyCode field.
       e._shadowCharCode = KeyCode.isCharacterKey(e.keyCode) ? e.keyCode : 0;
     }
-    // Now we guestimate about what the keycode is that was actually
+    // Now we guesstimate about what the keycode is that was actually
     // pressed, given previous keydown information.
     e._shadowKeyCode = _determineKeyCodeForKeypress(e);
 
@@ -52970,7 +52993,7 @@ class _Utils {
     // Inject all the already defined console variables.
     _consoleTempVariables._data.forEach(addArg);
 
-    // TODO(jacobr): remove the parentheses around the expresson once
+    // TODO(jacobr): remove the parentheses around the expression once
     // dartbug.com/13723 is fixed. Currently we wrap expression in parentheses
     // to ensure only valid Dart expressions are allowed. Otherwise the DartVM
     // quietly ignores trailing Dart statements resulting in user confusion

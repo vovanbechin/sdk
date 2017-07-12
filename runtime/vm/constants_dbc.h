@@ -86,7 +86,7 @@ namespace dart {
 //
 //  - Nop D
 //
-//    This instuction does nothing. It may refer to an object in the constant
+//    This instruction does nothing. It may refer to an object in the constant
 //    pool that may be decoded by other instructions.
 //
 //  - Compile
@@ -225,7 +225,7 @@ namespace dart {
 //
 //  - DMin, DMax, DAdd, DSub, DMul, DDiv, DPow, DMod rA, rB, rC
 //
-//    Arithmetic operaions on unboxed doubles. FP[rA] <- FP[rB] op FP[rC].
+//    Arithmetic operations on unboxed doubles. FP[rA] <- FP[rB] op FP[rC].
 //
 //  - DNeg, DCos, DSin, DSqrt rA, rD
 //
@@ -334,7 +334,7 @@ namespace dart {
 //    Cond is Le, Lt, Ge, Gt, unsigned variants ULe, ULt, UGe, UGt, and
 //    unboxed double variants DEq, DNe, DLe, DLt, DGe, DGt.
 //    Skips the next instruction unless FP[rA] <Cond> FP[rD]. Assumes that
-//    FP[rA] and FP[rD] are Smis or unboxed doubles as inidcated by <Cond>.
+//    FP[rA] and FP[rD] are Smis or unboxed doubles as indicated by <Cond>.
 //
 //  - CreateArrayTOS
 //
@@ -590,7 +590,13 @@ namespace dart {
 //    If the class id in FP[rA] matches the class id D, then skip the
 //    following instruction.
 //
-//  - CheckDenseSwitch rA, D
+//  - CheckClassIdRange rA, D
+//
+//    Next instruction is a Nop with S, the size of the class-id range.
+//    If the class id in FP[rA] is between the D D + S, then skip the
+//    following instruction.
+//
+//  - CheckBitTest rA, D
 //
 //    Skips the next 3 instructions if the object at FP[rA] is a valid class for
 //    a dense switch with low cid encoded in the following Nop instruction, and
@@ -841,7 +847,8 @@ namespace dart {
   V(CheckSmi,                              A, reg, ___, ___) \
   V(CheckEitherNonSmi,                   A_D, reg, reg, ___) \
   V(CheckClassId,                        A_D, reg, num, ___) \
-  V(CheckDenseSwitch,                    A_D, reg, num, ___) \
+  V(CheckClassIdRange,                   A_D, reg, num, ___) \
+  V(CheckBitTest,                        A_D, reg, num, ___) \
   V(CheckCids,                         A_B_C, reg, num, num) \
   V(CheckCidsByRange,                  A_B_C, reg, num, num) \
   V(CheckStack,                            0, ___, ___, ___) \
@@ -989,7 +996,7 @@ const intptr_t kNumberOfFpuRegisters = 1;
 // instruction is executed if the comparison is true and skipped over overwise.
 // Condition NEXT_IS_FALSE means the following instruction is executed if the
 // comparison is false and skipped over otherwise.
-enum Condition { NEXT_IS_TRUE, NEXT_IS_FALSE };
+enum Condition { NEXT_IS_TRUE, NEXT_IS_FALSE, INVALID_CONDITION };
 
 }  // namespace dart
 

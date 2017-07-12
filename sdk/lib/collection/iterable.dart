@@ -76,9 +76,9 @@ abstract class IterableMixin<E> implements Iterable<E> {
     return buffer.toString();
   }
 
-  bool any(bool f(E element)) {
+  bool any(bool test(E element)) {
     for (E element in this) {
-      if (f(element)) return true;
+      if (test(element)) return true;
     }
     return false;
   }
@@ -280,7 +280,7 @@ bool _isToStringVisiting(Object o) {
 }
 
 /**
- * Convert elments of [iterable] to strings and store them in [parts].
+ * Convert elements of [iterable] to strings and store them in [parts].
  */
 void _iterablePartsToStrings(Iterable iterable, List parts) {
   /*

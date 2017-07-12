@@ -33,7 +33,7 @@ DEFINE_FLAG(int,
             "Grow new gen when less than this percentage is garbage.");
 DEFINE_FLAG(int, new_gen_growth_factor, 4, "Grow new gen by this factor.");
 
-// Scavenger uses RawObject::kMarkBit to distinguish forwaded and non-forwarded
+// Scavenger uses RawObject::kMarkBit to distinguish forwarded and non-forwarded
 // objects. The kMarkBit does not intersect with the target address because of
 // object alignment.
 enum {
@@ -73,7 +73,6 @@ class ScavengerVisitor : public ObjectPointerVisitor {
         scavenger_(scavenger),
         from_(from),
         heap_(scavenger->heap_),
-        vm_heap_(Dart::vm_isolate()->heap()),
         page_space_(scavenger->heap_->old_space()),
         bytes_promoted_(0),
         visiting_old_object_(NULL) {}
@@ -157,6 +156,7 @@ class ScavengerVisitor : public ObjectPointerVisitor {
           NOT_IN_PRODUCT(class_table->UpdateAllocatedOld(cid, size));
         } else {
           // Promotion did not succeed. Copy into the to space instead.
+          scavenger_->failed_to_promote_ = true;
           new_addr = scavenger_->TryAllocate(size);
           NOT_IN_PRODUCT(class_table->UpdateLiveNew(cid, size));
         }
@@ -183,7 +183,6 @@ class ScavengerVisitor : public ObjectPointerVisitor {
   Scavenger* scavenger_;
   SemiSpace* from_;
   Heap* heap_;
-  Heap* vm_heap_;
   PageSpace* page_space_;
   RawWeakProperty* delayed_weak_properties_;
   intptr_t bytes_promoted_;
@@ -273,7 +272,7 @@ void SemiSpace::InitOnce() {
 }
 
 
-SemiSpace* SemiSpace::New(intptr_t size_in_words) {
+SemiSpace* SemiSpace::New(intptr_t size_in_words, const char* name) {
   {
     MutexLocker locker(mutex_);
     // TODO(koda): Cache one entry per size.
@@ -288,7 +287,8 @@ SemiSpace* SemiSpace::New(intptr_t size_in_words) {
   } else {
     intptr_t size_in_bytes = size_in_words << kWordSizeLog2;
     VirtualMemory* reserved = VirtualMemory::Reserve(size_in_bytes);
-    if ((reserved == NULL) || !reserved->Commit(false)) {  // Not executable.
+    const bool kExecutable = false;
+    if ((reserved == NULL) || !reserved->Commit(kExecutable, name)) {
       // TODO(koda): If cache_ is not empty, we could try to delete it.
       delete reserved;
       return NULL;
@@ -337,7 +337,8 @@ Scavenger::Scavenger(Heap* heap,
       delayed_weak_properties_(NULL),
       gc_time_micros_(0),
       collections_(0),
-      external_size_(0) {
+      external_size_(0),
+      failed_to_promote_(false) {
   // Verify assumptions about the first word in objects which the scavenger is
   // going to use for forwarding pointers.
   ASSERT(Object::tags_offset() == 0);
@@ -346,7 +347,11 @@ Scavenger::Scavenger(Heap* heap,
   const intptr_t initial_semi_capacity_in_words =
       max_semi_capacity_in_words /
       (FLAG_new_gen_growth_factor * FLAG_new_gen_growth_factor);
-  to_ = SemiSpace::New(initial_semi_capacity_in_words);
+
+  const intptr_t kVmNameSize = 128;
+  char vm_name[kVmNameSize];
+  Heap::RegionName(heap_, Heap::kNew, vm_name, kVmNameSize);
+  to_ = SemiSpace::New(initial_semi_capacity_in_words, vm_name);
   if (to_ == NULL) {
     OUT_OF_MEMORY();
   }
@@ -390,7 +395,11 @@ SemiSpace* Scavenger::Prologue(Isolate* isolate, bool invoke_api_callbacks) {
   // Flip the two semi-spaces so that to_ is always the space for allocating
   // objects.
   SemiSpace* from = to_;
-  to_ = SemiSpace::New(NewSizeInWords(from->size_in_words()));
+
+  const intptr_t kVmNameSize = 128;
+  char vm_name[kVmNameSize];
+  Heap::RegionName(heap_, Heap::kNew, vm_name, kVmNameSize);
+  to_ = SemiSpace::New(NewSizeInWords(from->size_in_words()), vm_name);
   if (to_ == NULL) {
     // TODO(koda): We could try to recover (collect old space, wait for another
     // isolate to finish scavenge, etc.).
@@ -469,7 +478,7 @@ void Scavenger::IterateStoreBuffers(Isolate* isolate,
       ASSERT(raw_object->IsRemembered());
       raw_object->ClearRememberedBit();
       visitor->VisitingOldObject(raw_object);
-      raw_object->VisitPointers(visitor);
+      raw_object->VisitPointersNonvirtual(visitor);
     }
     pending->Reset();
     // Return the emptied block for recycling (no need to check threshold).
@@ -550,7 +559,7 @@ void Scavenger::ProcessToSpace(ScavengerVisitor* visitor) {
       RawObject* raw_obj = RawObject::FromAddr(resolved_top_);
       intptr_t class_id = raw_obj->GetClassId();
       if (class_id != kWeakPropertyCid) {
-        resolved_top_ += raw_obj->VisitPointers(visitor);
+        resolved_top_ += raw_obj->VisitPointersNonvirtual(visitor);
       } else {
         RawWeakProperty* raw_weak = reinterpret_cast<RawWeakProperty*>(raw_obj);
         resolved_top_ += ProcessWeakProperty(raw_weak, visitor);
@@ -566,7 +575,7 @@ void Scavenger::ProcessToSpace(ScavengerVisitor* visitor) {
         // objects to be resolved in the to space.
         ASSERT(!raw_object->IsRemembered());
         visitor->VisitingOldObject(raw_object);
-        raw_object->VisitPointers(visitor);
+        raw_object->VisitPointersNonvirtual(visitor);
       }
       visitor->VisitingOldObject(NULL);
     }
@@ -593,7 +602,7 @@ void Scavenger::ProcessToSpace(ScavengerVisitor* visitor) {
         // Reset the next pointer in the weak property.
         cur_weak->ptr()->next_ = 0;
         if (IsForwarding(header)) {
-          cur_weak->VisitPointers(visitor);
+          cur_weak->VisitPointersNonvirtual(visitor);
         } else {
           EnqueueWeakProperty(cur_weak);
         }
@@ -661,7 +670,7 @@ uword Scavenger::ProcessWeakProperty(RawWeakProperty* raw_weak,
     }
   }
   // Key is gray or black.  Make the weak property black.
-  return raw_weak->VisitPointers(visitor);
+  return raw_weak->VisitPointersNonvirtual(visitor);
 }
 
 
@@ -787,6 +796,8 @@ void Scavenger::Scavenge(bool invoke_api_callbacks) {
   ASSERT(!scavenging_);
   scavenging_ = true;
 
+  failed_to_promote_ = false;
+
   PageSpace* page_space = heap_->old_space();
   NoSafepointScope no_safepoints;
 
@@ -894,6 +905,25 @@ void Scavenger::FreeExternal(intptr_t size) {
   ASSERT(size >= 0);
   external_size_ -= size;
   ASSERT(external_size_ >= 0);
+}
+
+
+void Scavenger::Evacuate() {
+  // We need a safepoint here to prevent allocation right before or right after
+  // the scavenge.
+  // The former can introduce an object that we might fail to collect.
+  // The latter means even if the scavenge promotes every object in the new
+  // space, the new allocation means the space is not empty,
+  // causing the assertion below to fail.
+  SafepointOperationScope scope(Thread::Current());
+
+  // Forces the next scavenge to promote all the objects in the new space.
+  survivor_end_ = top_;
+  Scavenge();
+
+  // It is possible for objects to stay in the new space
+  // if the VM cannot create more pages for these objects.
+  ASSERT((UsedInWords() == 0) || failed_to_promote_);
 }
 
 }  // namespace dart

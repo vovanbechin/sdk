@@ -9,18 +9,14 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:analyzer/src/fasta/ast_builder.dart';
+import 'package:front_end/front_end.dart';
 import 'package:front_end/physical_file_system.dart';
-import 'package:front_end/src/fasta/dill/dill_target.dart' show DillTarget;
-import 'package:front_end/src/fasta/kernel/kernel_target.dart'
-    show KernelTarget;
 import 'package:front_end/src/fasta/parser.dart';
 import 'package:front_end/src/fasta/scanner.dart';
 import 'package:front_end/src/fasta/scanner/io.dart' show readBytesFromFileSync;
 import 'package:front_end/src/fasta/source/directive_listener.dart';
-import 'package:front_end/src/fasta/ticker.dart' show Ticker;
 import 'package:front_end/src/fasta/translate_uri.dart' show TranslateUri;
-import 'package:front_end/src/fasta/translate_uri.dart';
-import 'package:front_end/src/fasta/parser/dart_vm_native.dart'
+import 'package:front_end/src/fasta/parser/native_support.dart'
     show skipNativeClause;
 
 /// Cumulative total number of chars scanned.
@@ -48,11 +44,9 @@ main(List<String> args) async {
     'kernel_gen_e2e': () async {
       await generateKernel(entryUri);
     },
-    // TODO(sigmund): enable once we add a build step to create the
-    // platform.dill files.
-    // 'kernel_gen_e2e_sum': () async {
-    //   await generateKernel(entryUri, compileSdk: false);
-    // },
+    'kernel_gen_e2e_sum': () async {
+      await generateKernel(entryUri, compileSdk: false);
+    },
   };
 
   var handler = handlers[bench];
@@ -74,16 +68,17 @@ main(List<String> args) async {
   }
 }
 
+// TODO(sigmund): use `perf.dart::_findSdkPath` here when fasta can patch the
+// sdk directly.
+Uri sdkRoot =
+    Uri.base.resolve(Platform.resolvedExecutable).resolve('patched_sdk/');
+
 /// Translates `dart:*` and `package:*` URIs to resolved URIs.
 TranslateUri uriResolver;
 
 /// Preliminary set up to be able to correctly resolve URIs on the given
 /// program.
 Future setup(Uri entryUri) async {
-  // TODO(sigmund): use `perf.dart::_findSdkPath` here when fasta can patch the
-  // sdk directly.
-  var sdkRoot =
-      Uri.base.resolve(Platform.resolvedExecutable).resolve('patched_sdk/');
   uriResolver = await TranslateUri.parse(PhysicalFileSystem.instance, sdkRoot);
 }
 
@@ -163,14 +158,14 @@ Set<String> extractDirectiveUris(List<int> contents) {
   var listener = new DirectiveListenerWithNative();
   new TopLevelParser(listener).parseUnit(tokenize(contents));
   return new Set<String>()
-    ..addAll(listener.imports)
-    ..addAll(listener.exports)
+    ..addAll(listener.imports.map((directive) => directive.uri))
+    ..addAll(listener.exports.map((directive) => directive.uri))
     ..addAll(listener.parts);
 }
 
 class DirectiveListenerWithNative extends DirectiveListener {
   @override
-  Token handleNativeClause(Token token) => skipNativeClause(token);
+  Token handleNativeClause(Token token) => skipNativeClause(token, true);
 }
 
 /// Parses every file in [files] and reports the time spent doing so.
@@ -197,15 +192,14 @@ parseFull(Uri uri, List<int> source) {
 // Note: AstBuilder doesn't build compilation-units or classes, only method
 // bodies. So this listener is not feature complete.
 class _PartialAstBuilder extends AstBuilder {
-  _PartialAstBuilder(Uri uri) : super(null, null, null, null, null, uri);
+  _PartialAstBuilder(Uri uri) : super(null, null, null, null, null, true, uri);
 
   // Note: this method converts the body to kernel, so we skip that here.
   @override
-  finishFunction(formals, asyncModifier, body) {}
+  finishFunction(annotations, formals, asyncModifier, body) {}
 }
 
 // Invoke the fasta kernel generator for the program starting in [entryUri]
-// TODO(sigmund): update to use the frontend api once fasta is being hit.
 generateKernel(Uri entryUri,
     {bool compileSdk: true, bool strongMode: false}) async {
   // TODO(sigmund): this is here only to compute the input size,
@@ -213,10 +207,15 @@ generateKernel(Uri entryUri,
   scanReachableFiles(entryUri);
 
   var timer = new Stopwatch()..start();
-  final Ticker ticker = new Ticker();
-  final DillTarget dillTarget = new DillTarget(ticker, uriResolver);
-  final KernelTarget kernelTarget = new KernelTarget(
-      PhysicalFileSystem.instance, dillTarget, uriResolver, strongMode);
+  var options = new CompilerOptions()
+    ..sdkRoot = sdkRoot
+    ..chaseDependencies = true
+    ..packagesFileUri = Uri.base.resolve('.packages')
+    ..compileSdk = compileSdk;
+  if (!compileSdk) {
+    options.sdkSummary = sdkRoot.resolve('outline.dill');
+  }
+
   var entrypoints = [
     entryUri,
     // These extra libraries are added to match the same set of libraries
@@ -233,20 +232,11 @@ generateKernel(Uri entryUri,
     Uri.parse('dart:mirrors'),
     Uri.parse('dart:typed_data'),
   ];
-  entrypoints.forEach(kernelTarget.read);
+  var program = await kernelForBuildUnit(entrypoints, options);
 
-  if (!compileSdk) {
-    dillTarget.read(
-        Uri.base.resolve(Platform.resolvedExecutable).resolve('platform.dill'));
-  }
-  await dillTarget.writeOutline(null);
-  var program = await kernelTarget.writeOutline(null);
-  program = await kernelTarget.writeProgram(null);
-  if (kernelTarget.errors.isNotEmpty) {
-    throw kernelTarget.errors.first;
-  }
   timer.stop();
-  report('kernel_gen_e2e', timer.elapsedMicroseconds);
+  var name = 'kernel_gen_e2e${compileSdk ? "" : "_sum"}';
+  report(name, timer.elapsedMicroseconds);
   return program;
 }
 

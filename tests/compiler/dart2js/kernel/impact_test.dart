@@ -12,6 +12,7 @@ import 'package:compiler/src/common/resolution.dart';
 import 'package:compiler/src/compiler.dart';
 import 'package:compiler/src/constants/expressions.dart';
 import 'package:compiler/src/elements/elements.dart';
+import 'package:compiler/src/elements/entities.dart';
 import 'package:compiler/src/elements/resolution_types.dart';
 import 'package:compiler/src/js_backend/backend.dart';
 import 'package:compiler/src/kernel/element_map.dart';
@@ -26,7 +27,8 @@ import 'package:compiler/src/universe/use.dart';
 import 'package:expect/expect.dart';
 import 'package:kernel/ast.dart' as ir;
 import '../memory_compiler.dart';
-import '../serialization/test_helper.dart';
+import '../equivalence/check_helpers.dart';
+import 'test_helpers.dart';
 
 const Map<String, String> SOURCE = const <String, String>{
   // Pretend this is a dart2js_native test to allow use of 'native' keyword.
@@ -743,26 +745,30 @@ main(List<String> args) {
     compiler.resolution.retainCachesForTesting = true;
     Expect.isTrue(await compiler.run(entryPoint));
     JavaScriptBackend backend = compiler.backend;
-    KernelToElementMapImpl kernelElementMap =
-        new KernelToElementMapImpl(compiler.reporter, compiler.environment);
+    KernelToElementMapForImpact kernelElementMap =
+        new KernelToElementMapForImpactImpl(
+            compiler.reporter, compiler.environment);
     kernelElementMap.addProgram(backend.kernelTask.program);
 
-    checkLibrary(compiler, kernelElementMap, compiler.mainApp,
-        fullTest: fullTest);
-    compiler.libraryLoader.libraries.forEach((LibraryElement library) {
-      if (library == compiler.mainApp) return;
+    LibraryElement mainApp =
+        compiler.frontendStrategy.elementEnvironment.mainLibrary;
+    checkLibrary(compiler, kernelElementMap, mainApp, fullTest: fullTest);
+    compiler.libraryLoader.libraries.forEach((LibraryEntity library) {
+      if (library == mainApp) return;
       checkLibrary(compiler, kernelElementMap, library, fullTest: fullTest);
     });
   });
 }
 
-void checkLibrary(Compiler compiler, KernelToElementMapMixin elementMap,
+void checkLibrary(Compiler compiler, KernelToElementMapForImpact elementMap,
     LibraryElement library,
     {bool fullTest: false}) {
-  library.forEachLocalMember((AstElement element) {
+  library.forEachLocalMember((_element) {
+    AstElement element = _element;
     if (element.isClass) {
       ClassElement cls = element;
-      cls.forEachLocalMember((AstElement member) {
+      cls.forEachLocalMember((_member) {
+        AstElement member = _member;
         checkElement(compiler, elementMap, member, fullTest: fullTest);
       });
     } else if (element.isTypedef) {
@@ -773,8 +779,8 @@ void checkLibrary(Compiler compiler, KernelToElementMapMixin elementMap,
   });
 }
 
-void checkElement(
-    Compiler compiler, KernelToElementMapMixin elementMap, AstElement element,
+void checkElement(Compiler compiler, KernelToElementMapForImpact elementMap,
+    AstElement element,
     {bool fullTest: false}) {
   if (!fullTest && element.library.isPlatformLibrary) {
     return;
@@ -862,7 +868,7 @@ ResolutionImpact laxImpact(
                 }
               }
               if (constructor.resolvedAst.kind == ResolvedAstKind.PARSED) {
-                var function = constructor.resolvedAst.node;
+                dynamic function = constructor.resolvedAst.node;
                 if (function.initializers != null) {
                   TreeElements elements = constructor.resolvedAst.elements;
                   for (var initializer in function.initializers) {
@@ -903,46 +909,4 @@ ResolutionImpact laxImpact(
   }
   impact.nativeData.forEach(builder.registerNativeData);
   return builder;
-}
-
-/// Visitor the performers unaliasing of all typedefs nested within a
-/// [ResolutionDartType].
-class Unaliaser
-    extends BaseResolutionDartTypeVisitor<dynamic, ResolutionDartType> {
-  const Unaliaser();
-
-  @override
-  ResolutionDartType visit(ResolutionDartType type, [_]) =>
-      type.accept(this, null);
-
-  @override
-  ResolutionDartType visitType(ResolutionDartType type, _) => type;
-
-  List<ResolutionDartType> visitList(List<ResolutionDartType> types) =>
-      types.map(visit).toList();
-
-  @override
-  ResolutionDartType visitInterfaceType(ResolutionInterfaceType type, _) {
-    return type.createInstantiation(visitList(type.typeArguments));
-  }
-
-  @override
-  ResolutionDartType visitTypedefType(ResolutionTypedefType type, _) {
-    return visit(type.unaliased);
-  }
-
-  @override
-  ResolutionDartType visitFunctionType(ResolutionFunctionType type, _) {
-    return new ResolutionFunctionType.synthesized(
-        visit(type.returnType),
-        visitList(type.parameterTypes),
-        visitList(type.optionalParameterTypes),
-        type.namedParameters,
-        visitList(type.namedParameterTypes));
-  }
-}
-
-/// Perform unaliasing of all typedefs nested within a [ResolutionDartType].
-ResolutionDartType unalias(ResolutionDartType type) {
-  return const Unaliaser().visit(type);
 }

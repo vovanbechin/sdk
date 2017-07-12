@@ -145,13 +145,13 @@ compileAndTest(source, checker, {createCode: false}) async {
   var commonMasks = closedWorld.commonMasks;
   getType(String name) {
     var element = findElement(compiler, name);
-    return typesInferrer.getTypeOfElement(element);
+    return typesInferrer.getTypeOfMember(element);
   }
 
   if (!createCode) {
     checker(commonMasks, getType, closedWorld);
   } else {
-    var element = compiler.mainFunction;
+    var element = compiler.frontendStrategy.elementEnvironment.mainFunction;
     var code = compiler.backend.getGeneratedCode(element);
     checker(code);
   }

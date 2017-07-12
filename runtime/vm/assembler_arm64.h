@@ -742,16 +742,19 @@ class Assembler : public ValueObject {
     EmitLoadStoreRegPair(STP, rt, rt2, a, sz);
   }
 
-  void ldxr(Register rt, Register rn) {
+  void ldxr(Register rt, Register rn, OperandSize size = kDoubleWord) {
     // rt = value
     // rn = address
-    EmitLoadStoreExclusive(LDXR, R31, rn, rt, kDoubleWord);
+    EmitLoadStoreExclusive(LDXR, R31, rn, rt, size);
   }
-  void stxr(Register rs, Register rt, Register rn) {
+  void stxr(Register rs,
+            Register rt,
+            Register rn,
+            OperandSize size = kDoubleWord) {
     // rs = status (1 = failure, 0 = success)
     // rt = value
     // rn = address
-    EmitLoadStoreExclusive(STXR, rs, rn, rt, kDoubleWord);
+    EmitLoadStoreExclusive(STXR, rs, rn, rt, size);
   }
   void clrex() {
     const int32_t encoding = static_cast<int32_t>(CLREX);
@@ -842,6 +845,18 @@ class Assembler : public ValueObject {
     }
     EmitFPImm(FMOVDI, vd, imm8);
     return true;
+  }
+  void fmovsr(VRegister vd, Register rn) {
+    ASSERT(rn != R31);
+    ASSERT(rn != CSP);
+    const Register crn = ConcreteRegister(rn);
+    EmitFPIntCvtOp(FMOVSR, static_cast<Register>(vd), crn, kWord);
+  }
+  void fmovrs(Register rd, VRegister vn) {
+    ASSERT(rd != R31);
+    ASSERT(rd != CSP);
+    const Register crd = ConcreteRegister(rd);
+    EmitFPIntCvtOp(FMOVRS, crd, static_cast<Register>(vn), kWord);
   }
   void fmovdr(VRegister vd, Register rn) {
     ASSERT(rn != R31);
@@ -1144,6 +1159,11 @@ class Assembler : public ValueObject {
     b(label, NE);
   }
 
+  void BranchIfSmi(Register reg, Label* label) {
+    tsti(reg, Immediate(kSmiTagMask));
+    b(label, EQ);
+  }
+
   void Branch(const StubEntry& stub_entry,
               Register pp,
               Patchability patchable = kNotPatchable);
@@ -1159,6 +1179,10 @@ class Assembler : public ValueObject {
   // that have the same equivalence marker.
   void BranchLinkWithEquivalence(const StubEntry& stub_entry,
                                  const Object& equivalence);
+
+  void AddImmediate(Register dest, int64_t imm) {
+    AddImmediate(dest, dest, imm);
+  }
 
   // Macros accepting a pp Register argument may attempt to load values from
   // the object pool when possible. Unless you are sure that the untagged object
@@ -1680,8 +1704,8 @@ class Assembler : public ValueObject {
                               Register rn,
                               Register rt,
                               OperandSize sz = kDoubleWord) {
-    ASSERT(sz == kDoubleWord);
-    const int32_t size = B31 | B30;
+    ASSERT(sz == kDoubleWord || sz == kWord);
+    const int32_t size = B31 | (sz == kDoubleWord ? B30 : 0);
 
     ASSERT((rs != kNoRegister) && (rs != ZR));
     ASSERT((rn != kNoRegister) && (rn != ZR));

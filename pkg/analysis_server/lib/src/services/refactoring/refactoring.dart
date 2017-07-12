@@ -2,12 +2,8 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library services.refactoring;
-
 import 'dart:async';
 
-import 'package:analysis_server/protocol/protocol_generated.dart'
-    show RefactoringMethodParameter, SourceChange;
 import 'package:analysis_server/src/services/correction/status.dart';
 import 'package:analysis_server/src/services/refactoring/convert_getter_to_method.dart';
 import 'package:analysis_server/src/services/refactoring/convert_method_to_getter.dart';
@@ -30,6 +26,8 @@ import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/src/dart/element/ast_provider.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/source.dart';
+import 'package:analyzer_plugin/protocol/protocol_common.dart'
+    show RefactoringMethodParameter, SourceChange;
 
 /**
  * [Refactoring] to convert getters into normal [MethodDeclaration]s.
@@ -139,10 +137,14 @@ abstract class ExtractMethodRefactoring implements Refactoring {
   /**
    * Returns a new [ExtractMethodRefactoring] instance.
    */
-  factory ExtractMethodRefactoring(SearchEngine searchEngine,
-      CompilationUnit unit, int selectionOffset, int selectionLength) {
+  factory ExtractMethodRefactoring(
+      SearchEngine searchEngine,
+      AstProvider astProvider,
+      CompilationUnit unit,
+      int selectionOffset,
+      int selectionLength) {
     return new ExtractMethodRefactoringImpl(
-        searchEngine, unit, selectionOffset, selectionLength);
+        searchEngine, astProvider, unit, selectionOffset, selectionLength);
   }
 
   /**
@@ -400,7 +402,8 @@ abstract class RenameRefactoring implements Refactoring {
       return new RenameLocalRefactoringImpl(searchEngine, astProvider, element);
     }
     if (element.enclosingElement is ClassElement) {
-      return new RenameClassMemberRefactoringImpl(searchEngine, element);
+      return new RenameClassMemberRefactoringImpl(
+          searchEngine, astProvider, element);
     }
     return null;
   }
@@ -451,14 +454,17 @@ class ResolvedUnitCache {
   }
 
   Future<CompilationUnit> getUnit(Element element) async {
-    CompilationUnitElement unitElement =
-        element.getAncestor((e) => e is CompilationUnitElement)
-            as CompilationUnitElement;
+    CompilationUnitElement unitElement = getUnitElement(element);
     CompilationUnit unit = _map[unitElement];
     if (unit == null) {
       unit = await _astProvider.getResolvedUnitForElement(element);
       _map[unitElement] = unit;
     }
     return unit;
+  }
+
+  CompilationUnitElement getUnitElement(Element element) {
+    return element.getAncestor((e) => e is CompilationUnitElement)
+        as CompilationUnitElement;
   }
 }

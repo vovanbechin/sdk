@@ -11,7 +11,6 @@ import 'package:async_helper/async_helper.dart';
 import 'package:expect/expect.dart';
 
 import 'package:compiler/compiler_new.dart' as api;
-import 'package:compiler/src/common/backend_api.dart';
 import 'package:compiler/src/common/codegen.dart';
 import 'package:compiler/src/common/resolution.dart';
 import 'package:compiler/src/compile_time_constants.dart';
@@ -23,6 +22,7 @@ import 'package:compiler/src/diagnostics/messages.dart';
 import 'package:compiler/src/diagnostics/spannable.dart';
 import 'package:compiler/src/apiimpl.dart' as apiimpl;
 import 'package:compiler/src/elements/elements.dart';
+import 'package:compiler/src/elements/entities.dart';
 import 'package:compiler/src/js_backend/js_backend.dart';
 import 'package:compiler/src/library_loader.dart';
 import 'package:compiler/src/null_compiler_output.dart';
@@ -87,9 +87,9 @@ class TestCompiler extends apiimpl.CompilerImpl {
           onTest(testMarker, testType);
           assert(false);
           break;
-        case 'invariant':
+        case 'failedAt':
           onTest(testMarker, testType);
-          invariant(NO_LOCATION_SPANNABLE, false, message: marker);
+          failedAt(NO_LOCATION_SPANNABLE, marker);
           break;
         case 'warning':
           onTest(testMarker, testType);
@@ -125,8 +125,7 @@ class TestBackend extends JavaScriptBackend {
             generateSourceMap: compiler.options.generateSourceMap,
             useStartupEmitter: compiler.options.useStartupEmitter,
             useMultiSourceInfo: compiler.options.useMultiSourceInfo,
-            useNewSourceInfo: compiler.options.useNewSourceInfo,
-            useKernel: compiler.options.useKernel);
+            useNewSourceInfo: compiler.options.useNewSourceInfo);
 
   @override
   WorldImpact codegen(CodegenWorkItem work, ClosedWorld closedWorld) {
@@ -140,7 +139,7 @@ class TestDiagnosticReporter extends DiagnosticReporterWrapper {
   DiagnosticReporter reporter;
 
   @override
-  withCurrentElement(Element element, f()) {
+  withCurrentElement(Entity element, f()) {
     return super.withCurrentElement(element, () {
       compiler.test('Compiler.withCurrentElement');
       return f();
@@ -271,7 +270,7 @@ void main() {
         '': 0,
         'NoSuchMethodError': 253,
         'assert': isCheckedMode ? 253 : 0,
-        'invariant': 253
+        'failedAt': 253
       };
     }
 
@@ -280,7 +279,7 @@ void main() {
       '': 0,
       'NoSuchMethodError': 253,
       'assert': isCheckedMode ? 253 : 0,
-      'invariant': 253,
+      'failedAt': 253,
       'warning': fatalWarnings ? 1 : 0,
       'error': 1,
       'internalError': 253,

@@ -190,10 +190,11 @@ class ArgumentsTypes extends IterableMixin<TypeInformation> {
     for (int i = 0; i < positional.length; i++) {
       if (positional[i] != other.positional[i]) return false;
     }
+    var result = true;
     named.forEach((name, type) {
-      if (other.named[name] != type) return false;
+      if (other.named[name] != type) result = false;
     });
-    return true;
+    return result;
   }
 
   int get hashCode => throw new UnsupportedError('ArgumentsTypes.hashCode');
@@ -209,7 +210,7 @@ class ArgumentsTypes extends IterableMixin<TypeInformation> {
     return positional.every(f) && named.values.every(f);
   }
 
-  bool contains(TypeInformation type) {
+  bool contains(Object type) {
     return positional.contains(type) || named.containsValue(type);
   }
 }
@@ -245,8 +246,8 @@ class LocalsHandler {
   final TypeSystem types;
   final InferrerEngine inferrer;
   final VariableScope locals;
-  final Map<Local, Element> captured;
-  final Map<Local, Element> capturedAndBoxed;
+  final Map<Local, FieldEntity> captured;
+  final Map<Local, FieldEntity> capturedAndBoxed;
   final FieldInitializationScope fieldScope;
   LocalsHandler tryBlock;
   bool seenReturnOrThrow = false;
@@ -261,8 +262,8 @@ class LocalsHandler {
   LocalsHandler(this.inferrer, this.types, this.options, Node block,
       [this.fieldScope])
       : locals = new VariableScope(block),
-        captured = new Map<Local, Element>(),
-        capturedAndBoxed = new Map<Local, Element>(),
+        captured = new Map<Local, FieldEntity>(),
+        capturedAndBoxed = new Map<Local, FieldEntity>(),
         tryBlock = null;
 
   LocalsHandler.from(LocalsHandler other, Node block,
@@ -298,8 +299,10 @@ class LocalsHandler {
         options = other.options;
 
   TypeInformation use(Local local) {
+    assert(!(local is LocalElement && !local.isImplementation));
     if (capturedAndBoxed.containsKey(local)) {
-      return inferrer.typeOfElement(capturedAndBoxed[local]);
+      FieldElement field = capturedAndBoxed[local];
+      return inferrer.typeOfMember(field);
     } else {
       if (captured.containsKey(local)) {
         inferrer.recordCapturedLocalRead(local);
@@ -333,7 +336,7 @@ class LocalsHandler {
     }
 
     if (capturedAndBoxed.containsKey(local)) {
-      inferrer.recordTypeOfNonFinalField(node, capturedAndBoxed[local], type);
+      inferrer.recordTypeOfNonFinalField(capturedAndBoxed[local], type);
     } else if (inTryBlock) {
       // We don'TypeInformation know if an assignment in a try block
       // will be executed, so all assignments in that block are
@@ -355,11 +358,11 @@ class LocalsHandler {
     }
   }
 
-  void setCaptured(Local local, Element field) {
+  void setCaptured(Local local, FieldEntity field) {
     captured[local] = field;
   }
 
-  void setCapturedAndBoxed(Local local, Element field) {
+  void setCapturedAndBoxed(Local local, FieldEntity field) {
     capturedAndBoxed[local] = field;
   }
 

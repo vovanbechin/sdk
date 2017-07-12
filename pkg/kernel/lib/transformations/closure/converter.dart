@@ -70,11 +70,16 @@ import 'context.dart' show Context, NoContext;
 
 import 'info.dart' show ClosureInfo;
 
-import 'rewriter.dart' show AstRewriter, BlockRewriter, InitializerRewriter;
+import 'rewriter.dart'
+    show
+        AstRewriter,
+        BlockRewriter,
+        InitializerRewriter,
+        FieldInitializerRewriter,
+        LocalInitializerRewriter;
 
 class ClosureConverter extends Transformer {
   final CoreTypes coreTypes;
-  final Class contextClass;
   final Set<VariableDeclaration> capturedVariables;
   final Map<FunctionNode, Set<TypeParameter>> capturedTypeVariables;
   final Map<FunctionNode, VariableDeclaration> thisAccess;
@@ -136,7 +141,7 @@ class ClosureConverter extends Transformer {
   Map<TypeParameter, DartType> typeSubstitution =
       const <TypeParameter, DartType>{};
 
-  ClosureConverter(this.coreTypes, ClosureInfo info, this.contextClass)
+  ClosureConverter(this.coreTypes, ClosureInfo info)
       : this.capturedVariables = info.variables,
         this.capturedTypeVariables = info.typeVariables,
         this.thisAccess = info.thisAccess,
@@ -167,7 +172,6 @@ class ClosureConverter extends Transformer {
 
   TreeNode visitLibrary(Library node) {
     assert(newLibraryMembers.isEmpty);
-    if (node == contextClass.enclosingLibrary) return node;
 
     currentLibrary = node;
     node = super.visitLibrary(node);
@@ -197,18 +201,47 @@ class ClosureConverter extends Transformer {
     context.extend(parameter, new VariableGet(parameter));
   }
 
+  static InitializerRewriter getRewriterForInitializer(
+      Initializer initializer) {
+    if (initializer is FieldInitializer) {
+      return new FieldInitializerRewriter(initializer.value);
+    }
+    if (initializer is LocalInitializer) {
+      return new LocalInitializerRewriter(initializer.variable.initializer);
+    }
+    throw "Trying to extract an initializer expression from "
+        "${initializer.runtimeType}, but only FieldInitializer and "
+        "LocalInitializer are supported.";
+  }
+
+  static Expression getInitializerExpression(Initializer initializer) {
+    if (initializer is FieldInitializer) {
+      return initializer.value;
+    }
+    if (initializer is LocalInitializer) {
+      return initializer.variable.initializer;
+    }
+    throw "Trying to get initializing expressino from "
+        "${initializer.runtimeType}, but only Field Initializer and "
+        "LocalInitializer are supported.";
+  }
+
   TreeNode visitConstructor(Constructor node) {
     assert(isEmptyContext);
     currentMember = node;
     // Transform initializers.
     for (Initializer initializer in node.initializers) {
-      if (initializer is FieldInitializer) {
+      if (initializer is FieldInitializer || initializer is LocalInitializer) {
         // Create a rewriter and a context for the initializer expression.
-        rewriter = new InitializerRewriter(initializer.value);
+        InitializerRewriter initializerRewriter =
+            getRewriterForInitializer(initializer);
+        rewriter = initializerRewriter;
         context = new NoContext(this);
         // Save the expression to visit it in the extended context, since the
-        // rewriter will modify `initializer.value`.
-        Expression initializerExpression = initializer.value;
+        // rewriter will modify `initializer.value` (for [FieldInitializer]) or
+        // `initializer.variable.initializer` (for [LocalInitializer]).
+        Expression initializerExpression =
+            getInitializerExpression(initializer);
         // Extend the context with all captured parameters of the constructor.
         // TODO(karlklose): add a fine-grained analysis of captured parameters.
         node.function.positionalParameters
@@ -225,9 +258,11 @@ class ClosureConverter extends Transformer {
           parent.body = initializerExpression;
         } else if (parent is FieldInitializer) {
           parent.value = initializerExpression;
+        } else if (parent is LocalInitializer) {
+          parent.variable.initializer = initializerExpression;
         } else {
           throw "Found unexpected node '${node.runtimeType}, expected a 'Let' "
-              "or a 'FieldInitializer'.";
+              ",a 'FieldInitializer', or a 'LocalInitializer'.";
         }
       }
     }
@@ -416,6 +451,7 @@ class ClosureConverter extends Transformer {
           // We rename the getter to avoid an indirection in most cases.
           Name oldName = node.name;
           node.name = tearOffName;
+          node.canonicalName?.unbind();
           addGetterForwarder(oldName, node);
         } else if (node.kind == ProcedureKind.Method) {
           addTearOffMethod(tearOffName, node);

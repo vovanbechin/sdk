@@ -189,7 +189,7 @@ class StaticTypeAnalyzer extends SimpleAstVisitor<Object> {
           'element', listTypeParam, ParameterKind.POSITIONAL);
       parameters = new List.filled(elementTypes.length, syntheticParamElement);
     }
-    DartType inferred = ts.inferGenericFunctionOrType/*<InterfaceType>*/(
+    DartType inferred = ts.inferGenericFunctionOrType<InterfaceType>(
         _typeProvider.listType, parameters, elementTypes, contextType,
         downwards: downwards,
         errorReporter: _resolver.errorReporter,
@@ -2082,6 +2082,10 @@ class StaticTypeAnalyzer extends SimpleAstVisitor<Object> {
       if (typeStr == '-dynamic') {
         returnType = _typeProvider.bottomType;
       } else {
+        var components = typeStr.split('|');
+        if (components.remove('Null')) {
+          typeStr = components.join('|');
+        }
         returnType = _getElementNameAsType(
             _typeProvider.objectType.element.library, typeStr, null);
       }

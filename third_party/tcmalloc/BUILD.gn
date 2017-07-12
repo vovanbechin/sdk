@@ -32,6 +32,9 @@ config("internal_config") {
   if (is_clang) {
     cflags += [ "-Wno-unused-const-variable" ]
   }
+  if (current_cpu == "arm" && !is_clang) {
+    cflags += [ "-Wno-psabi" ]
+  }
 }
 
 config("link_config") {
@@ -89,9 +92,12 @@ source_set("tcmalloc") {
     "NDEBUG",
   ]
 
-  # Disable stack sampling for heap profiling in Product builds.
   if (is_product) {
+    # Disable stack sampling for heap profiling in Product builds.
     defines += [ "NO_TCMALLOC_SAMPLES" ]
+
+    # To override the C library functions, we can't hide symbols.
+    configs -= [ "//build/config/gcc:symbol_visibility_hidden" ]
   }
 
   cflags = [

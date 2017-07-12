@@ -411,6 +411,7 @@ class IndexError extends ArgumentError implements RangeError {
  */
 class FallThroughError extends Error {
   FallThroughError();
+  external FallThroughError._create(String url, int line);
 
   external String toString();
 }
@@ -556,4 +557,12 @@ class CyclicInitializationError extends Error {
   String toString() => variableName == null
       ? "Reading static variable during its initialization"
       : "Reading static variable '$variableName' during its initialization";
+}
+
+/// Used by Fasta to throw a compile-time error in a way that is compatible
+/// with compile-time constant evaluation.
+class _ConstantExpressionError {
+  const _ConstantExpressionError();
+
+  external _throw(error);
 }

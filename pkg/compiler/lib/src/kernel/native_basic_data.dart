@@ -6,12 +6,12 @@
 part of dart2js.kernel.element_map;
 
 class KernelAnnotationProcessor implements AnnotationProcessor {
-  final KernelToElementMapImpl elementMap;
+  final KernelToElementMapForImpactImpl elementMap;
+  final NativeBasicDataBuilder _nativeBasicDataBuilder;
 
-  KernelAnnotationProcessor(this.elementMap);
+  KernelAnnotationProcessor(this.elementMap, this._nativeBasicDataBuilder);
 
-  void extractNativeAnnotations(
-      LibraryEntity library, NativeBasicDataBuilder nativeBasicDataBuilder) {
+  void extractNativeAnnotations(LibraryEntity library) {
     ElementEnvironment elementEnvironment = elementMap.elementEnvironment;
     CommonElements commonElements = elementMap.commonElements;
 
@@ -30,19 +30,18 @@ class KernelAnnotationProcessor implements AnnotationProcessor {
         }
       }
       if (annotationName != null) {
-        nativeBasicDataBuilder.setNativeClassTagInfo(cls, annotationName);
+        _nativeBasicDataBuilder.setNativeClassTagInfo(cls, annotationName);
       }
     });
   }
 
-  void extractJsInteropAnnotations(
-      LibraryEntity library, NativeBasicDataBuilder nativeBasicDataBuilder) {
-    // TODO(johnniwinther): Implement this.
+  void extractJsInteropAnnotations(LibraryEntity library) {
+    // TODO(redemption): Implement this.
   }
 
   @override
   void processJsInteropAnnotations(
       NativeBasicData nativeData, NativeDataBuilder nativeDataBuilder) {
-    // TODO(johnniwinther): Implement this.
+    // TODO(redemption): Implement this.
   }
 }

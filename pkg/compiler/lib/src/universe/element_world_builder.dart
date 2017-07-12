@@ -10,22 +10,30 @@ class ElementResolutionWorldBuilder extends ResolutionWorldBuilderBase {
   /// and classes.
   static bool useInstantiationMap = false;
 
-  final JavaScriptBackend _backend;
   final Resolution _resolution;
 
   ElementResolutionWorldBuilder(
-      this._backend,
+      JavaScriptBackend backend,
       this._resolution,
       NativeBasicData nativeBasicData,
       NativeDataBuilder nativeDataBuilder,
       InterceptorDataBuilder interceptorDataBuilder,
+      BackendUsageBuilder backendUsageBuilder,
+      RuntimeTypesNeedBuilder rtiNeedBuilder,
+      NativeResolutionEnqueuer nativeResolutionEnqueuer,
       SelectorConstraintsStrategy selectorConstraintsStrategy)
       : super(
-            _backend.compiler.elementEnvironment,
+            backend.compiler.options,
+            _resolution.elementEnvironment,
+            _resolution.types,
             _resolution.commonElements,
+            backend.constantSystem,
             nativeBasicData,
             nativeDataBuilder,
             interceptorDataBuilder,
+            backendUsageBuilder,
+            rtiNeedBuilder,
+            nativeResolutionEnqueuer,
             selectorConstraintsStrategy);
 
   bool isImplemented(ClassElement cls) {
@@ -61,8 +69,8 @@ class ElementResolutionWorldBuilder extends ResolutionWorldBuilderBase {
 
     _instantiationInfo.forEach((cls, info) {
       if (info.instantiationMap != null) {
-        info.instantiationMap
-            .forEach((ConstructorElement constructor, Set<Instance> set) {
+        info.instantiationMap.forEach((_constructor, Set<Instance> set) {
+          ConstructorElement constructor = _constructor;
           for (Instance instance in set) {
             if (instance.isRedirection) {
               continue;
@@ -72,7 +80,7 @@ class ElementResolutionWorldBuilder extends ResolutionWorldBuilderBase {
                   .addInstantiation(constructor, instance.type, instance.kind);
             } else {
               ConstructorElement target = constructor.effectiveTarget;
-              ResolutionInterfaceType targetType =
+              ResolutionDartType targetType =
                   constructor.computeEffectiveTargetType(instance.type);
               ClassElement cls = target.enclosingClass;
               bool isNative = _nativeBasicData.isNativeClass(cls);
@@ -84,8 +92,10 @@ class ElementResolutionWorldBuilder extends ResolutionWorldBuilderBase {
               } else {
                 kind = Instantiation.DIRECTLY_INSTANTIATED;
               }
-              infoFor(targetType.element)
-                  .addInstantiation(target, targetType, kind);
+              if (targetType is ResolutionInterfaceType) {
+                infoFor(targetType.element)
+                    .addInstantiation(target, targetType, kind);
+              }
             }
           }
         });
@@ -106,8 +116,8 @@ class ElementResolutionWorldBuilder extends ResolutionWorldBuilderBase {
 
   void registerStaticUse(StaticUse staticUse, MemberUsedCallback memberUsed) {
     Element element = staticUse.element;
-    assert(invariant(element, element.isDeclaration,
-        message: "Element ${element} is not the declaration."));
+    assert(element.isDeclaration,
+        failedAt(element, "Element ${element} is not the declaration."));
     super.registerStaticUse(staticUse, memberUsed);
   }
 
@@ -132,7 +142,7 @@ class ElementResolutionWorldBuilder extends ResolutionWorldBuilderBase {
 
   void _processInstantiatedClassMember(
       ClassEntity cls, MemberElement member, MemberUsedCallback memberUsed) {
-    assert(invariant(member, member.isDeclaration));
+    assert(member.isDeclaration, failedAt(member));
     member.computeType(_resolution);
     super._processInstantiatedClassMember(cls, member, memberUsed);
   }
@@ -170,14 +180,22 @@ class ElementResolutionWorldBuilder extends ResolutionWorldBuilderBase {
     Map<ClassEntity, Set<ClassEntity>> typesImplementedBySubclasses =
         populateHierarchyNodes();
     _closed = true;
+
     return _closedWorldCache = new ClosedWorldImpl(
+        options: _options,
+        elementEnvironment: _elementEnvironment,
+        dartTypes: _dartTypes,
         commonElements: _commonElements,
-        constantSystem: _backend.constantSystem,
+        constantSystem: _constantSystem,
         nativeData: _nativeDataBuilder.close(),
         interceptorData: _interceptorDataBuilder.close(),
-        backendUsage: _backend.backendUsage,
+        backendUsage: _backendUsageBuilder.close(),
         resolutionWorldBuilder: this,
-        functionSet: _allFunctions.close(),
+        rtiNeedBuilder: _rtiNeedBuilder,
+        implementedClasses: _implementedClasses,
+        liveNativeClasses: _nativeResolutionEnqueuer.liveNativeClasses,
+        liveInstanceMembers: _liveInstanceMembers,
+        assignedInstanceMembers: computeAssignedInstanceMembers(),
         allTypedefs: _allTypedefs,
         mixinUses: _mixinUses,
         typesImplementedBySubclasses: typesImplementedBySubclasses,

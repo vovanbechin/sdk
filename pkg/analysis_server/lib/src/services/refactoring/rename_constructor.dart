@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library services.src.refactoring.rename_constructor;
-
 import 'dart:async';
 
 import 'package:analysis_server/src/protocol_server.dart' hide Element;
@@ -102,13 +100,15 @@ class RenameConstructorRefactoringImpl extends RenameRefactoringImpl {
       sourceRange = new SourceRange(element.nameEnd, 0);
     }
     return new SourceReference(new SearchMatchImpl(
-        element.context,
-        element.library.source.uri.toString(),
-        element.source.uri.toString(),
-        MatchKind.DECLARATION,
-        sourceRange,
+        element.source.fullName,
+        element.library.source,
+        element.source,
+        element.library,
+        element,
         true,
-        true));
+        true,
+        MatchKind.DECLARATION,
+        sourceRange));
   }
 
   Future<Null> _replaceSynthetic() async {

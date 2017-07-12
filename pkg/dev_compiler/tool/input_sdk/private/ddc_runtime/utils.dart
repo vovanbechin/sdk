@@ -10,6 +10,24 @@ part of dart._runtime;
 defineProperty(obj, name, desc) =>
     JS('', 'Object.defineProperty(#, #, #)', obj, name, desc);
 
+defineValue(obj, name, value) {
+  defineProperty(obj, name,
+      JS('', '{ value: #, configurable: true, writable: true }', value));
+  return value;
+}
+
+void defineGetter(obj, name, getter) {
+  defineProperty(obj, name, JS('', '{get: #}', getter));
+}
+
+void defineMemoizedGetter(obj, name, compute) {
+  defineProperty(
+      obj,
+      name,
+      JS('', '{get: () => #, configurable: true}',
+          defineValue(obj, name, JS('', '#()', compute))));
+}
+
 getOwnPropertyDescriptor(obj, name) =>
     JS('', 'Object.getOwnPropertyDescriptor(#, #)', obj, name);
 
@@ -24,17 +42,17 @@ final hasOwnProperty = JS('', 'Object.prototype.hasOwnProperty');
 /// This error indicates a strong mode specific failure, other than a type
 /// assertion failure (TypeError) or CastError.
 void throwStrongModeError(String message) {
-  if (_trapRuntimeErrors) JS('', 'debugger');
-  JS('', 'throw new #(#);', StrongModeErrorImplementation, message);
+  if (JS('bool', 'dart.__trapRuntimeErrors')) JS('', 'debugger');
+  throw new StrongModeErrorImplementation(message);
 }
 
 /// This error indicates a bug in the runtime or the compiler.
 void throwInternalError(String message) {
-  if (_trapRuntimeErrors) JS('', 'debugger');
+  if (JS('bool', 'dart.__trapRuntimeErrors')) JS('', 'debugger');
   JS('', 'throw Error(#)', message);
 }
 
-getOwnNamesAndSymbols(obj) {
+Iterable getOwnNamesAndSymbols(obj) {
   var names = getOwnPropertyNames(obj);
   var symbols = getOwnPropertySymbols(obj);
   return JS('', '#.concat(#)', names, symbols);
@@ -77,26 +95,12 @@ defineLazyProperty(to, name, desc) => JS(
     return $defineProperty($to, $name, $desc);
 })()''');
 
-void defineLazy(to, from) => JS(
-    '',
-    '''(() => {
-  for (let name of $getOwnNamesAndSymbols($from)) {
-    $defineLazyProperty($to, name, $getOwnPropertyDescriptor($from, name));
+copyTheseProperties(to, from, names) {
+  for (var i = 0; i < JS('int', '#.length', names); ++i) {
+    copyProperty(to, from, JS('', '#[#]', names, i));
   }
-})()''');
-
-defineMemoizedGetter(obj, name, getter) {
-  return defineLazyProperty(obj, name, JS('', '{get: #}', getter));
+  return to;
 }
-
-copyTheseProperties(to, from, names) => JS(
-    '',
-    '''(() => {
-  for (let i = 0; i < $names.length; ++i) {
-    $copyProperty($to, $from, $names[i]);
-  }
-  return $to;
-})()''');
 
 copyProperty(to, from, name) {
   var desc = getOwnPropertyDescriptor(from, name);

@@ -2,6 +2,10 @@
 # for details. All rights reserved. Use of this source code is governed by a
 # BSD-style license that can be found in the LICENSE file.
 
+# IMPORTANT:
+# Before adding or updating dependencies, please review the documentation here:
+# https://github.com/dart-lang/sdk/wiki/Adding-and-Updating-Dependencies
+
 vars = {
   # The dart_root is the root of our sdk checkout. This is normally
   # simply sdk, but if using special gclient specs it can be different.
@@ -15,9 +19,6 @@ vars = {
   #   https://chromium.googlesource.com/
   # named like:
   #   external/github.com/dart-lang/NAME
-  # It is ok to add a dependency directly on dart-lang (dart-lang only)
-  # github repo until the mirror has been created, but please do file a bug
-  # against infra to make that happen.
   "github_mirror":
       "https://chromium.googlesource.com/external/github.com/dart-lang/%s.git",
 
@@ -25,11 +26,14 @@ vars = {
   "chromium_git": "https://chromium.googlesource.com",
   "fuchsia_git": "https://fuchsia.googlesource.com",
 
-  # Only use this temporarily while waiting for a mirror for a new package.
-  "github_dartlang": "https://github.com/dart-lang/%s.git",
+  # IMPORTANT:
+  # This should only be used for local testing. Before adding a new package,
+  # request a mirror of the package you need. To request a mirror, file an issue
+  # on github and add the label 'area-infrastructure'.
+  # "github_dartlang": "https://github.com/dart-lang/%s.git",
 
   "gyp_rev": "@6ee91ad8659871916f9aa840d42e1513befdf638",
-  "co19_rev": "@4af9ef149be554216c5bb16cbac8e50d4c28cdf1",
+  "co19_rev": "@dec2b67aaab3bb7339b9764049707e71e601da3d",
 
   # Revisions of GN related dependencies. This should match the revision
   # pulled by Flutter.
@@ -42,18 +46,18 @@ vars = {
 
   # Revisions of /third_party/* dependencies.
   "args_tag": "@0.13.7",
-  "async_tag": "@1.13.0",
+  "async_tag": "@daf66909019d2aaec1721fc39d94ea648a9fdc1d",
   "barback-0.13.0_rev": "@34853",
   "barback-0.14.0_rev": "@36398",
   "barback-0.14.1_rev": "@38525",
-  "barback_tag" : "@0.15.2+9",
+  "barback_tag" : "@0.15.2+11",
   "bazel_worker_tag": "@v0.1.4",
   "boolean_selector_tag" : "@1.0.2",
   "boringssl_gen_rev": "@753224969dbe43dad29343146529727b5066c0f3",
   "boringssl_rev" : "@d519bf6be0b447fb80fbc539d4bff4479b5482a2",
   "charcode_tag": "@v1.1.1",
   "chrome_rev" : "@19997",
-  "cli_util_tag" : "@0.0.1+3",
+  "cli_util_tag" : "@0.1.0",
   "code_transformers_tag": "@v0.5.1",
   "collection_tag": "@1.13.0",
   "convert_tag": "@2.0.1",
@@ -61,16 +65,16 @@ vars = {
   "csslib_tag" : "@0.13.3+1",
   "dart2js_info_tag" : "@0.5.4+2",
   "dart_services_rev" : "@7aea2574e6f3924bf409a80afb8ad52aa2be4f97",
-  "dart_style_tag": "@1.0.5",
-  "dartdoc_tag" : "@v0.9.14-dev",
+  "dart_style_tag": "@1.0.7",
+  "dartdoc_tag" : "@v0.13.0+1",
   "fixnum_tag": "@0.10.5",
   "func_tag": "@1.0.0",
   "glob_tag": "@1.1.3",
   "html_tag" : "@0.13.1",
   "http_multi_server_tag" : "@2.0.3",
   "http_parser_tag" : "@3.1.1",
-  "http_tag" : "@0.11.3+9",
-  "http_throttle_rev" : "@284344cd357e435c6c8ff9a4a21f02b9e384a541",
+  "http_tag" : "@0.11.3+13",
+  "http_throttle_tag" : "@1.0.1",
   "idl_parser_rev": "@7fbe68cab90c38147dee4f48c30ad0d496c17915",
   "initialize_tag": "@v0.6.2+5",
   "intl_tag": "@0.14.0",
@@ -79,11 +83,11 @@ vars = {
   "json_rpc_2_tag": "@2.0.4",
   "linter_tag": "@0.1.31",
   "logging_tag": "@0.11.3+1",
-  "markdown_tag": "@0.11.2",
+  "markdown_tag": "@0.11.3",
   "matcher_tag": "@0.12.0+2",
   "metatest_tag": "@0.2.2+3",
   "mime_rev": "@75890811d4af5af080351ba8a2853ad4c8df98dd",
-  "mustache4dart_tag" : "@v1.0.10",
+  "mustache4dart_tag" : "@v1.1.0",
   "oauth2_tag": "@1.0.2",
   "observable_tag": "@0.17.0",
   "observatory_pub_packages_rev": "@26aad88f1c1915d39bbcbff3cad589e2402fdcf1",
@@ -95,7 +99,7 @@ vars = {
   "ply_rev": "@604b32590ffad5cbb82e4afef1d305512d06ae93",
   "pool_tag": "@1.3.0",
   "protobuf_tag": "@0.5.4",
-  "pub_rev": "@69be47ed84c3ced304047aaa885c8f8f48dad4e6",
+  "pub_rev": "@0f122625f8e607842afe156b9b23a9709e4ce39a",
   "pub_semver_tag": "@1.3.2",
   "quiver_tag": "@0.22.0",
   "resource_rev":"@a49101ba2deb29c728acba6fb86000a8f730f4b1",
@@ -109,22 +113,21 @@ vars = {
   "source_map_stack_trace_tag": "@1.1.4",
   "source_maps-0.9.4_rev": "@38524",
   "source_maps_tag": "@0.10.4",
-  "source_span_tag": "@1.3.1",
+  "source_span_tag": "@1.4.0",
   "stack_trace_tag": "@1.7.2",
   "stream_channel_tag": "@1.6.1",
   "string_scanner_tag": "@1.0.1",
   "sunflower_rev": "@879b704933413414679396b129f5dfa96f7a0b1e",
   "test_reflective_loader_tag": "@0.1.0",
   "test_tag": "@0.12.18+1",
+  "tuple_tag": "@v1.0.1",
   "typed_data_tag": "@1.1.3",
-  "usage_tag": "@v3.0.0+1",
+  "usage_tag": "@3.3.0",
   "utf_tag": "@0.9.0+3",
   "watcher_tag": "@0.9.7+3",
   "web_components_rev": "@6349e09f9118dce7ae1b309af5763745e25a9d61",
   "web_socket_channel_tag": "@1.0.4",
-  "WebCore_rev": "@a86fe28efadcfc781f836037a80f27e22a5dad17",
-  "when_tag": "@0.2.0+2",
-  "which_tag": "@0.1.3+1",
+  "WebCore_rev": "@3c45690813c112373757bbef53de1602a62af609",
   "yaml_tag": "@2.1.12",
   "zlib_rev": "@c3d0a6190f2f8c924a05ab6cc97b8f975bddd33f",
 }
@@ -229,7 +232,7 @@ deps = {
       (Var("github_mirror") % "http_parser") + Var("http_parser_tag"),
   Var("dart_root") + "/third_party/pkg/http_throttle":
       (Var("github_mirror") % "http_throttle") +
-      Var("http_throttle_rev"),
+      Var("http_throttle_tag"),
   Var("dart_root") + "/third_party/pkg/initialize":
       (Var("github_mirror") % "initialize") + Var("initialize_tag"),
   Var("dart_root") + "/third_party/pkg/intl":
@@ -275,10 +278,7 @@ deps = {
   Var("dart_root") + "/third_party/pkg/pool":
       (Var("github_mirror") % "pool") + Var("pool_tag"),
   Var("dart_root") + "/third_party/pkg/protobuf":
-      # Restore the github mirror once it's corrected to point to protobuf
-      # instead of dart-protobuf
-      # (Var("github_mirror") % "dart-protobuf") + Var("protobuf_tag"),
-      (Var("github_dartlang") % "protobuf") + Var("protobuf_tag"),
+      (Var("github_mirror") % "protobuf") + Var("protobuf_tag"),
   Var("dart_root") + "/third_party/pkg/pub_semver":
       (Var("github_mirror") % "pub_semver") + Var("pub_semver_tag"),
   Var("dart_root") + "/third_party/pkg/pub":
@@ -326,6 +326,8 @@ deps = {
   Var("dart_root") + "/third_party/pkg/test_reflective_loader":
       (Var("github_mirror") % "test_reflective_loader") +
       Var("test_reflective_loader_tag"),
+  Var("dart_root") + "/third_party/pkg/tuple":
+      (Var("github_mirror") % "tuple") + Var("tuple_tag"),
   Var("dart_root") + "/third_party/pkg/typed_data":
       (Var("github_mirror") % "typed_data") + Var("typed_data_tag"),
   Var("dart_root") + "/third_party/pkg/usage":
@@ -340,10 +342,6 @@ deps = {
   Var("dart_root") + "/third_party/pkg/web_socket_channel":
       (Var("github_mirror") % "web_socket_channel") +
       Var("web_socket_channel_tag"),
-  Var("dart_root") + "/third_party/pkg/when":
-      (Var("github_mirror") % "when") + Var("when_tag"),
-  Var("dart_root") + "/third_party/pkg/which":
-      (Var("github_mirror") % "which") + Var("which_tag"),
   Var("dart_root") + "/third_party/pkg/yaml":
       (Var("github_mirror") % "yaml") + Var("yaml_tag"),
 }

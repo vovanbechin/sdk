@@ -5,7 +5,6 @@
 library dart2js.kernel.frontend_strategy;
 
 import '../closure.dart';
-import '../backend_strategy.dart';
 import '../common.dart';
 import '../common_elements.dart';
 import '../common/backend_api.dart';
@@ -20,33 +19,37 @@ import '../enqueue.dart';
 import '../frontend_strategy.dart';
 import '../js_backend/backend.dart';
 import '../js_backend/backend_usage.dart';
-import '../js_backend/custom_elements_analysis.dart';
 import '../js_backend/interceptor_data.dart';
 import '../js_backend/mirrors_analysis.dart';
 import '../js_backend/mirrors_data.dart';
 import '../js_backend/native_data.dart';
 import '../js_backend/no_such_method_registry.dart';
-import '../js_emitter/sorter.dart';
+import '../js_backend/runtime_types.dart';
 import '../library_loader.dart';
+import '../native/enqueue.dart' show NativeResolutionEnqueuer;
 import '../native/resolver.dart';
+import '../options.dart';
 import '../serialization/task.dart';
 import '../patch_parser.dart';
 import '../resolved_uri_translator.dart';
 import '../universe/world_builder.dart';
 import '../universe/world_impact.dart';
 import '../world.dart';
+import 'element_map.dart';
 import 'element_map_impl.dart';
 
 /// Front end strategy that loads '.dill' files and builds a resolved element
 /// model from kernel IR nodes.
-class KernelFrontEndStrategy implements FrontEndStrategy {
-  KernelToElementMapImpl elementMap;
+class KernelFrontEndStrategy extends FrontendStrategyBase {
+  CompilerOptions _options;
+  KernelToElementMapForImpactImpl _elementMap;
 
   KernelAnnotationProcessor _annotationProcesser;
 
   KernelFrontEndStrategy(
-      DiagnosticReporter reporter, env.Environment environment)
-      : elementMap = new KernelToElementMapImpl(reporter, environment);
+      this._options, DiagnosticReporter reporter, env.Environment environment)
+      : _elementMap =
+            new KernelToElementMapForImpactImpl(reporter, environment);
 
   @override
   LibraryLoaderTask createLibraryLoader(
@@ -60,19 +63,26 @@ class KernelFrontEndStrategy implements FrontEndStrategy {
       DiagnosticReporter reporter,
       Measurer measurer) {
     return new DillLibraryLoaderTask(
-        elementMap, uriTranslator, scriptLoader, reporter, measurer);
+        _elementMap, uriTranslator, scriptLoader, reporter, measurer);
   }
 
   @override
-  ElementEnvironment get elementEnvironment => elementMap.elementEnvironment;
+  ElementEnvironment get elementEnvironment => _elementMap.elementEnvironment;
 
   @override
-  AnnotationProcessor get annotationProcesser =>
-      _annotationProcesser ??= new KernelAnnotationProcessor(elementMap);
+  CommonElements get commonElements => _elementMap.commonElements;
+
+  DartTypes get dartTypes => _elementMap.types;
+
+  KernelToElementMapForImpact get elementMap => _elementMap;
+
+  @override
+  AnnotationProcessor get annotationProcesser => _annotationProcesser ??=
+      new KernelAnnotationProcessor(elementMap, nativeBasicDataBuilder);
 
   @override
   NativeClassFinder createNativeClassFinder(NativeBasicData nativeBasicData) {
-    return new BaseNativeClassFinder(elementMap.elementEnvironment,
+    return new BaseNativeClassFinder(_elementMap.elementEnvironment,
         elementMap.commonElements, nativeBasicData);
   }
 
@@ -87,14 +97,8 @@ class KernelFrontEndStrategy implements FrontEndStrategy {
     return elementEnvironment.mainFunction;
   }
 
-  CustomElementsResolutionAnalysis createCustomElementsResolutionAnalysis(
-      NativeBasicData nativeBasicData,
-      BackendUsageBuilder backendUsageBuilder) {
-    return new CustomElementsResolutionAnalysisImpl();
-  }
-
   MirrorsDataBuilder createMirrorsDataBuilder() {
-    return new MirrorsDataBuilderImpl();
+    return new MirrorsDataBuilderImpl(elementMap.commonElements);
   }
 
   MirrorsResolutionAnalysis createMirrorsResolutionAnalysis(
@@ -104,45 +108,72 @@ class KernelFrontEndStrategy implements FrontEndStrategy {
 
   RuntimeTypesNeedBuilder createRuntimeTypesNeedBuilder() {
     return new RuntimeTypesNeedBuilderImpl(
-        elementEnvironment, elementMap.types);
+        elementEnvironment, _elementMap.types);
   }
 
   ResolutionWorldBuilder createResolutionWorldBuilder(
       NativeBasicData nativeBasicData,
       NativeDataBuilder nativeDataBuilder,
       InterceptorDataBuilder interceptorDataBuilder,
+      BackendUsageBuilder backendUsageBuilder,
+      RuntimeTypesNeedBuilder rtiNeedBuilder,
+      NativeResolutionEnqueuer nativeResolutionEnqueuer,
       SelectorConstraintsStrategy selectorConstraintsStrategy) {
-    return new KernelResolutionWorldBuilder(elementMap, nativeBasicData,
-        nativeDataBuilder, interceptorDataBuilder, selectorConstraintsStrategy);
+    return new KernelResolutionWorldBuilder(
+        _options,
+        elementMap,
+        nativeBasicData,
+        nativeDataBuilder,
+        interceptorDataBuilder,
+        backendUsageBuilder,
+        rtiNeedBuilder,
+        nativeResolutionEnqueuer,
+        selectorConstraintsStrategy);
   }
 
   WorkItemBuilder createResolutionWorkItemBuilder(
+      NativeBasicData nativeBasicData,
+      NativeDataBuilder nativeDataBuilder,
       ImpactTransformer impactTransformer) {
-    return new KernelWorkItemBuilder(elementMap, impactTransformer);
+    return new KernelWorkItemBuilder(
+        elementMap, nativeBasicData, nativeDataBuilder, impactTransformer);
+  }
+
+  @override
+  SourceSpan spanFromSpannable(Spannable spannable, Entity currentElement) {
+    return _elementMap.getSourceSpan(spannable, currentElement);
   }
 }
 
 class KernelWorkItemBuilder implements WorkItemBuilder {
-  final KernelToElementMapImpl _elementMap;
+  final KernelToElementMapForImpactImpl _elementMap;
   final ImpactTransformer _impactTransformer;
+  final NativeMemberResolver _nativeMemberResolver;
 
-  KernelWorkItemBuilder(this._elementMap, this._impactTransformer);
+  KernelWorkItemBuilder(this._elementMap, NativeBasicData nativeBasicData,
+      NativeDataBuilder nativeDataBuilder, this._impactTransformer)
+      : _nativeMemberResolver = new KernelNativeMemberResolver(
+            _elementMap, nativeBasicData, nativeDataBuilder);
 
   @override
   WorkItem createWorkItem(MemberEntity entity) {
-    return new KernelWorkItem(_elementMap, _impactTransformer, entity);
+    return new KernelWorkItem(
+        _elementMap, _impactTransformer, _nativeMemberResolver, entity);
   }
 }
 
 class KernelWorkItem implements ResolutionWorkItem {
-  final KernelToElementMapImpl _elementMap;
+  final KernelToElementMapForImpactImpl _elementMap;
   final ImpactTransformer _impactTransformer;
+  final NativeMemberResolver _nativeMemberResolver;
   final MemberEntity element;
 
-  KernelWorkItem(this._elementMap, this._impactTransformer, this.element);
+  KernelWorkItem(this._elementMap, this._impactTransformer,
+      this._nativeMemberResolver, this.element);
 
   @override
   WorldImpact run() {
+    _nativeMemberResolver.resolveNativeMember(element);
     ResolutionImpact impact = _elementMap.computeWorldImpact(element);
     return _impactTransformer.transformResolutionImpact(impact);
   }
@@ -150,14 +181,18 @@ class KernelWorkItem implements ResolutionWorkItem {
 
 /// Mock implementation of [MirrorsDataImpl].
 class MirrorsDataBuilderImpl extends MirrorsDataImpl {
-  MirrorsDataBuilderImpl() : super(null, null, null);
+  MirrorsDataBuilderImpl(CommonElements commonElements)
+      : super(null, null, commonElements);
 
   @override
   void registerUsedMember(MemberEntity member) {}
 
   @override
   void computeMembersNeededForReflection(
-      ResolutionWorldBuilder worldBuilder, ClosedWorld closedWorld) {}
+      ResolutionWorldBuilder worldBuilder, ClosedWorld closedWorld) {
+    // TODO(redemption): Support dart:mirrors.
+    createImmutableSets();
+  }
 
   @override
   void maybeMarkClosureAsNeededForReflection(
@@ -173,30 +208,6 @@ class MirrorsDataBuilderImpl extends MirrorsDataImpl {
       Set<String> symbols, Set<Element> targets, Set<Element> metaTargets) {}
 }
 
-/// Mock implementation of [CustomElementsResolutionAnalysis].
-class CustomElementsResolutionAnalysisImpl
-    implements CustomElementsResolutionAnalysis {
-  @override
-  CustomElementsAnalysisJoin get join {
-    throw new UnimplementedError('CustomElementsResolutionAnalysisImpl.join');
-  }
-
-  @override
-  WorldImpact flush() {
-    // TODO(johnniwinther): Implement this.
-    return const WorldImpact();
-  }
-
-  @override
-  void registerStaticUse(MemberEntity element) {}
-
-  @override
-  void registerInstantiatedClass(ClassEntity classElement) {}
-
-  @override
-  void registerTypeLiteral(DartType type) {}
-}
-
 /// Mock implementation of [MirrorsResolutionAnalysis].
 class MirrorsResolutionAnalysisImpl implements MirrorsResolutionAnalysis {
   @override
@@ -204,30 +215,23 @@ class MirrorsResolutionAnalysisImpl implements MirrorsResolutionAnalysis {
 
   @override
   MirrorsCodegenAnalysis close() {
-    throw new UnimplementedError('MirrorsResolutionAnalysisImpl.close');
+    // TODO(redemption): Implement this.
+    return new MirrorsCodegenAnalysisImpl();
   }
 
   @override
   void onResolutionComplete() {}
 }
 
-/// Backend strategy that uses the kernel elements as the backend model.
-// TODO(johnniwinther): Replace this with a strategy based on the J-element
-// model.
-class KernelBackendStrategy implements BackendStrategy {
+class MirrorsCodegenAnalysisImpl implements MirrorsCodegenAnalysis {
   @override
-  ClosedWorldRefiner createClosedWorldRefiner(KernelClosedWorld closedWorld) {
-    return closedWorld;
+  int get preMirrorsMethodCount {
+    // TODO(redemption): Implement this.
+    return null;
   }
 
   @override
-  Sorter get sorter =>
-      throw new UnimplementedError('KernelBackendStrategy.sorter');
-
-  @override
-  void convertClosures(ClosedWorldRefiner closedWorldRefiner) {
-    // TODO(johnniwinther,efortuna): Compute closure classes for kernel based
-    // elements.
-    throw new UnimplementedError('KernelBackendStrategy.createClosureClasses');
+  void onQueueEmpty(Enqueuer enqueuer, Iterable<ClassEntity> recentClasses) {
+    // TODO(redemption): Implement this.
   }
 }

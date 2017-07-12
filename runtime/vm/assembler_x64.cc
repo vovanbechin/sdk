@@ -27,7 +27,7 @@ Assembler::Assembler(bool use_far_branches)
       has_single_entry_point_(true),
       comments_(),
       constant_pool_allowed_(false) {
-  // Far branching mode is only needed and implemented for MIPS and ARM.
+  // Far branching mode is only needed and implemented for ARM.
   ASSERT(!use_far_branches);
 }
 
@@ -350,6 +350,7 @@ void Assembler::movw(const Address& dst, Register src) {
 void Assembler::movw(const Address& dst, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitOperandSizeOverride();
+  EmitOperandREX(0, dst, REX_NONE);
   EmitUint8(0xC7);
   EmitOperand(0, dst);
   EmitUint8(imm.value() & 0xFF);
@@ -1383,14 +1384,16 @@ void Assembler::cmpb(const Address& address, const Immediate& imm) {
 void Assembler::cmpw(Register reg, const Address& address) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitOperandSizeOverride();
+  EmitOperandREX(reg, address, REX_NONE);
   EmitUint8(0x3B);
-  EmitOperand(reg, address);
+  EmitOperand(reg & 7, address);
 }
 
 
 void Assembler::cmpw(const Address& address, const Immediate& imm) {
   AssemblerBuffer::EnsureCapacity ensured(&buffer_);
   EmitOperandSizeOverride();
+  EmitOperandREX(7, address, REX_NONE);
   EmitUint8(0x81);
   EmitOperand(7, address);
   EmitUint8(imm.value() & 0xFF);
@@ -3341,7 +3344,6 @@ void Assembler::MonomorphicCheckedEntry() {
   Bind(&have_cid);
   cmpq(R10, RBX);
   j(NOT_EQUAL, &miss, Assembler::kNearJump);
-  nop();
 
   // Fall through to unchecked entry.
   ASSERT(CodeSize() == Instructions::kUncheckedEntryOffset);
@@ -3431,10 +3433,12 @@ void Assembler::TryAllocate(const Class& cls,
     NOT_IN_PRODUCT(UpdateAllocationStats(cls.id(), space));
     ASSERT(instance_size >= kHeapObjectTag);
     AddImmediate(instance_reg, Immediate(kHeapObjectTag - instance_size));
-    uword tags = 0;
+    uint32_t tags = 0;
     tags = RawObject::SizeTag::update(instance_size, tags);
     ASSERT(cls.id() != kIllegalCid);
     tags = RawObject::ClassIdTag::update(cls.id(), tags);
+    // Extends the 32 bit tags with zeros, which is the uninitialized
+    // hash code.
     MoveImmediate(FieldAddress(instance_reg, Object::tags_offset()),
                   Immediate(tags));
   } else {
@@ -3478,9 +3482,11 @@ void Assembler::TryAllocateArray(intptr_t cid,
 
     // Initialize the tags.
     // instance: new object start as a tagged pointer.
-    uword tags = 0;
+    uint32_t tags = 0;
     tags = RawObject::ClassIdTag::update(cid, tags);
     tags = RawObject::SizeTag::update(instance_size, tags);
+    // Extends the 32 bit tags with zeros, which is the uninitialized
+    // hash code.
     movq(FieldAddress(instance, Array::tags_offset()), Immediate(tags));
   } else {
     jmp(failure);
@@ -3624,12 +3630,12 @@ void Assembler::EmitGenericShift(bool wide,
 
 
 void Assembler::LoadClassId(Register result, Register object) {
-  ASSERT(RawObject::kClassIdTagPos == kBitsPerInt32);
-  ASSERT(RawObject::kClassIdTagSize == kBitsPerInt32);
-  ASSERT(sizeof(classid_t) == sizeof(uint32_t));
+  ASSERT(RawObject::kClassIdTagPos == 16);
+  ASSERT(RawObject::kClassIdTagSize == 16);
+  ASSERT(sizeof(classid_t) == sizeof(uint16_t));
   const intptr_t class_id_offset =
       Object::tags_offset() + RawObject::kClassIdTagPos / kBitsPerByte;
-  movl(result, FieldAddress(object, class_id_offset));
+  movzxw(result, FieldAddress(object, class_id_offset));
 }
 
 
@@ -3659,9 +3665,9 @@ void Assembler::SmiUntagOrCheckClass(Register object,
                                      intptr_t class_id,
                                      Label* is_smi) {
   ASSERT(kSmiTagShift == 1);
-  ASSERT(RawObject::kClassIdTagPos == kBitsPerInt32);
-  ASSERT(RawObject::kClassIdTagSize == kBitsPerInt32);
-  ASSERT(sizeof(classid_t) == sizeof(uint32_t));
+  ASSERT(RawObject::kClassIdTagPos == 16);
+  ASSERT(RawObject::kClassIdTagSize == 16);
+  ASSERT(sizeof(classid_t) == sizeof(uint16_t));
   const intptr_t class_id_offset =
       Object::tags_offset() + RawObject::kClassIdTagPos / kBitsPerByte;
 
@@ -3670,7 +3676,7 @@ void Assembler::SmiUntagOrCheckClass(Register object,
   j(NOT_CARRY, is_smi, kNearJump);
   // Load cid: can't use LoadClassId, object is untagged. Use TIMES_2 scale
   // factor in the addressing mode to compensate for this.
-  movl(TMP, Address(object, TIMES_2, class_id_offset));
+  movzxw(TMP, Address(object, TIMES_2, class_id_offset));
   cmpl(TMP, Immediate(class_id));
 }
 

@@ -4,31 +4,40 @@
 
 library fasta.diet_listener;
 
-import 'package:front_end/src/fasta/kernel/kernel_ast_factory.dart'
-    show KernelAstFactory;
-
 import 'package:front_end/src/fasta/type_inference/type_inference_engine.dart'
     show TypeInferenceEngine;
 
-import 'package:kernel/ast.dart' show AsyncMarker;
+import 'package:front_end/src/fasta/type_inference/type_inference_listener.dart'
+    show TypeInferenceListener;
+
+import 'package:front_end/src/fasta/type_inference/type_inferrer.dart'
+    show TypeInferrerDisabled;
+
+import 'package:kernel/ast.dart' show AsyncMarker, Class, InterfaceType;
 
 import 'package:kernel/class_hierarchy.dart' show ClassHierarchy;
 
 import 'package:kernel/core_types.dart' show CoreTypes;
 
-import '../fasta_codes.dart' show FastaMessage, codeExpectedBlockToSkip;
+import '../fasta_codes.dart' show Message, codeExpectedBlockToSkip;
 
-import '../parser/parser.dart' show Parser, optional;
+import '../parser/parser.dart' show MemberKind, Parser, optional;
 
-import '../scanner/token.dart' show BeginGroupToken, Token;
+import '../../scanner/token.dart' show BeginToken, Token;
 
-import '../parser/dart_vm_native.dart' show removeNativeClause;
+import '../parser/native_support.dart'
+    show removeNativeClause, skipNativeClause;
 
 import '../util/link.dart' show Link;
 
-import '../errors.dart' show Crash, InputError, inputError, internalError;
+import '../deprecated_problems.dart'
+    show
+        Crash,
+        deprecated_InputError,
+        deprecated_inputError,
+        deprecated_internalProblem;
 
-import 'stack_listener.dart' show StackListener;
+import 'stack_listener.dart' show NullValue, StackListener;
 
 import '../kernel/body_builder.dart' show BodyBuilder;
 
@@ -43,7 +52,9 @@ class DietListener extends StackListener {
 
   final CoreTypes coreTypes;
 
-  final bool isDartLibrary;
+  final bool enableNative;
+
+  final bool stringExpectedAfterNative;
 
   final TypeInferenceEngine typeInferenceEngine;
 
@@ -61,7 +72,10 @@ class DietListener extends StackListener {
       : library = library,
         uri = library.fileUri,
         memberScope = library.scope,
-        isDartLibrary = library.uri.scheme == "dart";
+        enableNative =
+            library.loader.target.backendTarget.enableNative(library.uri),
+        stringExpectedAfterNative =
+            library.loader.target.backendTarget.nativeExtensionExpectsString;
 
   void discard(int n) {
     for (int i = 0; i < n; i++) {
@@ -72,19 +86,21 @@ class DietListener extends StackListener {
   @override
   void endMetadataStar(int count, bool forParameter) {
     debugEvent("MetadataStar");
+    push(popList(count)?.first ?? NullValue.Metadata);
   }
 
   @override
   void endMetadata(Token beginToken, Token periodBeforeName, Token endToken) {
     debugEvent("Metadata");
-    popIfNotNull(periodBeforeName);
-    discard(1);
+    discard(periodBeforeName == null ? 1 : 2);
+    push(beginToken);
   }
 
   @override
   void endPartOf(Token partKeyword, Token semicolon, bool hasName) {
     debugEvent("PartOf");
     if (hasName) discard(1);
+    discard(1); // Metadata.
   }
 
   @override
@@ -149,10 +165,13 @@ class DietListener extends StackListener {
   }
 
   @override
-  void endFormalParameters(int count, Token beginToken, Token endToken) {
+  void endFormalParameters(
+      int count, Token beginToken, Token endToken, MemberKind kind) {
     debugEvent("FormalParameters");
     assert(count == 0); // Count is always 0 as the diet parser skips formals.
-    if (identical(peek(), "-") && identical(beginToken.next, endToken)) {
+    if (kind != MemberKind.GeneralizedFunctionType &&
+        identical(peek(), "-") &&
+        identical(beginToken.next, endToken)) {
       pop();
       push("unary-");
     }
@@ -160,7 +179,7 @@ class DietListener extends StackListener {
   }
 
   @override
-  void handleNoFormalParameters(Token token) {
+  void handleNoFormalParameters(Token token, MemberKind kind) {
     debugEvent("NoFormalParameters");
     if (identical(peek(), "-")) {
       pop();
@@ -170,31 +189,28 @@ class DietListener extends StackListener {
   }
 
   @override
-  void handleFunctionType(Token functionToken, Token endToken) {
+  void endFunctionType(Token functionToken, Token endToken) {
     debugEvent("FunctionType");
+    discard(1);
   }
 
   @override
   void endFunctionTypeAlias(
       Token typedefKeyword, Token equals, Token endToken) {
     debugEvent("FunctionTypeAlias");
-    if (stack.length == 1) {
-      // TODO(ahe): This happens when recovering from `typedef I = A;`. Find a
-      // different way to track tokens of formal parameters.
-      discard(1); // Name.
+    if (equals != null) {
+      // This is a `typedef NAME = TYPE`.
+      discard(2); // Name and metadata.
     } else {
-      discard(2); // Name + endToken.
+      discard(3); // Name, endToken, and metadata.
     }
     checkEmpty(typedefKeyword.charOffset);
   }
 
   @override
-  void endFields(
-      int count, Token covariantToken, Token beginToken, Token endToken) {
+  void endFields(int count, Token beginToken, Token endToken) {
     debugEvent("Fields");
-    List<String> names = popList(count);
-    Builder builder = lookupBuilder(beginToken, null, names.first);
-    buildFields(beginToken, false, builder);
+    buildFields(count, beginToken, false);
   }
 
   @override
@@ -207,8 +223,10 @@ class DietListener extends StackListener {
     debugEvent("TopLevelMethod");
     Token bodyToken = pop();
     String name = pop();
+    Token metadata = pop();
     checkEmpty(beginToken.charOffset);
-    buildFunctionBody(bodyToken, lookupBuilder(beginToken, getOrSet, name));
+    buildFunctionBody(bodyToken, lookupBuilder(beginToken, getOrSet, name),
+        MemberKind.TopLevelMethod, metadata);
   }
 
   @override
@@ -219,9 +237,7 @@ class DietListener extends StackListener {
   @override
   void endTopLevelFields(int count, Token beginToken, Token endToken) {
     debugEvent("TopLevelFields");
-    List<String> names = popList(count);
-    Builder builder = lookupBuilder(beginToken, null, names.first);
-    buildFields(beginToken, true, builder);
+    buildFields(count, beginToken, true);
   }
 
   @override
@@ -251,7 +267,7 @@ class DietListener extends StackListener {
   @override
   void endLibraryName(Token libraryKeyword, Token semicolon) {
     debugEvent("endLibraryName");
-    discard(1);
+    discard(2); // Name and metadata.
   }
 
   @override
@@ -323,22 +339,25 @@ class DietListener extends StackListener {
       Token semicolon) {
     debugEvent("Import");
     popIfNotNull(asKeyword);
+    discard(1); // Metadata.
   }
 
   @override
   void endExport(Token exportKeyword, Token semicolon) {
     debugEvent("Export");
+    discard(1); // Metadata.
   }
 
   @override
   void endPart(Token partKeyword, Token semicolon) {
     debugEvent("Part");
+    discard(1); // Metadata.
   }
 
   @override
   void endTypeVariable(Token token, Token extendsOrSuper) {
     debugEvent("TypeVariable");
-    discard(1);
+    discard(2); // Name and metadata.
   }
 
   @override
@@ -362,13 +381,17 @@ class DietListener extends StackListener {
   void endFactoryMethod(
       Token beginToken, Token factoryKeyword, Token endToken) {
     debugEvent("FactoryMethod");
-    BeginGroupToken bodyToken = pop();
+    BeginToken bodyToken = pop();
     String name = pop();
+    Token metadata = pop();
     checkEmpty(beginToken.charOffset);
     if (bodyToken == null || optional("=", bodyToken.endGroup.next)) {
+      // TODO(ahe): Don't skip this. We need to compile metadata and
+      // redirecting factory bodies.
       return;
     }
-    buildFunctionBody(bodyToken, lookupBuilder(beginToken, null, name));
+    buildFunctionBody(bodyToken, lookupBuilder(beginToken, null, name),
+        MemberKind.Factory, metadata);
   }
 
   @override
@@ -382,33 +405,41 @@ class DietListener extends StackListener {
     debugEvent("Method");
     Token bodyToken = pop();
     String name = pop();
+    Token metadata = pop();
     checkEmpty(beginToken.charOffset);
     if (bodyToken == null) {
+      // TODO(ahe): Don't skip this. We need to compile metadata.
       return;
     }
-    buildFunctionBody(bodyToken, lookupBuilder(beginToken, getOrSet, name));
+    ProcedureBuilder builder = lookupBuilder(beginToken, getOrSet, name);
+    buildFunctionBody(
+        bodyToken,
+        builder,
+        builder.isStatic ? MemberKind.StaticMethod : MemberKind.NonStaticMethod,
+        metadata);
   }
 
   StackListener createListener(
-      MemberBuilder builder, Scope memberScope, bool isInstanceMember,
+      ModifierBuilder builder, Scope memberScope, bool isInstanceMember,
       [Scope formalParameterScope]) {
-    var typeInferrer = typeInferenceEngine.createLocalTypeInferrer(uri);
-    return new BodyBuilder(
-        library,
-        builder,
-        memberScope,
-        formalParameterScope,
-        hierarchy,
-        coreTypes,
-        currentClass,
-        isInstanceMember,
-        uri,
-        typeInferrer,
-        new KernelAstFactory())
+    var listener = new TypeInferenceListener();
+    InterfaceType thisType;
+    if (builder.isClassMember) {
+      // Note: we set thisType regardless of whether we are building a static
+      // member, since that provides better error recovery.
+      Class cls = builder.parent.target;
+      thisType = cls.thisType;
+    }
+    var typeInferrer = library.disableTypeInference
+        ? new TypeInferrerDisabled()
+        : typeInferenceEngine.createLocalTypeInferrer(uri, listener, thisType);
+    return new BodyBuilder(library, builder, memberScope, formalParameterScope,
+        hierarchy, coreTypes, currentClass, isInstanceMember, uri, typeInferrer)
       ..constantExpressionRequired = builder.isConstructor && builder.isConst;
   }
 
-  void buildFunctionBody(Token token, ProcedureBuilder builder) {
+  void buildFunctionBody(
+      Token token, ProcedureBuilder builder, MemberKind kind, Token metadata) {
     Scope typeParameterScope = builder.computeTypeParameterScope(memberScope);
     Scope formalParameterScope =
         builder.computeFormalParameterScope(typeParameterScope);
@@ -417,14 +448,19 @@ class DietListener extends StackListener {
     parseFunctionBody(
         createListener(builder, typeParameterScope, builder.isInstanceMember,
             formalParameterScope),
-        token);
+        token,
+        metadata,
+        kind);
   }
 
-  void buildFields(Token token, bool isTopLevel, MemberBuilder builder) {
+  void buildFields(int count, Token token, bool isTopLevel) {
+    List<String> names = popList(count);
+    Builder builder = lookupBuilder(token, null, names.first);
+    Token metadata = pop();
     // TODO(paulberry): don't re-parse the field if we've already parsed it
     // for type inference.
     parseFields(createListener(builder, memberScope, builder.isInstanceMember),
-        token, isTopLevel);
+        token, metadata, isTopLevel);
   }
 
   @override
@@ -437,9 +473,19 @@ class DietListener extends StackListener {
   void beginClassBody(Token token) {
     debugEvent("beginClassBody");
     String name = pop();
+    Token metadata = pop();
     assert(currentClass == null);
-    currentClass = lookupBuilder(token, null, name);
     assert(memberScope == library.scope);
+    Builder classBuilder = lookupBuilder(token, null, name);
+    if (metadata != null) {
+      StackListener listener = createListener(classBuilder, memberScope, false);
+      Parser parser = new Parser(listener);
+      parser.parseMetadataStar(metadata);
+      List metadataConstants = listener.finishMetadata();
+      Class cls = classBuilder.target;
+      metadataConstants.forEach(cls.addAnnotation);
+    }
+    currentClass = classBuilder;
     memberScope = currentClass.scope;
   }
 
@@ -447,7 +493,6 @@ class DietListener extends StackListener {
   void endClassBody(int memberCount, Token beginToken, Token endToken) {
     debugEvent("ClassBody");
     currentClass = null;
-    checkEmpty(beginToken.charOffset);
     memberScope = library.scope;
   }
 
@@ -466,8 +511,7 @@ class DietListener extends StackListener {
   @override
   void endEnum(Token enumKeyword, Token endBrace, int count) {
     debugEvent("Enum");
-    discard(count);
-    pop(); // Name.
+    discard(count + 2); // Name and metadata.
     checkEmpty(enumKeyword.charOffset);
   }
 
@@ -475,14 +519,14 @@ class DietListener extends StackListener {
   void endNamedMixinApplication(Token beginToken, Token classKeyword,
       Token equals, Token implementsKeyword, Token endToken) {
     debugEvent("NamedMixinApplication");
-    pop(); // Name.
+    discard(2); // Name and metadata.
     checkEmpty(beginToken.charOffset);
   }
 
   @override
-  Token handleUnrecoverableError(Token token, FastaMessage message) {
-    if (isDartLibrary && message.code == codeExpectedBlockToSkip) {
-      Token recover = library.loader.target.skipNativeClause(token);
+  Token handleUnrecoverableError(Token token, Message message) {
+    if (enableNative && message.code == codeExpectedBlockToSkip) {
+      Token recover = skipNativeClause(token, stringExpectedAfterNative);
       if (recover != null) return recover;
     }
     return super.handleUnrecoverableError(token, message);
@@ -490,19 +534,24 @@ class DietListener extends StackListener {
 
   @override
   Link<Token> handleMemberName(Link<Token> identifiers) {
-    if (!isDartLibrary || identifiers.isEmpty) return identifiers;
-    return removeNativeClause(identifiers);
+    if (!enableNative || identifiers.isEmpty) return identifiers;
+    return removeNativeClause(identifiers, stringExpectedAfterNative);
   }
 
   AsyncMarker getAsyncMarker(StackListener listener) => listener.pop();
 
-  void parseFunctionBody(StackListener listener, Token token) {
+  void parseFunctionBody(
+      StackListener listener, Token token, Token metadata, MemberKind kind) {
     try {
       Parser parser = new Parser(listener);
-      token = parser.parseFormalParametersOpt(token);
+      List metadataConstants;
+      if (metadata != null) {
+        parser.parseMetadataStar(metadata);
+        metadataConstants = listener.pop();
+      }
+      token = parser.parseFormalParametersOpt(token, kind);
       var formals = listener.pop();
       listener.checkEmpty(token.charOffset);
-      listener.prepareInitializers();
       token = parser.parseInitializersOpt(token);
       token = parser.parseAsyncModifier(token);
       AsyncMarker asyncModifier = getAsyncMarker(listener) ?? AsyncMarker.Sync;
@@ -510,25 +559,25 @@ class DietListener extends StackListener {
       bool allowAbstract = asyncModifier == AsyncMarker.Sync;
       parser.parseFunctionBody(token, isExpression, allowAbstract);
       var body = listener.pop();
-      if (listener.stack.length == 2) {
-        listener.pop(); // constructor initializers
-        listener.pop(); // separator before constructor initializers
-      }
       listener.checkEmpty(token.charOffset);
-      listener.finishFunction(formals, asyncModifier, body);
-    } on InputError {
+      listener.finishFunction(metadataConstants, formals, asyncModifier, body);
+    } on deprecated_InputError {
       rethrow;
     } catch (e, s) {
       throw new Crash(uri, token.charOffset, e, s);
     }
   }
 
-  void parseFields(StackListener listener, Token token, bool isTopLevel) {
+  void parseFields(
+      StackListener listener, Token token, Token metadata, bool isTopLevel) {
     Parser parser = new Parser(listener);
     if (isTopLevel) {
+      // There's a slight asymmetry between [parseTopLevelMember] and
+      // [parseMember] because the former doesn't call `parseMetadataStar`.
+      token = parser.parseMetadataStar(metadata ?? token);
       token = parser.parseTopLevelMember(token);
     } else {
-      token = parser.parseMember(token);
+      token = parser.parseMember(metadata ?? token);
     }
     listener.checkEmpty(token.charOffset);
   }
@@ -557,12 +606,22 @@ class DietListener extends StackListener {
       builder = library.scopeBuilder[name];
     }
     if (builder == null) {
-      return internalError("Builder not found: $name", uri, token.charOffset);
+      return deprecated_internalProblem(
+          "Builder not found: $name", uri, token.charOffset);
     }
     if (builder.next != null) {
-      return inputError(uri, token.charOffset, "Duplicated name: $name");
+      return deprecated_inputError(
+          uri, token.charOffset, "Duplicated name: $name");
     }
     return builder;
+  }
+
+  @override
+  void addCompileTimeError(Message message, int charOffset) {
+    library.deprecated_addCompileTimeError(charOffset, message.message,
+        fileUri: uri,
+        // We assume this error has already been reported by OutlineBuilder.
+        silent: true);
   }
 
   @override

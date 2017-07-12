@@ -266,7 +266,6 @@ class IsolateLoaderState extends IsolateEmbedderData {
   RawReceivePort _packagesPort;
 
   void _requestPackagesMap([Uri packageConfig]) {
-    assert(_rootScript != null);
     if (_packagesPort != null) {
       // Already scheduled.
       return;
@@ -785,7 +784,7 @@ _loadPackagesFile(SendPort sp, bool traceLoading, Uri packagesFile) async {
 _findPackagesFile(SendPort sp, bool traceLoading, Uri base) async {
   try {
     // Walk up the directory hierarchy to check for the existence of
-    // .packages files in parent directories and for the existense of a
+    // .packages files in parent directories and for the existence of a
     // packages/ directory on the first iteration.
     var dir = new File.fromUri(base).parent;
     var prev = null;
@@ -1035,12 +1034,13 @@ _processLoadRequest(request) {
         String packagesFile = request[5];
         String workingDirectory = request[6];
         String rootScript = request[7];
+        bool isReloading = request[8];
         if (loaderState == null) {
           loaderState = new IsolateLoaderState(isolateId);
           isolateEmbedderData[isolateId] = loaderState;
           loaderState.init(
               packageRoot, packagesFile, workingDirectory, rootScript);
-        } else {
+        } else if (isReloading) {
           loaderState.updatePackageMap(packagesFile);
         }
         loaderState.sp = sp;

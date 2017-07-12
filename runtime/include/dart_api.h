@@ -1611,6 +1611,20 @@ DART_EXPORT Dart_Handle Dart_NewDouble(double value);
  */
 DART_EXPORT Dart_Handle Dart_DoubleValue(Dart_Handle double_obj, double* value);
 
+/**
+ * Returns a closure of top level function 'function_name' in the exported
+ * namespace of specified 'library'. If a top level function 'function_name'
+ * does not exist, looks for a top level getter 'function_name' and invokes
+ * it and returns the object returned by the getter.
+ *
+ * \param library Library object
+ * \param function_name Name of the top level function
+ *
+ * \return A valid Dart instance if no error occurs during the operation.
+ */
+DART_EXPORT Dart_Handle Dart_GetClosure(Dart_Handle library,
+                                        Dart_Handle function_name);
+
 
 /*
  * ========
@@ -3089,7 +3103,7 @@ DART_EXPORT Dart_Handle Dart_FinalizeLoading(bool complete_futures);
  */
 
 /**
- * The peer field is a lazily allocated field intendend for storage of
+ * The peer field is a lazily allocated field intended for storage of
  * an uncommonly used values.  Most instances types can have a peer
  * field allocated.  The exceptions are subtypes of Null, num, and
  * bool.
@@ -3155,6 +3169,15 @@ DART_EXPORT Dart_Port Dart_KernelPort();
 DART_EXPORT Dart_KernelCompilationResult
 Dart_CompileToKernel(const char* script_uri);
 
+typedef struct {
+  const char* uri;
+  const char* source;
+} Dart_SourceFile;
+DART_EXPORT Dart_KernelCompilationResult
+Dart_CompileSourcesToKernel(const char* script_uri,
+                            int source_files_count,
+                            Dart_SourceFile source_files[]);
+
 #define DART_KERNEL_ISOLATE_NAME "kernel-service"
 
 /*
@@ -3183,6 +3206,31 @@ DART_EXPORT bool Dart_IsServiceIsolate(Dart_Isolate isolate);
  * isolate failed to startup or does not support load requests.
  */
 DART_EXPORT Dart_Port Dart_ServiceWaitForLoadPort();
+
+
+/**
+ * Record all functions which have been compiled in the current isolate.
+ *
+ * \param buffer Returns a pointer to a buffer containing the trace.
+ *   This buffer is scope allocated and is only valid  until the next call to
+ *   Dart_ExitScope.
+ * \param size Returns the size of the buffer.
+ * \return Returns an valid handle upon success.
+ */
+DART_EXPORT Dart_Handle Dart_SaveCompilationTrace(uint8_t** buffer,
+                                                  intptr_t* buffer_length);
+
+
+/**
+ * Compile all functions from data from Dart_SaveCompilationTrace. Unlike JIT
+ * feedback, this data is fuzzy: loading does not need to happen in the exact
+ * program that was saved, the saver and loader do not need to agree on checked
+ * mode versus production mode or debug/release/product.
+ *
+ * \return Returns an error handle if a compilation error was encountered.
+ */
+DART_EXPORT Dart_Handle Dart_LoadCompilationTrace(uint8_t* buffer,
+                                                  intptr_t buffer_length);
 
 
 /*
@@ -3284,13 +3332,14 @@ Dart_CreateAppAOTSnapshotAsBlobs(uint8_t** vm_snapshot_data_buffer,
                                  uint8_t** isolate_snapshot_instructions_buffer,
                                  intptr_t* isolate_snapshot_instructions_size);
 
-
 /**
  * Sorts the class-ids in depth first traversal order of the inheritance
- * tree.  This is a costly operation, but it can make method dispatch
+ * tree. This is a costly operation, but it can make method dispatch
  * more efficient and is done before writing snapshots.
+ *
+ * \return A valid handle if no error occurs during the operation.
  */
-DART_EXPORT void Dart_SortClasses();
+DART_EXPORT Dart_Handle Dart_SortClasses();
 
 
 /**
@@ -3320,6 +3369,20 @@ Dart_CreateAppJITSnapshotAsBlobs(uint8_t** isolate_snapshot_data_buffer,
                                  intptr_t* isolate_snapshot_data_size,
                                  uint8_t** isolate_snapshot_instructions_buffer,
                                  intptr_t* isolate_snapshot_instructions_size);
+
+
+/**
+ * Like Dart_CreateAppJITSnapshotAsBlobs, but also creates a new VM snapshot.
+ */
+DART_EXPORT Dart_Handle Dart_CreateCoreJITSnapshotAsBlobs(
+    uint8_t** vm_snapshot_data_buffer,
+    intptr_t* vm_snapshot_data_size,
+    uint8_t** vm_snapshot_instructions_buffer,
+    intptr_t* vm_snapshot_instructions_size,
+    uint8_t** isolate_snapshot_data_buffer,
+    intptr_t* isolate_snapshot_data_size,
+    uint8_t** isolate_snapshot_instructions_buffer,
+    intptr_t* isolate_snapshot_instructions_size);
 
 
 /**

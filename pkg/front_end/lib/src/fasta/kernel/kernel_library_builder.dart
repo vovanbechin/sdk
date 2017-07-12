@@ -4,13 +4,13 @@
 
 library fasta.kernel_library_builder;
 
-import 'package:front_end/src/fasta/scanner/token.dart' show Token;
+import 'package:front_end/src/scanner/token.dart' show Token;
 
 import 'package:kernel/ast.dart';
 
 import 'package:kernel/clone.dart' show CloneVisitor;
 
-import '../errors.dart' show internalError;
+import '../deprecated_problems.dart' show deprecated_internalProblem;
 
 import '../loader.dart' show Loader;
 
@@ -26,13 +26,12 @@ import '../util/relativize.dart' show relativizeUri;
 
 import 'kernel_builder.dart'
     show
-        AccessErrorBuilder,
+        deprecated_AccessErrorBuilder,
         Builder,
         BuiltinTypeBuilder,
         ClassBuilder,
         ConstructorReferenceBuilder,
         FormalParameterBuilder,
-        FunctionTypeAliasBuilder,
         InvalidTypeBuilder,
         KernelConstructorBuilder,
         KernelEnumBuilder,
@@ -61,6 +60,8 @@ class KernelLibraryBuilder
     extends SourceLibraryBuilder<KernelTypeBuilder, Library> {
   final Library library;
 
+  final bool isPatch;
+
   final Map<String, SourceClassBuilder> mixinApplicationClasses =
       <String, SourceClassBuilder>{};
 
@@ -71,7 +72,7 @@ class KernelLibraryBuilder
   final List<KernelTypeVariableBuilder> boundlessTypeVariables =
       <KernelTypeVariableBuilder>[];
 
-  KernelLibraryBuilder(Uri uri, Uri fileUri, Loader loader)
+  KernelLibraryBuilder(Uri uri, Uri fileUri, Loader loader, this.isPatch)
       : library = new Library(uri, fileUri: relativizeUri(fileUri)),
         super(loader, fileUri);
 
@@ -105,7 +106,8 @@ class KernelLibraryBuilder
       List<KernelTypeBuilder> interfaces,
       int charOffset) {
     // Nested declaration began in `OutlineBuilder.beginClassDeclaration`.
-    var declaration = endNestedDeclaration()..resolveTypes(typeVariables, this);
+    var declaration = endNestedDeclaration(className)
+      ..resolveTypes(typeVariables, this);
     assert(declaration.parent == libraryDeclaration);
     Map<String, MemberBuilder> members = declaration.members;
     Map<String, MemberBuilder> constructors = declaration.constructors;
@@ -146,9 +148,10 @@ class KernelLibraryBuilder
       if (typeVariablesByName != null) {
         TypeVariableBuilder tv = typeVariablesByName[name];
         if (tv != null) {
-          cls.addCompileTimeError(
+          cls.deprecated_addCompileTimeError(
               member.charOffset, "Conflict with type variable '$name'.");
-          cls.addCompileTimeError(tv.charOffset, "This is the type variable.");
+          cls.deprecated_addCompileTimeError(
+              tv.charOffset, "This is the type variable.");
         }
       }
       setParent(name, member);
@@ -170,9 +173,9 @@ class KernelLibraryBuilder
     for (TypeVariableBuilder tv in typeVariables) {
       TypeVariableBuilder existing = typeVariablesByName[tv.name];
       if (existing != null) {
-        addCompileTimeError(tv.charOffset,
+        deprecated_addCompileTimeError(tv.charOffset,
             "A type variable can't have the same name as another.");
-        addCompileTimeError(
+        deprecated_addCompileTimeError(
             existing.charOffset, "The other type variable named '${tv.name}'.");
       } else {
         typeVariablesByName[tv.name] = tv;
@@ -180,7 +183,7 @@ class KernelLibraryBuilder
           // Only classes and type variables can't have the same name. See
           // [#29555](https://github.com/dart-lang/sdk/issues/29555).
           if (tv.name == owner.name) {
-            addCompileTimeError(
+            deprecated_addCompileTimeError(
                 tv.charOffset,
                 "A type variable can't have the same name as its enclosing "
                 "declaration.");
@@ -450,7 +453,7 @@ class KernelLibraryBuilder
       List<KernelTypeBuilder> interfaces,
       int charOffset) {
     // Nested declaration began in `OutlineBuilder.beginNamedMixinApplication`.
-    endNestedDeclaration().resolveTypes(typeVariables, this);
+    endNestedDeclaration(name).resolveTypes(typeVariables, this);
     KernelNamedTypeBuilder supertype = applyMixins(mixinApplication,
         metadata: metadata,
         name: name,
@@ -461,12 +464,19 @@ class KernelLibraryBuilder
     checkTypeVariables(typeVariables, supertype.builder);
   }
 
-  void addField(List<MetadataBuilder> metadata, int modifiers,
-      KernelTypeBuilder type, String name, int charOffset, Token initializer) {
+  @override
+  void addField(
+      List<MetadataBuilder> metadata,
+      int modifiers,
+      KernelTypeBuilder type,
+      String name,
+      int charOffset,
+      Token initializerTokenForInference,
+      bool hasInitializer) {
     addBuilder(
         name,
-        new KernelFieldBuilder(
-            metadata, type, name, modifiers, this, charOffset, initializer),
+        new KernelFieldBuilder(metadata, type, name, modifiers, this,
+            charOffset, initializerTokenForInference, hasInitializer),
         charOffset);
   }
 
@@ -487,7 +497,7 @@ class KernelLibraryBuilder
       return null;
     }
     String suffix = name.substring(index + 1);
-    addCompileTimeError(
+    deprecated_addCompileTimeError(
         charOffset,
         "'$name' isn't a legal method name.\n"
         "Did you mean '$className.$suffix'?");
@@ -501,7 +511,6 @@ class KernelLibraryBuilder
       String name,
       List<TypeVariableBuilder> typeVariables,
       List<FormalParameterBuilder> formals,
-      AsyncMarker asyncModifier,
       ProcedureKind kind,
       int charOffset,
       int charOpenParenOffset,
@@ -510,7 +519,7 @@ class KernelLibraryBuilder
       {bool isTopLevel}) {
     // Nested declaration began in `OutlineBuilder.beginMethod` or
     // `OutlineBuilder.beginTopLevelMethod`.
-    endNestedDeclaration().resolveTypes(typeVariables, this);
+    endNestedDeclaration(name).resolveTypes(typeVariables, this);
     ProcedureBuilder procedure;
     String constructorName =
         isTopLevel ? null : computeAndValidateConstructorName(name, charOffset);
@@ -536,7 +545,6 @@ class KernelLibraryBuilder
           name,
           typeVariables,
           formals,
-          asyncModifier,
           kind,
           this,
           charOffset,
@@ -544,6 +552,7 @@ class KernelLibraryBuilder
           charEndOffset,
           nativeMethodName);
     }
+    checkTypeVariables(typeVariables, procedure);
     addBuilder(name, procedure, charOffset);
     if (nativeMethodName != null) {
       addNativeMethod(procedure);
@@ -555,15 +564,16 @@ class KernelLibraryBuilder
       int modifiers,
       ConstructorReferenceBuilder constructorNameReference,
       List<FormalParameterBuilder> formals,
-      AsyncMarker asyncModifier,
       ConstructorReferenceBuilder redirectionTarget,
       int charOffset,
       int charOpenParenOffset,
       int charEndOffset,
       String nativeMethodName) {
+    KernelTypeBuilder returnType = addNamedType(
+        currentDeclaration.parent.name, <KernelTypeBuilder>[], charOffset);
     // Nested declaration began in `OutlineBuilder.beginFactoryMethod`.
     DeclarationBuilder<KernelTypeBuilder> factoryDeclaration =
-        endNestedDeclaration();
+        endNestedDeclaration("#factory_method");
     String name = constructorNameReference.name;
     String constructorName =
         computeAndValidateConstructorName(name, charOffset);
@@ -574,11 +584,10 @@ class KernelLibraryBuilder
     KernelProcedureBuilder procedure = new KernelProcedureBuilder(
         metadata,
         staticMask | modifiers,
-        null,
+        returnType,
         name,
         <TypeVariableBuilder>[],
         formals,
-        asyncModifier,
         ProcedureKind.Factory,
         this,
         charOffset,
@@ -597,22 +606,22 @@ class KernelLibraryBuilder
       List<Object> constantNamesAndOffsets, int charOffset, int charEndOffset) {
     addBuilder(
         name,
-        new KernelEnumBuilder(loader.astFactory, metadata, name,
-            constantNamesAndOffsets, this, charOffset, charEndOffset),
+        new KernelEnumBuilder(metadata, name, constantNamesAndOffsets, this,
+            charOffset, charEndOffset),
         charOffset);
   }
 
   void addFunctionTypeAlias(
       List<MetadataBuilder> metadata,
-      KernelTypeBuilder returnType,
       String name,
       List<TypeVariableBuilder> typeVariables,
-      List<FormalParameterBuilder> formals,
+      covariant KernelFunctionTypeBuilder type,
       int charOffset) {
-    FunctionTypeAliasBuilder typedef = new KernelFunctionTypeAliasBuilder(
-        metadata, returnType, name, typeVariables, formals, this, charOffset);
+    KernelFunctionTypeAliasBuilder typedef = new KernelFunctionTypeAliasBuilder(
+        metadata, name, typeVariables, type, this, charOffset);
+    checkTypeVariables(typeVariables, typedef);
     // Nested declaration began in `OutlineBuilder.beginFunctionTypeAlias`.
-    endNestedDeclaration().resolveTypes(typeVariables, this);
+    endNestedDeclaration("#typedef").resolveTypes(typeVariables, this);
     addBuilder(name, typedef, charOffset);
   }
 
@@ -621,8 +630,13 @@ class KernelLibraryBuilder
       List<TypeVariableBuilder> typeVariables,
       List<FormalParameterBuilder> formals,
       int charOffset) {
-    return new KernelFunctionTypeBuilder(
+    var builder = new KernelFunctionTypeBuilder(
         charOffset, fileUri, returnType, typeVariables, formals);
+    checkTypeVariables(typeVariables, builder);
+    // Nested declaration began in `OutlineBuilder.beginFunctionType` or
+    // `OutlineBuilder.beginFunctionTypedFormalParameter`.
+    endNestedDeclaration("#function_type").resolveTypes(typeVariables, this);
+    return addType(builder);
   }
 
   KernelFormalParameterBuilder addFormalParameter(
@@ -652,9 +666,8 @@ class KernelLibraryBuilder
       library.addMember(builder.build(this)..isStatic = true);
     } else if (builder is KernelProcedureBuilder) {
       library.addMember(builder.build(this)..isStatic = true);
-    } else if (builder is FunctionTypeAliasBuilder) {
-      // Kernel discard typedefs and use their corresponding function types
-      // directly.
+    } else if (builder is KernelFunctionTypeAliasBuilder) {
+      library.addTypedef(builder.build(this));
     } else if (builder is KernelEnumBuilder) {
       library.addClass(builder.build(this, coreLibrary));
     } else if (builder is PrefixBuilder) {
@@ -662,7 +675,7 @@ class KernelLibraryBuilder
     } else if (builder is BuiltinTypeBuilder) {
       // Nothing needed.
     } else {
-      internalError("Unhandled builder: ${builder.runtimeType}");
+      deprecated_internalProblem("Unhandled builder: ${builder.runtimeType}");
     }
   }
 
@@ -682,12 +695,12 @@ class KernelLibraryBuilder
     if (builder == other) return builder;
     if (builder is InvalidTypeBuilder) return builder;
     if (other is InvalidTypeBuilder) return other;
-    if (builder is AccessErrorBuilder) {
-      AccessErrorBuilder error = builder;
+    if (builder is deprecated_AccessErrorBuilder) {
+      deprecated_AccessErrorBuilder error = builder;
       builder = error.builder;
     }
-    if (other is AccessErrorBuilder) {
-      AccessErrorBuilder error = other;
+    if (other is deprecated_AccessErrorBuilder) {
+      deprecated_AccessErrorBuilder error = other;
       other = error.builder;
     }
     bool isLocal = false;
@@ -716,20 +729,20 @@ class KernelLibraryBuilder
     if (preferred != null) {
       if (isLocal) {
         if (isExport) {
-          addNit(charOffset,
+          deprecated_addNit(charOffset,
               "Local definition of '$name' hides export from '${hiddenUri}'.");
         } else {
-          addNit(charOffset,
+          deprecated_addNit(charOffset,
               "Local definition of '$name' hides import from '${hiddenUri}'.");
         }
       } else {
         if (isExport) {
-          addNit(
+          deprecated_addNit(
               charOffset,
               "Export of '$name' (from '${preferredUri}') hides export from "
               "'${hiddenUri}'.");
         } else {
-          addNit(
+          deprecated_addNit(
               charOffset,
               "Import of '$name' (from '${preferredUri}') hides import from "
               "'${hiddenUri}'.");
@@ -749,14 +762,11 @@ class KernelLibraryBuilder
           });
       }
     }
-    if (isExport) {
-      addNit(charOffset,
-          "'$name' is exported from both '${uri}' and '${otherUri}'.");
-    } else {
-      addNit(charOffset,
-          "'$name' is imported from both '${uri}' and '${otherUri}'.");
-    }
-    return new KernelInvalidTypeBuilder(name, charOffset, fileUri);
+    String message = isExport
+        ? "'$name' is exported from both '${uri}' and '${otherUri}'."
+        : "'$name' is imported from both '${uri}' and '${otherUri}'.";
+    deprecated_addNit(charOffset, message);
+    return new KernelInvalidTypeBuilder(name, charOffset, fileUri, message);
   }
 
   int finishStaticInvocations() {

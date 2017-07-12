@@ -82,6 +82,23 @@ public interface AnalysisServer {
   public void analysis_getHover(String file, int offset, GetHoverConsumer consumer);
 
   /**
+   * {@code analysis.getImportedElements}
+   *
+   * Return a description of all of the elements referenced in a given region of a given file that
+   * come from imported libraries.
+   *
+   * If a request is made for a file that does not exist, or that is not currently subject to
+   * analysis (e.g. because it is not associated with any analysis root specified via
+   * analysis.setAnalysisRoots), an error of type GET_IMPORTED_ELEMENTS_INVALID_FILE will be
+   * generated.
+   *
+   * @param file The file in which import information is being requested.
+   * @param offset The offset of the region for which import information is being requested.
+   * @param length The length of the region for which import information is being requested.
+   */
+  public void analysis_getImportedElements(String file, int offset, int length, GetImportedElementsConsumer consumer);
+
+  /**
    * {@code analysis.getLibraryDependencies}
    *
    * Return library dependency information for use in client-side indexing and package URI
@@ -285,6 +302,71 @@ public interface AnalysisServer {
   public void analysis_updateOptions(AnalysisOptions options);
 
   /**
+   * {@code analytics.enable}
+   *
+   * Enable or disable the sending of analytics data. Note that there are other ways for users to
+   * change this setting, so clients cannot assume that they have complete control over this setting.
+   * In particular, there is no guarantee that the result returned by the isEnabled request will
+   * match the last value set via this request.
+   *
+   * @param value Enable or disable analytics.
+   */
+  public void analytics_enable(boolean value);
+
+  /**
+   * {@code analytics.isEnabled}
+   *
+   * Query whether analytics is enabled.
+   *
+   * This flag controls whether the analysis server sends any analytics data to the cloud. If
+   * disabled, the analysis server does not send any analytics data, and any data sent to it by
+   * clients (from sendEvent and sendTiming) will be ignored.
+   *
+   * The value of this flag can be changed by other tools outside of the analysis server's process.
+   * When you query the flag, you get the value of the flag at a given moment. Clients should not use
+   * the value returned to decide whether or not to send the sendEvent and sendTiming requests. Those
+   * requests should be used unconditionally and server will determine whether or not it is
+   * appropriate to forward the information to the cloud at the time each request is received.
+   */
+  public void analytics_isEnabled(IsEnabledConsumer consumer);
+
+  /**
+   * {@code analytics.sendEvent}
+   *
+   * Send information about client events.
+   *
+   * Ask the analysis server to include the fact that an action was performed in the client as part
+   * of the analytics data being sent. The data will only be included if the sending of analytics
+   * data is enabled at the time the request is processed. The action that was performed is indicated
+   * by the value of the action field.
+   *
+   * The value of the action field should not include the identity of the client. The analytics data
+   * sent by server will include the client id passed in using the --client-id command-line argument.
+   * The request will be ignored if the client id was not provided when server was started.
+   *
+   * @param action The value used to indicate which action was performed.
+   */
+  public void analytics_sendEvent(String action);
+
+  /**
+   * {@code analytics.sendTiming}
+   *
+   * Send timing information for client events (e.g. code completions).
+   *
+   * Ask the analysis server to include the fact that a timed event occurred as part of the analytics
+   * data being sent. The data will only be included if the sending of analytics data is enabled at
+   * the time the request is processed.
+   *
+   * The value of the event field should not include the identity of the client. The analytics data
+   * sent by server will include the client id passed in using the --client-id command-line argument.
+   * The request will be ignored if the client id was not provided when server was started.
+   *
+   * @param event The name of the event.
+   * @param millis The duration of the event in milliseconds.
+   */
+  public void analytics_sendTiming(String event, int millis);
+
+  /**
    * {@code completion.getSuggestions}
    *
    * Request that completion suggestions for the given offset in the given file be returned.
@@ -367,6 +449,18 @@ public interface AnalysisServer {
   public void edit_getFixes(String file, int offset, GetFixesConsumer consumer);
 
   /**
+   * {@code edit.getPostfixCompletion}
+   *
+   * Get the changes required to convert the postfix template at the given location into the
+   * template's expanded form.
+   *
+   * @param file The file containing the postfix template to be expanded.
+   * @param key The unique name that identifies the template in use.
+   * @param offset The offset used to identify the code to which the template will be applied.
+   */
+  public void edit_getPostfixCompletion(String file, String key, int offset, GetPostfixCompletionConsumer consumer);
+
+  /**
    * {@code edit.getRefactoring}
    *
    * Get the changes required to perform a refactoring.
@@ -401,6 +495,40 @@ public interface AnalysisServer {
    * @param offset The offset used to identify the statement to be completed.
    */
   public void edit_getStatementCompletion(String file, int offset, GetStatementCompletionConsumer consumer);
+
+  /**
+   * {@code edit.importElements}
+   *
+   * Return a list of edits that would need to be applied in order to ensure that all of the elements
+   * in the specified list of imported elements are accessible within the library.
+   *
+   * If a request is made for a file that does not exist, or that is not currently subject to
+   * analysis (e.g. because it is not associated with any analysis root specified via
+   * analysis.setAnalysisRoots), an error of type IMPORT_ELEMENTS_INVALID_FILE will be generated.
+   *
+   * @param file The file in which the specified elements are to be made accessible.
+   * @param elements The elements to be made accessible in the specified file.
+   */
+  public void edit_importElements(String file, List<ImportedElements> elements, ImportElementsConsumer consumer);
+
+  /**
+   * {@code edit.isPostfixCompletionApplicable}
+   *
+   * Determine if the request postfix completion template is applicable at the given location in the
+   * given file.
+   *
+   * @param file The file containing the postfix template to be expanded.
+   * @param key The unique name that identifies the template in use.
+   * @param offset The offset used to identify the code to which the template will be applied.
+   */
+  public void edit_isPostfixCompletionApplicable(String file, String key, int offset, IsPostfixCompletionApplicableConsumer consumer);
+
+  /**
+   * {@code edit.listPostfixCompletionTemplates}
+   *
+   * Return a list of all postfix templates currently available.
+   */
+  public void edit_listPostfixCompletionTemplates(ListPostfixCompletionTemplatesConsumer consumer);
 
   /**
    * {@code edit.organizeDirectives}

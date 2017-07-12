@@ -13,7 +13,7 @@ import 'package:front_end/src/fasta/source/source_library_builder.dart'
 import 'package:kernel/ast.dart'
     show Class, Constructor, Supertype, TreeNode, setParents;
 
-import '../errors.dart' show internalError;
+import '../deprecated_problems.dart' show deprecated_internalProblem;
 
 import '../kernel/kernel_builder.dart'
     show
@@ -33,12 +33,10 @@ import '../kernel/kernel_builder.dart'
 
 import '../dill/dill_member_builder.dart' show DillMemberBuilder;
 
-import '../util/relativize.dart' show relativizeUri;
-
 Class initializeClass(
-    Class cls, String name, LibraryBuilder parent, int charOffset) {
+    Class cls, String name, KernelLibraryBuilder parent, int charOffset) {
   cls ??= new Class(name: name);
-  cls.fileUri ??= relativizeUri(parent.fileUri);
+  cls.fileUri ??= parent.library.fileUri;
   if (cls.fileOffset == TreeNode.noOffset) {
     cls.fileOffset = charOffset;
   }
@@ -70,6 +68,7 @@ class SourceClassBuilder extends KernelClassBuilder {
         super(metadata, modifiers, name, typeVariables, supertype, interfaces,
             scope, constructors, parent, charOffset);
 
+  @override
   int resolveTypes(LibraryBuilder library) {
     int count = 0;
     if (typeVariables != null) {
@@ -92,7 +91,8 @@ class SourceClassBuilder extends KernelClassBuilder {
         } else if (builder is KernelFunctionBuilder) {
           cls.addMember(builder.build(library));
         } else {
-          internalError("Unhandled builder: ${builder.runtimeType}");
+          deprecated_internalProblem(
+              "Unhandled builder: ${builder.runtimeType}");
         }
         builder = builder.next;
       } while (builder != null);
@@ -119,13 +119,13 @@ class SourceClassBuilder extends KernelClassBuilder {
       Builder member = scopeBuilder[name];
       if (member == null) return;
       // TODO(ahe): charOffset is missing.
-      addCompileTimeError(
+      deprecated_addCompileTimeError(
           constructor.charOffset, "Conflicts with member '${name}'.");
       if (constructor.isFactory) {
-        addCompileTimeError(member.charOffset,
+        deprecated_addCompileTimeError(member.charOffset,
             "Conflicts with factory '${this.name}.${name}'.");
       } else {
-        addCompileTimeError(member.charOffset,
+        deprecated_addCompileTimeError(member.charOffset,
             "Conflicts with constructor '${this.name}.${name}'.");
       }
     });
@@ -135,8 +135,8 @@ class SourceClassBuilder extends KernelClassBuilder {
       if (member == null || !member.isField || member.isFinal) return;
       // TODO(ahe): charOffset is missing.
       var report = member.isInstanceMember != setter.isInstanceMember
-          ? addWarning
-          : addCompileTimeError;
+          ? deprecated_addWarning
+          : deprecated_addCompileTimeError;
       report(setter.charOffset, "Conflicts with member '${name}'.");
       report(member.charOffset, "Conflicts with setter '${name}'.");
     });

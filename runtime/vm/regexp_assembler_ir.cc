@@ -14,7 +14,6 @@
 #include "vm/resolver.h"
 #include "vm/runtime_entry.h"
 #include "vm/stack_frame.h"
-#include "vm/unibrow-inl.h"
 #include "vm/unicode.h"
 
 #define Z zone()
@@ -38,18 +37,8 @@
 
 namespace dart {
 
-DEFINE_FLAG(bool, trace_irregexp, false, "Trace irregexps");
-
-
 static const intptr_t kInvalidTryIndex = CatchClauseNode::kInvalidTryIndex;
 static const intptr_t kMinStackSize = 512;
-
-
-void PrintUtf16(uint16_t c) {
-  const char* format =
-      (0x20 <= c && c <= 0x7F) ? "%c" : (c <= 0xff) ? "\\x%02x" : "\\u%04x";
-  OS::Print(format, c);
-}
 
 
 /*
@@ -78,8 +67,10 @@ IRRegExpMacroAssembler::IRRegExpMacroAssembler(
     intptr_t capture_count,
     const ParsedFunction* parsed_function,
     const ZoneGrowableArray<const ICData*>& ic_data_array,
+    intptr_t osr_id,
     Zone* zone)
     : RegExpMacroAssembler(zone),
+      thread_(Thread::Current()),
       specialization_cid_(specialization_cid),
       parsed_function_(parsed_function),
       ic_data_array_(ic_data_array),
@@ -95,7 +86,9 @@ IRRegExpMacroAssembler::IRRegExpMacroAssembler(
       saved_registers_count_((capture_count + 1) * 2),
       stack_array_cell_(Array::ZoneHandle(zone, Array::New(1, Heap::kOld))),
       // The registers array is allocated at a fixed size after assembly.
-      registers_array_(TypedData::ZoneHandle(zone, TypedData::null())) {
+      registers_array_(TypedData::ZoneHandle(zone, TypedData::null())),
+      // B0 is taken by GraphEntry thus block ids must start at 1.
+      block_id_(1) {
   switch (specialization_cid) {
     case kOneByteStringCid:
     case kExternalOneByteStringCid:
@@ -122,14 +115,17 @@ IRRegExpMacroAssembler::IRRegExpMacroAssembler(
   // Create and generate all preset blocks.
   entry_block_ = new (zone) GraphEntryInstr(
       *parsed_function_,
-      new (zone) TargetEntryInstr(block_id_.Alloc(), kInvalidTryIndex),
-      Compiler::kNoOSRDeoptId);
-  start_block_ = new (zone) JoinEntryInstr(block_id_.Alloc(), kInvalidTryIndex);
-  success_block_ =
-      new (zone) JoinEntryInstr(block_id_.Alloc(), kInvalidTryIndex);
-  backtrack_block_ =
-      new (zone) JoinEntryInstr(block_id_.Alloc(), kInvalidTryIndex);
-  exit_block_ = new (zone) JoinEntryInstr(block_id_.Alloc(), kInvalidTryIndex);
+      new (zone) TargetEntryInstr(block_id_.Alloc(), kInvalidTryIndex,
+                                  GetNextDeoptId()),
+      osr_id);
+  start_block_ = new (zone)
+      JoinEntryInstr(block_id_.Alloc(), kInvalidTryIndex, GetNextDeoptId());
+  success_block_ = new (zone)
+      JoinEntryInstr(block_id_.Alloc(), kInvalidTryIndex, GetNextDeoptId());
+  backtrack_block_ = new (zone)
+      JoinEntryInstr(block_id_.Alloc(), kInvalidTryIndex, GetNextDeoptId());
+  exit_block_ = new (zone)
+      JoinEntryInstr(block_id_.Alloc(), kInvalidTryIndex, GetNextDeoptId());
 
   GenerateEntryBlock();
   GenerateSuccessBlock();
@@ -219,7 +215,7 @@ void IRRegExpMacroAssembler::GenerateEntryBlock() {
 void IRRegExpMacroAssembler::GenerateBacktrackBlock() {
   set_current_instruction(backtrack_block_);
   TAG();
-  CheckPreemption();
+  CheckPreemption(/*is_backtrack=*/true);
 
   const intptr_t entries_count = entry_block_->indirect_entries().length();
 
@@ -252,8 +248,8 @@ void IRRegExpMacroAssembler::GenerateSuccessBlock() {
   Value* type = Bind(new (Z) ConstantInstr(
       TypeArguments::ZoneHandle(Z, TypeArguments::null())));
   Value* length = Bind(Uint64Constant(saved_registers_count_));
-  Value* array =
-      Bind(new (Z) CreateArrayInstr(TokenPosition::kNoSource, type, length));
+  Value* array = Bind(new (Z) CreateArrayInstr(TokenPosition::kNoSource, type,
+                                               length, GetNextDeoptId()));
   StoreLocal(result_, array);
 
   // Store captured offsets in the `matches` parameter.
@@ -276,8 +272,8 @@ void IRRegExpMacroAssembler::GenerateSuccessBlock() {
   PRINT(PushLocal(result_));
 
   // Return true on success.
-  AppendInstruction(
-      new (Z) ReturnInstr(TokenPosition::kNoSource, Bind(LoadLocal(result_))));
+  AppendInstruction(new (Z) ReturnInstr(
+      TokenPosition::kNoSource, Bind(LoadLocal(result_)), GetNextDeoptId()));
 }
 
 
@@ -286,8 +282,8 @@ void IRRegExpMacroAssembler::GenerateExitBlock() {
   TAG();
 
   // Return false on failure.
-  AppendInstruction(
-      new (Z) ReturnInstr(TokenPosition::kNoSource, Bind(LoadLocal(result_))));
+  AppendInstruction(new (Z) ReturnInstr(
+      TokenPosition::kNoSource, Bind(LoadLocal(result_)), GetNextDeoptId()));
 }
 
 
@@ -298,8 +294,7 @@ void IRRegExpMacroAssembler::FinalizeRegistersArray() {
 }
 
 
-#if defined(TARGET_ARCH_ARM64) || defined(TARGET_ARCH_ARM) ||                  \
-    defined(TARGET_ARCH_MIPS)
+#if defined(TARGET_ARCH_ARM64) || defined(TARGET_ARCH_ARM)
 // Disabling unaligned accesses forces the regexp engine to load characters one
 // by one instead of up to 4 at once, along with the associated performance hit.
 // TODO(zerny): Be less conservative about disabling unaligned accesses.
@@ -347,45 +342,6 @@ RawArray* IRRegExpMacroAssembler::Execute(const RegExp& regexp,
   ASSERT(retval.IsArray());
   return Array::Cast(retval).raw();
 }
-
-
-static RawBool* CaseInsensitiveCompareUC16(RawString* str_raw,
-                                           RawSmi* lhs_index_raw,
-                                           RawSmi* rhs_index_raw,
-                                           RawSmi* length_raw) {
-  const String& str = String::Handle(str_raw);
-  const Smi& lhs_index = Smi::Handle(lhs_index_raw);
-  const Smi& rhs_index = Smi::Handle(rhs_index_raw);
-  const Smi& length = Smi::Handle(length_raw);
-
-  // TODO(zerny): Optimize as single instance. V8 has this as an
-  // isolate member.
-  unibrow::Mapping<unibrow::Ecma262Canonicalize> canonicalize;
-
-  for (intptr_t i = 0; i < length.Value(); i++) {
-    int32_t c1 = str.CharAt(lhs_index.Value() + i);
-    int32_t c2 = str.CharAt(rhs_index.Value() + i);
-    if (c1 != c2) {
-      int32_t s1[1] = {c1};
-      canonicalize.get(c1, '\0', s1);
-      if (s1[0] != c2) {
-        int32_t s2[1] = {c2};
-        canonicalize.get(c2, '\0', s2);
-        if (s1[0] != s2[0]) {
-          return Bool::False().raw();
-        }
-      }
-    }
-  }
-  return Bool::True().raw();
-}
-
-
-DEFINE_RAW_LEAF_RUNTIME_ENTRY(
-    CaseInsensitiveCompareUC16,
-    4,
-    false /* is_float */,
-    reinterpret_cast<RuntimeFunction>(&CaseInsensitiveCompareUC16));
 
 
 LocalVariable* IRRegExpMacroAssembler::Parameter(const String& name,
@@ -489,8 +445,9 @@ ComparisonInstr* IRRegExpMacroAssembler::Comparison(ComparisonKind kind,
       InstanceCallDescriptor::FromToken(intermediate_operator), lhs, rhs));
   Value* rhs_value = Bind(BoolConstant(true));
 
-  return new (Z) StrictCompareInstr(TokenPosition::kNoSource, strict_comparison,
-                                    lhs_value, rhs_value, true);
+  return new (Z)
+      StrictCompareInstr(TokenPosition::kNoSource, strict_comparison, lhs_value,
+                         rhs_value, true, GetNextDeoptId());
 }
 
 ComparisonInstr* IRRegExpMacroAssembler::Comparison(ComparisonKind kind,
@@ -537,9 +494,10 @@ StaticCallInstr* IRRegExpMacroAssembler::StaticCall(
 StaticCallInstr* IRRegExpMacroAssembler::StaticCall(
     const Function& function,
     ZoneGrowableArray<PushArgumentInstr*>* arguments) const {
-  return new (Z)
-      StaticCallInstr(TokenPosition::kNoSource, function, Object::null_array(),
-                      arguments, ic_data_array_);
+  const intptr_t kTypeArgsLen = 0;
+  return new (Z) StaticCallInstr(TokenPosition::kNoSource, function,
+                                 kTypeArgsLen, Object::null_array(), arguments,
+                                 ic_data_array_, GetNextDeoptId());
 }
 
 
@@ -585,9 +543,11 @@ InstanceCallInstr* IRRegExpMacroAssembler::InstanceCall(
 InstanceCallInstr* IRRegExpMacroAssembler::InstanceCall(
     const InstanceCallDescriptor& desc,
     ZoneGrowableArray<PushArgumentInstr*>* arguments) const {
+  const intptr_t kTypeArgsLen = 0;
   return new (Z) InstanceCallInstr(
       TokenPosition::kNoSource, desc.name, desc.token_kind, arguments,
-      Object::null_array(), desc.checked_argument_count, ic_data_array_);
+      kTypeArgsLen, Object::null_array(), desc.checked_argument_count,
+      ic_data_array_, GetNextDeoptId());
 }
 
 
@@ -1568,8 +1528,8 @@ void IRRegExpMacroAssembler::CheckStackLimit() {
   PushArgumentInstr* capacity_push = PushArgument(Bind(Sub(
       length_push, PushArgument(Bind(Uint64Constant(stack_limit_slack()))))));
   PushArgumentInstr* stack_pointer_push = PushLocal(stack_pointer_);
-  BranchInstr* branch =
-      new (Z) BranchInstr(Comparison(kGT, capacity_push, stack_pointer_push));
+  BranchInstr* branch = new (Z) BranchInstr(
+      Comparison(kGT, capacity_push, stack_pointer_push), GetNextDeoptId());
   CloseBlockWith(branch);
 
   BlockLabel grow_stack;
@@ -1586,8 +1546,22 @@ void IRRegExpMacroAssembler::CheckStackLimit() {
 
 void IRRegExpMacroAssembler::GrowStack() {
   TAG();
-  Value* cell = Bind(new (Z) ConstantInstr(stack_array_cell_));
-  StoreLocal(stack_, Bind(new (Z) GrowRegExpStackInstr(cell)));
+  const Library& lib = Library::Handle(Library::InternalLibrary());
+  const Function& grow_function = Function::ZoneHandle(
+      Z, lib.LookupFunctionAllowPrivate(Symbols::GrowRegExpStack()));
+  StoreLocal(stack_, Bind(StaticCall(grow_function, PushLocal(stack_))));
+
+  // Note: :stack and stack_array_cell content might diverge because each
+  // instance of :matcher code has its own stack_array_cell embedded into it
+  // as a constant but :stack is a local variable and its value might be
+  // comming from OSR or deoptimization. This means we should never use
+  // stack_array_cell in the body of the :matcher to reload the :stack.
+  PushArgumentInstr* stack_cell_push =
+      PushArgument(Bind(new (Z) ConstantInstr(stack_array_cell_)));
+  PushArgumentInstr* index_push = PushArgument(Bind(Uint64Constant(0)));
+  PushArgumentInstr* stack_push = PushLocal(stack_);
+  Do(InstanceCall(InstanceCallDescriptor::FromToken(Token::kASSIGN_INDEX),
+                  stack_cell_push, index_push, stack_push));
 }
 
 
@@ -1725,7 +1699,7 @@ void IRRegExpMacroAssembler::BranchOrBacktrack(ComparisonInstr* comparison,
   // If the condition is not true, fall through to a new block.
   BlockLabel fallthrough;
 
-  BranchInstr* branch = new (Z) BranchInstr(comparison);
+  BranchInstr* branch = new (Z) BranchInstr(comparison, GetNextDeoptId());
   *branch->true_successor_address() = TargetWithJoinGoto(true_successor_block);
   *branch->false_successor_address() = TargetWithJoinGoto(fallthrough.block());
 
@@ -1736,11 +1710,11 @@ void IRRegExpMacroAssembler::BranchOrBacktrack(ComparisonInstr* comparison,
 
 TargetEntryInstr* IRRegExpMacroAssembler::TargetWithJoinGoto(
     JoinEntryInstr* dst) {
-  TargetEntryInstr* target =
-      new (Z) TargetEntryInstr(block_id_.Alloc(), kInvalidTryIndex);
+  TargetEntryInstr* target = new (Z)
+      TargetEntryInstr(block_id_.Alloc(), kInvalidTryIndex, GetNextDeoptId());
   blocks_.Add(target);
 
-  target->AppendInstruction(new (Z) GotoInstr(dst));
+  target->AppendInstruction(new (Z) GotoInstr(dst, GetNextDeoptId()));
 
   return target;
 }
@@ -1748,20 +1722,28 @@ TargetEntryInstr* IRRegExpMacroAssembler::TargetWithJoinGoto(
 
 IndirectEntryInstr* IRRegExpMacroAssembler::IndirectWithJoinGoto(
     JoinEntryInstr* dst) {
-  IndirectEntryInstr* target = new (Z) IndirectEntryInstr(
-      block_id_.Alloc(), indirect_id_.Alloc(), kInvalidTryIndex);
+  IndirectEntryInstr* target =
+      new (Z) IndirectEntryInstr(block_id_.Alloc(), indirect_id_.Alloc(),
+                                 kInvalidTryIndex, GetNextDeoptId());
   blocks_.Add(target);
 
-  target->AppendInstruction(new (Z) GotoInstr(dst));
+  target->AppendInstruction(new (Z) GotoInstr(dst, GetNextDeoptId()));
 
   return target;
 }
 
 
-void IRRegExpMacroAssembler::CheckPreemption() {
+void IRRegExpMacroAssembler::CheckPreemption(bool is_backtrack) {
   TAG();
-  AppendInstruction(new (Z)
-                        CheckStackOverflowInstr(TokenPosition::kNoSource, 0));
+
+  // We don't have the loop_depth available when compiling regexps, but
+  // we set loop_depth to a non-zero value because this instruction does
+  // not act as an OSR entry outside loops.
+  AppendInstruction(new (Z) CheckStackOverflowInstr(
+      TokenPosition::kNoSource,
+      /*loop_depth=*/1, GetNextDeoptId(),
+      is_backtrack ? CheckStackOverflowInstr::kOsrAndPreemption
+                   : CheckStackOverflowInstr::kOsrOnly));
 }
 
 

@@ -7,10 +7,8 @@
 
 library dart2js.test.import;
 
-import 'package:expect/expect.dart';
 import 'package:async_helper/async_helper.dart';
 import 'package:compiler/src/diagnostics/messages.dart';
-import 'package:compiler/compiler.dart';
 import 'memory_compiler.dart';
 
 const MEMORY_SOURCE_FILES = const {
@@ -71,10 +69,10 @@ testMissingImports() async {
       memorySourceFiles: MEMORY_SOURCE_FILES, diagnosticHandler: collector);
 
   collector.checkMessages([
-    const Expected.error(MessageKind.READ_SCRIPT_ERROR),
+    const Expected.error(MessageKind.READ_URI_ERROR),
     const Expected.error(MessageKind.LIBRARY_NOT_FOUND),
     const Expected.error(MessageKind.LIBRARY_NOT_FOUND),
-    const Expected.error(MessageKind.READ_SCRIPT_ERROR),
+    const Expected.error(MessageKind.READ_URI_ERROR),
     const Expected.warning(MessageKind.NOT_ASSIGNABLE)
   ]);
 }

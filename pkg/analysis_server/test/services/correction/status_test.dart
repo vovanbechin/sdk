@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.services.correction.status;
-
 import 'package:analysis_server/src/protocol_server.dart' hide Element;
 import 'package:analysis_server/src/services/correction/status.dart';
 import 'package:analysis_server/src/services/search/search_engine.dart';
@@ -26,9 +24,6 @@ main() {
 
 @reflectiveTest
 class RefactoringLocationTest extends AbstractSingleUnitTest {
-  @override
-  bool get enableNewAnalysisDriver => false;
-
   test_createLocation_forElement() async {
     await resolveTestUnit('class MyClass {}');
     Element element = findElement('MyClass');
@@ -46,13 +41,15 @@ class RefactoringLocationTest extends AbstractSingleUnitTest {
     Element element = findElement('MyClass');
     SourceRange sourceRange = range.elementName(element);
     SearchMatch match = new SearchMatchImpl(
-        element.context,
-        element.library.source.uri.toString(),
-        element.source.uri.toString(),
-        null,
-        sourceRange,
+        element.source.fullName,
+        element.library.source,
+        element.source,
+        element.library,
+        element,
         true,
-        false);
+        false,
+        MatchKind.DECLARATION,
+        sourceRange);
     // check
     Location location = newLocation_fromMatch(match);
     expect(location.file, '/test.dart');

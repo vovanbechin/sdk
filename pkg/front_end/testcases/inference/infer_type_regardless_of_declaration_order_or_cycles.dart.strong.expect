@@ -7,7 +7,7 @@ class C extends inf::B {
   constructor •() → void
     : super inf::B::•()
     ;
-  get x() → dynamic
+  get x() → core::int
     return null;
 }
 class A extends core::Object {
@@ -18,8 +18,8 @@ class A extends core::Object {
     return 0;
 }
 static method foo() → dynamic {
-  core::int y = new self::C::•().x;
-  core::String z = new self::C::•().x;
+  core::int y = new self::C::•().{self::C::x};
+  core::String z = new self::C::•().{self::C::x};
 }
 static method main() → dynamic {
   self::foo();

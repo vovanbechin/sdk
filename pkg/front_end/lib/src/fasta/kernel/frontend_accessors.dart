@@ -2,23 +2,37 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:front_end/src/fasta/builder/ast_factory.dart';
-
 /// A library to help transform compounds and null-aware accessors into
 /// let expressions.
 
+import 'package:front_end/src/fasta/kernel/kernel_shadow_ast.dart'
+    show
+        KernelArguments,
+        KernelComplexAssignment,
+        KernelConditionalExpression,
+        KernelIllegalAssignment,
+        KernelMethodInvocation,
+        KernelNullAwarePropertyGet,
+        KernelPropertyAssign,
+        KernelPropertyGet,
+        KernelSuperMethodInvocation,
+        KernelSuperPropertyGet,
+        KernelThisExpression,
+        KernelVariableDeclaration,
+        KernelVariableGet;
+
 import 'package:front_end/src/fasta/kernel/utils.dart' show offsetForToken;
 
-import 'package:front_end/src/fasta/scanner/token.dart' show Token;
+import 'package:front_end/src/scanner/token.dart' show Token;
 
 import 'package:front_end/src/fasta/kernel/fasta_accessors.dart'
     show BuilderHelper;
 
-import 'package:kernel/ast.dart' hide MethodInvocation;
+import 'package:kernel/ast.dart' hide MethodInvocation, InvalidExpression;
 
-final Name indexGetName = new Name("[]");
+import '../names.dart' show equalsName, indexGetName, indexSetName;
 
-final Name indexSetName = new Name("[]=");
+import '../deprecated_problems.dart' show deprecated_internalProblem;
 
 /// An [Accessor] represents a subexpression for which we can't yet build a
 /// kernel [Expression] because we don't yet know the context in which it is
@@ -36,18 +50,11 @@ abstract class Accessor {
   final BuilderHelper helper;
   final Token token;
 
-  // [builtBinary] and [builtGetter] capture the inner nodes. Used by
-  // dart2js+rasta for determining how subexpressions map to legacy dart2js Ast
-  // nodes. This will be removed once dart2js type analysis (aka inference) is
-  // reimplemented on kernel.
-  Expression builtBinary;
-  Expression builtGetter;
-
   Accessor(this.helper, this.token);
 
   /// Builds an [Expression] representing a read from the accessor.
   Expression buildSimpleRead() {
-    return _finish(_makeSimpleRead());
+    return _finish(_makeSimpleRead(), null);
   }
 
   /// Builds an [Expression] representing an assignment with the accessor on
@@ -56,7 +63,9 @@ abstract class Accessor {
   /// The returned expression evaluates to the assigned value, unless
   /// [voidContext] is true, in which case it may evaluate to anything.
   Expression buildAssignment(Expression value, {bool voidContext: false}) {
-    return _finish(_makeSimpleWrite(value, voidContext));
+    var complexAssignment = startComplexAssignment(value);
+    return _finish(_makeSimpleWrite(value, voidContext, complexAssignment),
+        complexAssignment);
   }
 
   /// Returns an [Expression] representing a null-aware assignment (`??=`) with
@@ -66,23 +75,25 @@ abstract class Accessor {
   /// [voidContext] is true, in which case it may evaluate to anything.
   ///
   /// [type] is the static type of the RHS.
-  Expression buildNullAwareAssignment(Expression value, DartType type,
+  Expression buildNullAwareAssignment(
+      Expression value, DartType type, int offset,
       {bool voidContext: false}) {
+    var complexAssignment = startComplexAssignment(value);
     if (voidContext) {
-      return _finish(new ConditionalExpression(
-          buildIsNull(helper.astFactory, _makeRead()),
-          _makeWrite(value, false),
-          new NullLiteral(),
-          type));
+      var nullAwareCombiner = new KernelConditionalExpression(
+          buildIsNull(_makeRead(complexAssignment), offset),
+          _makeWrite(value, false, complexAssignment),
+          new NullLiteral());
+      complexAssignment?.nullAwareCombiner = nullAwareCombiner;
+      return _finish(nullAwareCombiner, complexAssignment);
     }
-    var tmp = new VariableDeclaration.forValue(_makeRead());
-    return _finish(makeLet(
-        tmp,
-        new ConditionalExpression(
-            buildIsNull(helper.astFactory, new VariableGet(tmp)),
-            _makeWrite(value, false),
-            new VariableGet(tmp),
-            type)));
+    var tmp = new VariableDeclaration.forValue(_makeRead(complexAssignment));
+    var nullAwareCombiner = new KernelConditionalExpression(
+        buildIsNull(new VariableGet(tmp), offset),
+        _makeWrite(value, false, complexAssignment),
+        new VariableGet(tmp));
+    complexAssignment?.nullAwareCombiner = nullAwareCombiner;
+    return _finish(makeLet(tmp, nullAwareCombiner), complexAssignment);
   }
 
   /// Returns an [Expression] representing a compound assignment (e.g. `+=`)
@@ -90,12 +101,16 @@ abstract class Accessor {
   Expression buildCompoundAssignment(Name binaryOperator, Expression value,
       {int offset: TreeNode.noOffset,
       bool voidContext: false,
-      Procedure interfaceTarget}) {
-    return _finish(_makeWrite(
-        builtBinary = makeBinary(helper.astFactory, _makeRead(), binaryOperator,
-            interfaceTarget, value,
-            offset: offset),
-        voidContext));
+      Procedure interfaceTarget,
+      bool isPreIncDec: false}) {
+    var complexAssignment = startComplexAssignment(value);
+    complexAssignment?.isPreIncDec = isPreIncDec;
+    var combiner = makeBinary(
+        _makeRead(complexAssignment), binaryOperator, interfaceTarget, value,
+        offset: offset);
+    complexAssignment?.combiner = combiner;
+    return _finish(_makeWrite(combiner, voidContext, complexAssignment),
+        complexAssignment);
   }
 
   /// Returns an [Expression] representing a pre-increment or pre-decrement
@@ -107,7 +122,8 @@ abstract class Accessor {
     return buildCompoundAssignment(binaryOperator, new IntLiteral(1),
         offset: offset,
         voidContext: voidContext,
-        interfaceTarget: interfaceTarget);
+        interfaceTarget: interfaceTarget,
+        isPreIncDec: true);
   }
 
   /// Returns an [Expression] representing a post-increment or post-decrement
@@ -120,38 +136,65 @@ abstract class Accessor {
       return buildPrefixIncrement(binaryOperator,
           offset: offset, voidContext: true, interfaceTarget: interfaceTarget);
     }
-    var value = new VariableDeclaration.forValue(_makeRead());
+    var rhs = new IntLiteral(1);
+    var complexAssignment = startComplexAssignment(rhs);
+    var value = new VariableDeclaration.forValue(_makeRead(complexAssignment));
     valueAccess() => new VariableGet(value);
-    var dummy = new VariableDeclaration.forValue(_makeWrite(
-        builtBinary = makeBinary(helper.astFactory, valueAccess(),
-            binaryOperator, interfaceTarget, new IntLiteral(1),
-            offset: offset),
-        true));
-    return _finish(makeLet(value, makeLet(dummy, valueAccess())));
+    var combiner = makeBinary(
+        valueAccess(), binaryOperator, interfaceTarget, rhs,
+        offset: offset);
+    complexAssignment?.combiner = combiner;
+    complexAssignment?.isPostIncDec = true;
+    var dummy = new KernelVariableDeclaration.forValue(
+        _makeWrite(combiner, true, complexAssignment),
+        helper.functionNestingLevel);
+    return _finish(
+        makeLet(value, makeLet(dummy, valueAccess())), complexAssignment);
   }
 
-  Expression _makeSimpleRead() => _makeRead();
+  Expression _makeSimpleRead() => _makeRead(null);
 
-  Expression _makeSimpleWrite(Expression value, bool voidContext) {
-    return _makeWrite(value, voidContext);
+  Expression _makeSimpleWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    return _makeWrite(value, voidContext, complexAssignment);
   }
 
-  Expression _makeRead();
+  Expression _makeRead(KernelComplexAssignment complexAssignment);
 
-  Expression _makeWrite(Expression value, bool voidContext);
+  Expression _makeWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment);
 
-  Expression _finish(Expression body) => body;
+  Expression _finish(
+      Expression body, KernelComplexAssignment complexAssignment) {
+    if (complexAssignment != null) {
+      complexAssignment.desugared = body;
+      return complexAssignment;
+    } else {
+      return body;
+    }
+  }
 
   /// Returns an [Expression] representing a compile-time error.
   ///
   /// At runtime, an exception will be thrown.
-  makeInvalidRead() => new InvalidExpression();
+  makeInvalidRead() {
+    return deprecated_internalProblem(
+        "Unhandled compile-time error.", null, offsetForToken(token));
+  }
 
   /// Returns an [Expression] representing a compile-time error wrapping
   /// [value].
   ///
   /// At runtime, [value] will be evaluated before throwing an exception.
-  makeInvalidWrite(Expression value) => wrapInvalid(value);
+  makeInvalidWrite(Expression value) {
+    return deprecated_internalProblem(
+        "Unhandled compile-time error.", null, offsetForToken(token));
+  }
+
+  /// Creates a data structure for tracking the desugaring of a complex
+  /// assignment expression whose right hand side is [rhs].
+  KernelComplexAssignment startComplexAssignment(Expression rhs) =>
+      new KernelIllegalAssignment(rhs);
 }
 
 abstract class VariableAccessor extends Accessor {
@@ -162,19 +205,25 @@ abstract class VariableAccessor extends Accessor {
       BuilderHelper helper, this.variable, this.promotedType, Token token)
       : super(helper, token);
 
-  Expression _makeRead() {
+  Expression _makeRead(KernelComplexAssignment complexAssignment) {
     var fact = helper.typePromoter
         .getFactForAccess(variable, helper.functionNestingLevel);
     var scope = helper.typePromoter.currentScope;
-    return helper.astFactory.variableGet(variable, fact, scope, token);
+    var read = new KernelVariableGet(variable, fact, scope)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.read = read;
+    return read;
   }
 
-  Expression _makeWrite(Expression value, bool voidContext) {
+  Expression _makeWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
     helper.typePromoter.mutateVariable(variable, helper.functionNestingLevel);
-    return variable.isFinal || variable.isConst
+    var write = variable.isFinal || variable.isConst
         ? makeInvalidWrite(value)
-        : helper.astFactory.variableSet(variable, value)
+        : new VariableSet(variable, value)
       ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
   }
 }
 
@@ -199,13 +248,15 @@ class PropertyAccessor extends Accessor {
       this.getter, this.setter, Token token)
       : super(helper, token);
 
-  Expression _makeSimpleRead() =>
-      helper.astFactory.propertyGet(receiver, name, getter)
-        ..fileOffset = offsetForToken(token);
+  Expression _makeSimpleRead() => new KernelPropertyGet(receiver, name, getter)
+    ..fileOffset = offsetForToken(token);
 
-  Expression _makeSimpleWrite(Expression value, bool voidContext) {
-    return helper.astFactory.propertySet(receiver, name, value, setter)
+  Expression _makeSimpleWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    var write = new PropertySet(receiver, name, value, setter)
       ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
   }
 
   receiverAccess() {
@@ -214,16 +265,25 @@ class PropertyAccessor extends Accessor {
       ..fileOffset = offsetForToken(token);
   }
 
-  Expression _makeRead() => builtGetter = helper.astFactory
-      .propertyGet(receiverAccess(), name, getter)
-        ..fileOffset = offsetForToken(token);
-
-  Expression _makeWrite(Expression value, bool voidContext) {
-    return helper.astFactory.propertySet(receiverAccess(), name, value, setter)
+  Expression _makeRead(KernelComplexAssignment complexAssignment) {
+    var read = new KernelPropertyGet(receiverAccess(), name, getter)
       ..fileOffset = offsetForToken(token);
+    complexAssignment?.read = read;
+    return read;
   }
 
-  Expression _finish(Expression body) => makeLet(_receiverVariable, body);
+  Expression _makeWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    var write = new PropertySet(receiverAccess(), name, value, setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
+  }
+
+  Expression _finish(
+      Expression body, KernelComplexAssignment complexAssignment) {
+    return super._finish(makeLet(_receiverVariable, body), complexAssignment);
+  }
 }
 
 /// Special case of [PropertyAccessor] to avoid creating an indirect access to
@@ -236,44 +296,68 @@ class ThisPropertyAccessor extends Accessor {
       BuilderHelper helper, this.name, this.getter, this.setter, Token token)
       : super(helper, token);
 
-  Expression _makeRead() => builtGetter = helper.astFactory
-      .propertyGet(new ThisExpression(), name, getter)
-        ..fileOffset = offsetForToken(token);
+  Expression _makeRead(KernelComplexAssignment complexAssignment) {
+    var read = new KernelPropertyGet(new KernelThisExpression(), name, getter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.read = read;
+    return read;
+  }
 
-  Expression _makeWrite(Expression value, bool voidContext) {
-    return helper.astFactory
-        .propertySet(new ThisExpression(), name, value, setter)
-          ..fileOffset = offsetForToken(token);
+  Expression _makeWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    var write = new PropertySet(new KernelThisExpression(), name, value, setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
   }
 }
 
 class NullAwarePropertyAccessor extends Accessor {
   VariableDeclaration receiver;
+  Expression receiverExpression;
   Name name;
   Member getter, setter;
   DartType type;
 
-  NullAwarePropertyAccessor(BuilderHelper helper, Expression receiver,
+  NullAwarePropertyAccessor(BuilderHelper helper, this.receiverExpression,
       this.name, this.getter, this.setter, this.type, Token token)
-      : this.receiver = makeOrReuseVariable(receiver),
+      : this.receiver = makeOrReuseVariable(receiverExpression),
         super(helper, token);
 
   receiverAccess() => new VariableGet(receiver);
 
-  Expression _makeRead() => builtGetter =
-      helper.astFactory.propertyGet(receiverAccess(), name, getter);
-
-  Expression _makeWrite(Expression value, bool voidContext) {
-    return helper.astFactory.propertySet(receiverAccess(), name, value, setter);
+  Expression _makeRead(KernelComplexAssignment complexAssignment) {
+    var read = new KernelPropertyGet(receiverAccess(), name, getter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.read = read;
+    return read;
   }
 
-  Expression _finish(Expression body) => makeLet(
-      receiver,
-      new ConditionalExpression(
-          buildIsNull(helper.astFactory, receiverAccess()),
-          new NullLiteral(),
-          body,
-          type));
+  Expression _makeWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    var write = new PropertySet(receiverAccess(), name, value, setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
+  }
+
+  Expression _finish(
+      Expression body, KernelComplexAssignment complexAssignment) {
+    var offset = offsetForToken(token);
+    var nullAwareGuard = new ConditionalExpression(
+        buildIsNull(receiverAccess(), offset), new NullLiteral(), body, null)
+      ..fileOffset = offset;
+    if (complexAssignment != null) {
+      body = makeLet(receiver, nullAwareGuard);
+      KernelPropertyAssign kernelPropertyAssign = complexAssignment;
+      kernelPropertyAssign.nullAwareGuard = nullAwareGuard;
+      kernelPropertyAssign.desugared = body;
+      return kernelPropertyAssign;
+    } else {
+      return new KernelNullAwarePropertyGet(receiver, nullAwareGuard)
+        ..fileOffset = offset;
+    }
+  }
 }
 
 class SuperPropertyAccessor extends Accessor {
@@ -284,18 +368,27 @@ class SuperPropertyAccessor extends Accessor {
       BuilderHelper helper, this.name, this.getter, this.setter, Token token)
       : super(helper, token);
 
-  Expression _makeRead() {
-    if (getter == null) return makeInvalidRead();
+  Expression _makeRead(KernelComplexAssignment complexAssignment) {
+    if (getter == null) {
+      helper.warnUnresolvedSuperGet(name, offsetForToken(token));
+    }
     // TODO(ahe): Use [DirectPropertyGet] when possible.
-    return builtGetter = new SuperPropertyGet(name, getter)
+    var read = new KernelSuperPropertyGet(name, getter)
       ..fileOffset = offsetForToken(token);
+    complexAssignment?.read = read;
+    return read;
   }
 
-  Expression _makeWrite(Expression value, bool voidContext) {
-    if (setter == null) return makeInvalidWrite(value);
+  Expression _makeWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    if (setter == null) {
+      helper.warnUnresolvedSuperSet(name, offsetForToken(token));
+    }
     // TODO(ahe): Use [DirectPropertySet] when possible.
-    return new SuperPropertySet(name, value, setter)
+    var write = new SuperPropertySet(name, value, setter)
       ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
   }
 }
 
@@ -321,15 +414,23 @@ class IndexAccessor extends Accessor {
       this.getter, this.setter, Token token)
       : super(helper, token);
 
-  Expression _makeSimpleRead() => helper.astFactory.methodInvocation(receiver,
-      indexGetName, helper.astFactory.arguments(<Expression>[index]), getter)
-    ..fileOffset = offsetForToken(token);
-
-  Expression _makeSimpleWrite(Expression value, bool voidContext) {
-    if (!voidContext) return _makeWriteAndReturn(value);
-    return helper.astFactory.methodInvocation(receiver, indexSetName,
-        helper.astFactory.arguments(<Expression>[index, value]), setter)
+  Expression _makeSimpleRead() {
+    var read = new KernelMethodInvocation(
+        receiver, indexGetName, new KernelArguments(<Expression>[index]),
+        interfaceTarget: getter)
       ..fileOffset = offsetForToken(token);
+    return read;
+  }
+
+  Expression _makeSimpleWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
+    var write = new KernelMethodInvocation(
+        receiver, indexSetName, new KernelArguments(<Expression>[index, value]),
+        interfaceTarget: setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
   }
 
   receiverAccess() {
@@ -345,42 +446,52 @@ class IndexAccessor extends Accessor {
     return new VariableGet(indexVariable)..fileOffset = offsetForToken(token);
   }
 
-  Expression _makeRead() {
-    return builtGetter = helper.astFactory.methodInvocation(
-        receiverAccess(),
-        indexGetName,
-        helper.astFactory.arguments(<Expression>[indexAccess()]),
-        getter)
+  Expression _makeRead(KernelComplexAssignment complexAssignment) {
+    var read = new KernelMethodInvocation(receiverAccess(), indexGetName,
+        new KernelArguments(<Expression>[indexAccess()]),
+        interfaceTarget: getter)
       ..fileOffset = offsetForToken(token);
+    complexAssignment?.read = read;
+    return read;
   }
 
-  Expression _makeWrite(Expression value, bool voidContext) {
-    if (!voidContext) return _makeWriteAndReturn(value);
-    return helper.astFactory.methodInvocation(receiverAccess(), indexSetName,
-        helper.astFactory.arguments(<Expression>[indexAccess(), value]), setter)
+  Expression _makeWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
+    var write = new KernelMethodInvocation(receiverAccess(), indexSetName,
+        new KernelArguments(<Expression>[indexAccess(), value]),
+        interfaceTarget: setter)
       ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
   }
 
   // TODO(dmitryas): remove this method after the "[]=" operator of the Context
   // class is made to return a value.
-  _makeWriteAndReturn(Expression value) {
+  _makeWriteAndReturn(
+      Expression value, KernelComplexAssignment complexAssignment) {
     // The call to []= does not return the value like direct-style assignments
     // do.  We need to bind the value in a let.
     var valueVariable = new VariableDeclaration.forValue(value);
-    var dummy = new VariableDeclaration.forValue(helper.astFactory
-        .methodInvocation(
-            receiverAccess(),
-            indexSetName,
-            helper.astFactory.arguments(
-                <Expression>[indexAccess(), new VariableGet(valueVariable)]),
-            setter)
-          ..fileOffset = offsetForToken(token));
+    var write = new KernelMethodInvocation(
+        receiverAccess(),
+        indexSetName,
+        new KernelArguments(
+            <Expression>[indexAccess(), new VariableGet(valueVariable)]),
+        interfaceTarget: setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    var dummy = new KernelVariableDeclaration.forValue(
+        write, helper.functionNestingLevel);
     return makeLet(
         valueVariable, makeLet(dummy, new VariableGet(valueVariable)));
   }
 
-  Expression _finish(Expression body) {
-    return makeLet(receiverVariable, makeLet(indexVariable, body));
+  Expression _finish(
+      Expression body, KernelComplexAssignment complexAssignment) {
+    return super._finish(
+        makeLet(receiverVariable, makeLet(indexVariable, body)),
+        complexAssignment);
   }
 }
 
@@ -396,17 +507,20 @@ class ThisIndexAccessor extends Accessor {
       : super(helper, token);
 
   Expression _makeSimpleRead() {
-    return helper.astFactory.methodInvocation(new ThisExpression(),
-        indexGetName, helper.astFactory.arguments(<Expression>[index]), getter);
+    return new KernelMethodInvocation(new KernelThisExpression(), indexGetName,
+        new KernelArguments(<Expression>[index]),
+        interfaceTarget: getter);
   }
 
-  Expression _makeSimpleWrite(Expression value, bool voidContext) {
-    if (!voidContext) return _makeWriteAndReturn(value);
-    return helper.astFactory.methodInvocation(
-        new ThisExpression(),
-        indexSetName,
-        helper.astFactory.arguments(<Expression>[index, value]),
-        setter);
+  Expression _makeSimpleWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
+    var write = new KernelMethodInvocation(new KernelThisExpression(),
+        indexSetName, new KernelArguments(<Expression>[index, value]),
+        interfaceTarget: setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
   }
 
   indexAccess() {
@@ -414,35 +528,46 @@ class ThisIndexAccessor extends Accessor {
     return new VariableGet(indexVariable);
   }
 
-  Expression _makeRead() => builtGetter = helper.astFactory.methodInvocation(
-      new ThisExpression(),
-      indexGetName,
-      helper.astFactory.arguments(<Expression>[indexAccess()]),
-      getter);
-
-  Expression _makeWrite(Expression value, bool voidContext) {
-    if (!voidContext) return _makeWriteAndReturn(value);
-    return helper.astFactory.methodInvocation(
-        new ThisExpression(),
-        indexSetName,
-        helper.astFactory.arguments(<Expression>[indexAccess(), value]),
-        setter);
+  Expression _makeRead(KernelComplexAssignment complexAssignment) {
+    var read = new KernelMethodInvocation(new KernelThisExpression(),
+        indexGetName, new KernelArguments(<Expression>[indexAccess()]),
+        interfaceTarget: getter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.read = read;
+    return read;
   }
 
-  _makeWriteAndReturn(Expression value) {
+  Expression _makeWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
+    var write = new KernelMethodInvocation(new KernelThisExpression(),
+        indexSetName, new KernelArguments(<Expression>[indexAccess(), value]),
+        interfaceTarget: setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
+  }
+
+  _makeWriteAndReturn(
+      Expression value, KernelComplexAssignment complexAssignment) {
     var valueVariable = new VariableDeclaration.forValue(value);
-    var dummy = new VariableDeclaration.forValue(helper.astFactory
-        .methodInvocation(
-            new ThisExpression(),
-            indexSetName,
-            helper.astFactory.arguments(
-                <Expression>[indexAccess(), new VariableGet(valueVariable)]),
-            setter));
+    var write = new KernelMethodInvocation(
+        new KernelThisExpression(),
+        indexSetName,
+        new KernelArguments(
+            <Expression>[indexAccess(), new VariableGet(valueVariable)]),
+        interfaceTarget: setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    var dummy = new VariableDeclaration.forValue(write);
     return makeLet(
         valueVariable, makeLet(dummy, new VariableGet(valueVariable)));
   }
 
-  Expression _finish(Expression body) => makeLet(indexVariable, body);
+  Expression _finish(
+      Expression body, KernelComplexAssignment complexAssignment) {
+    return super._finish(makeLet(indexVariable, body), complexAssignment);
+  }
 }
 
 class SuperIndexAccessor extends Accessor {
@@ -459,41 +584,74 @@ class SuperIndexAccessor extends Accessor {
     return new VariableGet(indexVariable);
   }
 
-  Expression _makeSimpleRead() => new SuperMethodInvocation(
-      indexGetName, helper.astFactory.arguments(<Expression>[index]), getter);
-
-  Expression _makeSimpleWrite(Expression value, bool voidContext) {
-    if (!voidContext) return _makeWriteAndReturn(value);
-    return new SuperMethodInvocation(indexSetName,
-        helper.astFactory.arguments(<Expression>[index, value]), setter);
+  Expression _makeSimpleRead() {
+    if (getter == null) {
+      helper.warnUnresolvedSuperMethod(indexGetName, offsetForToken(token));
+    }
+    // TODO(ahe): Use [DirectMethodInvocation] when possible.
+    return new KernelSuperMethodInvocation(
+        indexGetName, new KernelArguments(<Expression>[index]), getter)
+      ..fileOffset = offsetForToken(token);
   }
 
-  Expression _makeRead() {
-    return builtGetter = new SuperMethodInvocation(indexGetName,
-        helper.astFactory.arguments(<Expression>[indexAccess()]), getter);
+  Expression _makeSimpleWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
+    if (setter == null) {
+      helper.warnUnresolvedSuperMethod(indexSetName, offsetForToken(token));
+    }
+    var write = new SuperMethodInvocation(
+        indexSetName, new KernelArguments(<Expression>[index, value]), setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
   }
 
-  Expression _makeWrite(Expression value, bool voidContext) {
-    if (!voidContext) return _makeWriteAndReturn(value);
-    return new SuperMethodInvocation(
-        indexSetName,
-        helper.astFactory.arguments(<Expression>[indexAccess(), value]),
-        setter);
+  Expression _makeRead(KernelComplexAssignment complexAssignment) {
+    if (getter == null) {
+      helper.warnUnresolvedSuperMethod(indexGetName, offsetForToken(token));
+    }
+    var read = new SuperMethodInvocation(
+        indexGetName, new KernelArguments(<Expression>[indexAccess()]), getter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.read = read;
+    return read;
   }
 
-  _makeWriteAndReturn(Expression value) {
+  Expression _makeWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    if (!voidContext) return _makeWriteAndReturn(value, complexAssignment);
+    if (setter == null) {
+      helper.warnUnresolvedSuperMethod(indexSetName, offsetForToken(token));
+    }
+    var write = new SuperMethodInvocation(indexSetName,
+        new KernelArguments(<Expression>[indexAccess(), value]), setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    return write;
+  }
+
+  _makeWriteAndReturn(
+      Expression value, KernelComplexAssignment complexAssignment) {
     var valueVariable = new VariableDeclaration.forValue(value);
-    var dummy = new VariableDeclaration.forValue(new SuperMethodInvocation(
+    if (setter == null) {
+      helper.warnUnresolvedSuperMethod(indexSetName, offsetForToken(token));
+    }
+    var write = new SuperMethodInvocation(
         indexSetName,
-        helper.astFactory.arguments(
+        new KernelArguments(
             <Expression>[indexAccess(), new VariableGet(valueVariable)]),
-        setter));
+        setter)
+      ..fileOffset = offsetForToken(token);
+    complexAssignment?.write = write;
+    var dummy = new VariableDeclaration.forValue(write);
     return makeLet(
         valueVariable, makeLet(dummy, new VariableGet(valueVariable)));
   }
 
-  Expression _finish(Expression body) {
-    return makeLet(indexVariable, body);
+  Expression _finish(
+      Expression body, KernelComplexAssignment complexAssignment) {
+    return super._finish(makeLet(indexVariable, body), complexAssignment);
   }
 }
 
@@ -505,15 +663,27 @@ class StaticAccessor extends Accessor {
       BuilderHelper helper, this.readTarget, this.writeTarget, Token token)
       : super(helper, token);
 
-  Expression _makeRead() => builtGetter = readTarget == null
-      ? makeInvalidRead()
-      : helper.makeStaticGet(readTarget, token);
+  Expression _makeRead(KernelComplexAssignment complexAssignment) {
+    if (readTarget == null) {
+      return makeInvalidRead();
+    } else {
+      var read = helper.makeStaticGet(readTarget, token);
+      complexAssignment?.read = read;
+      return read;
+    }
+  }
 
-  Expression _makeWrite(Expression value, bool voidContext) {
-    return writeTarget == null
-        ? makeInvalidWrite(value)
-        : new StaticSet(writeTarget, value)
-      ..fileOffset = offsetForToken(token);
+  Expression _makeWrite(Expression value, bool voidContext,
+      KernelComplexAssignment complexAssignment) {
+    Expression write;
+    if (writeTarget == null) {
+      write = makeInvalidWrite(value);
+    } else {
+      write = new StaticSet(writeTarget, value);
+      complexAssignment?.write = write;
+    }
+    write.fileOffset = offsetForToken(token);
+    return write;
   }
 }
 
@@ -526,15 +696,18 @@ class ReadOnlyAccessor extends Accessor {
 
   Expression _makeSimpleRead() => expression;
 
-  Expression _makeRead() {
+  Expression _makeRead(KernelComplexAssignment complexAssignment) {
     value ??= new VariableDeclaration.forValue(expression);
     return new VariableGet(value);
   }
 
-  Expression _makeWrite(Expression value, bool voidContext) =>
+  Expression _makeWrite(Expression value, bool voidContext,
+          KernelComplexAssignment complexAssignment) =>
       makeInvalidWrite(value);
 
-  Expression _finish(Expression body) => makeLet(value, body);
+  Expression _finish(
+          Expression body, KernelComplexAssignment complexAssignment) =>
+      super._finish(makeLet(value, body), complexAssignment);
 }
 
 Expression makeLet(VariableDeclaration variable, Expression body) {
@@ -542,28 +715,21 @@ Expression makeLet(VariableDeclaration variable, Expression body) {
   return new Let(variable, body);
 }
 
-Expression makeBinary(AstFactory astFactory, Expression left, Name operator,
-    Procedure interfaceTarget, Expression right,
+Expression makeBinary(
+    Expression left, Name operator, Procedure interfaceTarget, Expression right,
     {int offset: TreeNode.noOffset}) {
-  return astFactory.methodInvocation(left, operator,
-      astFactory.arguments(<Expression>[right]), interfaceTarget)
+  return new KernelMethodInvocation(
+      left, operator, new KernelArguments(<Expression>[right]),
+      interfaceTarget: interfaceTarget)
     ..fileOffset = offset;
 }
 
-final Name _equalOperator = new Name('==');
-
-Expression buildIsNull(AstFactory astFactory, Expression value,
-    {int offset: TreeNode.noOffset}) {
-  return makeBinary(astFactory, value, _equalOperator, null, new NullLiteral(),
-      offset: offset);
+Expression buildIsNull(Expression value, int offset) {
+  return makeBinary(value, equalsName, null, new NullLiteral(), offset: offset);
 }
 
 VariableDeclaration makeOrReuseVariable(Expression value) {
   // TODO: Devise a way to remember if a variable declaration was reused
   // or is fresh (hence needs a let binding).
   return new VariableDeclaration.forValue(value);
-}
-
-Expression wrapInvalid(Expression e) {
-  return new Let(new VariableDeclaration.forValue(e), new InvalidExpression());
 }

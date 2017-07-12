@@ -15,6 +15,7 @@ import 'dart:_internal'
     show EfficientLengthIterable, MappedIterable, IterableElementError;
 
 import 'dart:_native_typed_data';
+import 'dart:_runtime' as dart;
 
 part 'annotations.dart';
 part 'linked_hash_map.dart';
@@ -183,17 +184,8 @@ class Primitives {
   /** [: r"$".codeUnitAt(0) :] */
   static const int DOLLAR_CHAR_VALUE = 36;
 
-  /// Returns the type of [object] as a string (including type arguments).
-  ///
-  /// In minified mode, uses the unminified names if available.
-  static String objectTypeName(Object object) {
-    return getRuntimeType(object).toString();
-  }
-
-  /// In minified mode, uses the unminified names if available.
   static String objectToString(Object object) {
-    // String name = objectTypeName(object);
-    String name = JS('String', 'dart.typeName(dart.getReifiedType(#))', object);
+    String name = dart.typeName(dart.getReifiedType(object));
     return "Instance of '$name'";
   }
 
@@ -584,16 +576,16 @@ throwConcurrentModificationError(collection) {
   throw new ConcurrentModificationError(collection);
 }
 
-class NullError extends Error implements NoSuchMethodError {
-  final String _message;
-  final String _method;
-
-  NullError(this._message, match)
-      : _method = match == null ? null : JS('', '#.method', match);
+@JsPeerInterface(name: 'TypeError')
+class NullError extends Interceptor implements NoSuchMethodError {
+  StackTrace get stackTrace => Primitives.extractStackTrace(this);
 
   String toString() {
-    if (_method == null) return 'NullError: $_message';
-    return "NullError: method not found: '$_method' on null";
+    // TODO(vsm): Distinguish between null reference errors and other
+    // TypeErrors.  We should not get non-null TypeErrors from DDC code,
+    // but we may from native JavaScript.
+    var message = JS('String', '#.message', this);
+    return "NullError: $message";
   }
 }
 
@@ -632,7 +624,7 @@ class UnknownJsTypeError extends Error {
 final _stackTrace = JS('', 'Symbol("_stackTrace")');
 StackTrace getTraceFromException(exception) {
   var error = JS('', 'dart.recordJsError(#)', exception);
-  var trace = JS('StackTrace', '#[#]', error, _stackTrace);
+  var trace = JS('StackTrace|Null', '#[#]', error, _stackTrace);
   if (trace != null) return trace;
   trace = new _StackTrace(error);
   JS('', '#[#] = #', error, _stackTrace, trace);
@@ -788,7 +780,7 @@ class JSName {
  * objects that support integer indexing. This interface is not
  * visible to anyone, and is only injected into special libraries.
  */
-abstract class JavaScriptIndexingBehavior {}
+abstract class JavaScriptIndexingBehavior<E> {}
 
 // TODO(lrn): These exceptions should be implemented in core.
 // When they are, remove the 'Implementation' here.

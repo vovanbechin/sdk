@@ -736,7 +736,7 @@ void main() {
           Expect.equals(
               type,
               simplify(
-                  typesInferrer.getReturnTypeOfElement(element), closedWorld),
+                  typesInferrer.getReturnTypeOfMember(element), closedWorld),
               name);
         }
 
@@ -761,7 +761,7 @@ void main() {
         checkReturn('returnEmpty1', const TypeMask.nonNullEmpty());
         checkReturn('returnEmpty2', const TypeMask.nonNullEmpty());
         TypeMask intType = new TypeMask.nonNullSubtype(
-            compiler.commonElements.intClass, closedWorld);
+            closedWorld.commonElements.intClass, closedWorld);
         checkReturn('testIsCheck1', intType);
         checkReturn('testIsCheck2', intType);
         checkReturn('testIsCheck3', intType.nullable());
@@ -797,7 +797,7 @@ void main() {
         checkReturn(
             'returnAsString',
             new TypeMask.subtype(
-                compiler.commonElements.stringClass, closedWorld));
+                closedWorld.commonElements.stringClass, closedWorld));
         checkReturn('returnIntAsNum', commonMasks.uint31Type);
         checkReturn('returnAsTypedef', commonMasks.functionType.nullable());
         checkReturn('returnTopLevelGetter', commonMasks.uint31Type);
@@ -829,12 +829,12 @@ void main() {
         checkReturn('testDoWhile4', commonMasks.numType);
 
         checkReturnInClass(String className, String methodName, type) {
-          var cls = findElement(compiler, className);
+          dynamic cls = findElement(compiler, className);
           var element = cls.lookupLocalMember(methodName);
           Expect.equals(
               type,
               simplify(
-                  typesInferrer.getReturnTypeOfElement(element), closedWorld),
+                  typesInferrer.getReturnTypeOfMember(element), closedWorld),
               '$className:$methodName');
         }
 
@@ -864,10 +864,10 @@ void main() {
         checkReturnInClass('C', 'returnInt6', commonMasks.positiveIntType);
 
         checkFactoryConstructor(String className, String factoryName) {
-          var cls = findElement(compiler, className);
+          dynamic cls = findElement(compiler, className);
           var element = cls.localLookup(factoryName);
           Expect.equals(new TypeMask.nonNullExact(cls, closedWorld),
-              typesInferrer.getReturnTypeOfElement(element));
+              typesInferrer.getReturnTypeOfMember(element));
         }
 
         checkFactoryConstructor('A', '');

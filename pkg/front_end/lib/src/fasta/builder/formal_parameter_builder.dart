@@ -31,6 +31,8 @@ abstract class FormalParameterBuilder<T extends TypeBuilder>
       this.hasThis, LibraryBuilder compilationUnit, this.charOffset)
       : super(compilationUnit, charOffset);
 
+  String get debugName => "FormalParameterBuilder";
+
   bool get isRequired => kind.isRequired;
 
   bool get isPositional => kind.isPositional || kind.isRequired;
@@ -43,4 +45,6 @@ abstract class FormalParameterBuilder<T extends TypeBuilder>
 
   @override
   String get fullNameForErrors => name;
+
+  FormalParameterBuilder forFormalParameterInitializerScope();
 }

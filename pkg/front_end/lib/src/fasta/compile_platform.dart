@@ -6,21 +6,23 @@ library fasta.compile_platform;
 
 import 'dart:async' show Future;
 
-import 'ticker.dart' show Ticker;
+import 'dart:io' show exitCode, File;
 
-import 'dart:io' show exitCode;
+import '../../compiler_options.dart' show CompilerOptions;
+
+import '../base/processed_options.dart' show ProcessedOptions;
+
+import '../kernel_generator_impl.dart' show generateKernel;
 
 import 'compiler_command_line.dart' show CompilerCommandLine;
 
 import 'compiler_context.dart' show CompilerContext;
 
-import 'errors.dart' show InputError;
+import 'deprecated_problems.dart' show deprecated_InputError;
 
-import 'kernel/kernel_target.dart' show KernelTarget;
+import 'kernel/utils.dart' show writeProgramToFile;
 
-import 'dill/dill_target.dart' show DillTarget;
-
-import 'translate_uri.dart' show TranslateUri;
+import 'ticker.dart' show Ticker;
 
 const int iterations = const int.fromEnvironment("iterations", defaultValue: 1);
 
@@ -31,9 +33,9 @@ Future mainEntryPoint(List<String> arguments) async {
     }
     try {
       await compilePlatform(arguments);
-    } on InputError catch (e) {
+    } on deprecated_InputError catch (e) {
       exitCode = 1;
-      print(e.format());
+      print(e.deprecated_format());
       return null;
     }
   }
@@ -44,37 +46,41 @@ Future compilePlatform(List<String> arguments) async {
   await CompilerCommandLine.withGlobalOptions("compile_platform", arguments,
       (CompilerContext c) {
     Uri patchedSdk = Uri.base.resolveUri(new Uri.file(c.options.arguments[0]));
-    Uri output = Uri.base.resolveUri(new Uri.file(c.options.arguments[1]));
-    return compilePlatformInternal(c, ticker, patchedSdk, output);
+    Uri fullOutput = Uri.base.resolveUri(new Uri.file(c.options.arguments[1]));
+    Uri outlineOutput =
+        Uri.base.resolveUri(new Uri.file(c.options.arguments[2]));
+    return compilePlatformInternal(
+        c, ticker, patchedSdk, fullOutput, outlineOutput);
   });
 }
 
-Future compilePlatformInternal(
-    CompilerContext c, Ticker ticker, Uri patchedSdk, Uri output) async {
-  if (c.options.strongMode) {
+Future compilePlatformInternal(CompilerContext c, Ticker ticker, Uri patchedSdk,
+    Uri fullOutput, Uri outlineOutput) async {
+  var options = new CompilerOptions()
+    ..strongMode = c.options.strongMode
+    ..sdkRoot = patchedSdk
+    ..packagesFileUri = c.options.packages
+    ..compileSdk = true
+    ..chaseDependencies = true
+    ..target = c.options.target
+    ..debugDump = c.options.dumpIr
+    ..verify = c.options.verify
+    ..verbose = c.options.verbose;
+
+  if (options.strongMode) {
     print("Note: strong mode support is preliminary and may not work.");
   }
-  ticker.isVerbose = c.options.verbose;
-  Uri deps = Uri.base.resolveUri(new Uri.file("${output.toFilePath()}.d"));
-  ticker.logMs("Parsed arguments");
-  if (ticker.isVerbose) {
-    print("Compiling $patchedSdk to $output");
+  if (options.verbose) {
+    print("Generating outline of $patchedSdk into $outlineOutput");
+    print("Compiling $patchedSdk to $fullOutput");
   }
 
-  TranslateUri uriTranslator =
-      await TranslateUri.parse(c.fileSystem, patchedSdk, c.options.packages);
-  ticker.logMs("Read packages file");
-
-  DillTarget dillTarget = new DillTarget(ticker, uriTranslator);
-  KernelTarget kernelTarget = new KernelTarget(c.fileSystem, dillTarget,
-      uriTranslator, c.options.strongMode, c.uriToSource);
-
-  kernelTarget.read(Uri.parse("dart:core"));
-  await dillTarget.writeOutline(null);
-  await kernelTarget.writeOutline(output);
-
-  if (exitCode != 0) return null;
-  await kernelTarget.writeProgram(output,
-      dumpIr: c.options.dumpIr, verify: c.options.verify);
-  await kernelTarget.writeDepsFile(output, deps);
+  var result = await generateKernel(
+      new ProcessedOptions(options, false, [Uri.parse('dart:core')]),
+      buildSummary: true,
+      buildProgram: true);
+  new File.fromUri(outlineOutput).writeAsBytesSync(result.summary);
+  ticker.logMs("Wrote outline to ${outlineOutput.toFilePath()}");
+  await writeProgramToFile(result.program, fullOutput);
+  ticker.logMs("Wrote program to ${fullOutput.toFilePath()}");
 }

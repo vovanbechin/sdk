@@ -15,12 +15,13 @@
 #include "vm/dart_entry.h"
 #include "vm/debugger.h"
 #include "vm/isolate.h"
+#include "vm/kernel_isolate.h"
 #include "vm/lockers.h"
 #include "vm/malloc_hooks.h"
 #include "vm/message.h"
 #include "vm/message_handler.h"
-#include "vm/native_entry.h"
 #include "vm/native_arguments.h"
+#include "vm/native_entry.h"
 #include "vm/native_symbol.h"
 #include "vm/object.h"
 #include "vm/object_graph.h"
@@ -40,7 +41,6 @@
 #include "vm/type_table.h"
 #include "vm/unicode.h"
 #include "vm/version.h"
-#include "vm/kernel_isolate.h"
 
 namespace dart {
 
@@ -129,14 +129,14 @@ StreamInfo Service::graph_stream("_Graph");
 StreamInfo Service::logging_stream("_Logging");
 StreamInfo Service::extension_stream("Extension");
 StreamInfo Service::timeline_stream("Timeline");
+StreamInfo Service::editor_stream("_Editor");
 
 static StreamInfo* streams_[] = {
     &Service::vm_stream,       &Service::isolate_stream,
     &Service::debug_stream,    &Service::gc_stream,
     &Service::echo_stream,     &Service::graph_stream,
     &Service::logging_stream,  &Service::extension_stream,
-    &Service::timeline_stream,
-};
+    &Service::timeline_stream, &Service::editor_stream};
 
 
 bool Service::ListenStream(const char* stream_id) {
@@ -2221,6 +2221,113 @@ static const MethodParameter* evaluate_params[] = {
 };
 
 
+static bool IsAlpha(char c) {
+  return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z');
+}
+static bool IsAlphaNum(char c) {
+  return (c >= '0' && c <= '9') || IsAlpha(c);
+}
+static bool IsWhitespace(char c) {
+  return c <= ' ';
+}
+static bool IsObjectIdChar(char c) {
+  return IsAlphaNum(c) || c == '/' || c == '-' || c == '@' || c == '%';
+}
+
+
+// TODO(vm-service): Consider whether we should pass structured objects in
+// service messages instead of always flattening them to C strings.
+static bool ParseScope(const char* scope,
+                       GrowableArray<const char*>* names,
+                       GrowableArray<const char*>* ids) {
+  Zone* zone = Thread::Current()->zone();
+  const char* c = scope;
+  if (*c++ != '{') return false;
+
+  for (;;) {
+    while (IsWhitespace(*c)) {
+      c++;
+    }
+
+    if (*c == '}') return true;
+
+    const char* name = c;
+    if (!IsAlpha(*c)) return false;
+    while (IsAlphaNum(*c)) {
+      c++;
+    }
+    names->Add(zone->MakeCopyOfStringN(name, c - name));
+
+    while (IsWhitespace(*c)) {
+      c++;
+    }
+
+    if (*c++ != ':') return false;
+
+    while (IsWhitespace(*c)) {
+      c++;
+    }
+
+    const char* id = c;
+    if (!IsObjectIdChar(*c)) return false;
+    while (IsObjectIdChar(*c)) {
+      c++;
+    }
+    ids->Add(zone->MakeCopyOfStringN(id, c - id));
+
+    while (IsWhitespace(*c)) {
+      c++;
+    }
+    if (*c == ',') c++;
+  }
+
+  return false;
+}
+
+
+static bool BuildScope(Thread* thread,
+                       JSONStream* js,
+                       const GrowableObjectArray& names,
+                       const GrowableObjectArray& values) {
+  const char* scope = js->LookupParam("scope");
+  GrowableArray<const char*> cnames;
+  GrowableArray<const char*> cids;
+  if (scope != NULL) {
+    if (!ParseScope(scope, &cnames, &cids)) {
+      PrintInvalidParamError(js, "scope");
+      return true;
+    }
+    String& name = String::Handle();
+    Object& obj = Object::Handle();
+    for (intptr_t i = 0; i < cids.length(); i++) {
+      ObjectIdRing::LookupResult lookup_result;
+      obj = LookupHeapObject(thread, cids[i], &lookup_result);
+      if (obj.raw() == Object::sentinel().raw()) {
+        if (lookup_result == ObjectIdRing::kCollected) {
+          PrintSentinel(js, kCollectedSentinel);
+        } else if (lookup_result == ObjectIdRing::kExpired) {
+          PrintSentinel(js, kExpiredSentinel);
+        } else {
+          PrintInvalidParamError(js, "targetId");
+        }
+        return true;
+      }
+      if ((!obj.IsInstance() && !obj.IsNull()) || ContainsNonInstance(obj)) {
+        js->PrintError(kInvalidParams,
+                       "%s: invalid scope 'targetId' parameter: "
+                       "Cannot evaluate against a VM-internal object",
+                       js->method());
+        return true;
+      }
+      name = String::New(cnames[i]);
+      names.Add(name);
+      values.Add(obj);
+    }
+  }
+  return false;
+}
+
+
 static bool Evaluate(Thread* thread, JSONStream* js) {
   if (!thread->isolate()->compilation_allowed()) {
     js->PrintError(kFeatureDisabled,
@@ -2237,7 +2344,19 @@ static bool Evaluate(Thread* thread, JSONStream* js) {
     PrintMissingParamError(js, "expression");
     return true;
   }
+
   Zone* zone = thread->zone();
+  const GrowableObjectArray& names =
+      GrowableObjectArray::Handle(zone, GrowableObjectArray::New());
+  const GrowableObjectArray& values =
+      GrowableObjectArray::Handle(zone, GrowableObjectArray::New());
+  if (BuildScope(thread, js, names, values)) {
+    return true;
+  }
+  const Array& names_array = Array::Handle(zone, Array::MakeFixedLength(names));
+  const Array& values_array =
+      Array::Handle(zone, Array::MakeFixedLength(values));
+
   const String& expr_str = String::Handle(zone, String::New(expr));
   ObjectIdRing::LookupResult lookup_result;
   Object& obj =
@@ -2254,17 +2373,15 @@ static bool Evaluate(Thread* thread, JSONStream* js) {
   }
   if (obj.IsLibrary()) {
     const Library& lib = Library::Cast(obj);
-    const Object& result = Object::Handle(
-        zone,
-        lib.Evaluate(expr_str, Array::empty_array(), Array::empty_array()));
+    const Object& result =
+        Object::Handle(zone, lib.Evaluate(expr_str, names_array, values_array));
     result.PrintJSON(js, true);
     return true;
   }
   if (obj.IsClass()) {
     const Class& cls = Class::Cast(obj);
-    const Object& result = Object::Handle(
-        zone,
-        cls.Evaluate(expr_str, Array::empty_array(), Array::empty_array()));
+    const Object& result =
+        Object::Handle(zone, cls.Evaluate(expr_str, names_array, values_array));
     result.PrintJSON(js, true);
     return true;
   }
@@ -2274,8 +2391,8 @@ static bool Evaluate(Thread* thread, JSONStream* js) {
     instance ^= obj.raw();
     const Class& receiver_cls = Class::Handle(zone, instance.clazz());
     const Object& result = Object::Handle(
-        zone, instance.Evaluate(receiver_cls, expr_str, Array::empty_array(),
-                                Array::empty_array()));
+        zone,
+        instance.Evaluate(receiver_cls, expr_str, names_array, values_array));
     result.PrintJSON(js, true);
     return true;
   }
@@ -2309,10 +2426,19 @@ static bool EvaluateInFrame(Thread* thread, JSONStream* js) {
   ActivationFrame* frame = stack->FrameAt(framePos);
 
   Zone* zone = thread->zone();
+  const GrowableObjectArray& names =
+      GrowableObjectArray::Handle(zone, GrowableObjectArray::New());
+  const GrowableObjectArray& values =
+      GrowableObjectArray::Handle(zone, GrowableObjectArray::New());
+  if (BuildScope(thread, js, names, values)) {
+    return true;
+  }
+
   const char* expr = js->LookupParam("expression");
   const String& expr_str = String::Handle(zone, String::New(expr));
 
-  const Object& result = Object::Handle(zone, frame->Evaluate(expr_str));
+  const Object& result =
+      Object::Handle(zone, frame->Evaluate(expr_str, names, values));
   result.PrintJSON(js, true);
   return true;
 }
@@ -2929,9 +3055,10 @@ static const char* const timeline_streams_enum_names[] = {
         NULL};
 
 static const MethodParameter* set_vm_timeline_flags_params[] = {
-    NO_ISOLATE_PARAMETER, new EnumListParameter("recordedStreams",
-                                                false,
-                                                timeline_streams_enum_names),
+    NO_ISOLATE_PARAMETER,
+    new EnumListParameter("recordedStreams",
+                          false,
+                          timeline_streams_enum_names),
     NULL,
 };
 
@@ -3350,6 +3477,18 @@ static const MethodParameter* get_heap_map_params[] = {
 
 static bool GetHeapMap(Thread* thread, JSONStream* js) {
   Isolate* isolate = thread->isolate();
+  bool should_collect = false;
+  if (js->HasParam("gc")) {
+    if (js->ParamIs("gc", "full")) {
+      should_collect = true;
+    } else {
+      PrintInvalidParamError(js, "gc");
+      return true;
+    }
+  }
+  if (should_collect) {
+    isolate->heap()->CollectAllGarbage();
+  }
   isolate->heap()->PrintHeapMapToJSONStream(isolate, js);
   return true;
 }
@@ -3384,8 +3523,7 @@ static bool RequestHeapSnapshot(Thread* thread, JSONStream* js) {
     Service::SendGraphEvent(thread, roots, collect_garbage);
   }
   // TODO(koda): Provide some id that ties this request to async response(s).
-  JSONObject jsobj(js);
-  jsobj.AddProperty("type", "OK");
+  PrintSuccess(js);
   return true;
 }
 
@@ -3609,8 +3747,9 @@ class PersistentHandleVisitor : public HandleVisitor {
     obj.AddProperty("type", "_WeakPersistentHandle");
     const Object& object = Object::Handle(weak_persistent_handle->raw());
     obj.AddProperty("object", object);
-    obj.AddPropertyF("peer", "0x%" Px "", reinterpret_cast<uintptr_t>(
-                                              weak_persistent_handle->peer()));
+    obj.AddPropertyF(
+        "peer", "0x%" Px "",
+        reinterpret_cast<uintptr_t>(weak_persistent_handle->peer()));
     obj.AddPropertyF(
         "callbackAddress", "0x%" Px "",
         reinterpret_cast<uintptr_t>(weak_persistent_handle->callback()));
@@ -4076,6 +4215,42 @@ static bool SetTraceClassAllocation(Thread* thread, JSONStream* js) {
   return true;
 }
 
+static const MethodParameter* send_object_to_editor_params[] = {
+    RUNNABLE_ISOLATE_PARAMETER, new StringParameter("editor", true),
+    new StringParameter("objectId", true), NULL,
+};
+
+static bool SendObjectToEditor(Thread* thread, JSONStream* js) {
+  // Handle heap objects.
+  ObjectIdRing::LookupResult lookup_result;
+  // Refreshing the id to avoid sending an expired ObjectRef
+  const Object& obj = Object::Handle(
+      LookupHeapObject(thread, js->LookupParam("objectId"), &lookup_result));
+  if (obj.raw() != Object::sentinel().raw()) {
+    // We found a heap object for this id.  Return it.
+    if (Service::editor_stream.enabled()) {
+      ServiceEvent event(thread->isolate(),
+                         ServiceEvent::kEditorObjectSelected);
+      ServiceEvent::EditorEvent editor_event;
+      editor_event.object = &obj;
+      editor_event.editor = js->LookupParam("editor");
+      event.set_editor_event(editor_event);
+      Service::HandleEvent(&event);
+    }
+    PrintSuccess(js);
+    return true;
+  } else if (lookup_result == ObjectIdRing::kCollected) {
+    PrintSentinel(js, kCollectedSentinel);
+    return true;
+  } else if (lookup_result == ObjectIdRing::kExpired) {
+    PrintSentinel(js, kExpiredSentinel);
+    return true;
+  }
+  PrintInvalidParamError(js, "objectId");
+
+  return true;
+}
+
 
 // clang-format off
 static const ServiceMethodDescriptor service_methods_[] = {
@@ -4194,6 +4369,8 @@ static const ServiceMethodDescriptor service_methods_[] = {
     set_vm_timeline_flags_params },
   { "_collectAllGarbage", CollectAllGarbage,
     collect_all_garbage_params },
+  { "_sendObjectToEditor", SendObjectToEditor,
+    send_object_to_editor_params },
 };
 // clang-format on
 

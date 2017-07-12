@@ -473,11 +473,6 @@ abstract class CompilationUnitElement implements Element, UriReferencedElement {
   CompilationUnit computeNode();
 
   /**
-   * Return the element at the given [offset], maybe `null` if no such element.
-   */
-  Element getElementAt(int offset);
-
-  /**
    * Return the enum defined in this compilation unit that has the given [name],
    * or `null` if this compilation unit does not define an enum with the given
    * name.
@@ -724,7 +719,7 @@ abstract class Element implements AnalysisTarget, ResolutionTarget {
    * Use the given [visitor] to visit this element. Return the value returned by
    * the visitor as a result of visiting this element.
    */
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor);
+  T accept<T>(ElementVisitor<T> visitor);
 
   /**
    * Return the documentation comment for this element as it appears in the
@@ -758,8 +753,7 @@ abstract class Element implements AnalysisTarget, ResolutionTarget {
    * [predicate] returns `true`, or `null` if there is no such ancestor. Note
    * that this element will never be returned.
    */
-  Element/*=E*/ getAncestor/*<E extends Element >*/(
-      Predicate<Element> predicate);
+  E getAncestor<E extends Element>(Predicate<Element> predicate);
 
   /**
    * Return a display name for the given element that includes the path to the
@@ -1160,18 +1154,6 @@ abstract class ExecutableElement implements FunctionTypedElement {
    * synchronous.
    */
   bool get isSynchronous;
-
-  /**
-   * Return a list containing all of the labels defined within this executable
-   * element.
-   */
-  List<LabelElement> get labels;
-
-  /**
-   * Return a list containing all of the local variables defined within this
-   * executable element.
-   */
-  List<LocalVariableElement> get localVariables;
 }
 
 /**

@@ -15,7 +15,7 @@ void compileAndFind(String code, String className, String memberName,
   Uri uri = new Uri(scheme: 'source');
   var compiler = compilerFor(code, uri, disableInlining: disableInlining);
   asyncTest(() => compiler.run(uri).then((_) {
-        var cls = findElement(compiler, className);
+        dynamic cls = findElement(compiler, className);
         var member = cls.lookupMember(memberName);
         check(compiler, member);
       }));
@@ -537,7 +537,7 @@ void doTest(
       var closedWorld = inferrer.closedWorld;
       TypeMask type = f(closedWorld);
       TypeMask inferredType =
-          simplify(inferrer.getTypeOfElement(field), closedWorld);
+          simplify(inferrer.getTypeOfMember(field), closedWorld);
       Expect.equals(type, inferredType, '$name of:\n$test');
     });
   });

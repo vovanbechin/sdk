@@ -41,7 +41,11 @@ struct ResourcesEntry {
   int length_;
 };
 
+#if defined(DART_PRECOMPILED_RUNTIME)
+ResourcesEntry __service_bin_resources_[] = {{NULL, NULL, 0}};
+#else
 extern ResourcesEntry __service_bin_resources_[];
+#endif
 
 class Resources {
  public:
@@ -152,11 +156,17 @@ const char* VmService::error_msg_ = NULL;
 char VmService::server_uri_[kServerUriStringBufferSize];
 
 
-bool VmService::LoadForGenPrecompiled() {
+bool VmService::LoadForGenPrecompiled(void* vmservice_kernel) {
   Dart_Handle result;
   Dart_SetLibraryTagHandler(LibraryTagHandler);
-  Dart_Handle library =
-      LookupOrLoadLibrary(kVMServiceIOLibraryScriptResourceName);
+  Dart_Handle library;
+  if (vmservice_kernel != NULL) {
+    library = Dart_LoadLibrary(
+        Dart_NewStringFromCString(kVMServiceIOLibraryUri), Dart_Null(),
+        reinterpret_cast<Dart_Handle>(vmservice_kernel), 0, 0);
+  } else {
+    library = LookupOrLoadLibrary(kVMServiceIOLibraryScriptResourceName);
+  }
   ASSERT(library != Dart_Null());
   SHUTDOWN_ON_ERROR(library);
   result = Dart_SetNativeResolver(library, VmServiceIONativeResolver, NULL);

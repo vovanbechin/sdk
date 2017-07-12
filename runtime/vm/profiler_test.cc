@@ -242,7 +242,7 @@ TEST_CASE(Profiler_TrivialRecordAllocation) {
     AllocationFilter filter(isolate->main_port(), class_a.id(),
                             before_allocations_micros,
                             allocation_extent_micros);
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have 1 allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -309,7 +309,7 @@ TEST_CASE(Profiler_TrivialRecordAllocation) {
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id(),
                             Dart_TimelineGetMicros(), 16000);
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples because none occured within
     // the specified time range.
     EXPECT_EQ(0, profile.sample_count());
@@ -358,7 +358,7 @@ ISOLATE_UNIT_TEST_CASE(Profiler_NativeAllocation) {
     // Filter for the class in the time range.
     NativeAllocationSampleFilter filter(before_allocations_micros,
                                         allocation_extent_micros);
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have 1 allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -500,7 +500,7 @@ ISOLATE_UNIT_TEST_CASE(Profiler_NativeAllocation) {
     // Filter for the class in the time range.
     NativeAllocationSampleFilter filter(before_allocations_micros,
                                         allocation_extent_micros);
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have 0 allocation samples since we freed the memory.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -513,7 +513,7 @@ ISOLATE_UNIT_TEST_CASE(Profiler_NativeAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     NativeAllocationSampleFilter filter(Dart_TimelineGetMicros(), 16000);
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples because none occured within
     // the specified time range.
     EXPECT_EQ(0, profile.sample_count());
@@ -563,7 +563,7 @@ TEST_CASE(Profiler_ToggleRecordAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -581,7 +581,7 @@ TEST_CASE(Profiler_ToggleRecordAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -652,7 +652,7 @@ TEST_CASE(Profiler_ToggleRecordAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should still only have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
   }
@@ -693,7 +693,7 @@ TEST_CASE(Profiler_CodeTicks) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -716,7 +716,7 @@ TEST_CASE(Profiler_CodeTicks) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have three allocation samples.
     EXPECT_EQ(3, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -796,7 +796,7 @@ TEST_CASE(Profiler_FunctionTicks) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -819,7 +819,7 @@ TEST_CASE(Profiler_FunctionTicks) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have three allocation samples.
     EXPECT_EQ(3, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -890,7 +890,7 @@ TEST_CASE(Profiler_IntrinsicAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), double_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -904,7 +904,7 @@ TEST_CASE(Profiler_IntrinsicAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), double_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -930,7 +930,7 @@ TEST_CASE(Profiler_IntrinsicAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), double_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should still only have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
   }
@@ -960,7 +960,7 @@ TEST_CASE(Profiler_ArrayAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), array_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -974,7 +974,7 @@ TEST_CASE(Profiler_ArrayAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), array_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -1002,7 +1002,7 @@ TEST_CASE(Profiler_ArrayAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), array_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should still only have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
   }
@@ -1026,25 +1026,10 @@ TEST_CASE(Profiler_ArrayAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), array_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
-    // We should still only have one allocation sample.
-    EXPECT_EQ(1, profile.sample_count());
-    ProfileTrieWalker walker(&profile);
-
-    walker.Reset(Profile::kExclusiveCode);
-    EXPECT(walker.Down());
-    EXPECT_STREQ("DRT_AllocateArray", walker.CurrentName());
-    EXPECT(walker.Down());
-    EXPECT_STREQ("[Stub] AllocateArray", walker.CurrentName());
-    EXPECT(walker.Down());
-    EXPECT_STREQ("new _List", walker.CurrentName());
-    EXPECT(walker.Down());
-    EXPECT_STREQ("new _GrowableList", walker.CurrentName());
-    EXPECT(walker.Down());
-    EXPECT_STREQ("new List._internal", walker.CurrentName());
-    EXPECT(walker.Down());
-    EXPECT_STREQ("bar", walker.CurrentName());
-    EXPECT(!walker.Down());
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
+    // We should have no allocation samples, since empty
+    // growable lists use a shared backing.
+    EXPECT_EQ(0, profile.sample_count());
   }
 }
 
@@ -1074,7 +1059,7 @@ TEST_CASE(Profiler_ContextAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), context_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -1088,7 +1073,7 @@ TEST_CASE(Profiler_ContextAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), context_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -1112,7 +1097,7 @@ TEST_CASE(Profiler_ContextAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), context_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should still only have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
   }
@@ -1156,7 +1141,7 @@ TEST_CASE(Profiler_ClosureAllocation) {
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), closure_class.id());
     filter.set_enable_vm_ticks(true);
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -1184,7 +1169,7 @@ TEST_CASE(Profiler_ClosureAllocation) {
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), closure_class.id());
     filter.set_enable_vm_ticks(true);
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should still only have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
   }
@@ -1217,7 +1202,7 @@ TEST_CASE(Profiler_TypedArrayAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), float32_list_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -1231,7 +1216,7 @@ TEST_CASE(Profiler_TypedArrayAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), float32_list_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -1255,7 +1240,7 @@ TEST_CASE(Profiler_TypedArrayAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), float32_list_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should still only have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
   }
@@ -1269,7 +1254,7 @@ TEST_CASE(Profiler_TypedArrayAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), float32_list_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should now have two allocation samples.
     EXPECT_EQ(2, profile.sample_count());
   }
@@ -1301,7 +1286,7 @@ TEST_CASE(Profiler_StringAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), one_byte_string_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -1315,7 +1300,7 @@ TEST_CASE(Profiler_StringAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), one_byte_string_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should still only have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -1341,7 +1326,7 @@ TEST_CASE(Profiler_StringAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), one_byte_string_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should still only have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
   }
@@ -1355,7 +1340,7 @@ TEST_CASE(Profiler_StringAllocation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), one_byte_string_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should now have two allocation samples.
     EXPECT_EQ(2, profile.sample_count());
   }
@@ -1388,7 +1373,7 @@ TEST_CASE(Profiler_StringInterpolation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), one_byte_string_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -1402,7 +1387,7 @@ TEST_CASE(Profiler_StringInterpolation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), one_byte_string_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should still only have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -1430,7 +1415,7 @@ TEST_CASE(Profiler_StringInterpolation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), one_byte_string_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should still only have one allocation sample.
     EXPECT_EQ(1, profile.sample_count());
   }
@@ -1444,7 +1429,7 @@ TEST_CASE(Profiler_StringInterpolation) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), one_byte_string_class.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should now have two allocation samples.
     EXPECT_EQ(2, profile.sample_count());
   }
@@ -1504,7 +1489,7 @@ TEST_CASE(Profiler_FunctionInline) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -1523,7 +1508,7 @@ TEST_CASE(Profiler_FunctionInline) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have 50,000 allocation samples.
     EXPECT_EQ(50000, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -1641,7 +1626,7 @@ TEST_CASE(Profiler_FunctionInline) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags,
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags,
                   ProfilerService::kCodeTransitionTagsBit);
     // We should have 50,000 allocation samples.
     EXPECT_EQ(50000, profile.sample_count());
@@ -1814,7 +1799,7 @@ TEST_CASE(Profiler_InliningIntervalBoundry) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have no allocation samples.
     EXPECT_EQ(0, profile.sample_count());
   }
@@ -1832,7 +1817,7 @@ TEST_CASE(Profiler_InliningIntervalBoundry) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
 
@@ -1931,7 +1916,7 @@ TEST_CASE(Profiler_ChainedSamples) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have 1 allocation sample.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -2033,7 +2018,7 @@ TEST_CASE(Profiler_BasicSourcePosition) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation samples.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -2127,7 +2112,7 @@ TEST_CASE(Profiler_BasicSourcePositionOptimized) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation samples.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -2214,7 +2199,7 @@ TEST_CASE(Profiler_SourcePosition) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation samples.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -2339,7 +2324,7 @@ TEST_CASE(Profiler_SourcePositionOptimized) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation samples.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -2447,7 +2432,7 @@ TEST_CASE(Profiler_BinaryOperatorSourcePosition) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation samples.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -2581,7 +2566,7 @@ TEST_CASE(Profiler_BinaryOperatorSourcePositionOptimized) {
     HANDLESCOPE(thread);
     Profile profile(isolate);
     AllocationFilter filter(isolate->main_port(), class_a.id());
-    profile.Build(thread, &filter, Profile::kNoTags);
+    profile.Build(thread, &filter, Profiler::sample_buffer(), Profile::kNoTags);
     // We should have one allocation samples.
     EXPECT_EQ(1, profile.sample_count());
     ProfileTrieWalker walker(&profile);
@@ -2807,6 +2792,112 @@ TEST_CASE(Profiler_GetSourceReport) {
   EXPECT_SUBSTRING("\"exclusiveTicks\":[1,0]", js.ToCString());
   // Verify inclusive ticks in main.
   EXPECT_SUBSTRING("\"inclusiveTicks\":[1,2]", js.ToCString());
+}
+
+
+TEST_CASE(Profiler_ProfileCodeTableTest) {
+  Zone* Z = Thread::Current()->zone();
+
+  ProfileCodeTable* table = new (Z) ProfileCodeTable();
+  EXPECT_EQ(table->length(), 0);
+  EXPECT_EQ(table->FindCodeForPC(42), static_cast<ProfileCode*>(NULL));
+
+  int64_t timestamp = 0;
+  Code& null_code = Code::Handle(Z);
+
+  ProfileCode* code1 = new (Z)
+      ProfileCode(ProfileCode::kNativeCode, 50, 60, timestamp, null_code);
+  EXPECT_EQ(table->InsertCode(code1), 0);
+  EXPECT_EQ(table->FindCodeForPC(0), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(100), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(50), code1);
+  EXPECT_EQ(table->FindCodeForPC(55), code1);
+  EXPECT_EQ(table->FindCodeForPC(59), code1);
+  EXPECT_EQ(table->FindCodeForPC(60), static_cast<ProfileCode*>(NULL));
+
+  // Insert below all.
+  ProfileCode* code2 = new (Z)
+      ProfileCode(ProfileCode::kNativeCode, 10, 20, timestamp, null_code);
+  EXPECT_EQ(table->InsertCode(code2), 0);
+  EXPECT_EQ(table->FindCodeForPC(0), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(100), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(50), code1);
+  EXPECT_EQ(table->FindCodeForPC(10), code2);
+  EXPECT_EQ(table->FindCodeForPC(19), code2);
+  EXPECT_EQ(table->FindCodeForPC(20), static_cast<ProfileCode*>(NULL));
+
+  // Insert above all.
+  ProfileCode* code3 = new (Z)
+      ProfileCode(ProfileCode::kNativeCode, 80, 90, timestamp, null_code);
+  EXPECT_EQ(table->InsertCode(code3), 2);
+  EXPECT_EQ(table->FindCodeForPC(0), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(100), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(50), code1);
+  EXPECT_EQ(table->FindCodeForPC(10), code2);
+  EXPECT_EQ(table->FindCodeForPC(80), code3);
+  EXPECT_EQ(table->FindCodeForPC(89), code3);
+  EXPECT_EQ(table->FindCodeForPC(90), static_cast<ProfileCode*>(NULL));
+
+  // Insert between.
+  ProfileCode* code4 = new (Z)
+      ProfileCode(ProfileCode::kNativeCode, 65, 75, timestamp, null_code);
+  EXPECT_EQ(table->InsertCode(code4), 2);
+  EXPECT_EQ(table->FindCodeForPC(0), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(100), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(50), code1);
+  EXPECT_EQ(table->FindCodeForPC(10), code2);
+  EXPECT_EQ(table->FindCodeForPC(80), code3);
+  EXPECT_EQ(table->FindCodeForPC(65), code4);
+  EXPECT_EQ(table->FindCodeForPC(74), code4);
+  EXPECT_EQ(table->FindCodeForPC(75), static_cast<ProfileCode*>(NULL));
+
+  // Insert overlapping left.
+  ProfileCode* code5 = new (Z)
+      ProfileCode(ProfileCode::kNativeCode, 15, 25, timestamp, null_code);
+  EXPECT_EQ(table->InsertCode(code5), 0);
+  EXPECT_EQ(table->FindCodeForPC(0), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(100), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(50), code1);
+  EXPECT_EQ(table->FindCodeForPC(10), code2);
+  EXPECT_EQ(table->FindCodeForPC(80), code3);
+  EXPECT_EQ(table->FindCodeForPC(65), code4);
+  EXPECT_EQ(table->FindCodeForPC(15), code2);  // Merged left.
+  EXPECT_EQ(table->FindCodeForPC(24), code2);  // Merged left.
+  EXPECT_EQ(table->FindCodeForPC(25), static_cast<ProfileCode*>(NULL));
+
+  // Insert overlapping right.
+  ProfileCode* code6 = new (Z)
+      ProfileCode(ProfileCode::kNativeCode, 45, 55, timestamp, null_code);
+  EXPECT_EQ(table->InsertCode(code6), 1);
+  EXPECT_EQ(table->FindCodeForPC(0), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(100), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(50), code1);
+  EXPECT_EQ(table->FindCodeForPC(10), code2);
+  EXPECT_EQ(table->FindCodeForPC(80), code3);
+  EXPECT_EQ(table->FindCodeForPC(65), code4);
+  EXPECT_EQ(table->FindCodeForPC(15), code2);  // Merged left.
+  EXPECT_EQ(table->FindCodeForPC(24), code2);  // Merged left.
+  EXPECT_EQ(table->FindCodeForPC(45), code1);  // Merged right.
+  EXPECT_EQ(table->FindCodeForPC(54), code1);  // Merged right.
+  EXPECT_EQ(table->FindCodeForPC(55), code1);
+
+  // Insert overlapping both.
+  ProfileCode* code7 = new (Z)
+      ProfileCode(ProfileCode::kNativeCode, 20, 50, timestamp, null_code);
+  EXPECT_EQ(table->InsertCode(code7), 0);
+  EXPECT_EQ(table->FindCodeForPC(0), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(100), static_cast<ProfileCode*>(NULL));
+  EXPECT_EQ(table->FindCodeForPC(50), code1);
+  EXPECT_EQ(table->FindCodeForPC(10), code2);
+  EXPECT_EQ(table->FindCodeForPC(80), code3);
+  EXPECT_EQ(table->FindCodeForPC(65), code4);
+  EXPECT_EQ(table->FindCodeForPC(15), code2);  // Merged left.
+  EXPECT_EQ(table->FindCodeForPC(24), code2);  // Merged left.
+  EXPECT_EQ(table->FindCodeForPC(45), code1);  // Merged right.
+  EXPECT_EQ(table->FindCodeForPC(54), code1);  // Merged right.
+  EXPECT_EQ(table->FindCodeForPC(20), code2);  // Merged left.
+  EXPECT_EQ(table->FindCodeForPC(49), code1);  // Truncated.
+  EXPECT_EQ(table->FindCodeForPC(50), code1);
 }
 
 #endif  // !PRODUCT

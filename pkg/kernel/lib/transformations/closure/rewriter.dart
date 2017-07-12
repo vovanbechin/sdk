@@ -87,12 +87,10 @@ class BlockRewriter extends AstRewriter {
 
 /// Creates and updates the context as [Let] bindings around the initializer
 /// expression.
-class InitializerRewriter extends AstRewriter {
+abstract class InitializerRewriter extends AstRewriter {
   final Expression initializingExpression;
 
-  InitializerRewriter(this.initializingExpression) {
-    assert(initializingExpression.parent is FieldInitializer);
-  }
+  InitializerRewriter(this.initializingExpression);
 
   @override
   BlockRewriter forNestedBlock(Block block) {
@@ -102,11 +100,10 @@ class InitializerRewriter extends AstRewriter {
   @override
   void insertContextDeclaration(Expression accessParent) {
     _createDeclaration();
-    FieldInitializer parent = initializingExpression.parent;
+    var oldParent = initializingExpression.parent;
     Let binding = new Let(contextDeclaration, initializingExpression);
-    initializingExpression.parent = binding;
-    parent.value = binding;
-    binding.parent = parent;
+    binding.parent = oldParent;
+    setInitializerExpression(binding);
   }
 
   @override
@@ -116,5 +113,31 @@ class InitializerRewriter extends AstRewriter {
         initializingExpression);
     parent.body = binding;
     binding.parent = parent;
+  }
+
+  void setInitializerExpression(Expression expression);
+}
+
+class FieldInitializerRewriter extends InitializerRewriter {
+  FieldInitializerRewriter(Expression initializingExpression)
+      : super(initializingExpression) {
+    assert(initializingExpression.parent is FieldInitializer);
+  }
+
+  void setInitializerExpression(Expression expression) {
+    (expression.parent as FieldInitializer).value = expression;
+  }
+}
+
+class LocalInitializerRewriter extends InitializerRewriter {
+  LocalInitializerRewriter(Expression initializingExpression)
+      : super(initializingExpression) {
+    // The initializer is up two levels because the variable declaration node is
+    // in between.
+    assert(initializingExpression.parent.parent is LocalInitializer);
+  }
+
+  void setInitializerExpression(Expression expression) {
+    (expression.parent as VariableDeclaration).initializer = expression;
   }
 }

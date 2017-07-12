@@ -7,7 +7,6 @@ import "package:compiler/src/constants/values.dart";
 import "package:compiler/src/types/types.dart";
 import "package:expect/expect.dart";
 import 'compiler_helper.dart';
-import 'type_mask_test_helper.dart';
 
 import 'dart:async';
 
@@ -37,15 +36,15 @@ Future runTest1() {
     var typesInferrer = compiler.globalInference.typesInferrerInternal;
     var commonMasks = typesInferrer.closedWorld.commonMasks;
     var element = findElement(compiler, "foo");
-    var mask = typesInferrer.getReturnTypeOfElement(element);
+    var mask = typesInferrer.getReturnTypeOfMember(element);
     var falseType =
         new ValueTypeMask(commonMasks.boolType, new FalseConstantValue());
     // 'foo' should always return false
     Expect.equals(falseType, mask);
     // the argument to 'bar' is always false
-    var bar = findElement(compiler, "bar");
+    dynamic bar = findElement(compiler, "bar");
     var barArg = bar.parameters.first;
-    var barArgMask = typesInferrer.getTypeOfElement(barArg);
+    var barArgMask = typesInferrer.getTypeOfParameter(barArg);
     Expect.equals(falseType, barArgMask);
     var barCode = compiler.backend.getGeneratedCode(bar);
     Expect.isTrue(barCode.contains('"bbb"'));
@@ -80,12 +79,12 @@ Future runTest2() {
     var typesInferrer = compiler.globalInference.typesInferrerInternal;
     var commonMasks = typesInferrer.closedWorld.commonMasks;
     var element = findElement(compiler, "foo");
-    var mask = typesInferrer.getReturnTypeOfElement(element);
+    var mask = typesInferrer.getReturnTypeOfMember(element);
     // Can't infer value for foo's return type, it could be either true or false
     Expect.identical(commonMasks.boolType, mask);
-    var bar = findElement(compiler, "bar");
+    dynamic bar = findElement(compiler, "bar");
     var barArg = bar.parameters.first;
-    var barArgMask = typesInferrer.getTypeOfElement(barArg);
+    var barArgMask = typesInferrer.getTypeOfParameter(barArg);
     // The argument to bar should have the same type as the return type of foo
     Expect.identical(commonMasks.boolType, barArgMask);
     var barCode = compiler.backend.getGeneratedCode(bar);

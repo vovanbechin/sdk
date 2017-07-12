@@ -10,8 +10,7 @@ import 'dart:async';
 
 import 'package:async_helper/async_helper.dart';
 import 'package:expect/expect.dart';
-import 'package:compiler/compiler.dart'
-    show DiagnosticHandler, Diagnostic, PackagesDiscoveryProvider;
+import 'package:compiler/compiler.dart' show PackagesDiscoveryProvider;
 import 'package:compiler/src/diagnostics/messages.dart' show MessageKind;
 import 'package:package_config/packages.dart';
 
@@ -58,7 +57,7 @@ void main() {
       return new Future.value(Packages.noPackages);
     };
 
-    await runTest(Uri.parse('memory:main.dart'), MessageKind.READ_SCRIPT_ERROR,
+    await runTest(Uri.parse('memory:main.dart'), MessageKind.READ_URI_ERROR,
         packageRoot: packageRoot);
     await runTest(Uri.parse('memory:main.dart'), MessageKind.LIBRARY_NOT_FOUND,
         packageConfig: PACKAGE_CONFIG_URI);

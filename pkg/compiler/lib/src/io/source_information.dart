@@ -13,6 +13,7 @@ import '../elements/elements.dart'
         LocalElement,
         ResolvedAst,
         ResolvedAstKind;
+import '../elements/entities.dart';
 import '../js/js.dart' show JavaScriptNodeSourceInformation;
 import '../script.dart';
 import '../tree/tree.dart' show Node;
@@ -45,8 +46,9 @@ abstract class SourceInformation extends JavaScriptNodeSourceInformation {
 class SourceInformationStrategy {
   const SourceInformationStrategy();
 
-  /// Create a [SourceInformationBuilder] for [resolvedAst].
-  SourceInformationBuilder createBuilderForContext(ResolvedAst resolvedAst) {
+  /// Create a [SourceInformationBuilder] for [member].
+  SourceInformationBuilder createBuilderForContext(
+      covariant MemberEntity member) {
     return const SourceInformationBuilder();
   }
 
@@ -61,12 +63,11 @@ class SourceInformationStrategy {
 class SourceInformationBuilder {
   const SourceInformationBuilder();
 
-  /// Create a [SourceInformationBuilder] for [resolvedAst].
-  SourceInformationBuilder forContext(ResolvedAst resolvedAst) => this;
+  /// Create a [SourceInformationBuilder] for [member].
+  SourceInformationBuilder forContext(covariant MemberEntity member) => this;
 
-  /// Generate [SourceInformation] the declaration of the element in
-  /// [resolvedAst].
-  SourceInformation buildDeclaration(ResolvedAst resolvedAst) => null;
+  /// Generate [SourceInformation] the declaration of the [member].
+  SourceInformation buildDeclaration(covariant MemberEntity member) => null;
 
   /// Generate [SourceInformation] for the generic [node].
   @deprecated
@@ -200,8 +201,11 @@ abstract class AbstractSourceLocation extends SourceLocation {
   Location _location;
 
   AbstractSourceLocation(this._sourceFile) {
-    assert(invariant(new SourceSpan(sourceUri, 0, 0), isValid,
-        message: "Invalid source location in ${sourceUri}: "
+    assert(
+        isValid,
+        failedAt(
+            new SourceSpan(sourceUri, 0, 0),
+            "Invalid source location in ${sourceUri}: "
             "offset=$offset, length=${_sourceFile.length}."));
   }
 

@@ -2948,7 +2948,7 @@ class StaticTypeWarningCode extends ErrorCode {
           "The function '{0}' isn't defined.",
           "Try importing the library that defines '{0}', "
           "correcting the name to the name of an existing function, or "
-          "defining a funtion named '{0}'.");
+          "defining a function named '{0}'.");
 
   /**
    * 12.17 Getter Invocation: Let <i>T</i> be the static type of <i>e</i>. It is
@@ -3414,7 +3414,8 @@ class StaticWarningCode extends ErrorCode {
       const StaticWarningCode(
           'CONFLICTING_DART_IMPORT',
           "Element '{0}' from SDK library '{1}' is implicitly hidden by '{2}'.",
-          "Try adding an explicit hide combinator.");
+          "Try adding an explicit hide combinator.",
+          false);
 
   /**
    * 7.2 Getters: It is a static warning if a class <i>C</i> declares an

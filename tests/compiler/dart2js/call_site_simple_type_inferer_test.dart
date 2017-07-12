@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:async_helper/async_helper.dart';
+import 'package:compiler/src/elements/elements.dart';
 import 'package:compiler/src/types/masks.dart';
 import 'package:expect/expect.dart';
 
@@ -14,7 +15,7 @@ void compileAndFind(String code, String className, String memberName,
   Uri uri = new Uri(scheme: 'source');
   var compiler = compilerFor(code, uri, disableInlining: disableInlining);
   asyncTest(() => compiler.run(uri).then((_) {
-        var cls = findElement(compiler, className);
+        ClassElement cls = findElement(compiler, className);
         var member = cls.lookupLocalMember(memberName);
         return check(compiler, member);
       }));
@@ -218,7 +219,7 @@ void doTest(String test, bool enableInlining, TestCallback f) {
     int index = 0;
     signature.forEachParameter((Element element) {
       Expect.equals(expectedTypes[index++],
-          simplify(inferrer.getTypeOfElement(element), closedWorld), test);
+          simplify(inferrer.getTypeOfParameter(element), closedWorld), test);
     });
     Expect.equals(index, expectedTypes.length);
   });

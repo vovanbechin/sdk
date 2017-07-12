@@ -76,7 +76,7 @@ class AnalyzerWorkerLoop extends SyncWorkerLoop {
       }
       // Prepare options.
       CommandLineOptions options =
-          CommandLineOptions.parse(arguments, (String msg) {
+          CommandLineOptions.parse(arguments, printAndFail: (String msg) {
         throw new ArgumentError(msg);
       });
       // Analyze and respond.
@@ -325,12 +325,10 @@ class BuildMode {
     ]);
 
     // Set context options.
-    Driver.setAnalysisContextOptions(resourceProvider, context, options,
-        (AnalysisOptionsImpl contextOptions) {
-      if (options.buildSummaryOnlyDiet) {
-        contextOptions.analyzeFunctionBodies = false;
-      }
-    });
+    Driver.declareVariables(context.declaredVariables, options);
+    AnalysisOptionsImpl analysisOptions = Driver
+        .createAnalysisOptionsForCommandLineOptions(resourceProvider, options);
+    context.analysisOptions = analysisOptions;
 
     if (!options.buildSummaryOnly) {
       // Configure using summaries.
@@ -368,9 +366,13 @@ class BuildMode {
    */
   void _printErrors({String outputPath}) {
     StringBuffer buffer = new StringBuffer();
-    ErrorFormatter formatter = new HumanErrorFormatter(buffer, options, stats,
-        severityProcessor: (AnalysisError error) => determineProcessedSeverity(
-            error, options, context.analysisOptions));
+    var severityProcessor = (AnalysisError error) =>
+        determineProcessedSeverity(error, options, context.analysisOptions);
+    ErrorFormatter formatter = options.machineFormat
+        ? new MachineErrorFormatter(buffer, options, stats,
+            severityProcessor: severityProcessor)
+        : new HumanErrorFormatter(buffer, options, stats,
+            severityProcessor: severityProcessor);
     for (Source source in explicitSources) {
       AnalysisErrorInfo errorInfo = context.getErrors(source);
       formatter.formatErrors([errorInfo]);

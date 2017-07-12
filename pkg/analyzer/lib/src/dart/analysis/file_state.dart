@@ -11,7 +11,6 @@ import 'package:analyzer/dart/ast/token.dart';
 import 'package:analyzer/error/listener.dart';
 import 'package:analyzer/file_system/file_system.dart';
 import 'package:analyzer/src/dart/analysis/defined_names.dart';
-import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer/src/dart/analysis/referenced_names.dart';
 import 'package:analyzer/src/dart/analysis/top_level_declaration.dart';
 import 'package:analyzer/src/dart/scanner/reader.dart';
@@ -24,7 +23,6 @@ import 'package:analyzer/src/generated/parser.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer/src/generated/utilities_dart.dart';
 import 'package:analyzer/src/source/source_resource.dart';
-import 'package:analyzer/src/summary/api_signature.dart';
 import 'package:analyzer/src/summary/format.dart';
 import 'package:analyzer/src/summary/idl.dart';
 import 'package:analyzer/src/summary/name_filter.dart';
@@ -32,6 +30,8 @@ import 'package:analyzer/src/summary/package_bundle_reader.dart';
 import 'package:analyzer/src/summary/summarize_ast.dart';
 import 'package:convert/convert.dart';
 import 'package:crypto/crypto.dart';
+import 'package:front_end/src/base/api_signature.dart';
+import 'package:front_end/src/base/performace_logger.dart';
 import 'package:front_end/src/fasta/builder/builder.dart' as fasta;
 import 'package:front_end/src/fasta/parser/parser.dart' as fasta;
 import 'package:front_end/src/fasta/scanner.dart' as fasta;
@@ -43,6 +43,11 @@ import 'package:meta/meta.dart';
  */
 class FileContentOverlay {
   final _map = <String, String>{};
+
+  /**
+   * Return the paths currently being overridden.
+   */
+  Iterable<String> get paths => _map.keys;
 
   /**
    * Return the content of the file with the given [path], or `null` the
@@ -111,6 +116,7 @@ class FileState {
   Set<String> _definedTopLevelNames;
   Set<String> _definedClassMemberNames;
   Set<String> _referencedNames;
+  Set<String> _subtypedNames;
   UnlinkedUnit _unlinked;
   List<int> _apiSignature;
 
@@ -272,6 +278,12 @@ class FileState {
   Set<String> get referencedNames => _referencedNames;
 
   /**
+   * The names which are used in `extends`, `with` or `implements` clauses in
+   * the file. Import prefixes and type arguments are not included.
+   */
+  Set<String> get subtypedNames => _subtypedNames;
+
+  /**
    * Return public top-level declarations declared in the file. The keys to the
    * map are names of declarations.
    */
@@ -376,50 +388,9 @@ class FileState {
    * Return a new parsed unresolved [CompilationUnit].
    */
   CompilationUnit parse(AnalysisErrorListener errorListener) {
-    AnalysisOptions analysisOptions = _fsState._analysisOptions;
-
-    if (USE_FASTA_PARSER) {
-      try {
-        fasta.ScannerResult scanResult = fasta.scan(_contentBytes,
-            includeComments: true,
-            scanGenericMethodComments: analysisOptions.strongMode);
-
-        var astBuilder = new fasta.AstBuilder(
-            new ErrorReporter(errorListener, source),
-            null,
-            null,
-            new _FastaElementStoreProxy(),
-            new fasta.Scope.top(isModifiable: true),
-            uri);
-        astBuilder.parseGenericMethodComments = analysisOptions.strongMode;
-
-        var parser = new fasta.Parser(astBuilder);
-        astBuilder.parser = parser;
-        parser.parseUnit(scanResult.tokens);
-        var unit = astBuilder.pop() as CompilationUnit;
-
-        LineInfo lineInfo = new LineInfo(scanResult.lineStarts);
-        unit.lineInfo = lineInfo;
-        return unit;
-      } catch (e, st) {
-        print(e);
-        print(st);
-        rethrow;
-      }
-    } else {
-      CharSequenceReader reader = new CharSequenceReader(content);
-      Scanner scanner = new Scanner(source, reader, errorListener);
-      scanner.scanGenericMethodComments = analysisOptions.strongMode;
-      Token token = scanner.tokenize();
-      LineInfo lineInfo = new LineInfo(scanner.lineStarts);
-
-      Parser parser = new Parser(source, errorListener);
-      parser.enableAssertInitializer = analysisOptions.enableAssertInitializer;
-      parser.parseGenericMethodComments = analysisOptions.strongMode;
-      CompilationUnit unit = parser.parseCompilationUnit(token);
-      unit.lineInfo = lineInfo;
-      return unit;
-    }
+    return PerformanceStatistics.parse.makeCurrentWhile(() {
+      return _parse(errorListener);
+    });
   }
 
   /**
@@ -471,14 +442,16 @@ class FileState {
         CompilationUnit unit = parse(AnalysisErrorListener.NULL_LISTENER);
         _fsState._logger.run('Create unlinked for $path', () {
           UnlinkedUnitBuilder unlinkedUnit = serializeAstUnlinked(unit);
-          List<String> referencedNames = computeReferencedNames(unit).toList();
           DefinedNames definedNames = computeDefinedNames(unit);
+          List<String> referencedNames = computeReferencedNames(unit).toList();
+          List<String> subtypedNames = computeSubtypedNames(unit).toList();
           bytes = new AnalysisDriverUnlinkedUnitBuilder(
                   unit: unlinkedUnit,
                   definedTopLevelNames: definedNames.topLevelNames.toList(),
                   definedClassMemberNames:
                       definedNames.classMemberNames.toList(),
-                  referencedNames: referencedNames)
+                  referencedNames: referencedNames,
+                  subtypedNames: subtypedNames)
               .toBuffer();
           _fsState._byteStore.put(unlinkedKey, bytes);
         });
@@ -491,6 +464,7 @@ class FileState {
     _definedClassMemberNames =
         driverUnlinkedUnit.definedClassMemberNames.toSet();
     _referencedNames = driverUnlinkedUnit.referencedNames.toSet();
+    _subtypedNames = driverUnlinkedUnit.subtypedNames.toSet();
     _unlinked = driverUnlinkedUnit.unit;
     _lineInfo = new LineInfo(_unlinked.lineStarts);
     _topLevelDeclarations = null;
@@ -591,6 +565,61 @@ class FileState {
     }
 
     return _fsState.getFileForUri(absoluteUri);
+  }
+
+  CompilationUnit _parse(AnalysisErrorListener errorListener) {
+    AnalysisOptions analysisOptions = _fsState._analysisOptions;
+
+    if (USE_FASTA_PARSER) {
+      try {
+        fasta.ScannerResult scanResult =
+            PerformanceStatistics.scan.makeCurrentWhile(() {
+          return fasta.scan(
+            _contentBytes,
+            includeComments: true,
+            scanGenericMethodComments: analysisOptions.strongMode,
+          );
+        });
+
+        var astBuilder = new fasta.AstBuilder(
+            new ErrorReporter(errorListener, source),
+            null,
+            null,
+            new _FastaElementStoreProxy(),
+            new fasta.Scope.top(isModifiable: true),
+            true,
+            uri);
+        astBuilder.parseGenericMethodComments = analysisOptions.strongMode;
+
+        var parser = new fasta.Parser(astBuilder);
+        astBuilder.parser = parser;
+        parser.parseUnit(scanResult.tokens);
+        var unit = astBuilder.pop() as CompilationUnit;
+
+        LineInfo lineInfo = new LineInfo(scanResult.lineStarts);
+        unit.lineInfo = lineInfo;
+        return unit;
+      } catch (e, st) {
+        print(e);
+        print(st);
+        rethrow;
+      }
+    } else {
+      CharSequenceReader reader = new CharSequenceReader(content);
+      Scanner scanner = new Scanner(source, reader, errorListener);
+      scanner.scanGenericMethodComments = analysisOptions.strongMode;
+      Token token = PerformanceStatistics.scan.makeCurrentWhile(() {
+        return scanner.tokenize();
+      });
+      LineInfo lineInfo = new LineInfo(scanner.lineStarts);
+
+      Parser parser = new Parser(source, errorListener);
+      parser.enableAssertInitializer = analysisOptions.enableAssertInitializer;
+      parser.parseGenericMethodComments = analysisOptions.strongMode;
+      CompilationUnit unit = parser.parseCompilationUnit(token);
+      unit.lineInfo = lineInfo;
+      return unit;
+    }
   }
 
   /**

@@ -78,7 +78,6 @@ DECLARE_FLAG(bool, verify_compiler);
 DECLARE_FLAG(bool, huge_method_cutoff_in_code_size);
 DECLARE_FLAG(bool, trace_failed_optimization_attempts);
 DECLARE_FLAG(bool, trace_inlining_intervals);
-DECLARE_FLAG(bool, trace_irregexp);
 DECLARE_FLAG(int, inlining_hotness);
 DECLARE_FLAG(int, inlining_size_threshold);
 DECLARE_FLAG(int, inlining_callee_size_threshold);
@@ -346,6 +345,7 @@ Precompiler::Precompiler(Thread* thread)
       isolate_(thread->isolate()),
       jit_feedback_(NULL),
       changed_(false),
+      retain_root_library_caches_(false),
       function_count_(0),
       class_count_(0),
       selector_count_(0),
@@ -650,6 +650,7 @@ void Precompiler::AddRoots(Dart_QualifiedFunctionName embedder_entry_points[]) {
     {"dart:core", "AbstractClassInstantiationError",
      "AbstractClassInstantiationError._create"},
     {"dart:core", "ArgumentError", "ArgumentError."},
+    {"dart:core", "ArgumentError", "ArgumentError.value"},
     {"dart:core", "CyclicInitializationError", "CyclicInitializationError."},
     {"dart:core", "FallThroughError", "FallThroughError._create"},
     {"dart:core", "FormatException", "FormatException."},
@@ -688,6 +689,27 @@ void Precompiler::AddRoots(Dart_QualifiedFunctionName embedder_entry_points[]) {
 
   AddEntryPoints(vm_entry_points);
   AddEntryPoints(embedder_entry_points);
+  const Library& lib = Library::Handle(I->object_store()->root_library());
+  const String& name = String::Handle(String::New("main"));
+  const Object& main_closure = Object::Handle(lib.GetFunctionClosure(name));
+  if (main_closure.IsClosure()) {
+    if (lib.LookupLocalFunction(name) == Function::null()) {
+      // Check whether the function is in exported namespace of library, in
+      // this case we have to retain the root library caches.
+      if (lib.LookupFunctionAllowPrivate(name) != Function::null() ||
+          lib.LookupReExport(name) != Object::null()) {
+        retain_root_library_caches_ = true;
+      }
+    }
+    AddConstObject(Closure::Cast(main_closure));
+  } else if (main_closure.IsError()) {
+    const Error& error = Error::Cast(main_closure);
+    String& msg =
+        String::Handle(Z, String::NewFormatted("Cannot find main closure %s\n",
+                                               error.ToErrorCString()));
+    Jump(Error::Handle(Z, ApiError::New(msg)));
+    UNREACHABLE();
+  }
 }
 
 
@@ -823,11 +845,13 @@ void Precompiler::CollectCallbackFields() {
         // Create arguments descriptor with fixed parameters from
         // signature of field_type.
         function = Type::Cast(field_type).signature();
+        if (function.IsGeneric()) continue;
         if (function.HasOptionalParameters()) continue;
         if (FLAG_trace_precompiler) {
           THR_Print("Found callback field %s\n", field_name.ToCString());
         }
-        args_desc = ArgumentsDescriptor::New(function.num_fixed_parameters());
+        args_desc = ArgumentsDescriptor::New(0,  // No type argument vector.
+                                             function.num_fixed_parameters());
         cids.Clear();
         if (T->cha()->ConcreteSubclasses(cls, &cids)) {
           for (intptr_t j = 0; j < cids.length(); ++j) {
@@ -1197,7 +1221,7 @@ void Precompiler::AddField(const Field& field) {
         if (FLAG_trace_precompiler) {
           THR_Print("Precompiling initializer for %s\n", field.ToCString());
         }
-        ASSERT(Dart::vm_snapshot_kind() != Snapshot::kAppAOT);
+        ASSERT(Dart::vm_snapshot_kind() != Snapshot::kFullAOT);
         const Function& initializer = Function::Handle(
             Z, CompileStaticInitializer(field, /* compute_type = */ true));
         ASSERT(!initializer.IsNull());
@@ -1218,7 +1242,7 @@ RawFunction* Precompiler::CompileStaticInitializer(const Field& field,
 
   ParsedFunction* parsed_function;
   // Check if this field is coming from the Kernel binary.
-  if (field.kernel_field() != NULL) {
+  if (field.kernel_offset() > 0) {
     parsed_function = kernel::ParseStaticFieldInitializer(zone, field);
   } else {
     parsed_function = Parser::ParseStaticFieldInitializer(field);
@@ -1747,7 +1771,7 @@ void Precompiler::DropFunctions() {
       }
 
       if (retained_functions.Length() > 0) {
-        functions = Array::MakeArray(retained_functions);
+        functions = Array::MakeFixedLength(retained_functions);
         cls.SetFunctions(functions);
       } else {
         cls.SetFunctions(Object::empty_array());
@@ -1809,7 +1833,7 @@ void Precompiler::DropFields() {
       }
 
       if (retained_fields.Length() > 0) {
-        fields = Array::MakeArray(retained_fields);
+        fields = Array::MakeFixedLength(retained_fields);
         cls.SetFields(fields);
       } else {
         cls.SetFields(Object::empty_array());
@@ -1963,7 +1987,7 @@ void Precompiler::TraceTypesFromRetainedClasses() {
       intptr_t cid = cls.id();
       if ((cid == kMintCid) || (cid == kBigintCid) || (cid == kDoubleCid)) {
         // Constants stored as a plain list, no rehashing needed.
-        constants = Array::MakeArray(retained_constants);
+        constants = Array::MakeFixedLength(retained_constants);
         cls.set_constants(constants);
       } else {
         // Rehash.
@@ -2025,7 +2049,10 @@ void Precompiler::DropLibraryEntries() {
       dict.SetAt(j, Object::null_object());
     }
     lib.RehashDictionary(dict, used * 4 / 3 + 1);
-    lib.DropDependenciesAndCaches();
+    if (!(retain_root_library_caches_ &&
+          (lib.raw() == I->object_store()->root_library()))) {
+      lib.DropDependenciesAndCaches();
+    }
   }
 }
 
@@ -2513,9 +2540,8 @@ void Precompiler::PopulateWithICData(const Function& function,
       if (instr->IsInstanceCall()) {
         InstanceCallInstr* call = instr->AsInstanceCall();
         if (!call->HasICData()) {
-          const Array& arguments_descriptor = Array::Handle(
-              zone, ArgumentsDescriptor::New(call->ArgumentCount(),
-                                             call->argument_names()));
+          const Array& arguments_descriptor =
+              Array::Handle(zone, call->GetArgumentsDescriptor());
           const ICData& ic_data = ICData::ZoneHandle(
               zone, ICData::New(function, call->function_name(),
                                 arguments_descriptor, call->deopt_id(),
@@ -2525,9 +2551,8 @@ void Precompiler::PopulateWithICData(const Function& function,
       } else if (instr->IsStaticCall()) {
         StaticCallInstr* call = instr->AsStaticCall();
         if (!call->HasICData()) {
-          const Array& arguments_descriptor = Array::Handle(
-              zone, ArgumentsDescriptor::New(call->ArgumentCount(),
-                                             call->argument_names()));
+          const Array& arguments_descriptor =
+              Array::Handle(zone, call->GetArgumentsDescriptor());
           const Function& target = call->function();
           MethodRecognizer::Kind recognized_kind =
               MethodRecognizer::RecognizeKind(target);
@@ -2772,11 +2797,10 @@ bool PrecompileParsedFunctionHelper::Compile(CompilationPipeline* pipeline) {
   HANDLESCOPE(thread());
 
   // We may reattempt compilation if the function needs to be assembled using
-  // far branches on ARM and MIPS. In the else branch of the setjmp call,
-  // done is set to false, and use_far_branches is set to true if there is a
-  // longjmp from the ARM or MIPS assemblers. In all other paths through this
-  // while loop, done is set to true. use_far_branches is always false on ia32
-  // and x64.
+  // far branches on ARM. In the else branch of the setjmp call, done is set to
+  // false, and use_far_branches is set to true if there is a longjmp from the
+  // ARM assembler. In all other paths through this while loop, done is set to
+  // true. use_far_branches is always false on ia32 and x64.
   bool done = false;
   // volatile because the variable may be clobbered by a longjmp.
   volatile bool use_far_branches = false;

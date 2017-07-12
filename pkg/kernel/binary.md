@@ -40,11 +40,17 @@ type UInt30 extends UInt {
   Byte byte4(xxxxxxxx); // least significant byte
 }
 
-type MagicWord = big endian 32-bit unsigned integer
+type UInt32 = big endian 32-bit unsigned integer
 
 type List<T> {
   UInt length;
   T[length] items;
+}
+
+// Untagged pairs.
+type Pair<T0, T1> {
+  T0 first;
+  T1 second;
 }
 ```
 
@@ -109,12 +115,26 @@ type CanonicalName {
 }
 
 type ProgramFile {
-  MagicWord magic = 0x90ABCDEF;
+  UInt32 magic = 0x90ABCDEF;
   StringTable strings;
   UriSource sourceMap;
   List<CanonicalName> canonicalNames;
   List<Library> libraries;
   ProcedureReference mainMethod;
+  ProgramIndex programIndex;
+}
+
+// Program index with all fixed-size-32-bit integers.
+// This gives "semi-random-access" to certain parts of the binary.
+// By reading the last 4 bytes one knows the number of libaries,
+// which allows to skip to any other field in this program index,
+// which again allows to skip to what it points to.
+type ProgramIndex {
+  UInt32 binaryOffsetForSourceTable;
+  UInt32 binaryOffsetForCanonicalNames;
+  UInt32 mainMethodReference; // This is a ProcedureReference with a fixed-size integer.
+  UInt32[libraryCount] libraryOffsets;
+  UInt32 libraryCount;
 }
 
 type LibraryReference {
@@ -160,19 +180,28 @@ type Library {
   StringReference name;
   // An absolute path URI to the .dart file from which the library was created.
   UriReference fileUri;
-  List<DeferredImport> deferredImports;
+  List<Expression> annotations;
+  List<LibraryDependency> libraryDependencies;
   List<Class> classes;
   List<Field> fields;
   List<Procedure> procedures;
 }
 
-type DeferredImport {
-  LibraryReference importedLibrary;
+type LibraryDependency {
+  Byte flags (isExport, isDeferred);
+  List<Expression> annotations;
+  LibraryReference targetLibrary;
   StringReference name;
+  List<Combinator> combinators;
 }
 
-type DeferredImportReference {
-  // Index into deferredImports in the enclosing Library.
+type Combinator {
+  Byte flags (isShow);
+  List<String> names;
+}
+
+type LibraryDependencyReference {
+  // Index into libraryDependencies in the enclosing Library.
   UInt index;
 }
 
@@ -194,6 +223,7 @@ abstract type Class extends Node {
   Byte tag = 2;
   CanonicalNameReference canonicalName;
   FileOffset fileOffset;
+  FileOffset fileEndOffset;
   Byte flags (isAbstract, xx); // Where xx is index into ClassLevel
   StringReference name;
   // An absolute path URI to the .dart file from which the class was created.
@@ -216,6 +246,9 @@ type Field extends Member {
   FileOffset fileOffset;
   FileOffset fileEndOffset;
   Byte flags (isFinal, isConst, isStatic);
+  // Byte offset in the binary for the parent class,
+  // or 0 if parent is not a class
+  UInt parentPosition;
   Name name;
   // An absolute path URI to the .dart file from which the field was created.
   UriReference fileUri;
@@ -230,6 +263,7 @@ type Constructor extends Member {
   FileOffset fileOffset;
   FileOffset fileEndOffset;
   Byte flags (isConst, isExternal);
+  UInt parentPosition; // Byte offset in the binary for the parent class.
   Name name;
   List<Expression> annotations;
   FunctionNode function;
@@ -253,6 +287,9 @@ type Procedure extends Member {
   FileOffset fileEndOffset;
   Byte kind; // Index into the ProcedureKind enum above.
   Byte flags (isStatic, isAbstract, isExternal, isConst);
+  // Byte offset in the binary for the parent class,
+  // or 0 if parent is not a class.
+  UInt parentPosition;
   Name name;
   // An absolute path URI to the .dart file from which the class was created.
   UriReference fileUri;
@@ -301,12 +338,13 @@ enum AsyncMarker {
 */
 
 type FunctionNode {
-  // Note: there is no tag on FunctionNode.
+  Byte tag = 3;
   FileOffset fileOffset;
   FileOffset fileEndOffset;
   Byte asyncMarker; // Index into AsyncMarker above.
   Byte dartAsyncMarker; // Index into AsyncMarker above.
   List<TypeParameter> typeParameters;
+  UInt parameterCount; // positionalParameters.length + namedParameters.length.
   UInt requiredParameterCount;
   List<VariableDeclaration> positionalParameters;
   List<VariableDeclaration> namedParameters;
@@ -346,6 +384,8 @@ type InvalidExpression extends Expression {
 type VariableGet extends Expression {
   Byte tag = 20;
   FileOffset fileOffset;
+  // Byte offset in the binary for the variable declaration (without tag).
+  UInt variableDeclarationPosition;
   VariableReference variable;
 }
 
@@ -353,11 +393,15 @@ type SpecializedVariableGet extends Expression {
   Byte tag = 128 + N; // Where 0 <= N < 8.
   // Equivalent to a VariableGet with index N.
   FileOffset fileOffset;
+  // Byte offset in the binary for the variable declaration (without tag).
+  UInt variableDeclarationPosition;
 }
 
 type VariableSet extends Expression {
   Byte tag = 21;
   FileOffset fileOffset;
+  // Byte offset in the binary for the variable declaration (without tag).
+  UInt variableDeclarationPosition;
   VariableReference variable;
   Expression value;
 }
@@ -365,6 +409,8 @@ type VariableSet extends Expression {
 type SpecializedVariableSet extends Expression {
   Byte tag = 136 + N; // Where 0 <= N < 8.
   FileOffset fileOffset;
+  // Byte offset in the binary for the variable declaration (without tag).
+  UInt variableDeclarationPosition;
   Expression value;
   // Equivalent to VariableSet with index N.
 }
@@ -429,6 +475,7 @@ type StaticSet extends Expression {
 
 type Arguments {
   // Note: there is no tag on Arguments.
+  UInt numArguments; // equals positional.length + named.length
   List<DartType> types;
   List<Expression> positional;
   List<NamedExpression> named;
@@ -658,12 +705,12 @@ type Let extends Expression {
 
 type LoadLibrary extends Expression {
   Byte tag = 14;
-  DeferredImportReference import;
+  LibraryDependencyReference deferredImport;
 }
 
 type CheckLibraryIsLoaded extends Expression {
   Byte tag = 13;
-  DeferredImportReference import;
+  LibraryDependencyReference deferredImport;
 }
 
 type VectorCreation extends Expression {
@@ -719,6 +766,8 @@ type EmptyStatement extends Statement {
 type AssertStatement extends Statement {
   Byte tag = 64;
   Expression condition;
+  FileOffset conditionStartOffset;
+  FileOffset conditionEndOffset;
   Option<Expression> message;
 }
 
@@ -782,8 +831,7 @@ type SwitchStatement extends Statement {
 
 type SwitchCase {
   // Note: there is no tag on SwitchCase
-  List<Expression> expressions;
-  FileOffset[expressions.length] expressionOffsets; // 1-to-1 with expressions.
+  List<Pair<FileOffset, Expression>> expressions;
   Byte isDefault; // 1 if default, 0 is not default.
   Statement body;
 }
@@ -819,6 +867,8 @@ type ReturnStatement extends Statement {
 type TryCatch extends Statement {
   Byte tag = 75;
   Statement body;
+  // 1 if any catch needs a stacktrace (have a stacktrace variable).
+  Byte anyCatchNeedsStackTrace;
   List<Catch> catches;
 }
 
@@ -882,6 +932,10 @@ type FunctionDeclaration extends Statement {
 
 abstract type DartType extends Node {}
 
+type VectorType extends DartType {
+  Byte tag = 88;
+}
+
 type InvalidType extends DartType {
   Byte tag = 90;
 }
@@ -910,6 +964,8 @@ type FunctionType extends DartType {
   Byte tag = 94;
   List<TypeParameter> typeParameters;
   UInt requiredParameterCount;
+  // positionalParameters.length + namedParameters.length
+  UInt totalParameterCount;
   List<DartType> positionalParameters;
   List<NamedDartType> namedParameters;
   DartType returnType;
@@ -949,12 +1005,13 @@ type TypeParameterType extends DartType {
   // the class type parameters in a constructor refer to those declared on the
   // class.
   UInt index;
-  
-  Option<DartType> bound;
-}
 
-type VectorType extends DartType {
-  Byte tag = 88;
+  // Byte offset in the binary for the first type declaration of the
+  // Class or FunctionNode.
+  UInt typeParameterPosition;
+  // The entry number in the list (starting at 0).
+  UInt typeParameterIndex;
+  Option<DartType> bound;
 }
 
 type TypeParameter {

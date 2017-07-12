@@ -6,6 +6,7 @@ import 'dart:collection';
 import 'dart:convert' hide JsonDecoder;
 
 import 'package:analyzer_plugin/protocol/protocol.dart';
+import 'package:analyzer_plugin/protocol/protocol_common.dart';
 import 'package:analyzer_plugin/protocol/protocol_generated.dart';
 
 final Map<String, RefactoringKind> REQUEST_ID_REFACTORING_KINDS =
@@ -130,22 +131,21 @@ bool mapEqual(Map mapA, Map mapB, bool valueEqual(a, b)) {
  * Translate the input [map], applying [keyCallback] to all its keys, and
  * [valueCallback] to all its values.
  */
-Map/*<KR, VR>*/ mapMap/*<KP, VP, KR, VR>*/(Map/*<KP, VP>*/ map,
-    {dynamic/*=KR*/ keyCallback(/*<KP>*/ key),
-    dynamic/*=VR*/ valueCallback(/*<VP>*/ value)}) {
-  Map/*<KR, VR>*/ result = new HashMap/*<KR, VR>*/();
+Map<KR, VR> mapMap<KP, VP, KR, VR>(Map<KP, VP> map,
+    {KR keyCallback(KP key), VR valueCallback(VP value)}) {
+  Map<KR, VR> result = new HashMap<KR, VR>();
   map.forEach((key, value) {
-    Object/*=KR*/ resultKey;
-    Object/*=VR*/ resultValue;
+    KR resultKey;
+    VR resultValue;
     if (keyCallback != null) {
       resultKey = keyCallback(key);
     } else {
-      resultKey = key as Object/*=KR*/;
+      resultKey = key as KR;
     }
     if (valueCallback != null) {
       resultValue = valueCallback(value);
     } else {
-      resultValue = value as Object/*=VR*/;
+      resultValue = value as VR;
     }
     result[resultKey] = resultValue;
   });
@@ -224,56 +224,6 @@ RefactoringOptions refactoringOptionsFromJson(JsonDecoder jsonDecoder,
   return null;
 }
 
-///**
-// * Create a [RefactoringFeedback] corresponding the given [kind].
-// */
-//RefactoringFeedback refactoringFeedbackFromJson(
-//    JsonDecoder jsonDecoder, String jsonPath, Object json, Map feedbackJson) {
-//  RefactoringKind kind = jsonDecoder.refactoringKind;
-//  if (kind == RefactoringKind.EXTRACT_LOCAL_VARIABLE) {
-//    return new ExtractLocalVariableFeedback.fromJson(
-//        jsonDecoder, jsonPath, json);
-//  }
-//  if (kind == RefactoringKind.EXTRACT_METHOD) {
-//    return new ExtractMethodFeedback.fromJson(jsonDecoder, jsonPath, json);
-//  }
-//  if (kind == RefactoringKind.INLINE_LOCAL_VARIABLE) {
-//    return new InlineLocalVariableFeedback.fromJson(
-//        jsonDecoder, jsonPath, json);
-//  }
-//  if (kind == RefactoringKind.INLINE_METHOD) {
-//    return new InlineMethodFeedback.fromJson(jsonDecoder, jsonPath, json);
-//  }
-//  if (kind == RefactoringKind.RENAME) {
-//    return new RenameFeedback.fromJson(jsonDecoder, jsonPath, json);
-//  }
-//  return null;
-//}
-//
-///**
-// * Create a [RefactoringOptions] corresponding the given [kind].
-// */
-//RefactoringOptions refactoringOptionsFromJson(JsonDecoder jsonDecoder,
-//    String jsonPath, Object json, RefactoringKind kind) {
-//  if (kind == RefactoringKind.EXTRACT_LOCAL_VARIABLE) {
-//    return new ExtractLocalVariableOptions.fromJson(
-//        jsonDecoder, jsonPath, json);
-//  }
-//  if (kind == RefactoringKind.EXTRACT_METHOD) {
-//    return new ExtractMethodOptions.fromJson(jsonDecoder, jsonPath, json);
-//  }
-//  if (kind == RefactoringKind.INLINE_METHOD) {
-//    return new InlineMethodOptions.fromJson(jsonDecoder, jsonPath, json);
-//  }
-//  if (kind == RefactoringKind.MOVE_FILE) {
-//    return new MoveFileOptions.fromJson(jsonDecoder, jsonPath, json);
-//  }
-//  if (kind == RefactoringKind.RENAME) {
-//    return new RenameOptions.fromJson(jsonDecoder, jsonPath, json);
-//  }
-//  return null;
-//}
-
 /**
  * Type of callbacks used to decode parts of JSON objects.  [jsonPath] is a
  * string describing the part of the JSON object being decoded, and [value] is
@@ -340,12 +290,12 @@ abstract class JsonDecoder {
    *
    * The type parameter [E] is the expected type of the elements in the list.
    */
-  List/*<E>*/ decodeList/*<E>*/(String jsonPath, Object json,
-      [JsonDecoderCallback/*<E>*/ decoder]) {
+  List<E> decodeList<E>(String jsonPath, Object json,
+      [JsonDecoderCallback<E> decoder]) {
     if (json == null) {
-      return/*<E>*/ [];
+      return <E>[];
     } else if (json is List) {
-      List/*<E>*/ result = /*<E>*/ [];
+      List<E> result = <E>[];
       for (int i = 0; i < json.length; i++) {
         result.add(decoder('$jsonPath[$i]', json[i]));
       }
@@ -359,24 +309,24 @@ abstract class JsonDecoder {
    * Decode a JSON object that is expected to be a Map.  [keyDecoder] is used
    * to decode the keys, and [valueDecoder] is used to decode the values.
    */
-  Map/*<K, V>*/ decodeMap/*<K, V>*/(String jsonPath, Object json,
-      {JsonDecoderCallback/*<K>*/ keyDecoder,
-      JsonDecoderCallback/*<V>*/ valueDecoder}) {
+  Map<K, V> decodeMap<K, V>(String jsonPath, Object json,
+      {JsonDecoderCallback<K> keyDecoder,
+      JsonDecoderCallback<V> valueDecoder}) {
     if (json == null) {
       return {};
     } else if (json is Map) {
-      Map/*<K, V>*/ result = /*<K, V>*/ {};
+      Map<K, V> result = <K, V>{};
       json.forEach((String key, value) {
-        Object/*=K*/ decodedKey;
+        K decodedKey;
         if (keyDecoder != null) {
           decodedKey = keyDecoder('$jsonPath.key', key);
         } else {
-          decodedKey = key as Object/*=K*/;
+          decodedKey = key as K;
         }
         if (valueDecoder != null) {
           value = valueDecoder('$jsonPath[${JSON.encode(key)}]', value);
         }
-        result[decodedKey] = value as Object/*=V*/;
+        result[decodedKey] = value as V;
       });
       return result;
     } else {
@@ -440,9 +390,9 @@ class RequestDecoder extends JsonDecoder {
   /**
    * The request being deserialized.
    */
-  final Request _request;
+  final Request request;
 
-  RequestDecoder(this._request);
+  RequestDecoder(this.request);
 
   @override
   RefactoringKind get refactoringKind {
@@ -460,14 +410,14 @@ class RequestDecoder extends JsonDecoder {
       buffer.write(JSON.encode(actual));
       buffer.write('"');
     }
-    return new RequestFailure(RequestErrorFactory.invalidParameter(
-        _request, jsonPath, buffer.toString()));
+    return new RequestFailure(
+        RequestErrorFactory.invalidParameter(jsonPath, buffer.toString()));
   }
 
   @override
   dynamic missingKey(String jsonPath, String key) {
     return new RequestFailure(RequestErrorFactory.invalidParameter(
-        _request, jsonPath, 'Expected to contain key ${JSON.encode(key)}'));
+        jsonPath, 'Expected to contain key ${JSON.encode(key)}'));
   }
 }
 
@@ -516,7 +466,7 @@ class ResponseDecoder extends JsonDecoder {
 abstract class ResponseResult implements HasToJson {
   /**
    * Return a response whose result data is this object for the request with the
-   * given [id].
+   * given [id], where the request was received at the given [requestTime].
    */
-  Response toResponse(String id);
+  Response toResponse(String id, int requestTime);
 }

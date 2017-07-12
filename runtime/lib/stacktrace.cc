@@ -173,36 +173,12 @@ const StackTrace& GetCurrentStackTrace(int skip_frames) {
   const GrowableObjectArray& pc_offset_list =
       GrowableObjectArray::Handle(GrowableObjectArray::New());
   AppendFrames(code_list, pc_offset_list, skip_frames);
-  const Array& code_array = Array::Handle(Array::MakeArray(code_list));
+  const Array& code_array = Array::Handle(Array::MakeFixedLength(code_list));
   const Array& pc_offset_array =
-      Array::Handle(Array::MakeArray(pc_offset_list));
+      Array::Handle(Array::MakeFixedLength(pc_offset_list));
   const StackTrace& stacktrace =
       StackTrace::Handle(StackTrace::New(code_array, pc_offset_array));
   return stacktrace;
-}
-
-
-// An utility method for convenient printing of dart stack traces when
-// inside 'gdb'. Note: This function will only work when there is a
-// valid exit frame information. It will not work when a breakpoint is
-// set in dart code and control is got inside 'gdb' without going through
-// the runtime or native transition stub.
-void _printCurrentStackTrace() {
-  const StackTrace& stacktrace = GetCurrentStackTrace(0);
-  OS::PrintErr("=== Current Trace:\n%s===\n", stacktrace.ToCString());
-}
-
-
-// Like _printCurrentStackTrace, but works in a NoSafepointScope.
-void _printCurrentStackTraceNoSafepoint() {
-  StackFrameIterator frames(StackFrameIterator::kDontValidateFrames,
-                            Thread::Current(),
-                            StackFrameIterator::kNoCrossThreadIteration);
-  StackFrame* frame = frames.NextFrame();
-  while (frame != NULL) {
-    OS::PrintErr("%s\n", frame->ToCString());
-    frame = frames.NextFrame();
-  }
 }
 
 }  // namespace dart

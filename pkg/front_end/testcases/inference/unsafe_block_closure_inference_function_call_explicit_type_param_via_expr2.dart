@@ -5,7 +5,12 @@
 /*@testedFeatures=inference*/
 library test;
 
-List<T> f<T>(T g()) => <T>[/*@promotedType=none*/ g()];
-var /*@topType=dynamic*/ v = (f)(/*@returnType=int*/ () {
+List<T> f<T>(T g()) => <T>[g()];
+var /*@topType=dynamic*/ v =
+    (f)<int>(/*info:INFERRED_TYPE_CLOSURE*/ /*@returnType=int*/ () {
   return 1;
 });
+
+main() {
+  v;
+}

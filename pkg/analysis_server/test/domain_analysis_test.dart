@@ -5,15 +5,16 @@
 import 'dart:async';
 
 import 'package:analysis_server/protocol/protocol.dart';
+import 'package:analysis_server/protocol/protocol_constants.dart';
 import 'package:analysis_server/protocol/protocol_generated.dart';
 import 'package:analysis_server/src/analysis_server.dart';
-import 'package:analysis_server/src/constants.dart';
 import 'package:analysis_server/src/domain_analysis.dart';
 import 'package:analysis_server/src/plugin/server_plugin.dart';
 import 'package:analyzer/file_system/memory_file_system.dart';
 import 'package:analyzer/instrumentation/instrumentation.dart';
 import 'package:analyzer/src/generated/engine.dart';
 import 'package:analyzer/src/generated/sdk.dart';
+import 'package:analyzer_plugin/protocol/protocol_common.dart';
 import 'package:analyzer_plugin/protocol/protocol_generated.dart' as plugin;
 import 'package:plugin/manager.dart';
 import 'package:plugin/plugin.dart';
@@ -55,7 +56,6 @@ main() {
         serverChannel,
         resourceProvider,
         new MockPackageMapProvider(),
-        null,
         serverPlugin,
         new AnalysisServerOptions(),
         new DartSdkManager('/', false),
@@ -66,45 +66,47 @@ main() {
   group('updateContent', testUpdateContent);
 
   group('AnalysisDomainHandler', () {
-    group('getReachableSources', () {
-      test('valid sources', () async {
-        String fileA = '/project/a.dart';
-        String fileB = '/project/b.dart';
-        resourceProvider.newFile(fileA, 'import "b.dart";');
-        resourceProvider.newFile(fileB, '');
-
-        server.setAnalysisRoots('0', ['/project/'], [], {});
-
-        await server.onAnalysisComplete;
-
-        var request =
-            new AnalysisGetReachableSourcesParams(fileA).toRequest('0');
-        var response = handler.handleRequest(request);
-
-        Map json = response.toJson()[Response.RESULT];
-
-        // Sanity checks.
-        expect(json['sources'], hasLength(6));
-        expect(json['sources']['file:///project/a.dart'],
-            unorderedEquals(['dart:core', 'file:///project/b.dart']));
-        expect(json['sources']['file:///project/b.dart'], ['dart:core']);
-      });
-
-      test('invalid source', () async {
-        resourceProvider.newFile('/project/a.dart', 'import "b.dart";');
-        server.setAnalysisRoots('0', ['/project/'], [], {});
-
-        await server.onAnalysisComplete;
-
-        var request =
-            new AnalysisGetReachableSourcesParams('/does/not/exist.dart')
-                .toRequest('0');
-        var response = handler.handleRequest(request);
-        expect(response.error, isNotNull);
-        expect(response.error.code,
-            RequestErrorCode.GET_REACHABLE_SOURCES_INVALID_FILE);
-      });
-    });
+    // TODO(brianwilkerson) Re-enable these tests if we re-enable the
+    // analysis.getReachableSources request.
+//    group('getReachableSources', () {
+//      test('valid sources', () async {
+//        String fileA = '/project/a.dart';
+//        String fileB = '/project/b.dart';
+//        resourceProvider.newFile(fileA, 'import "b.dart";');
+//        resourceProvider.newFile(fileB, '');
+//
+//        server.setAnalysisRoots('0', ['/project/'], [], {});
+//
+//        await server.onAnalysisComplete;
+//
+//        var request =
+//            new AnalysisGetReachableSourcesParams(fileA).toRequest('0');
+//        var response = handler.handleRequest(request);
+//
+//        Map json = response.toJson()[Response.RESULT];
+//
+//        // Sanity checks.
+//        expect(json['sources'], hasLength(6));
+//        expect(json['sources']['file:///project/a.dart'],
+//            unorderedEquals(['dart:core', 'file:///project/b.dart']));
+//        expect(json['sources']['file:///project/b.dart'], ['dart:core']);
+//      });
+//
+//      test('invalid source', () async {
+//        resourceProvider.newFile('/project/a.dart', 'import "b.dart";');
+//        server.setAnalysisRoots('0', ['/project/'], [], {});
+//
+//        await server.onAnalysisComplete;
+//
+//        var request =
+//            new AnalysisGetReachableSourcesParams('/does/not/exist.dart')
+//                .toRequest('0');
+//        var response = handler.handleRequest(request);
+//        expect(response.error, isNotNull);
+//        expect(response.error.code,
+//            RequestErrorCode.GET_REACHABLE_SOURCES_INVALID_FILE);
+//      });
+//    });
 
     group('setAnalysisRoots', () {
       Response testSetAnalysisRoots(
@@ -121,13 +123,7 @@ main() {
           resourceProvider.newFile(fileA, '// a');
           resourceProvider.newFile(fileB, '// b');
           var response = testSetAnalysisRoots(['/project'], ['/project/bbb']);
-          var serverRef = server;
           expect(response, isResponseSuccess('0'));
-          // unit "a" is resolved eventually
-          // unit "b" is not resolved
-          await server.onAnalysisComplete;
-          expect(await serverRef.getResolvedCompilationUnit(fileA), isNotNull);
-          expect(await serverRef.getResolvedCompilationUnit(fileB), isNull);
         });
 
         test('not absolute', () async {
@@ -194,12 +190,10 @@ main() {
 
     group('setPriorityFiles', () {
       test('invalid', () {
-        // TODO(paulberry): under the "eventual consistency" model this request
-        // should not be invalid.
         var request = new AnalysisSetPriorityFilesParams(['/project/lib.dart'])
             .toRequest('0');
         var response = handler.handleRequest(request);
-        expect(response, isResponseFailure('0'));
+        expect(response, isResponseSuccess('0'));
       });
 
       test('valid', () {
@@ -233,8 +227,8 @@ main() {
 
     group('updateOptions', () {
       test('invalid', () {
-        var request = new Request('0', ANALYSIS_UPDATE_OPTIONS, {
-          OPTIONS: {'not-an-option': true}
+        var request = new Request('0', ANALYSIS_REQUEST_UPDATE_OPTIONS, {
+          ANALYSIS_REQUEST_UPDATE_OPTIONS_OPTIONS: {'not-an-option': true}
         });
         var response = handler.handleRequest(request);
         // Invalid options should be silently ignored.
@@ -243,8 +237,8 @@ main() {
 
       test('null', () {
         // null is allowed as a synonym for {}.
-        var request =
-            new Request('0', ANALYSIS_UPDATE_OPTIONS, {OPTIONS: null});
+        var request = new Request('0', ANALYSIS_REQUEST_UPDATE_OPTIONS,
+            {ANALYSIS_REQUEST_UPDATE_OPTIONS_OPTIONS: null});
         var response = handler.handleRequest(request);
         expect(response, isResponseSuccess('0'));
       });
@@ -257,10 +251,10 @@ testUpdateContent() {
     AnalysisTestHelper helper = new AnalysisTestHelper();
     helper.createSingleFileProject('// empty');
     return helper.onAnalysisComplete.then((_) {
-      Request request = new Request('0', ANALYSIS_UPDATE_CONTENT, {
-        'files': {
+      Request request = new Request('0', ANALYSIS_REQUEST_UPDATE_CONTENT, {
+        ANALYSIS_REQUEST_UPDATE_CONTENT_FILES: {
           helper.testFile: {
-            TYPE: 'foo',
+            'type': 'foo',
           }
         }
       });
@@ -387,7 +381,7 @@ class AnalysisDomainTest extends AbstractAnalysisTest {
   Map<String, List<AnalysisError>> filesErrors = {};
 
   void processNotification(Notification notification) {
-    if (notification.event == ANALYSIS_ERRORS) {
+    if (notification.event == ANALYSIS_NOTIFICATION_ERRORS) {
       var decoded = new AnalysisErrorsParams.fromNotification(notification);
       filesErrors[decoded.file] = decoded.errors;
     }
@@ -449,7 +443,6 @@ class AnalysisTestHelper {
         serverChannel,
         resourceProvider,
         new MockPackageMapProvider(),
-        null,
         serverPlugin,
         new AnalysisServerOptions(),
         new DartSdkManager('/', false),
@@ -459,16 +452,16 @@ class AnalysisTestHelper {
     Stream<Notification> notificationStream =
         serverChannel.notificationController.stream;
     notificationStream.listen((Notification notification) {
-      if (notification.event == ANALYSIS_ERRORS) {
+      if (notification.event == ANALYSIS_NOTIFICATION_ERRORS) {
         var decoded = new AnalysisErrorsParams.fromNotification(notification);
         filesErrors[decoded.file] = decoded.errors;
       }
-      if (notification.event == ANALYSIS_HIGHLIGHTS) {
+      if (notification.event == ANALYSIS_NOTIFICATION_HIGHLIGHTS) {
         var params =
             new AnalysisHighlightsParams.fromNotification(notification);
         filesHighlights[params.file] = params.regions;
       }
-      if (notification.event == ANALYSIS_NAVIGATION) {
+      if (notification.event == ANALYSIS_NOTIFICATION_NAVIGATION) {
         var params =
             new AnalysisNavigationParams.fromNotification(notification);
         filesNavigation[params.file] = params.regions;
@@ -648,10 +641,13 @@ class AnalysisTestHelper {
 class SetSubscriptionsTest extends AbstractAnalysisTest {
   Map<String, List<HighlightRegion>> filesHighlights = {};
 
+  Completer _resultsAvailable = new Completer();
+
   void processNotification(Notification notification) {
-    if (notification.event == ANALYSIS_HIGHLIGHTS) {
+    if (notification.event == ANALYSIS_NOTIFICATION_HIGHLIGHTS) {
       var params = new AnalysisHighlightsParams.fromNotification(notification);
       filesHighlights[params.file] = params.regions;
+      _resultsAvailable.complete(null);
     }
   }
 
@@ -663,7 +659,7 @@ class SetSubscriptionsTest extends AbstractAnalysisTest {
     expect(filesHighlights[testFile], isNull);
     // subscribe
     addAnalysisSubscription(AnalysisService.HIGHLIGHTS, testFile);
-    await server.onAnalysisComplete;
+    await _resultsAvailable.future;
     // there are results
     expect(filesHighlights[testFile], isNotEmpty);
   }
@@ -705,7 +701,7 @@ main() {
     expect(filesHighlights[pkgFile], isNull);
     // subscribe
     addAnalysisSubscription(AnalysisService.HIGHLIGHTS, pkgFile);
-    await server.onAnalysisComplete;
+    await _resultsAvailable.future;
     // there are results
     expect(filesHighlights[pkgFile], isNotEmpty);
   }
@@ -746,7 +742,7 @@ main() {
     expect(filesHighlights[pkgFileA], isNull);
     // subscribe
     addAnalysisSubscription(AnalysisService.HIGHLIGHTS, pkgFileA);
-    await server.onAnalysisComplete;
+    await _resultsAvailable.future;
     // there are results
     expect(filesHighlights[pkgFileA], isNotEmpty);
   }
@@ -770,7 +766,7 @@ class A {}
     server.setPriorityFiles('0', [pkgFile]);
     // subscribe
     addAnalysisSubscription(AnalysisService.HIGHLIGHTS, pkgFile);
-    await server.onAnalysisComplete;
+    await _resultsAvailable.future;
     // there are results
     expect(filesHighlights[pkgFile], isNotEmpty);
   }
@@ -784,7 +780,7 @@ class A {}
     expect(filesHighlights[file], isNull);
     // subscribe
     addAnalysisSubscription(AnalysisService.HIGHLIGHTS, file);
-    await server.onAnalysisComplete;
+    await _resultsAvailable.future;
     // there are results
     expect(filesHighlights[file], isNotEmpty);
   }

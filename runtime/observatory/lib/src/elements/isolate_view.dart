@@ -364,7 +364,6 @@ class IsolateViewElement extends HtmlElement implements Renderable {
   }
 
   DivElement _populateThreadInfo(M.Thread t) {
-    int index = 0;
     return new DivElement()
       ..classes = ['indent']
       ..children = [
@@ -377,7 +376,7 @@ class IsolateViewElement extends HtmlElement implements Renderable {
             new DivElement()
               ..classes = ['indent']
               ..title = '${t.zoneHighWatermark}B'
-              ..text = 'zone capacity high watermark ' +
+              ..text = 'zone capacity high watermark '
                   '${Utils.formatSize(t.zoneHighWatermark)}',
             new DivElement()
               ..classes = ['indent']

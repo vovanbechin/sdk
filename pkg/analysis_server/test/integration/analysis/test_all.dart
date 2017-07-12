@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.integration.analysis.all;
-
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
 import 'analysis_options_test.dart' as analysis_options_test;
@@ -11,6 +9,7 @@ import 'error_test.dart' as error_test;
 import 'get_errors_nonStandard_sdk.dart' as get_errors_nonStandard_sdk;
 import 'get_errors_test.dart' as get_errors_test;
 import 'get_hover_test.dart' as get_hover_test;
+import 'get_imported_elements_test.dart' as get_imported_elements_test;
 import 'get_library_dependencies_test.dart' as get_library_dependencies_test;
 import 'get_navigation_test.dart' as get_navigation_test;
 import 'get_reachable_sources_test.dart' as get_reachable_sources_test;
@@ -43,6 +42,7 @@ main() {
     get_errors_nonStandard_sdk.main();
     get_library_dependencies_test.main();
     get_hover_test.main();
+    get_imported_elements_test.main();
     get_navigation_test.main();
     get_reachable_sources_test.main();
     highlights_test.main();

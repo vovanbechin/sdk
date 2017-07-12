@@ -126,7 +126,7 @@ void main() {
           Expect.equals(
               type,
               simplify(
-                  typesInferrer.getReturnTypeOfElement(element), closedWorld),
+                  typesInferrer.getReturnTypeOfMember(element), closedWorld),
               name);
         }
 
@@ -146,15 +146,15 @@ void main() {
         checkReturn('returnNum1', closedWorld.commonMasks.numType);
 
         checkReturnInClass(String className, String methodName, type) {
-          var cls = findElement(compiler, className);
+          dynamic cls = findElement(compiler, className);
           var element = cls.lookupLocalMember(methodName);
           Expect.equals(
               type,
               simplify(
-                  typesInferrer.getReturnTypeOfElement(element), closedWorld));
+                  typesInferrer.getReturnTypeOfMember(element), closedWorld));
         }
 
-        var cls = findElement(compiler, 'A');
+        dynamic cls = findElement(compiler, 'A');
         checkReturnInClass(
             'A', 'foo', new TypeMask.nonNullExact(cls, closedWorld));
       }));

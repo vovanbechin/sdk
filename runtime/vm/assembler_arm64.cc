@@ -973,12 +973,12 @@ void Assembler::StoreIntoObjectOffsetNoBarrier(Register object,
 
 
 void Assembler::LoadClassId(Register result, Register object) {
-  ASSERT(RawObject::kClassIdTagPos == kBitsPerInt32);
-  ASSERT(RawObject::kClassIdTagSize == kBitsPerInt32);
+  ASSERT(RawObject::kClassIdTagPos == 16);
+  ASSERT(RawObject::kClassIdTagSize == 16);
   const intptr_t class_id_offset =
       Object::tags_offset() + RawObject::kClassIdTagPos / kBitsPerByte;
   LoadFromOffset(result, object, class_id_offset - kHeapObjectTag,
-                 kUnsignedWord);
+                 kUnsignedHalfword);
 }
 
 
@@ -1035,7 +1035,7 @@ void Assembler::ReserveAlignedFrameSpace(intptr_t frame_space) {
   // Reserve space for arguments and align frame before entering
   // the C++ world.
   if (frame_space != 0) {
-    AddImmediate(SP, SP, -frame_space);
+    AddImmediate(SP, -frame_space);
   }
   if (OS::ActivationFrameAlignment() > 1) {
     andi(SP, SP, Immediate(~(OS::ActivationFrameAlignment() - 1)));
@@ -1133,7 +1133,7 @@ void Assembler::EnterDartFrame(intptr_t frame_size, Register new_pp) {
 
   // Reserve space.
   if (frame_size > 0) {
-    AddImmediate(SP, SP, -frame_size);
+    AddImmediate(SP, -frame_size);
   }
 }
 
@@ -1150,7 +1150,7 @@ void Assembler::EnterOsrFrame(intptr_t extra_size, Register new_pp) {
   LoadPoolPointer();
 
   if (extra_size > 0) {
-    AddImmediate(SP, SP, -extra_size);
+    AddImmediate(SP, -extra_size);
   }
 }
 
@@ -1282,7 +1282,7 @@ void Assembler::MaybeTraceAllocation(intptr_t cid,
   intptr_t table_offset =
       Isolate::class_table_offset() + ClassTable::TableOffsetFor(cid);
   ldr(temp_reg, Address(temp_reg, table_offset));
-  AddImmediate(temp_reg, temp_reg, state_offset);
+  AddImmediate(temp_reg, state_offset);
   ldr(temp_reg, Address(temp_reg, 0));
   tsti(temp_reg, Immediate(ClassHeapStats::TraceAllocationMask()));
   b(trace, NE);
@@ -1299,7 +1299,7 @@ void Assembler::UpdateAllocationStats(intptr_t cid, Heap::Space space) {
   ldr(TMP, Address(TMP2, table_offset));
   AddImmediate(TMP2, TMP, counter_offset);
   ldr(TMP, Address(TMP2, 0));
-  AddImmediate(TMP, TMP, 1);
+  AddImmediate(TMP, 1);
   str(TMP, Address(TMP2, 0));
 }
 
@@ -1323,7 +1323,7 @@ void Assembler::UpdateAllocationStatsWithSize(intptr_t cid,
   ldr(TMP, Address(TMP2, table_offset));
   AddImmediate(TMP2, TMP, class_offset);
   ldr(TMP, Address(TMP2, count_field_offset));
-  AddImmediate(TMP, TMP, 1);
+  AddImmediate(TMP, 1);
   str(TMP, Address(TMP2, count_field_offset));
   ldr(TMP, Address(TMP2, size_field_offset));
   add(TMP, TMP, Operand(size_reg));
@@ -1360,13 +1360,15 @@ void Assembler::TryAllocate(const Class& cls,
     str(instance_reg, Address(temp_reg, Heap::TopOffset(space)));
 
     ASSERT(instance_size >= kHeapObjectTag);
-    AddImmediate(instance_reg, instance_reg, -instance_size + kHeapObjectTag);
+    AddImmediate(instance_reg, -instance_size + kHeapObjectTag);
     NOT_IN_PRODUCT(UpdateAllocationStats(cls.id(), space));
 
-    uword tags = 0;
+    uint32_t tags = 0;
     tags = RawObject::SizeTag::update(instance_size, tags);
     ASSERT(cls.id() != kIllegalCid);
     tags = RawObject::ClassIdTag::update(cls.id(), tags);
+    // Extends the 32 bit tags with zeros, which is the uninitialized
+    // hash code.
     LoadImmediate(TMP, tags);
     StoreFieldToOffset(TMP, instance_reg, Object::tags_offset());
   } else {
@@ -1410,9 +1412,11 @@ void Assembler::TryAllocateArray(intptr_t cid,
 
     // Initialize the tags.
     // instance: new object start as a tagged pointer.
-    uword tags = 0;
+    uint32_t tags = 0;
     tags = RawObject::ClassIdTag::update(cid, tags);
     tags = RawObject::SizeTag::update(instance_size, tags);
+    // Extends the 32 bit tags with zeros, which is the uninitialized
+    // hash code.
     LoadImmediate(temp2, tags);
     str(temp2, FieldAddress(instance, Array::tags_offset()));  // Store tags.
   } else {
@@ -1496,7 +1500,7 @@ void Assembler::LoadElementAddressForRegIndex(Register address,
     add(address, array, Operand(index, LSL, shift));
   }
   if (offset != 0) {
-    AddImmediate(address, address, offset);
+    AddImmediate(address, offset);
   }
 }
 
@@ -1561,13 +1565,13 @@ void Assembler::StoreUnaligned(Register src,
   if ((sz == kWord) || (sz == kUnsignedWord)) {
     return;
   }
-  LsrImmediate(tmp, src, 24);
-  str(tmp, Address(addr, 4), kUnsignedByte);
   LsrImmediate(tmp, src, 32);
-  str(tmp, Address(addr, 5), kUnsignedByte);
+  str(tmp, Address(addr, 4), kUnsignedByte);
   LsrImmediate(tmp, src, 40);
-  str(tmp, Address(addr, 6), kUnsignedByte);
+  str(tmp, Address(addr, 5), kUnsignedByte);
   LsrImmediate(tmp, src, 48);
+  str(tmp, Address(addr, 6), kUnsignedByte);
+  LsrImmediate(tmp, src, 56);
   str(tmp, Address(addr, 7), kUnsignedByte);
   if (sz == kDoubleWord) {
     return;

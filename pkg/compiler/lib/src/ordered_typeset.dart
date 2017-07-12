@@ -52,8 +52,11 @@ class OrderedTypeSet {
   /// class which this set represents. This is for instance used to create the
   /// type set for [ClosureClassElement] which extends [Closure].
   OrderedTypeSet extendClass(InterfaceType type) {
-    assert(invariant(type.element, types.head.treatAsRaw,
-        message: 'Cannot extend generic class ${types.head} using '
+    assert(
+        types.head.treatAsRaw,
+        failedAt(
+            type.element,
+            'Cannot extend generic class ${types.head} using '
             'OrderedTypeSet.extendClass'));
     Link<InterfaceType> extendedTypes =
         new LinkEntry<InterfaceType>(type, types);
@@ -168,10 +171,11 @@ abstract class OrderedTypeSetBuilderBase implements OrderedTypeSetBuilder {
   OrderedTypeSetBuilderBase(this.cls, {this.reporter, InterfaceType objectType})
       : this._objectType = objectType;
 
-  InterfaceType getThisType(ClassEntity cls);
-  InterfaceType substByContext(InterfaceType type, InterfaceType context);
-  int getHierarchyDepth(ClassEntity cls);
-  OrderedTypeSet getOrderedTypeSet(ClassEntity cls);
+  InterfaceType getThisType(covariant ClassEntity cls);
+  InterfaceType substByContext(
+      covariant InterfaceType type, covariant InterfaceType context);
+  int getHierarchyDepth(covariant ClassEntity cls);
+  OrderedTypeSet getOrderedTypeSet(covariant ClassEntity cls);
 
   OrderedTypeSet createOrderedTypeSet(
       InterfaceType supertype, Link<DartType> interfaces) {
@@ -197,8 +201,11 @@ abstract class OrderedTypeSetBuilderBase implements OrderedTypeSetBuilder {
   void _addAllSupertypes(InterfaceType type) {
     ClassEntity classElement = type.element;
     Link<InterfaceType> supertypes = getOrderedTypeSet(classElement).supertypes;
-    assert(invariant(cls, supertypes != null,
-        message: "Supertypes not computed on $classElement "
+    assert(
+        supertypes != null,
+        failedAt(
+            cls,
+            "Supertypes not computed on $classElement "
             "during resolution of $cls"));
     while (!supertypes.isEmpty) {
       InterfaceType supertype = supertypes.head;
@@ -235,8 +242,7 @@ abstract class OrderedTypeSetBuilderBase implements OrderedTypeSetBuilder {
             'secondType': type
           });
         } else {
-          assert(invariant(cls, false,
-              message: 'Invalid ordered typeset for $cls'));
+          assert(false, failedAt(cls, 'Invalid ordered typeset for $cls'));
         }
         return;
       }
@@ -286,9 +292,9 @@ abstract class OrderedTypeSetBuilderBase implements OrderedTypeSetBuilder {
     for (int depth = 0; depth <= maxDepth; depth++) {
       sb.write('$depth: ');
       LinkEntry<InterfaceType> first = map[depth];
-      if (first != null) {
+      if (first.isNotEmpty) {
         sb.write('${first.head}');
-        while (first.tail != null) {
+        while (first.tail.isNotEmpty) {
           sb.write(', ${first.tail.head}');
           first = first.tail;
         }

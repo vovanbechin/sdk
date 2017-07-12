@@ -58,7 +58,8 @@ class ModelEmitter {
     this.constantEmitter = new ConstantEmitter(
         compiler.options,
         _closedWorld.commonElements,
-        compiler.backend.rtiNeed,
+        compiler.codegenWorldBuilder,
+        _closedWorld.rtiNeed,
         compiler.backend.rtiEncoder,
         namer,
         task,
@@ -117,8 +118,10 @@ class ModelEmitter {
   }
 
   js.Expression generateStaticClosureAccess(MethodElement element) {
-    return js.js('#.#()',
-        [namer.globalObjectFor(element), namer.staticClosureName(element)]);
+    return js.js('#.#()', [
+      namer.globalObjectForMember(element),
+      namer.staticClosureName(element)
+    ]);
   }
 
   js.Expression generateConstantReference(ConstantValue value) {
@@ -146,8 +149,7 @@ class ModelEmitter {
     // We have to emit the deferred fragments first, since we need their
     // deferred hash (which depends on the output) when emitting the main
     // fragment.
-    List<js.Expression> fragmentsCode =
-        deferredFragments.map((DeferredFragment deferredUnit) {
+    List<js.Expression> fragmentsCode = deferredFragments.map((deferredUnit) {
       js.Expression types =
           program.metadataTypesForOutputUnit(deferredUnit.outputUnit);
       return emitDeferredFragment(types, deferredUnit, program.holders);
@@ -221,7 +223,7 @@ class ModelEmitter {
       'deferredInitializer': emitDeferredInitializerGlobal(program.loadMap),
       'holders': emitHolders(program.holders),
       'tearOff': buildTearOffCode(compiler.options, backend.emitter.emitter,
-          backend.namer, compiler.commonElements),
+          backend.namer, _closedWorld.commonElements),
       'parseFunctionDescriptor':
           js.js.statement(parseFunctionDescriptorBoilerplate, {
         'argumentCount': js.string(namer.requiredParameterField),
@@ -229,7 +231,7 @@ class ModelEmitter {
         'callName': js.string(namer.callNameField)
       }),
       'cyclicThrow': backend.emitter
-          .staticFunctionAccess(backend.commonElements.cyclicThrowHelper),
+          .staticFunctionAccess(_closedWorld.commonElements.cyclicThrowHelper),
       'outputContainsConstantList': program.outputContainsConstantList,
       'embeddedGlobals': emitEmbeddedGlobals(program),
       'readMetadataTypeFunction': readMetadataTypeFunction,
@@ -253,10 +255,11 @@ class ModelEmitter {
     Map<String, dynamic> nativeHoles = <String, dynamic>{};
 
     js.Statement nativeIsolateAffinityTagInitialization;
-    if (NativeGenerator.needsIsolateAffinityTagInitialization(backend)) {
+    if (NativeGenerator
+        .needsIsolateAffinityTagInitialization(_closedWorld.backendUsage)) {
       nativeIsolateAffinityTagInitialization =
           NativeGenerator.generateIsolateAffinityTagInitialization(
-              backend,
+              _closedWorld.backendUsage,
               generateEmbeddedGlobalAccess,
               // TODO(floitsch): internStringFunction.
               js.js("(function(x) { return x; })", []));
@@ -362,7 +365,7 @@ class ModelEmitter {
   js.Property emitMangledGlobalNames() {
     List<js.Property> names = <js.Property>[];
 
-    CommonElements commonElements = compiler.commonElements;
+    CommonElements commonElements = _closedWorld.commonElements;
     // We want to keep the original names for the most common core classes when
     // calling toString on them.
     List<ClassElement> nativeClassesNeedingUnmangledName = [
@@ -396,14 +399,13 @@ class ModelEmitter {
     List<js.Property> globals = <js.Property>[];
 
     js.ArrayInitializer fragmentUris(List<Fragment> fragments) {
-      return js.stringArray(fragments.map((DeferredFragment fragment) =>
-          "${fragment.outputFileName}.$deferredExtension"));
+      return js.stringArray(fragments
+          .map((fragment) => "${fragment.outputFileName}.$deferredExtension"));
     }
 
     js.ArrayInitializer fragmentHashes(List<Fragment> fragments) {
       // TODO(floitsch): the hash must depend on the generated code.
-      return js.numArray(
-          fragments.map((DeferredFragment fragment) => fragment.hashCode));
+      return js.numArray(fragments.map((fragment) => fragment.hashCode));
     }
 
     List<js.Property> uris = new List<js.Property>(loadMap.length);
@@ -893,7 +895,7 @@ function parseFunctionDescriptor(proto, name, descriptor, typesOffset) {
         return [js.quoteName(method.name), new js.ArrayInitializer(data)];
       } else {
         // TODO(floitsch): not the most efficient way...
-        return ([method]..addAll(method.parameterStubs))
+        return (<dynamic>[method]..addAll(method.parameterStubs))
             .expand(makeNameCodePair);
       }
     } else {
@@ -928,7 +930,7 @@ function parseFunctionDescriptor(proto, name, descriptor, typesOffset) {
         /// field whether the method is intercepted.
         // [name, [function, callName, tearOffName, functionType,
         //     stub1_name, stub1_callName, stub1_code, ...]
-        var data = [unparse(compiler, method.code)];
+        var data = <js.Expression>[unparse(compiler, method.code)];
         data.add(js.quoteName(method.callName));
         data.add(js.quoteName(method.tearOffName));
         data.add(method.functionType);

@@ -55,8 +55,8 @@ class _AssertionError extends Error implements AssertionError {
 
   String toString() {
     if (_url == null) {
-      if (message == null) return _failedAssertion;
-      return "'$_failedAssertion': $_messageString";
+      if (message == null) return _failedAssertion?.trim();
+      return "'${_failedAssertion?.trim()}': $_messageString";
     }
     var columnInfo = "";
     if (_column > 0) {
@@ -113,7 +113,10 @@ class _CastError extends Error implements CastError {
 
 @patch
 class FallThroughError {
-  FallThroughError._create(this._url, this._line);
+  @patch
+  FallThroughError._create(String url, int line)
+      : _url = url,
+        _line = line;
 
   static _throwNew(int case_clause_pos) native "FallThroughError_throwNew";
 
@@ -234,6 +237,10 @@ class NoSuchMethodError {
 
   // This constructor seems to be called with either strings or
   // values read from another NoSuchMethodError.
+  //
+  // NOTE: When making changes to this constructor, please also update
+  // `VmTarget.instantiateNoSuchMethodError` in
+  // `pkg/kernel/lib/target/vm.dart`.
   NoSuchMethodError._withType(
       this._receiver,
       /*String|Symbol*/ memberName,
@@ -412,4 +419,23 @@ dynamic _classIdEqualsAssert(
   }
 
   return instance;
+}
+
+/// Used by Fasta to report a runtime error when a final field with an
+/// initializer is also initialized in a generative constructor.
+///
+/// Note: in strong mode, this is a compile-time error and this class becomes
+/// obsolete.
+class _DuplicatedFieldInitializerError extends Error {
+  final String _name;
+
+  _DuplicatedFieldInitializerError(this._name);
+
+  toString() => "Error: field '$_name' is already initialized.";
+}
+
+@patch
+class _ConstantExpressionError {
+  @patch
+  _throw(error) => throw error;
 }

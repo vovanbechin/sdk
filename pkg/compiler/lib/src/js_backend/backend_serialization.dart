@@ -10,6 +10,7 @@ import '../elements/resolution_types.dart';
 import '../elements/types.dart';
 import '../js/js.dart' as js;
 import '../native/native.dart';
+import '../resolution/resolution_strategy.dart';
 import '../serialization/keys.dart';
 import '../serialization/serialization.dart'
     show DeserializerPlugin, ObjectDecoder, ObjectEncoder, SerializerPlugin;
@@ -53,7 +54,8 @@ class JavaScriptBackendSerializer implements SerializerPlugin {
 
   JavaScriptBackendSerializer(this._backend);
 
-  NativeBasicDataImpl get nativeBasicData => _backend.nativeBasicData;
+  NativeBasicDataImpl get nativeBasicData =>
+      _backend.compiler.frontendStrategy.nativeBasicData;
   NativeDataBuilderImpl get nativeData => _backend.nativeDataBuilder;
 
   @override
@@ -107,7 +109,7 @@ class JavaScriptBackendSerializer implements SerializerPlugin {
   }
 
   @override
-  void onData(NativeBehavior behavior, ObjectEncoder encoder) {
+  void onData(covariant NativeBehavior behavior, ObjectEncoder encoder) {
     NativeBehaviorSerialization.serializeNativeBehavior(behavior, encoder);
   }
 }
@@ -117,8 +119,12 @@ class JavaScriptBackendDeserializer implements DeserializerPlugin {
 
   JavaScriptBackendDeserializer(this._backend);
 
-  NativeBasicDataBuilderImpl get nativeBasicData =>
-      _backend.nativeBasicDataBuilder;
+  NativeBasicDataBuilderImpl get nativeBasicData {
+    ResolutionFrontEndStrategy frontendStrategy =
+        _backend.compiler.frontendStrategy;
+    return frontendStrategy.nativeBasicDataBuilder;
+  }
+
   NativeDataBuilderImpl get nativeData => _backend.nativeDataBuilder;
 
   @override
@@ -266,7 +272,7 @@ class NativeBehaviorSerialization {
         .addAll(decoder.getTypes(DART_TYPES_RETURNED, isOptional: true));
     behavior.typesReturned.addAll(decoder
         .getElements(THIS_TYPES_RETURNED, isOptional: true)
-        .map((element) => element.thisType)
+        .map((dynamic element) => element.thisType)
         .toList());
     behavior.typesReturned.addAll(decoder
         .getStrings(SPECIAL_TYPES_RETURNED, isOptional: true)
@@ -276,7 +282,7 @@ class NativeBehaviorSerialization {
         .addAll(decoder.getTypes(DART_TYPES_INSTANTIATED, isOptional: true));
     behavior.typesInstantiated.addAll(decoder
         .getElements(THIS_TYPES_INSTANTIATED, isOptional: true)
-        .map((element) => element.thisType)
+        .map((dynamic element) => element.thisType)
         .toList());
     behavior.typesInstantiated.addAll(decoder
         .getStrings(SPECIAL_TYPES_INSTANTIATED, isOptional: true)

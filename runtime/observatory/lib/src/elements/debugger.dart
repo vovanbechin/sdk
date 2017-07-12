@@ -5,14 +5,17 @@
 library debugger_page_element;
 
 import 'dart:async';
-import 'dart:svg';
 import 'dart:html';
 import 'dart:math';
-import 'package:observatory/event.dart';
-import 'package:observatory/models.dart' as M;
+import 'dart:svg';
+
+import 'package:logging/logging.dart';
 import 'package:observatory/app.dart';
 import 'package:observatory/cli.dart';
 import 'package:observatory/debugger.dart';
+import 'package:observatory/event.dart';
+import 'package:observatory/models.dart' as M;
+import 'package:observatory/service.dart' as S;
 import 'package:observatory/src/elements/function_ref.dart';
 import 'package:observatory/src/elements/helpers/any_ref.dart';
 import 'package:observatory/src/elements/helpers/nav_bar.dart';
@@ -27,8 +30,6 @@ import 'package:observatory/src/elements/nav/top_menu.dart';
 import 'package:observatory/src/elements/nav/vm_menu.dart';
 import 'package:observatory/src/elements/source_inset.dart';
 import 'package:observatory/src/elements/source_link.dart';
-import 'package:observatory/service.dart' as S;
-import 'package:logging/logging.dart';
 
 // TODO(turnidge): Move Debugger, DebuggerCommand to debugger library.
 abstract class DebuggerCommand extends Command {
@@ -442,7 +443,6 @@ class ReloadCommand extends DebuggerCommand {
 
   Future run(List<String> args) async {
     try {
-      int count = 1;
       if (args.length > 0) {
         debugger.console.print('reload expects no arguments');
         return;
@@ -1689,7 +1689,7 @@ class ObservatoryDebugger extends Debugger {
     switch (event.kind) {
       case S.ServiceEvent.kVMUpdate:
         var vm = event.owner;
-        console.print("VM ${vm.target.networkAddress} renamed to '${vm.name}'");
+        console.print("VM ${vm.displayName} renamed to '${vm.name}'");
         break;
 
       case S.ServiceEvent.kIsolateStart:

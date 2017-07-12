@@ -13,6 +13,22 @@ main() async {
   exit(await new _SubpackageRelationshipsTest().run());
 }
 
+/// List of packages that front_end is allowed to directly depend on.
+///
+/// Note that this script only checks files in pkg/front_end/lib, so this list
+/// excludes dev dependencies.
+final allowedPackageDependencies = [
+  'charcode',
+  'convert',
+  'crypto',
+  'kernel',
+  'meta',
+  'package_config',
+  'path',
+  'source_span',
+  'testing',
+];
+
 /// Map from subpackage name to the rules for what the subpackage is allowed to
 /// depend directly on.
 ///
@@ -21,16 +37,13 @@ main() async {
 ///
 /// TODO(paulberry): stuff in lib/src shouldn't depend on lib; lib should just
 /// re-export stuff in lib/src.
-/// TODO(paulberry): remove dependencies on analyzer.
 final subpackageRules = {
-  'lib': new SubpackageRules(mayImportAnalyzer: true, allowedDependencies: [
+  'lib': new SubpackageRules(allowedDependencies: [
     'lib/src',
     'lib/src/base',
-    'lib/src/fasta',
-    'lib/src/fasta/dill',
-    'lib/src/fasta/kernel'
+    'lib/src/incremental',
   ]),
-  'lib/src': new SubpackageRules(mayImportAnalyzer: true, allowedDependencies: [
+  'lib/src': new SubpackageRules(allowedDependencies: [
     'lib',
     'lib/src/base',
     'lib/src/fasta',
@@ -39,11 +52,17 @@ final subpackageRules = {
     'lib/src/fasta/source',
     'lib/src/incremental',
   ]),
-  'lib/src/base': new SubpackageRules(
-      mayImportAnalyzer: true, allowedDependencies: ['lib', "lib/src/fasta"]),
+  'lib/src/base': new SubpackageRules(allowedDependencies: [
+    'lib',
+    'lib/src',
+    'lib/src/fasta',
+    'lib/src/incremental'
+  ]),
   'lib/src/codegen': new SubpackageRules(),
   'lib/src/fasta': new SubpackageRules(allowedDependencies: [
     'lib',
+    'lib/src',
+    'lib/src/base',
     'lib/src/fasta/builder',
     'lib/src/fasta/dill',
     'lib/src/fasta/kernel',
@@ -57,7 +76,6 @@ final subpackageRules = {
     'lib/src/fasta',
     'lib/src/fasta/parser',
     'lib/src/fasta/source',
-    'lib/src/fasta/type_inference',
     'lib/src/fasta/util',
   ]),
   'lib/src/fasta/dill': new SubpackageRules(allowedDependencies: [
@@ -75,6 +93,7 @@ final subpackageRules = {
     'lib/src/fasta/source',
     'lib/src/fasta/type_inference',
     'lib/src/fasta/util',
+    'lib/src/scanner',
   ]),
   'lib/src/fasta/parser': new SubpackageRules(allowedDependencies: [
     'lib/src/fasta',
@@ -96,11 +115,12 @@ final subpackageRules = {
     'lib/src/fasta/dill',
     'lib/src/fasta/kernel',
     'lib/src/fasta/parser',
-    'lib/src/fasta/scanner',
     'lib/src/fasta/type_inference',
     'lib/src/fasta/util',
+    'lib/src/scanner',
   ]),
   'lib/src/fasta/testing': new SubpackageRules(allowedDependencies: [
+    'lib',
     'lib/src/fasta',
     'lib/src/base',
     'lib/src/fasta/kernel',
@@ -111,12 +131,16 @@ final subpackageRules = {
     'lib/src',
     'lib/src/base',
     'lib/src/fasta',
+    'lib/src/fasta/kernel',
   ]),
   'lib/src/fasta/util': new SubpackageRules(),
   'lib/src/incremental': new SubpackageRules(allowedDependencies: [
     'lib',
+    'lib/src',
+    'lib/src/base',
     'lib/src/fasta',
     'lib/src/fasta/parser',
+    'lib/src/fasta/scanner',
     'lib/src/fasta/source',
   ]),
   'lib/src/scanner': new SubpackageRules(allowedDependencies: [
@@ -126,13 +150,14 @@ final subpackageRules = {
     // fasta scanner produces analyzer scanner tokens
     'lib/src/fasta/scanner',
   ]),
+  'lib/src/testing': new SubpackageRules(allowedDependencies: [
+    'lib',
+    'lib/src/fasta/testing',
+  ]),
 };
 
 /// Rules for what a subpackage may depend directly on.
 class SubpackageRules {
-  /// Indicates whether the subpackage may directly depend on analyzer.
-  final bool mayImportAnalyzer;
-
   /// Indicates whether dart files may exist in subdirectories of this
   /// subpackage.
   ///
@@ -146,16 +171,12 @@ class SubpackageRules {
 
   var actuallyContainsFiles = false;
 
-  var actuallyImportsAnalyzer = false;
-
   var actuallyHasSubdirs = false;
 
   var actualDependencies = new Set<String>();
 
   SubpackageRules(
-      {this.mayImportAnalyzer: false,
-      this.allowSubdirs: false,
-      this.allowedDependencies: const []});
+      {this.allowSubdirs: false, this.allowedDependencies: const []});
 }
 
 class _SubpackageRelationshipsTest {
@@ -165,6 +186,9 @@ class _SubpackageRelationshipsTest {
   /// Indicates whether any problems have been reported yet.
   bool problemsReported = false;
 
+  /// Package dependencies that were actually discovered
+  final actualPackageDependencies = <String>[];
+
   /// Check for problems resulting from URI [src] having a direct dependency on
   /// URI [dst].
   void checkDependency(Uri src, Uri dst) {
@@ -172,6 +196,17 @@ class _SubpackageRelationshipsTest {
     if (dst.scheme != 'package') {
       problem('$src depends on $dst, which is neither a package: or dart: URI');
       return;
+    }
+    if (src.scheme == 'package' &&
+        src.pathSegments[0] == 'front_end' &&
+        dst.scheme == 'package' &&
+        dst.pathSegments[0] != 'front_end') {
+      if (allowedPackageDependencies.contains(dst.pathSegments[0])) {
+        actualPackageDependencies.add(dst.pathSegments[0]);
+      } else {
+        problem('$src depends on package "${dst.pathSegments[0]}", which is '
+            'not found in allowedPackageDependencies');
+      }
     }
     var srcSubpackage = subpackageForUri(src);
     if (srcSubpackage == null) return;
@@ -182,14 +217,6 @@ class _SubpackageRelationshipsTest {
       return;
     }
     srcSubpackageRules.actuallyContainsFiles = true;
-    if (dst.pathSegments[0] == 'analyzer') {
-      if (srcSubpackageRules.mayImportAnalyzer) {
-        srcSubpackageRules.actuallyImportsAnalyzer = true;
-      } else {
-        problem('$src depends on $dst, but subpackage "$srcSubpackage" may not '
-            'import analyzer');
-      }
-    }
     var dstSubPackage = subpackageForUri(dst);
     if (dstSubPackage == null) return;
     if (dstSubPackage == srcSubpackage) return;
@@ -240,12 +267,15 @@ class _SubpackageRelationshipsTest {
         }
       }
     }
+    for (var package in allowedPackageDependencies) {
+      if (!actualPackageDependencies.contains(package)) {
+        problem('$package is listed in allowedPackageDependencies, '
+            'but is not used');
+      }
+    }
     subpackageRules.forEach((subpackage, rule) {
       if (!rule.actuallyContainsFiles) {
         problem("$subpackage contains no files");
-      }
-      if (rule.mayImportAnalyzer && !rule.actuallyImportsAnalyzer) {
-        problem("$subpackage is allowed to import analyzer, but doesn't");
       }
       if (rule.allowSubdirs && !rule.actuallyHasSubdirs) {
         problem("$subpackage is allowed to have subdirectories, but doesn't");

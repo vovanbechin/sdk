@@ -1542,7 +1542,7 @@ void Assembler::MarkExceptionHandler(Label* label) {
 void Assembler::Drop(intptr_t stack_elements) {
   ASSERT(stack_elements >= 0);
   if (stack_elements > 0) {
-    AddImmediate(SP, SP, stack_elements * kWordSize);
+    AddImmediate(SP, stack_elements * kWordSize);
   }
 }
 
@@ -1594,7 +1594,7 @@ void Assembler::CheckCodePointer() {
   const intptr_t offset = CodeSize() + Instr::kPCReadOffset +
                           Instructions::HeaderSize() - kHeapObjectTag;
   mov(R0, Operand(PC));
-  AddImmediate(R0, R0, -offset);
+  AddImmediate(R0, -offset);
   ldr(IP, FieldAddress(CODE_REG, Code::saved_instructions_offset()));
   cmp(R0, Operand(IP));
   b(&instructions_ok, EQ);
@@ -3016,11 +3016,6 @@ void Assembler::CopyFloat64x2Field(Register dst,
 }
 
 
-void Assembler::AddImmediate(Register rd, int32_t value, Condition cond) {
-  AddImmediate(rd, rd, value, cond);
-}
-
-
 void Assembler::AddImmediate(Register rd,
                              Register rn,
                              int32_t value,
@@ -3476,7 +3471,7 @@ void Assembler::TryAllocate(const Class& cls,
     ASSERT(instance_size >= kHeapObjectTag);
     AddImmediate(instance_reg, -instance_size + kHeapObjectTag);
 
-    uword tags = 0;
+    uint32_t tags = 0;
     tags = RawObject::SizeTag::update(instance_size, tags);
     ASSERT(cls.id() != kIllegalCid);
     tags = RawObject::ClassIdTag::update(cls.id(), tags);
@@ -3525,7 +3520,7 @@ void Assembler::TryAllocateArray(intptr_t cid,
 
     // Initialize the tags.
     // instance: new object start as a tagged pointer.
-    uword tags = 0;
+    uint32_t tags = 0;
     tags = RawObject::ClassIdTag::update(cid, tags);
     tags = RawObject::SizeTag::update(instance_size, tags);
     LoadImmediate(temp1, tags);

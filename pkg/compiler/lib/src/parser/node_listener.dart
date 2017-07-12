@@ -5,10 +5,10 @@
 library dart2js.parser.node_listener;
 
 import 'package:front_end/src/fasta/parser/parser.dart'
-    show FormalParameterType;
+    show FormalParameterType, MemberKind;
 import 'package:front_end/src/fasta/parser/identifier_context.dart'
     show IdentifierContext;
-import 'package:front_end/src/fasta/scanner.dart' show SymbolToken, Token;
+import 'package:front_end/src/fasta/scanner.dart' show Token;
 import 'package:front_end/src/scanner/token.dart' show TokenType;
 
 import '../common.dart';
@@ -16,6 +16,8 @@ import '../elements/elements.dart' show CompilationUnitElement;
 import '../tree/tree.dart';
 import '../util/util.dart' show Link;
 import 'element_listener.dart' show ElementListener, ScannerOptions;
+
+import 'package:front_end/src/fasta/parser/parser.dart' as fasta show Assert;
 
 class NodeListener extends ElementListener {
   NodeListener(ScannerOptions scannerOptions, DiagnosticReporter reporter,
@@ -175,10 +177,10 @@ class NodeListener extends ElementListener {
   }
 
   @override
-  void handleFunctionType(Token functionToken, Token endToken) {
+  void endFunctionType(Token functionToken, Token endToken) {
     NodeList formals = popNode();
-    NodeList typeParameters = popNode();
     TypeAnnotation returnType = popNode();
+    NodeList typeParameters = popNode();
     pushNode(new FunctionTypeAnnotation(
         returnType, functionToken, typeParameters, formals));
   }
@@ -229,8 +231,8 @@ class NodeListener extends ElementListener {
   }
 
   @override
-  void endFormalParameter(Token covariantKeyword, Token thisKeyword,
-      Token nameToken, FormalParameterType kind) {
+  void endFormalParameter(Token thisKeyword, Token nameToken,
+      FormalParameterType kind, MemberKind memberKind) {
     Expression name = popNode();
     if (thisKeyword != null) {
       Identifier thisIdentifier = new Identifier(thisKeyword);
@@ -248,12 +250,13 @@ class NodeListener extends ElementListener {
   }
 
   @override
-  void endFormalParameters(int count, Token beginToken, Token endToken) {
+  void endFormalParameters(
+      int count, Token beginToken, Token endToken, MemberKind kind) {
     pushNode(makeNodeList(count, beginToken, endToken, ","));
   }
 
   @override
-  void handleNoFormalParameters(Token token) {
+  void handleNoFormalParameters(Token token, MemberKind kind) {
     pushNode(null);
   }
 
@@ -490,7 +493,7 @@ class NodeListener extends ElementListener {
   }
 
   @override
-  void endFunction(Token getOrSet, Token endToken) {
+  void endNamedFunctionExpression(Token endToken) {
     Statement body = popNode();
     AsyncModifier asyncModifier = popNode();
     NodeList initializers = popNode();
@@ -501,12 +504,22 @@ class NodeListener extends ElementListener {
     TypeAnnotation type = popNode();
     Modifiers modifiers = popNode();
     pushNode(new FunctionExpression(name, typeVariables, formals, body, type,
-        modifiers, initializers, getOrSet, asyncModifier));
+        modifiers, initializers, null, asyncModifier));
   }
 
   @override
   void endFunctionDeclaration(Token endToken) {
-    pushNode(new FunctionDeclaration(popNode()));
+    Statement body = popNode();
+    AsyncModifier asyncModifier = popNode();
+    NodeList initializers = popNode();
+    NodeList formals = popNode();
+    NodeList typeVariables = popNode();
+    // The name can be an identifier or a send in case of named constructors.
+    Expression name = popNode();
+    TypeAnnotation type = popNode();
+    Modifiers modifiers = popNode();
+    pushNode(new FunctionDeclaration(new FunctionExpression(name, typeVariables,
+        formals, body, type, modifiers, initializers, null, asyncModifier)));
   }
 
   @override
@@ -668,8 +681,7 @@ class NodeListener extends ElementListener {
   }
 
   @override
-  void endFields(
-      int count, Token covariantKeyword, Token beginToken, Token endToken) {
+  void endFields(int count, Token beginToken, Token endToken) {
     NodeList variables = makeNodeList(count, null, endToken, ",");
     TypeAnnotation type = popNode();
     Modifiers modifiers = popNode();
@@ -718,8 +730,7 @@ class NodeListener extends ElementListener {
     NodeList arguments =
         makeNodeList(1, openSquareBracket, closeSquareBracket, null);
     Node receiver = popNode();
-    Token token =
-        new SymbolToken(TokenType.INDEX, openSquareBracket.charOffset);
+    Token token = new Token(TokenType.INDEX, openSquareBracket.charOffset);
     Node selector = new Operator(token);
     pushNode(new Send(receiver, selector, arguments));
   }
@@ -767,14 +778,36 @@ class NodeListener extends ElementListener {
   }
 
   @override
-  void endFunctionTypedFormalParameter(
-      Token covariantKeyword, Token thisKeyword, FormalParameterType kind) {
+  void handleIdentifier(Token token, IdentifierContext context) {
+    if (IdentifierContext.formalParameterDeclaration == context ||
+        IdentifierContext.fieldInitializer == context) {
+      var typeAnnotation = popNode();
+      if (typeAnnotation is FunctionExpression) {
+        pushNode(null); // Signal "no type" to endFormalParameter.
+        pushNode(new FunctionExpression(
+            new Identifier(token),
+            typeAnnotation.typeVariables,
+            typeAnnotation.parameters,
+            null,
+            typeAnnotation.returnType,
+            typeAnnotation.modifiers,
+            null,
+            null,
+            null));
+        return;
+      } else {
+        pushNode(typeAnnotation);
+      }
+    }
+    pushNode(new Identifier(token));
+  }
+
+  @override
+  void endFunctionTypedFormalParameter() {
     NodeList formals = popNode();
-    NodeList typeVariables = popNode();
-    Identifier name = popNode();
     TypeAnnotation returnType = popNode();
-    pushNode(null); // Signal "no type" to endFormalParameter.
-    pushNode(new FunctionExpression(name, typeVariables, formals, null,
+    NodeList typeVariables = popNode();
+    pushNode(new FunctionExpression(null, typeVariables, formals, null,
         returnType, Modifiers.EMPTY, null, null, null));
   }
 
@@ -962,7 +995,7 @@ class NodeListener extends ElementListener {
   }
 
   @override
-  void handleAssertStatement(Token assertKeyword, Token leftParenthesis,
+  void endAssert(Token assertKeyword, fasta.Assert kind, Token leftParenthesis,
       Token commaToken, Token rightParenthesis, Token semicolonToken) {
     Node message;
     Node condition;
@@ -974,7 +1007,7 @@ class NodeListener extends ElementListener {
   }
 
   @override
-  void endUnnamedFunction(Token beginToken, Token token) {
+  void endFunctionExpression(Token beginToken, Token token) {
     Statement body = popNode();
     AsyncModifier asyncModifier = popNode();
     NodeList formals = popNode();

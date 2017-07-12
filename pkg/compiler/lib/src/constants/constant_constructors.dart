@@ -72,7 +72,7 @@ class ConstantConstructorComputer extends SemanticVisitor
     internalError(node, template.replaceFirst('#', '$node'));
   }
 
-  internalError(Node node, String message) {
+  internalError(Spannable node, String message) {
     throw new UnsupportedError(message);
   }
 
@@ -158,13 +158,13 @@ class ConstantConstructorComputer extends SemanticVisitor
       ConstantExpression defaultValue,
       int index,
       _) {
-    assert(invariant(node, defaultValue != null));
+    assert(defaultValue != null, failedAt(node));
     defaultValues[index] = defaultValue;
   }
 
   visitNamedParameterDeclaration(VariableDefinitions node, Node definition,
       ParameterElement parameter, ConstantExpression defaultValue, _) {
-    assert(invariant(node, defaultValue != null));
+    assert(defaultValue != null, failedAt(node));
     String name = parameter.name;
     defaultValues[name] = defaultValue;
   }
@@ -181,7 +181,7 @@ class ConstantConstructorComputer extends SemanticVisitor
       ConstantExpression defaultValue,
       int index,
       _) {
-    assert(invariant(node, defaultValue != null));
+    assert(defaultValue != null, failedAt(node));
     defaultValues[index] = defaultValue;
     fieldMap[parameter.fieldElement] = new PositionalArgumentReference(index);
   }
@@ -192,7 +192,7 @@ class ConstantConstructorComputer extends SemanticVisitor
       InitializingFormalElement parameter,
       ConstantExpression defaultValue,
       _) {
-    assert(invariant(node, defaultValue != null));
+    assert(defaultValue != null, failedAt(node));
     String name = parameter.name;
     defaultValues[name] = defaultValue;
     fieldMap[parameter.fieldElement] = new NamedArgumentReference(name);

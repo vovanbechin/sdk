@@ -2,13 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.services.src.index.abstract_single_file;
-
 import 'dart:async';
 
 import 'package:analyzer/dart/ast/ast.dart';
+import 'package:analyzer/dart/ast/visitor.dart';
 import 'package:analyzer/dart/element/element.dart';
 import 'package:analyzer/error/error.dart';
+import 'package:analyzer/src/dart/analysis/driver.dart';
 import 'package:analyzer/src/dart/ast/utilities.dart';
 import 'package:analyzer/src/dart/error/hint_codes.dart';
 import 'package:analyzer/src/generated/java_engine.dart';
@@ -45,6 +45,19 @@ class AbstractSingleUnitTest extends AbstractContextTest {
    */
   SimpleIdentifier findIdentifier(String search) {
     return findNodeAtString(search, (node) => node is SimpleIdentifier);
+  }
+
+  /**
+   * Search the [testUnit] for the [LocalVariableElement] with the given [name].
+   * Fail if there is not exactly one such variable.
+   */
+  LocalVariableElement findLocalVariable(String name) {
+    var finder = new _ElementsByNameFinder(name);
+    testUnit.accept(finder);
+    List<Element> localVariables =
+        finder.elements.where((e) => e is LocalVariableElement).toList();
+    expect(localVariables, hasLength(1));
+    return localVariables[0];
   }
 
   AstNode findNodeAtOffset(int offset, [Predicate<AstNode> predicate]) {
@@ -98,27 +111,34 @@ class AbstractSingleUnitTest extends AbstractContextTest {
 
   Future<Null> resolveTestUnit(String code) async {
     addTestSource(code);
-    if (enableNewAnalysisDriver) {
-      var result = await driver.getResult(testFile);
-      testUnit = (result).unit;
-      if (verifyNoTestUnitErrors) {
-        expect(result.errors.where((AnalysisError error) {
-          return error.errorCode != HintCode.DEAD_CODE &&
-              error.errorCode != HintCode.UNUSED_CATCH_CLAUSE &&
-              error.errorCode != HintCode.UNUSED_CATCH_STACK &&
-              error.errorCode != HintCode.UNUSED_ELEMENT &&
-              error.errorCode != HintCode.UNUSED_FIELD &&
-              error.errorCode != HintCode.UNUSED_IMPORT &&
-              error.errorCode != HintCode.UNUSED_LOCAL_VARIABLE;
-        }), isEmpty);
-      }
-    } else {
-      testUnit = await resolveLibraryUnit(testSource);
-      if (verifyNoTestUnitErrors) {
-        expect(context.getErrors(testSource).errors, isEmpty);
-      }
+    AnalysisResult result = await driver.getResult(testFile);
+    testUnit = result.unit;
+    if (verifyNoTestUnitErrors) {
+      expect(result.errors.where((AnalysisError error) {
+        return error.errorCode != HintCode.DEAD_CODE &&
+            error.errorCode != HintCode.UNUSED_CATCH_CLAUSE &&
+            error.errorCode != HintCode.UNUSED_CATCH_STACK &&
+            error.errorCode != HintCode.UNUSED_ELEMENT &&
+            error.errorCode != HintCode.UNUSED_FIELD &&
+            error.errorCode != HintCode.UNUSED_IMPORT &&
+            error.errorCode != HintCode.UNUSED_LOCAL_VARIABLE;
+      }), isEmpty);
     }
     testUnitElement = testUnit.element;
     testLibraryElement = testUnitElement.library;
+  }
+}
+
+class _ElementsByNameFinder extends RecursiveAstVisitor<Null> {
+  final String name;
+  final List<Element> elements = [];
+
+  _ElementsByNameFinder(this.name);
+
+  @override
+  visitSimpleIdentifier(SimpleIdentifier node) {
+    if (node.name == name && node.inDeclarationContext()) {
+      elements.add(node.staticElement);
+    }
   }
 }

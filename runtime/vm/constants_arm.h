@@ -26,7 +26,7 @@ namespace dart {
 
 
 // The Linux/Android ABI and the iOS ABI differ in their choice of frame
-// pointer, their treatment of R9, and the interproduceral stack alignment.
+// pointer, their treatment of R9, and the interprocedural stack alignment.
 
 // EABI (Linux, Android)
 // See "Procedure Call Standard for the ARM Architecture".
@@ -260,7 +260,7 @@ static inline SRegister OddSRegisterOf(DRegister d) {
 // Register aliases for floating point scratch registers.
 const QRegister QTMP = Q7;                     // Overlaps with DTMP, STMP.
 const DRegister DTMP = EvenDRegisterOf(QTMP);  // Overlaps with STMP.
-const SRegister STMP = EvenSRegisterOf(DTMP);
+const SRegister STMP DART_USED = EvenSRegisterOf(DTMP);
 
 // Architecture independent aliases.
 typedef QRegister FpuRegister;
@@ -354,7 +354,8 @@ enum Condition {
   LE = 13,                 // signed less than or equal
   AL = 14,                 // always (unconditional)
   kSpecialCondition = 15,  // special condition (refer to section A3.2.1)
-  kMaxCondition = 16,
+  kNumberOfConditions = 16,
+  kInvalidCondition = 16
 };
 
 

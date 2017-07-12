@@ -2,12 +2,13 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-import 'package:front_end/src/fasta/errors.dart';
+import 'package:front_end/src/fasta/problems.dart'
+    show internalProblem, unsupported;
+import 'package:front_end/src/fasta/messages.dart' show Message;
 import 'package:front_end/src/fasta/parser/identifier_context.dart';
 import 'package:front_end/src/fasta/parser/parser.dart';
-import 'package:front_end/src/fasta/scanner/token.dart';
 import 'package:front_end/src/fasta/source/stack_listener.dart';
-import 'package:front_end/src/scanner/token.dart' as analyzer;
+import 'package:front_end/src/scanner/token.dart';
 
 /// "Mini AST" representation of a declaration which can accept annotations.
 class AnnotatedNode {
@@ -55,7 +56,7 @@ class Comment {
 
   final List<Token> tokens;
 
-  factory Comment(analyzer.Token commentToken) {
+  factory Comment(Token commentToken) {
     var tokens = <Token>[];
     bool isDocumentation = false;
     while (commentToken != null) {
@@ -156,6 +157,11 @@ class MiniAstBuilder extends StackListener {
   Uri get uri => null;
 
   @override
+  void addCompileTimeError(Message message, int charOffset) {
+    internalProblem(message, charOffset, uri);
+  }
+
+  @override
   void beginMetadata(Token token) {
     inMetadata = true;
   }
@@ -209,7 +215,7 @@ class MiniAstBuilder extends StackListener {
   void endConditionalUris(int count) {
     debugEvent("ConditionalUris");
     if (count != 0) {
-      internalError('Conditional URIs are not supported by summary codegen');
+      unsupported("Conditional URIs", -1, null);
     }
   }
 
@@ -251,8 +257,8 @@ class MiniAstBuilder extends StackListener {
   }
 
   @override
-  void endFormalParameter(Token covariantKeyword, Token thisKeyword,
-      Token nameToken, FormalParameterType kind) {
+  void endFormalParameter(Token thisKeyword, Token nameToken,
+      FormalParameterType kind, MemberKind memberKind) {
     debugEvent("FormalParameter");
     pop(); // Name
     pop(); // Type
@@ -261,7 +267,8 @@ class MiniAstBuilder extends StackListener {
   }
 
   @override
-  void endFormalParameters(int count, Token beginToken, Token endToken) {
+  void endFormalParameters(
+      int count, Token beginToken, Token endToken, MemberKind kind) {
     debugEvent("FormalParameters");
   }
 

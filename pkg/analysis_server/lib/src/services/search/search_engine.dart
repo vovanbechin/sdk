@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library services.search_engine;
-
 import 'dart:async';
 
 import 'package:analyzer/dart/element/element.dart';
@@ -57,6 +55,13 @@ class MatchKind {
  * to search for various pieces of information.
  */
 abstract class SearchEngine {
+  /**
+   * If the [type] has subtypes, return the set of names of members which these
+   * subtypes declare, possibly empty.  If the [type] does not have subtypes,
+   * return `null`.
+   */
+  Future<Set<String>> membersOfSubtypes(ClassElement type);
+
   /**
    * Returns all subtypes of the given [type].
    *

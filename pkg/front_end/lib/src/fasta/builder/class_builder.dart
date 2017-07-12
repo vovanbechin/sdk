@@ -4,7 +4,7 @@
 
 library fasta.class_builder;
 
-import '../errors.dart' show internalError;
+import '../deprecated_problems.dart' show deprecated_internalProblem;
 
 import 'builder.dart'
     show
@@ -20,6 +20,8 @@ import 'builder.dart'
         TypeBuilder,
         TypeDeclarationBuilder,
         TypeVariableBuilder;
+
+import '../fasta_codes.dart' show Message;
 
 abstract class ClassBuilder<T extends TypeBuilder, R>
     extends TypeDeclarationBuilder<T, R> {
@@ -52,6 +54,8 @@ abstract class ClassBuilder<T extends TypeBuilder, R>
         constructorScopeBuilder = new ScopeBuilder(constructors),
         super(metadata, modifiers, name, parent, charOffset);
 
+  String get debugName => "ClassBuilder";
+
   /// Returns true if this class is the result of applying a mixin to its
   /// superclass.
   bool get isMixinApplication => mixedInType != null;
@@ -75,21 +79,25 @@ abstract class ClassBuilder<T extends TypeBuilder, R>
   int resolveConstructors(LibraryBuilder library) {
     if (constructorReferences == null) return 0;
     for (ConstructorReferenceBuilder ref in constructorReferences) {
-      ref.resolveIn(scope);
+      ref.resolveIn(scope, library);
     }
     return constructorReferences.length;
   }
 
   /// Used to lookup a static member of this class.
-  Builder findStaticBuilder(String name, int charOffset, Uri fileUri,
+  Builder findStaticBuilder(
+      String name, int charOffset, Uri fileUri, LibraryBuilder accessingLibrary,
       {bool isSetter: false}) {
+    if (accessingLibrary != library && name.startsWith("_")) return null;
     Builder builder = isSetter
         ? scope.lookupSetter(name, charOffset, fileUri, isInstanceScope: false)
         : scope.lookup(name, charOffset, fileUri, isInstanceScope: false);
     return builder;
   }
 
-  Builder findConstructorOrFactory(String name, int charOffset, Uri uri) {
+  Builder findConstructorOrFactory(
+      String name, int charOffset, Uri uri, LibraryBuilder accessingLibrary) {
+    if (accessingLibrary != library && name.startsWith("_")) return null;
     return constructors.lookup(name, charOffset, uri);
   }
 
@@ -158,8 +166,10 @@ abstract class ClassBuilder<T extends TypeBuilder, R>
         }
         supertype = t.supertype;
       } else {
-        internalError("Superclass not found '${superclass.fullNameForErrors}'.",
-            fileUri, charOffset);
+        deprecated_internalProblem(
+            "Superclass not found '${superclass.fullNameForErrors}'.",
+            fileUri,
+            charOffset);
       }
       if (variables != null) {
         Map<TypeVariableBuilder, TypeBuilder> directSubstitutionMap =
@@ -186,18 +196,32 @@ abstract class ClassBuilder<T extends TypeBuilder, R>
   /// (and isn't a setter).
   MemberBuilder operator [](String name) {
     // TODO(ahe): Rename this to getLocalMember.
-    return scope.local[name] ?? internalError("Not found: '$name'.");
+    return scope.local[name] ??
+        deprecated_internalProblem("Not found: '$name'.");
   }
 
-  void addCompileTimeError(int charOffset, String message) {
-    library.addCompileTimeError(charOffset, message, fileUri: fileUri);
+  void addCompileTimeError(Message message, int charOffset) {
+    library.addCompileTimeError(message, charOffset, fileUri);
   }
 
-  void addWarning(int charOffset, String message) {
-    library.addWarning(charOffset, message, fileUri: fileUri);
+  void addWarning(Message message, int charOffset) {
+    library.addWarning(message, charOffset, fileUri);
   }
 
-  void addNit(int charOffset, String message) {
-    library.addNit(charOffset, message, fileUri: fileUri);
+  void addNit(Message message, int charOffset) {
+    library.addNit(message, charOffset, fileUri);
+  }
+
+  void deprecated_addCompileTimeError(int charOffset, String message) {
+    library.deprecated_addCompileTimeError(charOffset, message,
+        fileUri: fileUri);
+  }
+
+  void deprecated_addWarning(int charOffset, String message) {
+    library.deprecated_addWarning(charOffset, message, fileUri: fileUri);
+  }
+
+  void deprecated_addNit(int charOffset, String message) {
+    library.deprecated_addNit(charOffset, message, fileUri: fileUri);
   }
 }

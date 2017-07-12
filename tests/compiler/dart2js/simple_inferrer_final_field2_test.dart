@@ -3,7 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 // Test that a non-used generative constructor does not prevent
-// infering types for fields.
+// inferring types for fields.
 
 import 'package:async_helper/async_helper.dart';
 import 'package:expect/expect.dart';
@@ -31,15 +31,15 @@ void main() {
         var typesInferrer = compiler.globalInference.typesInferrerInternal;
 
         checkFieldTypeInClass(String className, String fieldName, type) {
-          var cls = findElement(compiler, className);
+          dynamic cls = findElement(compiler, className);
           var element = cls.lookupLocalMember(fieldName);
           Expect.isTrue(
-              typesInferrer.getTypeOfElement(element).containsOnly(type));
+              typesInferrer.getTypeOfMember(element).containsOnly(type));
         }
 
-        checkFieldTypeInClass(
-            'A', 'intField', compiler.commonElements.jsUInt31Class);
-        checkFieldTypeInClass(
-            'A', 'stringField', compiler.commonElements.jsStringClass);
+        checkFieldTypeInClass('A', 'intField',
+            typesInferrer.closedWorld.commonElements.jsUInt31Class);
+        checkFieldTypeInClass('A', 'stringField',
+            typesInferrer.closedWorld.commonElements.jsStringClass);
       }));
 }

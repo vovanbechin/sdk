@@ -4,6 +4,8 @@
 
 library dart2js.resolution_strategy;
 
+import 'package:front_end/src/fasta/scanner.dart' show Token;
+
 import '../common.dart';
 import '../common_elements.dart';
 import '../common/backend_api.dart';
@@ -17,19 +19,22 @@ import '../elements/elements.dart';
 import '../elements/entities.dart';
 import '../elements/modelx.dart';
 import '../elements/resolution_types.dart';
+import '../elements/types.dart';
 import '../environment.dart';
 import '../enqueue.dart';
 import '../frontend_strategy.dart';
 import '../js_backend/backend.dart';
 import '../js_backend/backend_usage.dart';
-import '../js_backend/custom_elements_analysis.dart';
 import '../js_backend/interceptor_data.dart';
 import '../js_backend/mirrors_analysis.dart';
 import '../js_backend/mirrors_data.dart';
 import '../js_backend/native_data.dart';
 import '../js_backend/no_such_method_registry.dart';
+import '../js_backend/runtime_types.dart';
 import '../library_loader.dart';
+import '../native/enqueue.dart' show NativeResolutionEnqueuer;
 import '../native/resolver.dart';
+import '../tree/tree.dart' show Node;
 import '../serialization/task.dart';
 import '../patch_parser.dart';
 import '../resolved_uri_translator.dart';
@@ -41,13 +46,28 @@ import 'no_such_method_resolver.dart';
 
 /// [FrontendStrategy] that loads '.dart' files and creates a resolved element
 /// model using the resolver.
-class ResolutionFrontEndStrategy implements FrontEndStrategy {
+class ResolutionFrontEndStrategy extends FrontendStrategyBase
+    with ComputeSpannableMixin {
   final Compiler _compiler;
-  final ElementEnvironment elementEnvironment;
+  final _CompilerElementEnvironment _elementEnvironment;
+  final CommonElements commonElements;
+
   AnnotationProcessor _annotationProcessor;
 
-  ResolutionFrontEndStrategy(this._compiler)
-      : elementEnvironment = new _CompilerElementEnvironment(_compiler);
+  factory ResolutionFrontEndStrategy(Compiler compiler) {
+    ElementEnvironment elementEnvironment =
+        new _CompilerElementEnvironment(compiler);
+    CommonElements commonElements = new CommonElements(elementEnvironment);
+    return new ResolutionFrontEndStrategy.internal(
+        compiler, elementEnvironment, commonElements);
+  }
+
+  ResolutionFrontEndStrategy.internal(
+      this._compiler, this._elementEnvironment, this.commonElements);
+
+  ElementEnvironment get elementEnvironment => _elementEnvironment;
+
+  DartTypes get dartTypes => _compiler.resolution.types;
 
   LibraryLoaderTask createLibraryLoader(
       ResolvedUriTranslator uriTranslator,
@@ -71,8 +91,8 @@ class ResolutionFrontEndStrategy implements FrontEndStrategy {
         measurer);
   }
 
-  AnnotationProcessor get annotationProcesser =>
-      _annotationProcessor ??= new _ElementAnnotationProcessor(_compiler);
+  AnnotationProcessor get annotationProcesser => _annotationProcessor ??=
+      new _ElementAnnotationProcessor(_compiler, nativeBasicDataBuilder);
 
   @override
   NativeClassFinder createNativeClassFinder(NativeBasicData nativeBasicData) {
@@ -80,27 +100,15 @@ class ResolutionFrontEndStrategy implements FrontEndStrategy {
         _compiler.resolution,
         _compiler.reporter,
         elementEnvironment,
-        _compiler.commonElements,
+        commonElements,
         nativeBasicData);
   }
 
   NoSuchMethodResolver createNoSuchMethodResolver() =>
       new ResolutionNoSuchMethodResolver();
 
-  CustomElementsResolutionAnalysis createCustomElementsResolutionAnalysis(
-      NativeBasicData nativeBasicData,
-      BackendUsageBuilder backendUsageBuilder) {
-    return new CustomElementsResolutionAnalysis(
-        _compiler.resolution,
-        _compiler.backend.constantSystem,
-        _compiler.commonElements,
-        nativeBasicData,
-        backendUsageBuilder);
-  }
-
   MirrorsDataBuilder createMirrorsDataBuilder() {
-    return new MirrorsDataImpl(
-        _compiler, _compiler.options, _compiler.commonElements);
+    return new MirrorsDataImpl(_compiler, _compiler.options, commonElements);
   }
 
   MirrorsResolutionAnalysis createMirrorsResolutionAnalysis(
@@ -109,13 +117,16 @@ class ResolutionFrontEndStrategy implements FrontEndStrategy {
 
   RuntimeTypesNeedBuilder createRuntimeTypesNeedBuilder() {
     return new ResolutionRuntimeTypesNeedBuilderImpl(
-        elementEnvironment, _compiler.types);
+        elementEnvironment, dartTypes);
   }
 
   ResolutionWorldBuilder createResolutionWorldBuilder(
       NativeBasicData nativeBasicData,
       NativeDataBuilder nativeDataBuilder,
       InterceptorDataBuilder interceptorDataBuilder,
+      BackendUsageBuilder backendUsageBuilder,
+      RuntimeTypesNeedBuilder rtiNeedBuilder,
+      NativeResolutionEnqueuer nativeResolutionEnqueuer,
       SelectorConstraintsStrategy selectorConstraintsStrategy) {
     return new ElementResolutionWorldBuilder(
         _compiler.backend,
@@ -123,16 +134,22 @@ class ResolutionFrontEndStrategy implements FrontEndStrategy {
         nativeBasicData,
         nativeDataBuilder,
         interceptorDataBuilder,
+        backendUsageBuilder,
+        rtiNeedBuilder,
+        nativeResolutionEnqueuer,
         selectorConstraintsStrategy);
   }
 
   WorkItemBuilder createResolutionWorkItemBuilder(
+      NativeBasicData nativeBasicData,
+      NativeDataBuilder nativeDataBuilder,
       ImpactTransformer impactTransformer) {
     return new ResolutionWorkItemBuilder(_compiler.resolution);
   }
 
   FunctionEntity computeMain(
-      LibraryElement mainApp, WorldImpactBuilder impactBuilder) {
+      covariant LibraryElement mainApp, WorldImpactBuilder impactBuilder) {
+    _elementEnvironment._mainLibrary = mainApp;
     if (mainApp == null) return null;
     MethodElement mainFunction;
     Element main = mainApp.findExported(Identifiers.main);
@@ -148,7 +165,7 @@ class ResolutionFrontEndStrategy implements FrontEndStrategy {
         errorElement = new ErroneousElementX(MessageKind.MISSING_MAIN,
             {'main': Identifiers.main}, Identifiers.main, mainApp);
       }
-      mainFunction = _compiler.backend.helperForMissingMain();
+      mainFunction = commonElements.missingMain;
     } else if (main.isError && main.isSynthesized) {
       if (main is ErroneousElement) {
         errorElement = main;
@@ -156,11 +173,11 @@ class ResolutionFrontEndStrategy implements FrontEndStrategy {
         _compiler.reporter
             .internalError(main, 'Problem with ${Identifiers.main}.');
       }
-      mainFunction = _compiler.backend.helperForBadMain();
+      mainFunction = commonElements.badMain;
     } else if (!main.isFunction) {
       errorElement = new ErroneousElementX(MessageKind.MAIN_NOT_A_FUNCTION,
           {'main': Identifiers.main}, Identifiers.main, main);
-      mainFunction = _compiler.backend.helperForBadMain();
+      mainFunction = commonElements.badMain;
     } else {
       mainFunction = main;
       mainFunction.computeType(_compiler.resolution);
@@ -178,7 +195,7 @@ class ResolutionFrontEndStrategy implements FrontEndStrategy {
           impactBuilder.registerStaticUse(
               new StaticUse.staticInvoke(mainFunction, CallStructure.NO_ARGS));
 
-          mainFunction = _compiler.backend.helperForMainArity();
+          mainFunction = commonElements.mainHasTooManyParameters;
         });
       }
     }
@@ -203,13 +220,170 @@ class ResolutionFrontEndStrategy implements FrontEndStrategy {
       mainFunction.computeType(_compiler.resolution);
       mainMethod = mainFunction;
     }
+    _elementEnvironment._mainFunction = mainMethod;
     return mainMethod;
+  }
+}
+
+class ComputeSpannableMixin {
+  SourceSpan spanFromToken(Element currentElement, Token token) =>
+      _spanFromTokens(currentElement, token, token);
+
+  SourceSpan _spanFromTokens(Element currentElement, Token begin, Token end,
+      [Uri uri]) {
+    if (begin == null || end == null) {
+      // TODO(ahe): We can almost always do better. Often it is only
+      // end that is null. Otherwise, we probably know the current
+      // URI.
+      throw 'Cannot find tokens to produce error message.';
+    }
+    if (uri == null && currentElement != null) {
+      if (currentElement is! Element) {
+        throw 'Can only find tokens from an Element.';
+      }
+      Element element = currentElement;
+      uri = element.compilationUnit.script.resourceUri;
+      assert(() {
+        bool sameToken(Token token, Token sought) {
+          if (token == sought) return true;
+          if (token.stringValue == '>>') {
+            // `>>` is converted to `>` in the parser when needed.
+            return sought.stringValue == '>' &&
+                token.charOffset <= sought.charOffset &&
+                sought.charOffset < token.charEnd;
+          }
+          return false;
+        }
+
+        /// Check that [begin] and [end] can be found between [from] and [to].
+        validateToken(Token from, Token to) {
+          if (from == null || to == null) return true;
+          bool foundBegin = false;
+          bool foundEnd = false;
+          Token token = from;
+          while (true) {
+            if (sameToken(token, begin)) {
+              foundBegin = true;
+            }
+            if (sameToken(token, end)) {
+              foundEnd = true;
+            }
+            if (foundBegin && foundEnd) {
+              return true;
+            }
+            if (token == to || token == token.next || token.next == null) {
+              break;
+            }
+            token = token.next;
+          }
+
+          // Create a good message for when the tokens were not found.
+          StringBuffer sb = new StringBuffer();
+          sb.write('Invalid current element: $element. ');
+          sb.write('Looking for ');
+          sb.write('[${begin} (${begin.hashCode}),');
+          sb.write('${end} (${end.hashCode})] in');
+
+          token = from;
+          while (true) {
+            sb.write('\n ${token} (${token.hashCode})');
+            if (token == to || token == token.next || token.next == null) {
+              break;
+            }
+            token = token.next;
+          }
+          return sb.toString();
+        }
+
+        if (element.enclosingClass != null &&
+            element.enclosingClass.isEnumClass) {
+          // Enums ASTs are synthesized (and give messed up messages).
+          return true;
+        }
+
+        if (element is AstElement) {
+          AstElement astElement = element;
+          if (astElement.hasNode) {
+            Token from = astElement.node.getBeginToken();
+            Token to = astElement.node.getEndToken();
+            if (astElement.metadata.isNotEmpty) {
+              if (!astElement.metadata.first.hasNode) {
+                // We might try to report an error while parsing the metadata
+                // itself.
+                return true;
+              }
+              from = astElement.metadata.first.node.getBeginToken();
+            }
+            return validateToken(from, to);
+          }
+        }
+        return true;
+      },
+          failedAt(currentElement,
+              "Invalid current element: $element [$begin,$end]."));
+    }
+    return new SourceSpan.fromTokens(uri, begin, end);
+  }
+
+  SourceSpan _spanFromNode(Element currentElement, Node node) {
+    return _spanFromTokens(
+        currentElement, node.getBeginToken(), node.getPrefixEndToken());
+  }
+
+  SourceSpan _spanFromElement(Element currentElement, Element element) {
+    if (element != null && element.sourcePosition != null) {
+      return element.sourcePosition;
+    }
+    while (element != null && element.isSynthesized) {
+      element = element.enclosingElement;
+    }
+    if (element != null &&
+        element.sourcePosition == null &&
+        !element.isLibrary &&
+        !element.isCompilationUnit) {
+      // Sometimes, the backend fakes up elements that have no
+      // position. So we use the enclosing element instead. It is
+      // not a good error location, but cancel really is "internal
+      // error" or "not implemented yet", so the vicinity is good
+      // enough for now.
+      element = element.enclosingElement;
+      // TODO(ahe): I plan to overhaul this infrastructure anyways.
+    }
+    if (element == null) {
+      element = currentElement;
+    }
+    if (element == null) {
+      return null;
+    }
+
+    if (element.sourcePosition != null) {
+      return element.sourcePosition;
+    }
+    Token position = element.position;
+    Uri uri = element.compilationUnit.script.resourceUri;
+    return (position == null)
+        ? new SourceSpan(uri, 0, 0)
+        : _spanFromTokens(currentElement, position, position, uri);
+  }
+
+  SourceSpan spanFromSpannable(Spannable node, Entity currentElement) {
+    if (node is Node) {
+      return _spanFromNode(currentElement, node);
+    } else if (node is Element) {
+      return _spanFromElement(currentElement, node);
+    } else if (node is MetadataAnnotation) {
+      return node.sourcePosition;
+    }
+    return null;
   }
 }
 
 /// An element environment base on a [Compiler].
 class _CompilerElementEnvironment implements ElementEnvironment {
   final Compiler _compiler;
+
+  LibraryEntity _mainLibrary;
+  FunctionEntity _mainFunction;
 
   _CompilerElementEnvironment(this._compiler);
 
@@ -219,22 +393,26 @@ class _CompilerElementEnvironment implements ElementEnvironment {
   ResolutionDynamicType get dynamicType => const ResolutionDynamicType();
 
   @override
-  LibraryEntity get mainLibrary => _compiler.mainApp;
+  LibraryEntity get mainLibrary => _mainLibrary;
 
   @override
-  FunctionEntity get mainFunction => _compiler.mainFunction;
+  FunctionEntity get mainFunction => _mainFunction;
 
   @override
   Iterable<LibraryEntity> get libraries => _compiler.libraryLoader.libraries;
 
   @override
-  ResolutionInterfaceType getThisType(ClassElement cls) {
+  String getLibraryName(covariant LibraryElement library) =>
+      library.libraryName;
+
+  @override
+  ResolutionInterfaceType getThisType(covariant ClassElement cls) {
     cls.ensureResolved(_resolution);
     return cls.thisType;
   }
 
   @override
-  ResolutionInterfaceType getRawType(ClassElement cls) {
+  ResolutionInterfaceType getRawType(covariant ClassElement cls) {
     cls.ensureResolved(_resolution);
     return cls.rawType;
   }
@@ -245,24 +423,40 @@ class _CompilerElementEnvironment implements ElementEnvironment {
   }
 
   @override
-  ResolutionDartType getTypeVariableBound(TypeVariableElement typeVariable) {
+  bool isMixinApplication(covariant ClassElement cls) {
+    return cls.isMixinApplication;
+  }
+
+  @override
+  bool isUnnamedMixinApplication(covariant ClassElement cls) {
+    return cls.isUnnamedMixinApplication;
+  }
+
+  @override
+  ClassEntity getEffectiveMixinClass(covariant ClassElement cls) {
+    if (!cls.isMixinApplication) return null;
+    do {
+      MixinApplicationElement mixinApplication = cls;
+      cls = mixinApplication.mixin;
+    } while (cls.isMixinApplication);
+    return cls;
+  }
+
+  @override
+  ResolutionDartType getTypeVariableBound(
+      covariant TypeVariableElement typeVariable) {
     return typeVariable.bound;
   }
 
   @override
-  ResolutionInterfaceType createInterfaceType(
-      ClassElement cls, List<ResolutionDartType> typeArguments) {
+  ResolutionInterfaceType createInterfaceType(covariant ClassElement cls,
+      covariant List<ResolutionDartType> typeArguments) {
     cls.ensureResolved(_resolution);
     return cls.thisType.createInstantiation(typeArguments);
   }
 
   @override
-  bool isSubtype(ResolutionDartType a, ResolutionDartType b) {
-    return _compiler.types.isSubtype(a, b);
-  }
-
-  @override
-  MemberElement lookupClassMember(ClassElement cls, String name,
+  MemberElement lookupClassMember(covariant ClassElement cls, String name,
       {bool setter: false, bool required: false}) {
     cls.ensureResolved(_resolution);
     Element member = cls.implementation.lookupLocalMember(name);
@@ -290,10 +484,11 @@ class _CompilerElementEnvironment implements ElementEnvironment {
   }
 
   @override
-  ConstructorElement lookupConstructor(ClassElement cls, String name,
+  ConstructorElement lookupConstructor(covariant ClassElement cls, String name,
       {bool required: false}) {
     cls.ensureResolved(_resolution);
     ConstructorElement constructor = cls.implementation.lookupConstructor(name);
+    // TODO(johnniwinther): Skip redirecting factories.
     if (constructor == null && required) {
       throw new SpannableAssertionFailure(
           cls,
@@ -304,10 +499,11 @@ class _CompilerElementEnvironment implements ElementEnvironment {
   }
 
   @override
-  void forEachClassMember(
-      ClassElement cls, void f(ClassElement declarer, MemberElement member)) {
+  void forEachClassMember(covariant ClassElement cls,
+      void f(ClassElement declarer, MemberElement member)) {
     cls.ensureResolved(_resolution);
-    cls.forEachMember((ClassElement declarer, MemberElement member) {
+    cls.forEachMember((ClassElement declarer, _member) {
+      MemberElement member = _member;
       if (member.isSynthesized) return;
       if (member.isMalformed) return;
       if (member.isConstructor) return;
@@ -316,7 +512,24 @@ class _CompilerElementEnvironment implements ElementEnvironment {
   }
 
   @override
-  ClassEntity getSuperClass(ClassElement cls,
+  void forEachConstructor(
+      covariant ClassElement cls, void f(ConstructorEntity constructor)) {
+    cls.ensureResolved(_resolution);
+    for (ConstructorElement constructor in cls.implementation.constructors) {
+      _resolution.ensureResolved(constructor.declaration);
+      if (constructor.isRedirectingFactory) continue;
+      f(constructor);
+    }
+  }
+
+  @override
+  void forEachConstructorBody(
+      covariant ClassElement cls, void f(ConstructorBodyEntity constructor)) {
+    cls.forEachConstructorBody(f);
+  }
+
+  @override
+  ClassEntity getSuperClass(covariant ClassElement cls,
       {bool skipUnnamedMixinApplications: false}) {
     cls.ensureResolved(_resolution);
     ClassElement superclass = cls.superclass;
@@ -330,13 +543,12 @@ class _CompilerElementEnvironment implements ElementEnvironment {
 
   @override
   void forEachSupertype(
-      ClassElement cls, void f(ResolutionInterfaceType supertype)) {
-    cls.allSupertypes
-        .forEach((ResolutionInterfaceType supertype) => f(supertype));
+      covariant ClassElement cls, void f(ResolutionInterfaceType supertype)) {
+    cls.allSupertypes.forEach((InterfaceType supertype) => f(supertype));
   }
 
   @override
-  void forEachMixin(ClassElement cls, void f(ClassElement mixin)) {
+  void forEachMixin(covariant ClassElement cls, void f(ClassElement mixin)) {
     for (; cls != null; cls = cls.superclass) {
       if (cls.isMixinApplication) {
         MixinApplicationElement mixinApplication = cls;
@@ -346,7 +558,8 @@ class _CompilerElementEnvironment implements ElementEnvironment {
   }
 
   @override
-  MemberElement lookupLibraryMember(LibraryElement library, String name,
+  MemberElement lookupLibraryMember(
+      covariant LibraryElement library, String name,
       {bool setter: false, bool required: false}) {
     Element member = library.implementation.findLocal(name);
     if (member != null && member.isAbstractField) {
@@ -373,7 +586,18 @@ class _CompilerElementEnvironment implements ElementEnvironment {
   }
 
   @override
-  ClassElement lookupClass(LibraryElement library, String name,
+  void forEachLibraryMember(
+      covariant LibraryElement library, void f(MemberEntity member)) {
+    library.implementation.forEachLocalMember((Element element) {
+      if (!element.isClass && !element.isTypedef) {
+        MemberElement member = element;
+        f(member);
+      }
+    });
+  }
+
+  @override
+  ClassElement lookupClass(covariant LibraryElement library, String name,
       {bool required: false}) {
     ClassElement cls = library.implementation.findLocal(name);
     if (cls == null && required) {
@@ -386,10 +610,11 @@ class _CompilerElementEnvironment implements ElementEnvironment {
   }
 
   @override
-  void forEachClass(LibraryElement library, void f(ClassElement cls)) {
-    library.implementation.forEachLocalMember((member) {
+  void forEachClass(covariant LibraryElement library, void f(ClassEntity cls)) {
+    library.implementation.forEachLocalMember((dynamic member) {
       if (member.isClass) {
-        f(member);
+        ClassElement cls = member;
+        f(cls);
       }
     });
   }
@@ -413,45 +638,39 @@ class _CompilerElementEnvironment implements ElementEnvironment {
   }
 
   @override
-  CallStructure getCallStructure(MethodElement method) {
-    ResolutionFunctionType type = method.computeType(_resolution);
-    return new CallStructure(
-        type.parameterTypes.length +
-            type.optionalParameterTypes.length +
-            type.namedParameterTypes.length,
-        type.namedParameters);
-  }
-
-  @override
-  bool isDeferredLoadLibraryGetter(MemberElement member) {
+  bool isDeferredLoadLibraryGetter(covariant MemberElement member) {
     return member.isDeferredLoaderGetter;
   }
 
   @override
-  ResolutionFunctionType getFunctionType(MethodElement method) {
+  ResolutionFunctionType getFunctionType(covariant MethodElement method) {
+    if (method is ConstructorBodyElement) {
+      return method.constructor.type;
+    }
     method.computeType(_resolution);
     return method.type;
   }
 
   @override
-  ResolutionFunctionType getLocalFunctionType(LocalFunctionElement function) {
+  ResolutionFunctionType getLocalFunctionType(
+      covariant LocalFunctionElement function) {
     return function.type;
   }
 
   @override
-  ResolutionDartType getUnaliasedType(ResolutionDartType type) {
+  ResolutionDartType getUnaliasedType(covariant ResolutionDartType type) {
     type.computeUnaliased(_resolution);
     return type.unaliased;
   }
 
   @override
-  Iterable<ConstantValue> getMemberMetadata(MemberElement element) {
+  Iterable<ConstantValue> getMemberMetadata(covariant MemberElement element) {
     List<ConstantValue> values = <ConstantValue>[];
     _compiler.reporter.withCurrentElement(element, () {
       for (MetadataAnnotation metadata in element.implementation.metadata) {
         metadata.ensureResolved(_compiler.resolution);
-        assert(invariant(metadata, metadata.constant != null,
-            message: "Unevaluated metadata constant."));
+        assert(metadata.constant != null,
+            failedAt(metadata, "Unevaluated metadata constant."));
         ConstantValue value =
             _compiler.constants.getConstantValue(metadata.constant);
         values.add(value);
@@ -468,39 +687,38 @@ class _CompilerElementEnvironment implements ElementEnvironment {
 /// syntax), and, once resolution completes, it validates that the parsed
 /// annotations correspond to the correct element.
 class _ElementAnnotationProcessor implements AnnotationProcessor {
-  Compiler _compiler;
+  final Compiler _compiler;
+  final NativeBasicDataBuilder _nativeBasicDataBuilder;
 
-  _ElementAnnotationProcessor(this._compiler);
+  _ElementAnnotationProcessor(this._compiler, this._nativeBasicDataBuilder);
 
-  CommonElements get _commonElements => _compiler.commonElements;
+  CommonElements get _commonElements => _compiler.resolution.commonElements;
 
   /// Check whether [cls] has a `@Native(...)` annotation, and if so, set its
   /// native name from the annotation.
-  void extractNativeAnnotations(
-      LibraryElement library, NativeBasicDataBuilder nativeBasicDataBuilder) {
+  void extractNativeAnnotations(covariant LibraryElement library) {
     library.forEachLocalMember((Element element) {
       if (element.isClass) {
         EagerAnnotationHandler.checkAnnotation(_compiler, element,
-            new NativeAnnotationHandler(nativeBasicDataBuilder));
+            new NativeAnnotationHandler(_nativeBasicDataBuilder));
       }
     });
   }
 
-  void extractJsInteropAnnotations(
-      LibraryElement library, NativeBasicDataBuilder nativeBasicDataBuilder) {
+  void extractJsInteropAnnotations(covariant LibraryElement library) {
     bool checkJsInteropAnnotation(Element element) {
       return EagerAnnotationHandler.checkAnnotation(
           _compiler, element, const JsInteropAnnotationHandler());
     }
 
     if (checkJsInteropAnnotation(library)) {
-      nativeBasicDataBuilder.markAsJsInteropLibrary(library);
+      _nativeBasicDataBuilder.markAsJsInteropLibrary(library);
     }
     library.forEachLocalMember((Element element) {
       if (element.isClass) {
         ClassElement cls = element;
         if (checkJsInteropAnnotation(element)) {
-          nativeBasicDataBuilder.markAsJsInteropClass(cls);
+          _nativeBasicDataBuilder.markAsJsInteropClass(cls);
         }
       }
     });
@@ -608,8 +826,8 @@ class _ElementAnnotationProcessor implements AnnotationProcessor {
           });
         }
 
-        classElement
-            .forEachMember((ClassElement classElement, MemberElement member) {
+        classElement.forEachMember((ClassElement classElement, _member) {
+          MemberElement member = _member;
           String memberName = processJsInteropAnnotation(member);
           if (memberName != null) {
             nativeDataBuilder.setJsInteropMemberName(member, memberName);
@@ -630,8 +848,8 @@ class _ElementAnnotationProcessor implements AnnotationProcessor {
             }
 
             if (fn.isFactoryConstructor && isAnonymous) {
-              fn.functionSignature
-                  .orderedForEachParameter((ParameterElement parameter) {
+              fn.functionSignature.orderedForEachParameter((_parameter) {
+                ParameterElement parameter = _parameter;
                 if (!parameter.isNamed) {
                   _compiler.reporter.reportErrorMessage(
                       parameter,
@@ -649,7 +867,7 @@ class _ElementAnnotationProcessor implements AnnotationProcessor {
     }
 
     _compiler.libraryLoader.libraries
-        .forEach(processJsInteropAnnotationsInLibrary);
+        .forEach((LibraryEntity l) => processJsInteropAnnotationsInLibrary(l));
   }
 }
 
@@ -662,11 +880,11 @@ class ResolutionWorkItemBuilder extends WorkItemBuilder {
 
   @override
   WorkItem createWorkItem(MemberElement element) {
-    assert(invariant(element, element.isDeclaration));
+    assert(element.isDeclaration, failedAt(element));
     if (element.isMalformed) return null;
 
-    assert(invariant(element, element is AnalyzableElement,
-        message: 'Element $element is not analyzable.'));
+    assert(element is AnalyzableElement,
+        failedAt(element, 'Element $element is not analyzable.'));
     return _resolution.createWorkItem(element);
   }
 }

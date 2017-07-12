@@ -473,13 +473,15 @@ class ProfileCode implements M.ProfileCode {
   final Map<ProfileCode, int> callers = new Map<ProfileCode, int>();
   final Map<ProfileCode, int> callees = new Map<ProfileCode, int>();
 
-  void _processTicks(List<String> profileTicks) {
+  void _processTicks(List<dynamic> profileTicks) {
     assert(profileTicks != null);
     assert((profileTicks.length % 3) == 0);
     for (var i = 0; i < profileTicks.length; i += 3) {
-      var address = int.parse(profileTicks[i], radix: 16);
-      var exclusive = int.parse(profileTicks[i + 1]);
-      var inclusive = int.parse(profileTicks[i + 2]);
+      // TODO(observatory): Address is not necessarily representable as a JS
+      // integer.
+      var address = int.parse(profileTicks[i] as String, radix: 16);
+      var exclusive = profileTicks[i + 1] as int;
+      var inclusive = profileTicks[i + 2] as int;
       var tick = new CodeTick(exclusive, inclusive);
       addressTicks[address] = tick;
 
@@ -524,8 +526,8 @@ class ProfileCode implements M.ProfileCode {
     } else if (code.kind == M.CodeKind.native) {
       attributes.add('native');
     }
-    inclusiveTicks = int.parse(data['inclusiveTicks']);
-    exclusiveTicks = int.parse(data['exclusiveTicks']);
+    inclusiveTicks = data['inclusiveTicks'];
+    exclusiveTicks = data['exclusiveTicks'];
 
     normalizedExclusiveTicks = exclusiveTicks / profile.sampleCount;
 
@@ -690,8 +692,8 @@ class ProfileFunction implements M.ProfileFunction {
     profileCodes.sort(_sortCodes);
 
     _addKindBasedAttributes(attributes);
-    exclusiveTicks = int.parse(data['exclusiveTicks']);
-    inclusiveTicks = int.parse(data['inclusiveTicks']);
+    exclusiveTicks = data['exclusiveTicks'];
+    inclusiveTicks = data['inclusiveTicks'];
 
     normalizedExclusiveTicks = exclusiveTicks / profile.sampleCount;
     normalizedInclusiveTicks = inclusiveTicks / profile.sampleCount;
@@ -845,7 +847,7 @@ class CpuProfile extends M.SampleProfile {
         }
 
         if ((owner != null) && (owner is Isolate)) {
-          isolate = owner as Isolate;
+          isolate = owner;
           isolate.resetCachedProfileData();
         }
 

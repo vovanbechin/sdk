@@ -564,8 +564,17 @@ static void GenerateDispatcherCode(Assembler* assembler,
   __ pushq(RAX);           // Receiver.
   __ pushq(RBX);           // ICData/MegamorphicCache.
   __ pushq(R10);           // Arguments descriptor array.
+
+  // Adjust arguments count.
+  __ cmpq(FieldAddress(R10, ArgumentsDescriptor::type_args_len_offset()),
+          Immediate(0));
   __ movq(R10, RDI);
-  // EDX: Smi-tagged arguments array length.
+  Label args_count_ok;
+  __ j(EQUAL, &args_count_ok, Assembler::kNearJump);
+  __ addq(R10, Immediate(Smi::RawValue(1)));  // Include the type arguments.
+  __ Bind(&args_count_ok);
+
+  // R10: Smi-tagged arguments array length.
   PushArgumentsArray(assembler);
   const intptr_t kNumArgs = 4;
   __ CallRuntime(kInvokeNoSuchMethodDispatcherRuntimeEntry, kNumArgs);
@@ -646,8 +655,10 @@ void StubCode::GenerateAllocateArrayStub(Assembler* assembler) {
   NOT_IN_PRODUCT(
       __ MaybeTraceAllocation(kArrayCid, &slow_case, Assembler::kFarJump));
 
-  const intptr_t fixed_size = sizeof(RawArray) + kObjectAlignment - 1;
-  __ leaq(RDI, Address(RDI, TIMES_4, fixed_size));  // RDI is a Smi.
+  const intptr_t fixed_size_plus_alignment_padding =
+      sizeof(RawArray) + kObjectAlignment - 1;
+  // RDI is a Smi.
+  __ leaq(RDI, Address(RDI, TIMES_4, fixed_size_plus_alignment_padding));
   ASSERT(kSmiTagShift == 1);
   __ andq(RDI, Immediate(-kObjectAlignment));
 
@@ -695,7 +706,7 @@ void StubCode::GenerateAllocateArrayStub(Assembler* assembler) {
 
   // RAX: new object start as a tagged pointer.
   // Store the type argument field.
-  // No generetional barrier needed, since we store into a new object.
+  // No generational barrier needed, since we store into a new object.
   __ StoreIntoObjectNoBarrier(
       RAX, FieldAddress(RAX, Array::type_arguments_offset()), RBX);
 
@@ -822,6 +833,7 @@ void StubCode::GenerateInvokeDartCodeStub(Assembler* assembler) {
   // Push arguments. At this point we only need to preserve kTargetCodeReg.
   ASSERT(kTargetCodeReg != RDX);
 
+  // No need to check for type args, disallowed by DartEntry::InvokeFunction.
   // Load number of arguments into RBX.
   __ movq(RBX, FieldAddress(R10, ArgumentsDescriptor::count_offset()));
   __ SmiUntag(RBX);
@@ -888,8 +900,9 @@ void StubCode::GenerateAllocateContextStub(Assembler* assembler) {
     Label slow_case;
     // First compute the rounded instance size.
     // R10: number of context variables.
-    intptr_t fixed_size = (sizeof(RawContext) + kObjectAlignment - 1);
-    __ leaq(R13, Address(R10, TIMES_8, fixed_size));
+    intptr_t fixed_size_plus_alignment_padding =
+        (sizeof(RawContext) + kObjectAlignment - 1);
+    __ leaq(R13, Address(R10, TIMES_8, fixed_size_plus_alignment_padding));
     __ andq(R13, Immediate(-kObjectAlignment));
 
     // Check for allocation tracing.
@@ -933,7 +946,7 @@ void StubCode::GenerateAllocateContextStub(Assembler* assembler) {
     // R10: number of context variables.
     {
       Label size_tag_overflow, done;
-      __ leaq(R13, Address(R10, TIMES_8, fixed_size));
+      __ leaq(R13, Address(R10, TIMES_8, fixed_size_plus_alignment_padding));
       __ andq(R13, Immediate(-kObjectAlignment));
       __ cmpq(R13, Immediate(RawObject::SizeTag::kMaxSizeTag));
       __ j(ABOVE, &size_tag_overflow, Assembler::kNearJump);
@@ -1021,21 +1034,23 @@ void StubCode::GenerateUpdateStoreBufferStub(Assembler* assembler) {
   // RDX: Address being stored
   Label reload;
   __ Bind(&reload);
-  __ movq(RAX, FieldAddress(RDX, Object::tags_offset()));
-  __ testq(RAX, Immediate(1 << RawObject::kRememberedBit));
+  __ movl(RAX, FieldAddress(RDX, Object::tags_offset()));
+  __ testl(RAX, Immediate(1 << RawObject::kRememberedBit));
   __ j(EQUAL, &add_to_buffer, Assembler::kNearJump);
   __ popq(RCX);
   __ popq(RAX);
   __ ret();
 
   // Update the tags that this object has been remembered.
+  // Note that we use 32 bit operations here to match the size of the
+  // background sweeper which is also manipulating this 32 bit word.
   // RDX: Address being stored
   // RAX: Current tag value
   __ Bind(&add_to_buffer);
-  __ movq(RCX, RAX);
-  __ orq(RCX, Immediate(1 << RawObject::kRememberedBit));
+  __ movl(RCX, RAX);
+  __ orl(RCX, Immediate(1 << RawObject::kRememberedBit));
   // Compare the tag word with RAX, update to RCX if unchanged.
-  __ LockCmpxchgq(FieldAddress(RDX, Object::tags_offset()), RCX);
+  __ LockCmpxchgl(FieldAddress(RDX, Object::tags_offset()), RCX);
   __ j(NOT_EQUAL, &reload);
 
   // Load the StoreBuffer block out of the thread. Then load top_ out of the
@@ -1119,10 +1134,11 @@ void StubCode::GenerateAllocationStubForClass(Assembler* assembler,
     // RBX: next object start.
     // RDX: new object type arguments (if is_cls_parameterized).
     // Set the tags.
-    uword tags = 0;
+    uint32_t tags = 0;
     tags = RawObject::SizeTag::update(instance_size, tags);
     ASSERT(cls.id() != kIllegalCid);
     tags = RawObject::ClassIdTag::update(cls.id(), tags);
+    // 64 bit store also zeros the identity hash field.
     __ movq(Address(RAX, Instance::tags_offset()), Immediate(tags));
     __ addq(RAX, Immediate(kHeapObjectTag));
 
@@ -1214,7 +1230,16 @@ void StubCode::GenerateCallClosureNoSuchMethodStub(Assembler* assembler) {
   __ pushq(RAX);           // Receiver.
   __ pushq(R10);           // Arguments descriptor array.
 
-  __ movq(R10, R13);  // Smi-tagged arguments array length.
+  // Adjust arguments count.
+  __ cmpq(FieldAddress(R10, ArgumentsDescriptor::type_args_len_offset()),
+          Immediate(0));
+  __ movq(R10, R13);
+  Label args_count_ok;
+  __ j(EQUAL, &args_count_ok, Assembler::kNearJump);
+  __ addq(R10, Immediate(Smi::RawValue(1)));  // Include the type arguments.
+  __ Bind(&args_count_ok);
+
+  // R10: Smi-tagged arguments array length.
   PushArgumentsArray(assembler);
 
   const intptr_t kNumArgs = 3;
@@ -1859,7 +1884,7 @@ void StubCode::GenerateSubtype4TestCacheStub(Assembler* assembler) {
 // checks.
 // TOS + 0: return address
 // Result in RAX.
-void StubCode::GenerateGetStackPointerStub(Assembler* assembler) {
+void StubCode::GenerateGetCStackPointerStub(Assembler* assembler) {
   __ leaq(RAX, Address(RSP, kWordSize));
   __ ret();
 }
@@ -2120,7 +2145,7 @@ void StubCode::GenerateMegamorphicCallStub(Assembler* assembler) {
   __ cmpq(FieldAddress(RDI, RCX, TIMES_8, base), Immediate(kIllegalCid));
   __ j(ZERO, &load_target, Assembler::kNearJump);
 
-  // Try next extry in the table.
+  // Try next entry in the table.
   __ AddImmediate(RCX, Immediate(Smi::RawValue(1)));
   __ jmp(&loop);
 
@@ -2242,8 +2267,8 @@ void StubCode::GenerateUnlinkedCallStub(Assembler* assembler) {
 void StubCode::GenerateSingleTargetCallStub(Assembler* assembler) {
   Label miss;
   __ LoadClassIdMayBeSmi(RAX, RDI);
-  __ movl(R9, FieldAddress(RBX, SingleTargetCache::lower_limit_offset()));
-  __ movl(R10, FieldAddress(RBX, SingleTargetCache::upper_limit_offset()));
+  __ movzxw(R9, FieldAddress(RBX, SingleTargetCache::lower_limit_offset()));
+  __ movzxw(R10, FieldAddress(RBX, SingleTargetCache::upper_limit_offset()));
   __ cmpq(RAX, R9);
   __ j(LESS, &miss, Assembler::kNearJump);
   __ cmpq(RAX, R10);

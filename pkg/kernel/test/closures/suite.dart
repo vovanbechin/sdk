@@ -6,46 +6,36 @@ library test.kernel.closures.suite;
 
 import 'dart:async' show Future;
 
-import 'package:front_end/physical_file_system.dart';
-import 'package:testing/testing.dart'
-    show Chain, ChainContext, Result, Step, TestDescription, runMe;
+import 'package:kernel/core_types.dart' show CoreTypes;
 
-import 'package:kernel/ast.dart' show Program;
+import 'package:testing/testing.dart'
+    show Chain, ChainContext, Result, Step, runMe;
+
+import 'package:kernel/ast.dart' show Program, Library;
 
 import 'package:kernel/transformations/closure_conversion.dart'
     as closure_conversion;
 
 import 'package:front_end/src/fasta/testing/kernel_chain.dart'
-    show Print, MatchExpectation, WriteDill, ReadDill, Verify;
-
-import 'package:front_end/src/fasta/ticker.dart' show Ticker;
-
-import 'package:front_end/src/fasta/dill/dill_target.dart' show DillTarget;
-
-import 'package:front_end/src/fasta/kernel/kernel_target.dart'
-    show KernelTarget;
-
-import 'package:front_end/src/fasta/translate_uri.dart' show TranslateUri;
-
-import 'package:front_end/src/fasta/errors.dart' show InputError;
-
-import 'package:front_end/src/fasta/testing/patched_sdk_location.dart';
-
-import 'package:kernel/kernel.dart' show loadProgramFromBinary;
+    show
+        Print,
+        MatchExpectation,
+        WriteDill,
+        ReadDill,
+        Verify,
+        Compile,
+        CompileContext;
 
 const String STRONG_MODE = " strong mode ";
 
-class ClosureConversionContext extends ChainContext {
+class ClosureConversionContext extends ChainContext implements CompileContext {
   final bool strongMode;
-
-  final TranslateUri uriTranslator;
 
   final List<Step> steps;
 
-  ClosureConversionContext(
-      this.strongMode, bool updateExpectations, this.uriTranslator)
+  ClosureConversionContext(this.strongMode, bool updateExpectations)
       : steps = <Step>[
-          const FastaCompile(),
+          const Compile(),
           const Print(),
           const Verify(true),
           const ClosureConversion(),
@@ -58,20 +48,11 @@ class ClosureConversionContext extends ChainContext {
           // TODO(29143): add `Run` step when Vectors are added to VM.
         ];
 
-  Future<Program> loadPlatform() async {
-    Uri sdk = await computePatchedSdk();
-    return loadProgramFromBinary(sdk.resolve('platform.dill').toFilePath());
-  }
-
   static Future<ClosureConversionContext> create(
       Chain suite, Map<String, String> environment) async {
-    Uri packages = Uri.base.resolve(".packages");
     bool strongMode = environment.containsKey(STRONG_MODE);
     bool updateExpectations = environment["updateExpectations"] == "true";
-    TranslateUri uriTranslator =
-        await TranslateUri.parse(PhysicalFileSystem.instance, packages);
-    return new ClosureConversionContext(
-        strongMode, updateExpectations, uriTranslator);
+    return new ClosureConversionContext(strongMode, updateExpectations);
   }
 }
 
@@ -80,36 +61,6 @@ Future<ClosureConversionContext> createContext(
   environment["updateExpectations"] =
       const String.fromEnvironment("updateExpectations");
   return ClosureConversionContext.create(suite, environment);
-}
-
-class FastaCompile
-    extends Step<TestDescription, Program, ClosureConversionContext> {
-  const FastaCompile();
-
-  String get name => "fasta compilation";
-
-  Future<Result<Program>> run(
-      TestDescription description, ClosureConversionContext context) async {
-    Program platform = await context.loadPlatform();
-    Ticker ticker = new Ticker();
-    DillTarget dillTarget = new DillTarget(ticker, context.uriTranslator);
-    dillTarget.loader
-      ..input = Uri.parse("org.dartlang:platform") // Make up a name.
-      ..setProgram(platform);
-    KernelTarget sourceTarget = new KernelTarget(PhysicalFileSystem.instance,
-        dillTarget, context.uriTranslator, context.strongMode);
-
-    Program p;
-    try {
-      sourceTarget.read(description.uri);
-      await dillTarget.writeOutline(null);
-      await sourceTarget.writeOutline(null);
-      p = await sourceTarget.writeProgram(null);
-    } on InputError catch (e, s) {
-      return fail(null, e.error, s);
-    }
-    return pass(p);
-  }
 }
 
 class ClosureConversion
@@ -121,7 +72,10 @@ class ClosureConversion
   Future<Result<Program>> run(
       Program program, ClosureConversionContext testContext) async {
     try {
-      program = closure_conversion.transformProgram(program);
+      CoreTypes coreTypes = new CoreTypes(program);
+      Library library = program.libraries
+          .firstWhere((Library library) => library.importUri.scheme != "dart");
+      closure_conversion.transformLibraries(coreTypes, <Library>[library]);
       return pass(program);
     } catch (e, s) {
       return crash(e, s);

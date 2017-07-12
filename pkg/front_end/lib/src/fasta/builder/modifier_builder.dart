@@ -36,4 +36,18 @@ abstract class ModifierBuilder extends Builder {
   bool get isNamedMixinApplication {
     return (modifiers & namedMixinApplicationMask) != 0;
   }
+
+  bool get isClassMember => false;
+
+  String get name;
+
+  bool get isNative => false;
+
+  String get debugName;
+
+  StringBuffer printOn(StringBuffer buffer) {
+    return buffer..write(name ?? fullNameForErrors);
+  }
+
+  String toString() => "$debugName(${printOn(new StringBuffer())})";
 }

@@ -9,10 +9,14 @@ import "package:expect/expect.dart";
 
 import 'package:compiler/compiler_new.dart';
 
+import 'package:compiler/src/common_elements.dart';
+
 import 'package:compiler/src/elements/elements.dart';
 export 'package:compiler/src/elements/elements.dart';
 
 import 'package:compiler/src/js_backend/js_backend.dart' as js;
+import 'package:compiler/src/js_backend/element_strategy.dart'
+    show ElementCodegenWorkItem;
 
 import 'package:compiler/src/commandline_options.dart';
 import 'package:compiler/src/common/codegen.dart';
@@ -72,18 +76,19 @@ Future<String> compile(String code,
         outputProvider: outputCollector);
     await compiler.init();
     compiler.parseScript(code);
-    LibraryElement mainApp = compiler.mainApp;
-    MethodElement element = mainApp.find(entry);
+    ElementEnvironment elementEnvironment =
+        compiler.frontendStrategy.elementEnvironment;
+    MethodElement element = compiler.mainApp.find(entry);
     if (element == null) return null;
     compiler.phase = Compiler.PHASE_RESOLVING;
-    compiler.processQueue(compiler.enqueuer.resolution, element,
-        compiler.libraryLoader.libraries);
+    compiler.processQueue(elementEnvironment, compiler.enqueuer.resolution,
+        element, compiler.libraryLoader.libraries);
     ResolutionWorkItem resolutionWork =
         new ResolutionWorkItem(compiler.resolution, element);
     resolutionWork.run();
-    ClosedWorld closedWorld = compiler.closeResolution().closedWorld;
+    ClosedWorld closedWorld = compiler.closeResolution(element).closedWorld;
     CodegenWorkItem work =
-        new CodegenWorkItem(compiler.backend, closedWorld, element);
+        new ElementCodegenWorkItem(compiler.backend, closedWorld, element);
     compiler.phase = Compiler.PHASE_COMPILING;
     work.run();
     js.JavaScriptBackend backend = compiler.backend;
@@ -124,7 +129,8 @@ Future<String> compile(String code,
         outputProvider: outputCollector);
     Expect.isTrue(result.isSuccess);
     Compiler compiler = result.compiler;
-    LibraryElement mainApp = compiler.mainApp;
+    LibraryElement mainApp =
+        compiler.frontendStrategy.elementEnvironment.mainLibrary;
     Element element = mainApp.find(entry);
     js.JavaScriptBackend backend = compiler.backend;
     String generated = backend.getGeneratedCode(element);
@@ -194,7 +200,7 @@ Future compileSources(
 }
 
 Element findElement(compiler, String name, [Uri library]) {
-  LibraryElement lib = compiler.mainApp;
+  LibraryElement lib = compiler.frontendStrategy.elementEnvironment.mainLibrary;
   if (library != null) {
     lib = compiler.libraryLoader.lookupLibrary(library);
     Expect.isNotNull(lib, 'Could not locate library $library.');

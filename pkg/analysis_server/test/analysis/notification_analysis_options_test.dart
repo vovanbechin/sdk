@@ -3,11 +3,12 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'package:analysis_server/protocol/protocol.dart';
+import 'package:analysis_server/protocol/protocol_constants.dart';
 import 'package:analysis_server/protocol/protocol_generated.dart'
     hide AnalysisOptions;
-import 'package:analysis_server/src/constants.dart';
 import 'package:analysis_server/src/domain_analysis.dart';
 import 'package:analyzer/src/generated/engine.dart';
+import 'package:analyzer_plugin/protocol/protocol_common.dart';
 import 'package:linter/src/rules.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
@@ -51,7 +52,7 @@ main() {
 
   @override
   void processNotification(Notification notification) {
-    if (notification.event == ANALYSIS_ERRORS) {
+    if (notification.event == ANALYSIS_NOTIFICATION_ERRORS) {
       var decoded = new AnalysisErrorsParams.fromNotification(notification);
       filesErrors[decoded.file] = decoded.errors;
     }
@@ -72,7 +73,6 @@ analyzer:
 
   @override
   void setUp() {
-    enableNewAnalysisDriver = true;
     generateSummaryFiles = true;
     registerLintRules();
     super.setUp();
@@ -104,11 +104,9 @@ main() {
     await waitForTasksFinished();
 
     // Verify options file.
-    if (!enableNewAnalysisDriver) {
-      // TODO(brianwilkerson) Implement options file analysis in the new driver.
-      expect(optionsFileErrors, isNotNull);
-      expect(optionsFileErrors, isEmpty);
-    }
+    // TODO(brianwilkerson) Implement options file analysis in the new driver.
+//    expect(optionsFileErrors, isNotNull);
+//    expect(optionsFileErrors, isEmpty);
 
     // Verify test file.
     expect(testFileErrors, isNotNull);
@@ -133,11 +131,9 @@ main() {
     await waitForTasksFinished();
 
     // Verify options file.
-    if (!enableNewAnalysisDriver) {
-      // TODO(brianwilkerson) Implement options file analysis in the new driver.
-      expect(optionsFileErrors, isNotNull);
-      expect(optionsFileErrors, isEmpty);
-    }
+    // TODO(brianwilkerson) Implement options file analysis in the new driver.
+//    expect(optionsFileErrors, isNotNull);
+//    expect(optionsFileErrors, isEmpty);
 
     // Verify test file.
     expect(testFileErrors, isNotNull);
@@ -153,10 +149,8 @@ analyzer:
     await waitForTasksFinished();
 
     // Verify options file.
-    if (!enableNewAnalysisDriver) {
-      // TODO(brianwilkerson) Implement options file analysis in the new driver.
-      expect(optionsFileErrors, isEmpty);
-    }
+    // TODO(brianwilkerson) Implement options file analysis in the new driver.
+//    expect(optionsFileErrors, isEmpty);
 
     // Verify test file.
     expect(testFileErrors, hasLength(1));
@@ -201,12 +195,10 @@ linter:
 
     await waitForTasksFinished();
 
-    if (!enableNewAnalysisDriver) {
-      // TODO(brianwilkerson) Implement options file analysis in the new driver.
-      expect(optionsFileErrors, hasLength(1));
-      expect(optionsFileErrors.first.severity, AnalysisErrorSeverity.WARNING);
-      expect(optionsFileErrors.first.type, AnalysisErrorType.STATIC_WARNING);
-    }
+    // TODO(brianwilkerson) Implement options file analysis in the new driver.
+//    expect(optionsFileErrors, hasLength(1));
+//    expect(optionsFileErrors.first.severity, AnalysisErrorSeverity.WARNING);
+//    expect(optionsFileErrors.first.type, AnalysisErrorType.STATIC_WARNING);
   }
 
   test_options_file_added() async {
@@ -238,13 +230,10 @@ linter:
 
     await waitForTasksFinished();
 
-    if (!enableNewAnalysisDriver) {
-      // TODO(brianwilkerson) Implement options file analysis in the new driver.
-      expect(optionsFileErrors, hasLength(1));
-      expect(optionsFileErrors.first.severity, AnalysisErrorSeverity.ERROR);
-      expect(
-          optionsFileErrors.first.type, AnalysisErrorType.COMPILE_TIME_ERROR);
-    }
+    // TODO(brianwilkerson) Implement options file analysis in the new driver.
+//    expect(optionsFileErrors, hasLength(1));
+//    expect(optionsFileErrors.first.severity, AnalysisErrorSeverity.ERROR);
+//    expect(optionsFileErrors.first.type, AnalysisErrorType.COMPILE_TIME_ERROR);
   }
 
   test_options_file_removed() async {

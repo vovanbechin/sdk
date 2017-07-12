@@ -294,13 +294,7 @@ class _Loader {
   }
 
   Future<SourceFile> _readFile(Uri uri) async {
-    var data = await inputProvider.readFromUri(uri);
-    if (data is List<int>) return new Utf8BytesSourceFile(uri, data);
-    if (data is String) return new StringSourceFile.fromUri(uri, data);
-    // TODO(sigmund): properly handle errors, just report, return null, wrap
-    // above and continue...
-    throw "Expected a 'String' or a 'List<int>' from the input "
-        "provider, but got: ${data.runtimeType}.";
+    return await inputProvider.readFromUri(uri, inputKind: InputKind.utf8);
   }
 
   Uri _translateUri(Uri uri) {
@@ -350,10 +344,11 @@ class MyCompiler extends CompilerImpl {
       selfTask.measureSubtask('KernelCompiler.compileLoadedLibraries', () {
         ResolutionEnqueuer resolutionEnqueuer = startResolution();
         WorldImpactBuilderImpl mainImpact = new WorldImpactBuilderImpl();
-        mainFunction = frontEndStrategy.computeMain(rootLibrary, mainImpact);
-        mirrorUsageAnalyzerTask.analyzeUsage(mainApp);
+        var mainFunction =
+            frontendStrategy.computeMain(rootLibrary, mainImpact);
+        mirrorUsageAnalyzerTask.analyzeUsage(rootLibrary);
 
-        deferredLoadTask.beforeResolution(this);
+        deferredLoadTask.beforeResolution(rootLibrary);
         impactStrategy = backend.createImpactStrategy(
             supportDeferredLoad: deferredLoadTask.isProgramSplit,
             supportDumpInfo: options.dumpInfo,
@@ -367,9 +362,12 @@ class MyCompiler extends CompilerImpl {
           resolutionEnqueuer.applyImpact(computeImpactForLibrary(library));
         });
 
-        resolveLibraryMetadata();
+        if (frontendStrategy.commonElements.mirrorsLibrary != null) {
+          resolveLibraryMetadata();
+        }
         reporter.log('Resolving...');
-        processQueue(resolutionEnqueuer, mainFunction, libraryLoader.libraries);
+        processQueue(frontendStrategy.elementEnvironment, resolutionEnqueuer,
+            mainFunction, libraryLoader.libraries);
         resolutionEnqueuer.logSummary(reporter.log);
 
         (reporter as CompilerDiagnosticReporter)
@@ -381,7 +379,8 @@ class MyCompiler extends CompilerImpl {
           exit(1);
         }
 
-        closeResolution();
+        backend.onResolutionEnd();
+        closeResolution(mainFunction);
         var program = (backend as dynamic).kernelTask.program;
         print('total libraries: ${program.libraries.length}');
       });

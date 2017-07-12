@@ -10,6 +10,7 @@ import '../types/types.dart';
 import '../elements/elements.dart';
 import '../elements/entities.dart';
 import '../elements/resolution_types.dart';
+import '../elements/types.dart';
 import '../io/source_information.dart';
 import '../universe/use.dart' show TypeUse;
 
@@ -54,8 +55,7 @@ class TypeBuilder {
   /// Depending on the context and the mode, wrap the given type in an
   /// instruction that checks the type is what we expect or automatically
   /// trusts the written type.
-  HInstruction potentiallyCheckOrTrustType(
-      HInstruction original, ResolutionDartType type,
+  HInstruction potentiallyCheckOrTrustType(HInstruction original, DartType type,
       {int kind: HTypeConversion.CHECKED_MODE_CHECK}) {
     if (type == null) return original;
     HInstruction checkedOrTrusted = original;
@@ -71,7 +71,7 @@ class TypeBuilder {
 
   /// Helper to create an instruction that gets the value of a type variable.
   HInstruction addTypeVariableReference(
-      ResolutionTypeVariableType type, Element member,
+      ResolutionTypeVariableType type, MemberElement member,
       {SourceInformation sourceInformation}) {
     assert(assertTypeInContext(type));
     if (type is MethodTypeVariableType) {
@@ -80,8 +80,8 @@ class TypeBuilder {
     bool isClosure = member.enclosingElement.isClosure;
     if (isClosure) {
       ClosureClassElement closureClass = member.enclosingElement;
-      member = closureClass.methodElement;
-      member = member.outermostEnclosingMemberOrTopLevel;
+      LocalFunctionElement localFunction = closureClass.methodElement;
+      member = localFunction.outermostEnclosingMemberOrTopLevel;
     }
     bool isInConstructorContext =
         member.isConstructor || member.isGenerativeConstructorBody;
@@ -144,7 +144,7 @@ class TypeBuilder {
   }
 
   HInstruction buildTypeArgumentRepresentations(
-      ResolutionDartType type, Element sourceElement) {
+      ResolutionDartType type, MemberElement sourceElement) {
     assert(!type.isTypeVariable);
     // Compute the representation of the type arguments, including access
     // to the runtime type information for type variables as instructions.
@@ -166,18 +166,19 @@ class TypeBuilder {
   /// This should only be called in assertions.
   bool assertTypeInContext(ResolutionDartType type, [Spannable spannable]) {
     if (builder.compiler.options.useKernel) return true;
-    return invariant(spannable == null ? CURRENT_ELEMENT_SPANNABLE : spannable,
-        () {
-      ClassElement contextClass = Types.getClassContext(type);
-      return contextClass == null ||
-          contextClass == builder.localsHandler.contextClass;
-    },
-        message: "Type '$type' is not valid context of "
-            "${builder.localsHandler.contextClass}.");
+    ClassElement contextClass = DartTypes.getClassContext(type);
+    assert(
+        contextClass == null ||
+            contextClass == builder.localsHandler.contextClass,
+        failedAt(
+            spannable ?? CURRENT_ELEMENT_SPANNABLE,
+            "Type '$type' is not valid context of "
+            "${builder.localsHandler.contextClass}."));
+    return true;
   }
 
   HInstruction analyzeTypeArgument(
-      ResolutionDartType argument, Element sourceElement,
+      ResolutionDartType argument, MemberElement sourceElement,
       {SourceInformation sourceInformation}) {
     assert(assertTypeInContext(argument));
     argument = argument.unaliased;
@@ -213,7 +214,8 @@ class TypeBuilder {
     if (!checkOrTrustTypes) return;
 
     FunctionSignature signature = function.functionSignature;
-    signature.orderedForEachParameter((ParameterElement parameter) {
+    signature.orderedForEachParameter((_parameter) {
+      ParameterElement parameter = _parameter;
       HInstruction argument = builder.localsHandler.readLocal(parameter);
       potentiallyCheckOrTrustType(argument, parameter.type);
     });

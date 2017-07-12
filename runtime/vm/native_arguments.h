@@ -41,7 +41,7 @@ class Thread;
 #define CHECK_STACK_ALIGNMENT                                                  \
   {                                                                            \
     uword (*func)() = reinterpret_cast<uword (*)()>(                           \
-        StubCode::GetStackPointer_entry()->EntryPoint());                      \
+        StubCode::GetCStackPointer_entry()->EntryPoint());                     \
     uword current_sp = func();                                                 \
     ASSERT(Utils::IsAligned(current_sp, OS::ActivationFrameAlignment()));      \
   }
@@ -151,13 +151,14 @@ class NativeArguments {
 
   static intptr_t ParameterCountForResolution(const Function& function) {
     ASSERT(function.is_native());
+    ASSERT(!function.IsGeneric());                // Not supported.
     ASSERT(!function.IsGenerativeConstructor());  // Not supported.
     intptr_t count = function.NumParameters();
     if (function.is_static() && function.IsClosureFunction()) {
       // The closure object is hidden and not accessible from native code.
       // However, if the function is an instance closure function, the captured
       // receiver located in the context is made accessible in native code at
-      // index 0, thereby hidding the closure object at index 0.
+      // index 0, thereby hiding the closure object at index 0.
       count--;
     }
     return count;
@@ -165,6 +166,7 @@ class NativeArguments {
 
   static int ComputeArgcTag(const Function& function) {
     ASSERT(function.is_native());
+    ASSERT(!function.IsGeneric());                // Not supported.
     ASSERT(!function.IsGenerativeConstructor());  // Not supported.
     int tag = ArgcBits::encode(function.NumParameters());
     int function_bits = 0;

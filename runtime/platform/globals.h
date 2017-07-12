@@ -212,13 +212,8 @@ typedef simd128_value_t fpu_register_t;
 #elif defined(_M_IX86) || defined(__i386__)
 #define HOST_ARCH_IA32 1
 #define ARCH_IS_32_BIT 1
-#if defined(TARGET_ARCH_MIPS)
-#define kFpuRegisterSize 8
-typedef double fpu_register_t;
-#else
 #define kFpuRegisterSize 16
 typedef simd128_value_t fpu_register_t;
-#endif
 #elif defined(__ARMEL__)
 #define HOST_ARCH_ARM 1
 #define ARCH_IS_32_BIT 1
@@ -241,14 +236,6 @@ typedef simd_value_t fpu_register_t;
     reinterpret_cast<simd_value_t*>(addr)->data_[3] = value.data_[3];          \
   } while (0)
 
-#elif defined(__MIPSEL__)
-#define HOST_ARCH_MIPS 1
-#define ARCH_IS_32_BIT 1
-#define kFpuRegisterSize 8
-typedef double fpu_register_t;
-#elif defined(__MIPSEB__)
-#error Big-endian MIPS is not supported by Dart. Try passing -EL to your      \
- compiler.
 #elif defined(__aarch64__)
 #define HOST_ARCH_ARM64 1
 #define ARCH_IS_64_BIT 1
@@ -280,12 +267,20 @@ typedef simd128_value_t fpu_register_t;
 #error Automatic compiler detection failed.
 #endif
 
-// DART_UNUSED inidicates to the compiler that a variable/typedef is expected
+// DART_UNUSED indicates to the compiler that a variable or typedef is expected
 // to be unused and disables the related warning.
 #ifdef __GNUC__
 #define DART_UNUSED __attribute__((unused))
 #else
 #define DART_UNUSED
+#endif
+
+// DART_USED indicates to the compiler that a global variable or typedef is used
+// disables e.g. the gcc warning "unused-variable"
+#ifdef __GNUC__
+#define DART_USED __attribute__((used))
+#else
+#define DART_USED
 #endif
 
 // DART_NORETURN indicates to the compiler that a function does not return.
@@ -308,13 +303,11 @@ typedef simd128_value_t fpu_register_t;
 #error Automatic compiler detection failed.
 #endif
 
-#if !defined(TARGET_ARCH_MIPS) && !defined(TARGET_ARCH_ARM) &&                 \
-    !defined(TARGET_ARCH_X64) && !defined(TARGET_ARCH_IA32) &&                 \
-    !defined(TARGET_ARCH_ARM64) && !defined(TARGET_ARCH_DBC)
+#if !defined(TARGET_ARCH_ARM) && !defined(TARGET_ARCH_X64) &&                  \
+    !defined(TARGET_ARCH_IA32) && !defined(TARGET_ARCH_ARM64) &&               \
+    !defined(TARGET_ARCH_DBC)
 // No target architecture specified pick the one matching the host architecture.
-#if defined(HOST_ARCH_MIPS)
-#define TARGET_ARCH_MIPS 1
-#elif defined(HOST_ARCH_ARM)
+#if defined(HOST_ARCH_ARM)
 #define TARGET_ARCH_ARM 1
 #elif defined(HOST_ARCH_X64)
 #define TARGET_ARCH_X64 1
@@ -333,8 +326,7 @@ typedef simd128_value_t fpu_register_t;
 #if !defined(ARCH_IS_64_BIT)
 #error Mismatched Host/Target architectures.
 #endif
-#elif defined(TARGET_ARCH_IA32) || defined(TARGET_ARCH_ARM) ||                 \
-    defined(TARGET_ARCH_MIPS)
+#elif defined(TARGET_ARCH_IA32) || defined(TARGET_ARCH_ARM)
 #if !defined(ARCH_IS_32_BIT)
 #error Mismatched Host/Target architectures.
 #endif
@@ -352,11 +344,6 @@ typedef simd128_value_t fpu_register_t;
 
 #elif defined(TARGET_ARCH_ARM64)
 #if !defined(HOST_ARCH_ARM64)
-#define USING_SIMULATOR 1
-#endif
-
-#elif defined(TARGET_ARCH_MIPS)
-#if !defined(HOST_ARCH_MIPS)
 #define USING_SIMULATOR 1
 #endif
 
@@ -448,13 +435,7 @@ typedef intptr_t word;
 typedef uintptr_t uword;
 
 // Size of a class id.
-#if defined(ARCH_IS_32_BIT)
 typedef uint16_t classid_t;
-#elif defined(ARCH_IS_64_BIT)
-typedef uint32_t classid_t;
-#else
-#error Unexpected architecture word size
-#endif
 
 // Byte sizes.
 const int kWordSize = sizeof(word);
@@ -477,6 +458,7 @@ const uword kUwordMax = kMaxUint64;
 const int kBitsPerByte = 8;
 const int kBitsPerByteLog2 = 3;
 const int kBitsPerInt32 = kInt32Size * kBitsPerByte;
+const int kBitsPerInt64 = kInt64Size * kBitsPerByte;
 const int kBitsPerWord = kWordSize * kBitsPerByte;
 const int kBitsPerWordLog2 = kWordSizeLog2 + kBitsPerByteLog2;
 
@@ -661,13 +643,37 @@ inline D bit_copy(const S& source) {
 }
 
 
+#if defined(HOST_ARCH_ARM) || defined(HOST_ARCH_ARM64)
 // Similar to bit_copy and bit_cast, but does take the type from the argument.
 template <typename T>
 static inline T ReadUnaligned(const T* ptr) {
   T value;
-  memcpy(&value, ptr, sizeof(value));
+  memcpy(reinterpret_cast<void*>(&value), reinterpret_cast<const void*>(ptr),
+         sizeof(value));
   return value;
 }
+
+
+// Similar to bit_copy and bit_cast, but does take the type from the argument.
+template <typename T>
+static inline void StoreUnaligned(T* ptr, T value) {
+  memcpy(reinterpret_cast<void*>(ptr), reinterpret_cast<const void*>(&value),
+         sizeof(value));
+}
+#else   // !(HOST_ARCH_ARM || HOST_ARCH_ARM64)
+// Similar to bit_copy and bit_cast, but does take the type from the argument.
+template <typename T>
+static inline T ReadUnaligned(const T* ptr) {
+  return *ptr;
+}
+
+
+// Similar to bit_copy and bit_cast, but does take the type from the argument.
+template <typename T>
+static inline void StoreUnaligned(T* ptr, T value) {
+  *ptr = value;
+}
+#endif  // !(HOST_ARCH_ARM || HOST_ARCH_ARM64)
 
 
 // On Windows the reentrent version of strtok is called

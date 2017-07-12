@@ -301,7 +301,7 @@ class Assembler : public ValueObject {
         jit_cookie_(0),
         comments_(),
         code_(Code::ZoneHandle()) {
-    // This mode is only needed and implemented for MIPS and ARM.
+    // This mode is only needed and implemented for ARM.
     ASSERT(!use_far_branches);
   }
   ~Assembler() {}
@@ -758,6 +758,11 @@ class Assembler : public ValueObject {
   void BranchIfNotSmi(Register reg, Label* label) {
     testl(reg, Immediate(kSmiTagMask));
     j(NOT_ZERO, label);
+  }
+
+  void BranchIfSmi(Register reg, Label* label) {
+    testl(reg, Immediate(kSmiTagMask));
+    j(ZERO, label);
   }
 
   void Align(intptr_t alignment, intptr_t offset);

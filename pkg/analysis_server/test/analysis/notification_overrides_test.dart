@@ -2,13 +2,11 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library test.analysis.notification.overrides;
-
 import 'dart:async';
 
 import 'package:analysis_server/protocol/protocol.dart';
+import 'package:analysis_server/protocol/protocol_constants.dart';
 import 'package:analysis_server/protocol/protocol_generated.dart';
-import 'package:analysis_server/src/constants.dart';
 import 'package:test/test.dart';
 import 'package:test_reflective_loader/test_reflective_loader.dart';
 
@@ -24,6 +22,8 @@ main() {
 class AnalysisNotificationOverridesTest extends AbstractAnalysisTest {
   List<Override> overridesList;
   Override override;
+
+  Completer _resultsAvailable = new Completer();
 
   /**
    * Asserts that there is an overridden interface [OverriddenMember] at the
@@ -119,14 +119,15 @@ class AnalysisNotificationOverridesTest extends AbstractAnalysisTest {
 
   Future prepareOverrides() {
     addAnalysisSubscription(AnalysisService.OVERRIDES, testFile);
-    return waitForTasksFinished();
+    return _resultsAvailable.future;
   }
 
   void processNotification(Notification notification) {
-    if (notification.event == ANALYSIS_OVERRIDES) {
+    if (notification.event == ANALYSIS_NOTIFICATION_OVERRIDES) {
       var params = new AnalysisOverridesParams.fromNotification(notification);
       if (params.file == testFile) {
         overridesList = params.overrides;
+        _resultsAvailable.complete(null);
       }
     }
   }

@@ -16,17 +16,20 @@ import '../constants/expressions.dart';
 import '../constants/values.dart';
 import '../common_elements.dart';
 import '../elements/elements.dart';
+import '../elements/entities.dart' show AsyncMarker;
 import '../elements/modelx.dart'
     show
         ConstructorElementX,
         ErroneousElementX,
         FunctionElementX,
         JumpTargetX,
+        LabelDefinitionX,
         LocalFunctionElementX,
         LocalParameterElementX,
         ParameterElementX,
         VariableElementX,
         VariableList;
+import '../elements/jumps.dart';
 import '../elements/names.dart';
 import '../elements/operators.dart';
 import '../elements/resolution_types.dart';
@@ -257,8 +260,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
   /// not already `ConstantState.CONSTANT_INITIALIZER`.
   ResolutionResult visitInConstantContext(Node node) {
     ResolutionResult result = inConstantContext(() => visit(node));
-    assert(invariant(node, result != null,
-        message: "No resolution result for $node."));
+    assert(result != null, failedAt(node, "No resolution result for $node."));
 
     return result;
   }
@@ -284,8 +286,11 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
   ///
   /// The [ErroneousElement] corresponding to the message is returned.
   ErroneousElement reportCannotResolve(Node node, String name) {
-    assert(invariant(node, !inInstanceContext,
-        message: "ResolverVisitor.reportCannotResolve must not be called in "
+    assert(
+        !inInstanceContext,
+        failedAt(
+            node,
+            "ResolverVisitor.reportCannotResolve must not be called in "
             "instance context."));
 
     // We report an error within initializers because `this` is implicitly
@@ -422,7 +427,8 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
     scope = new BlockScope(scope);
     Link<Node> parameterNodes =
         (node.parameters == null) ? const Link<Node>() : node.parameters.nodes;
-    functionSignature.forEachParameter((ParameterElementX element) {
+    functionSignature.forEachParameter((_element) {
+      ParameterElementX element = _element;
       // TODO(karlklose): should be a list of [FormalElement]s, but the actual
       // implementation uses [Element].
       List<Element> optionals = functionSignature.optionalParameters;
@@ -454,13 +460,15 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
       parameterNodes = parameterNodes.tail;
     });
     addDeferredAction(enclosingElement, () {
-      functionSignature.forEachOptionalParameter((ParameterElementX parameter) {
+      functionSignature.forEachOptionalParameter((_parameter) {
+        ParameterElementX parameter = _parameter;
         parameter.constant =
             resolver.constantCompiler.compileConstant(parameter);
       });
     });
     registry.registerCheckedModeCheck(functionSignature.returnType);
-    functionSignature.forEachParameter((ParameterElement element) {
+    functionSignature.forEachParameter((_element) {
+      ParameterElement element = _element;
       registry.registerCheckedModeCheck(element.type);
     });
   }
@@ -786,8 +794,8 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
         return new StaticAccess.superField(target);
       }
     } else {
-      assert(invariant(node, target.isFunction,
-          message: "Unexpected super target '$target'."));
+      assert(target.isFunction,
+          failedAt(node, "Unexpected super target '$target'."));
       return new StaticAccess.superMethod(target);
     }
   }
@@ -801,20 +809,22 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
       if (setter.isMalformed) {
         return new StaticAccess.unresolvedSuper(getter);
       } else if (setter.isFunction) {
-        assert(invariant(node, setter.name == '[]=',
-            message: "Unexpected super setter '$setter'."));
+        assert(setter.name == '[]=',
+            failedAt(node, "Unexpected super setter '$setter'."));
         return new CompoundAccessSemantics(
             CompoundAccessKind.UNRESOLVED_SUPER_GETTER, getter, setter);
       } else {
-        assert(invariant(node, setter.isSetter,
-            message: "Unexpected super setter '$setter'."));
+        assert(setter.isSetter,
+            failedAt(node, "Unexpected super setter '$setter'."));
         return new CompoundAccessSemantics(
             CompoundAccessKind.UNRESOLVED_SUPER_GETTER, getter, setter);
       }
     } else if (getter.isField) {
       if (setter.isMalformed) {
-        assert(invariant(node, getter.isFinal,
-            message: "Unexpected super setter '$setter' for getter '$getter."));
+        assert(
+            getter.isFinal,
+            failedAt(node,
+                "Unexpected super setter '$setter' for getter '$getter."));
         return new StaticAccess.superFinalField(getter);
       } else if (setter.isField) {
         if (getter == setter) {
@@ -827,8 +837,8 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
         // Either the field is accessible directly, or a setter shadows the
         // setter access. If there was another instance member it would shadow
         // the field.
-        assert(invariant(node, setter.isSetter,
-            message: "Unexpected super setter '$setter'."));
+        assert(setter.isSetter,
+            failedAt(node, "Unexpected super setter '$setter'."));
         return new CompoundAccessSemantics(
             CompoundAccessKind.SUPER_FIELD_SETTER, getter, setter);
       }
@@ -840,14 +850,14 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
         return new CompoundAccessSemantics(
             CompoundAccessKind.SUPER_GETTER_FIELD, getter, setter);
       } else {
-        assert(invariant(node, setter.isSetter,
-            message: "Unexpected super setter '$setter'."));
+        assert(setter.isSetter,
+            failedAt(node, "Unexpected super setter '$setter'."));
         return new CompoundAccessSemantics(
             CompoundAccessKind.SUPER_GETTER_SETTER, getter, setter);
       }
     } else {
-      assert(invariant(node, getter.isFunction,
-          message: "Unexpected super getter '$getter'."));
+      assert(getter.isFunction,
+          failedAt(node, "Unexpected super getter '$getter'."));
       if (setter.isMalformed) {
         if (isIndex) {
           return new CompoundAccessSemantics(
@@ -856,15 +866,15 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
           return new StaticAccess.superMethod(getter);
         }
       } else if (setter.isFunction) {
-        assert(invariant(node, setter.name == '[]=',
-            message: "Unexpected super setter '$setter'."));
-        assert(invariant(node, getter.name == '[]',
-            message: "Unexpected super getter '$getter'."));
+        assert(setter.name == '[]=',
+            failedAt(node, "Unexpected super setter '$setter'."));
+        assert(getter.name == '[]',
+            failedAt(node, "Unexpected super getter '$getter'."));
         return new CompoundAccessSemantics(
             CompoundAccessKind.SUPER_GETTER_SETTER, getter, setter);
       } else {
-        assert(invariant(node, setter.isSetter,
-            message: "Unexpected super setter '$setter'."));
+        assert(setter.isSetter,
+            failedAt(node, "Unexpected super setter '$setter'."));
         return new CompoundAccessSemantics(
             CompoundAccessKind.SUPER_METHOD_SETTER, getter, setter);
       }
@@ -889,8 +899,8 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
         return new StaticAccess.localVariable(target);
       }
     } else {
-      assert(invariant(node, target.isFunction,
-          message: "Unexpected local target '$target'."));
+      assert(target.isFunction,
+          failedAt(node, "Unexpected local target '$target'."));
       return new StaticAccess.localFunction(target);
     }
   }
@@ -916,13 +926,13 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
           return new StaticAccess.staticField(target);
         }
       } else {
-        assert(invariant(node, target.isFunction,
-            message: "Unexpected static target '$target'."));
+        assert(target.isFunction,
+            failedAt(node, "Unexpected static target '$target'."));
         return new StaticAccess.staticMethod(target);
       }
     } else {
-      assert(invariant(node, target.isTopLevel,
-          message: "Unexpected statically resolved target '$target'."));
+      assert(target.isTopLevel,
+          failedAt(node, "Unexpected statically resolved target '$target'."));
       if (target.isGetter) {
         return new StaticAccess.topLevelGetter(target);
       } else if (target.isSetter) {
@@ -934,8 +944,8 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
           return new StaticAccess.topLevelField(target);
         }
       } else {
-        assert(invariant(node, target.isFunction,
-            message: "Unexpected top level target '$target'."));
+        assert(target.isFunction,
+            failedAt(node, "Unexpected top level target '$target'."));
         return new StaticAccess.topLevelMethod(target);
       }
     }
@@ -1232,7 +1242,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
 
   /// Handle a not expression, like `!a`.
   ResolutionResult handleNot(Send node, UnaryOperator operator) {
-    assert(invariant(node, operator.kind == UnaryOperatorKind.NOT));
+    assert(operator.kind == UnaryOperatorKind.NOT, failedAt(node));
 
     Node expression = node.receiver;
     ResolutionResult result = visitExpression(expression);
@@ -1491,8 +1501,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
 
   /// Handle an invocation of an expression, like `(){}()` or `(foo)()`.
   ResolutionResult handleExpressionInvoke(Send node) {
-    assert(
-        invariant(node, node.isCall, message: "Unexpected expression: $node"));
+    assert(node.isCall, failedAt(node, "Unexpected expression: $node"));
     Node expression = node.selector;
     visitExpression(expression);
     CallStructure callStructure =
@@ -1662,8 +1671,8 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
             return handleNot(node, operator);
           case UnaryOperatorKind.COMPLEMENT:
           case UnaryOperatorKind.NEGATE:
-            assert(invariant(node, operator.isUserDefinable,
-                message: "Unexpected unary operator '${operator}'."));
+            assert(operator.isUserDefinable,
+                failedAt(node, "Unexpected unary operator '${operator}'."));
             return handleUserDefinableUnary(node, operator);
         }
       }
@@ -2146,11 +2155,11 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
   /// Compute a [DeferredPrefixStructure] for [node].
   ResolutionResult handleDeferredAccess(
       Send node, PrefixElement prefix, ResolutionResult result) {
-    assert(invariant(node, prefix.isDeferred,
-        message: "Prefix $prefix is not deferred."));
+    assert(
+        prefix.isDeferred, failedAt(node, "Prefix $prefix is not deferred."));
     SendStructure sendStructure = registry.getSendStructure(node);
-    assert(invariant(node, sendStructure != null,
-        message: "No SendStructure for $node."));
+    assert(
+        sendStructure != null, failedAt(node, "No SendStructure for $node."));
     registry.registerSendStructure(
         node, new DeferredPrefixStructure(prefix, sendStructure));
     if (result.isConstant) {
@@ -2297,7 +2306,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
       registry.registerDynamicUse(new DynamicUse(selector, null));
       sendStructure = new InvokeStructure(semantics, selector);
     } else {
-      assert(invariant(node, node.isPropertyAccess));
+      assert(node.isPropertyAccess, failedAt(node));
       selector = new Selector.getter(name);
       registry.registerDynamicUse(new DynamicUse(selector, null));
       sendStructure = new GetStructure(semantics);
@@ -2441,7 +2450,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
       registry.registerDynamicUse(new DynamicUse(selector, null));
       sendStructure = new InvokeStructure(semantics, selector);
     } else {
-      assert(invariant(node, node.isPropertyAccess));
+      assert(node.isPropertyAccess, failedAt(node));
       selector = new Selector.getter(name);
       registry.registerDynamicUse(new DynamicUse(selector, null));
       sendStructure = new GetStructure(semantics);
@@ -2606,8 +2615,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
         semantics = new StaticAccess.localVariable(element);
       }
     } else {
-      assert(invariant(node, element.isFunction,
-          message: "Unexpected local $element."));
+      assert(element.isFunction, failedAt(node, "Unexpected local $element."));
       error = reportAndCreateErroneousElement(
           node.selector, name.text, MessageKind.ASSIGNING_METHOD, const {});
       semantics = new StaticAccess.localFunction(element);
@@ -2858,8 +2866,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
             : new StaticAccess.staticMethod(method);
       } else {
         // `a = b`, `a++` or `a += b` where `a` is a field.
-        assert(invariant(node, member.isField,
-            message: "Unexpected element: $member."));
+        assert(member.isField, failedAt(node, "Unexpected element: $member."));
         if (node.isComplex) {
           // `a++` or `a += b` where `a` is a field.
           registry.registerStaticUse(new StaticUse.staticGet(member));
@@ -2889,8 +2896,8 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
     }
     if (element.isMalformed) {
       // This handles elements with parser errors.
-      assert(invariant(node, element is! ErroneousElement,
-          message: "Unexpected erroneous element $element."));
+      assert(element is! ErroneousElement,
+          failedAt(node, "Unexpected erroneous element $element."));
       return handleErroneousAccess(
           node, name, new StaticAccess.unresolved(element));
     }
@@ -2929,8 +2936,8 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
     }
     if (element.isMalformed) {
       // This handles elements with parser errors..
-      assert(invariant(node, element is! ErroneousElement,
-          message: "Unexpected erroneous element $element."));
+      assert(element is! ErroneousElement,
+          failedAt(node, "Unexpected erroneous element $element."));
       return handleUpdate(node, name, new StaticAccess.unresolved(element));
     }
     if (element.isInstanceMember) {
@@ -3720,14 +3727,15 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
         redirectionTarget,
         redirectionTarget.enclosingClass.thisType
             .subst(type.typeArguments, targetClass.typeVariables)));
-    if (resolution.commonElements.isSymbolConstructor(enclosingElement)) {
+    if (resolution.commonElements.isSymbolConstructor(constructor)) {
       registry.registerFeature(Feature.SYMBOL_CONSTRUCTOR);
     }
     if (isValidAsConstant) {
       List<String> names = <String>[];
       List<ConstantExpression> arguments = <ConstantExpression>[];
       int index = 0;
-      constructorSignature.forEachParameter((ParameterElement parameter) {
+      constructorSignature.forEachParameter((_parameter) {
+        ParameterElement parameter = _parameter;
         if (parameter.isNamed) {
           String name = parameter.name;
           names.add(name);
@@ -3850,6 +3858,14 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
       argumentsResult =
           inConstantContext(() => resolveArguments(node.send.argumentsNode));
     } else {
+      if (!node.isConst && constructor.isFromEnvironmentConstructor) {
+        // TODO(sigmund): consider turning this into a compile-time-error.
+        reporter.reportHintMessage(
+            node,
+            MessageKind.FROM_ENVIRONMENT_MUST_BE_CONST,
+            {'className': constructor.enclosingClass.name});
+        registry.registerFeature(Feature.THROW_UNSUPPORTED_ERROR);
+      }
       argumentsResult = resolveArguments(node.send.argumentsNode);
     }
     // TODO(johnniwinther): Avoid the need for a [Selector].
@@ -4059,7 +4075,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
         .compileNode(node, registry.mapping, enforceConst: enforceConst);
 
     if (constant == null) {
-      assert(invariant(node, reporter.hasReportedError));
+      assert(reporter.hasReportedError, failedAt(node));
       return;
     }
 
@@ -4238,7 +4254,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
   }
 
   ResolutionResult visitBreakStatement(BreakStatement node) {
-    JumpTarget target;
+    JumpTargetX target;
     if (node.target == null) {
       target = statementScope.currentBreakTarget();
       if (target == null) {
@@ -4248,7 +4264,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
       target.isBreakTarget = true;
     } else {
       String labelName = node.target.source;
-      LabelDefinition label = statementScope.lookupLabel(labelName);
+      LabelDefinitionX label = statementScope.lookupLabel(labelName);
       if (label == null) {
         reporter.reportErrorMessage(
             node.target, MessageKind.UNBOUND_LABEL, {'labelName': labelName});
@@ -4267,7 +4283,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
   }
 
   ResolutionResult visitContinueStatement(ContinueStatement node) {
-    JumpTarget target;
+    JumpTargetX target;
     if (node.target == null) {
       target = statementScope.currentContinueTarget();
       if (target == null) {
@@ -4277,7 +4293,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
       target.isContinueTarget = true;
     } else {
       String labelName = node.target.source;
-      LabelDefinition label = statementScope.lookupLabel(labelName);
+      LabelDefinitionX label = statementScope.lookupLabel(labelName);
       if (label == null) {
         reporter.reportErrorMessage(
             node.target, MessageKind.UNBOUND_LABEL, {'labelName': labelName});
@@ -4383,7 +4399,7 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
       }
     } else {
       // The selector may only be null if we reported an error.
-      assert(invariant(declaration, reporter.hasReportedError));
+      assert(reporter.hasReportedError, failedAt(declaration));
     }
     if (loopVariable != null) {
       // loopVariable may be null if it could not be resolved.
@@ -4544,8 +4560,8 @@ class ResolverVisitor extends MappingVisitor<ResolutionResult> {
         // Analyze the constant.
         ConstantExpression constant =
             registry.getConstant(caseMatch.expression);
-        assert(invariant(node, constant != null,
-            message: 'No constant computed for $node'));
+        assert(
+            constant != null, failedAt(node, 'No constant computed for $node'));
 
         ConstantValue value = resolution.constants.getConstantValue(constant);
         ResolutionDartType caseType =

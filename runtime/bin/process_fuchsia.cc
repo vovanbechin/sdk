@@ -17,16 +17,19 @@
 #include <magenta/status.h>
 #include <magenta/syscalls.h>
 #include <magenta/syscalls/object.h>
+#include <magenta/types.h>
+#include <mxio/private.h>
 #include <mxio/util.h>
+#include <poll.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/epoll.h>
 #include <unistd.h>
 
 #include "bin/dartutils.h"
+#include "bin/eventhandler.h"
 #include "bin/fdutils.h"
 #include "bin/lockers.h"
 #include "bin/log.h"
@@ -336,7 +339,7 @@ class ExitCodeHandler {
       LOG_INFO("ExitCodeHandler thread reading interrupt message\n");
       mx_status_t status =
           mx_socket_read(interrupt_out_, 0, &msg, sizeof(msg), &actual);
-      if (status == ERR_SHOULD_WAIT) {
+      if (status == MX_ERR_SHOULD_WAIT) {
         LOG_INFO("ExitCodeHandler thread done reading interrupt messages\n");
         return;
       }
@@ -436,12 +439,12 @@ int64_t Process::CurrentRSS() {
   mx_handle_t process = mx_process_self();
   mx_status_t status = mx_object_get_info(
       process, MX_INFO_TASK_STATS, &task_stats, sizeof(task_stats), NULL, NULL);
-  if (status != NO_ERROR) {
+  if (status != MX_OK) {
     // TODO(zra): Translate this to a Unix errno.
     errno = status;
     return -1;
   }
-  return task_stats.mem_committed_bytes;
+  return task_stats.mem_private_bytes + task_stats.mem_shared_bytes;
 }
 
 
@@ -452,18 +455,20 @@ int64_t Process::MaxRSS() {
 }
 
 
-static bool ProcessWaitCleanup(intptr_t out,
-                               intptr_t err,
-                               intptr_t exit_event,
-                               intptr_t epoll_fd) {
-  int e = errno;
-  VOID_NO_RETRY_EXPECTED(close(out));
-  VOID_NO_RETRY_EXPECTED(close(err));
-  VOID_NO_RETRY_EXPECTED(close(exit_event));
-  VOID_NO_RETRY_EXPECTED(close(epoll_fd));
-  errno = e;
-  return false;
-}
+class IOHandleScope {
+ public:
+  explicit IOHandleScope(IOHandle* io_handle) : io_handle_(io_handle) {}
+  ~IOHandleScope() {
+    io_handle_->Close();
+    io_handle_->Release();
+  }
+
+ private:
+  IOHandle* io_handle_;
+
+  DISALLOW_ALLOCATION();
+  DISALLOW_COPY_AND_ASSIGN(IOHandleScope);
+};
 
 
 bool Process::Wait(intptr_t pid,
@@ -472,7 +477,18 @@ bool Process::Wait(intptr_t pid,
                    intptr_t err,
                    intptr_t exit_event,
                    ProcessResult* result) {
-  VOID_NO_RETRY_EXPECTED(close(in));
+  // input not needed.
+  IOHandle* in_iohandle = reinterpret_cast<IOHandle*>(in);
+  in_iohandle->Close();
+  in_iohandle->Release();
+  in_iohandle = NULL;
+
+  IOHandle* out_iohandle = reinterpret_cast<IOHandle*>(out);
+  IOHandle* err_iohandle = reinterpret_cast<IOHandle*>(err);
+  IOHandle* exit_iohandle = reinterpret_cast<IOHandle*>(exit_event);
+  IOHandleScope out_ioscope(out_iohandle);
+  IOHandleScope err_ioscope(err_iohandle);
+  IOHandleScope exit_ioscope(exit_iohandle);
 
   // There is no return from this function using Dart_PropagateError
   // as memory used by the buffer lists is freed through their
@@ -484,83 +500,98 @@ bool Process::Wait(intptr_t pid,
     int32_t ints[2];
   } exit_code_data;
 
-  // The initial size passed to epoll_create is ignore on newer (>=
-  // 2.6.8) Linux versions
-  static const int kEpollInitialSize = 64;
-  int epoll_fd = NO_RETRY_EXPECTED(epoll_create(kEpollInitialSize));
-  if (epoll_fd == -1) {
-    return ProcessWaitCleanup(out, err, exit_event, epoll_fd);
-  }
-  if (!FDUtils::SetCloseOnExec(epoll_fd)) {
-    return ProcessWaitCleanup(out, err, exit_event, epoll_fd);
+  // Create a port, which is like an epoll() fd on Linux.
+  mx_handle_t port;
+  mx_status_t status = mx_port_create(0, &port);
+  if (status != MX_OK) {
+    Log::PrintErr("Process::Wait: mx_port_create failed: %s\n",
+                  mx_status_get_string(status));
+    return false;
   }
 
-  struct epoll_event event;
-  event.events = EPOLLRDHUP | EPOLLIN;
-  event.data.fd = out;
-  int status = NO_RETRY_EXPECTED(
-      epoll_ctl(epoll_fd, EPOLL_CTL_ADD, out, &event));
-  if (status == -1) {
-    return ProcessWaitCleanup(out, err, exit_event, epoll_fd);
+  IOHandle* out_tmp = out_iohandle;
+  IOHandle* err_tmp = err_iohandle;
+  IOHandle* exit_tmp = exit_iohandle;
+  const uint64_t out_key = reinterpret_cast<uint64_t>(out_tmp);
+  const uint64_t err_key = reinterpret_cast<uint64_t>(err_tmp);
+  const uint64_t exit_key = reinterpret_cast<uint64_t>(exit_tmp);
+  const uint32_t events = POLLRDHUP | POLLIN;
+  if (!out_tmp->AsyncWait(port, events, out_key)) {
+    return false;
   }
-  event.data.fd = err;
-  status = NO_RETRY_EXPECTED(
-      epoll_ctl(epoll_fd, EPOLL_CTL_ADD, err, &event));
-  if (status == -1) {
-    return ProcessWaitCleanup(out, err, exit_event, epoll_fd);
+  if (!err_tmp->AsyncWait(port, events, err_key)) {
+    return false;
   }
-  event.data.fd = exit_event;
-  status = NO_RETRY_EXPECTED(
-      epoll_ctl(epoll_fd, EPOLL_CTL_ADD, exit_event, &event));
-  if (status == -1) {
-    return ProcessWaitCleanup(out, err, exit_event, epoll_fd);
+  if (!exit_tmp->AsyncWait(port, events, exit_key)) {
+    return false;
   }
-  intptr_t active = 3;
-
-  static const intptr_t kMaxEvents = 16;
-  struct epoll_event events[kMaxEvents];
-  while (active > 0) {
-    // TODO(US-109): When the epoll implementation is properly edge-triggered,
-    // remove this sleep, which prevents the message queue from being
-    // overwhelmed and leading to memory exhaustion.
-    usleep(5000);
-    intptr_t result = NO_RETRY_EXPECTED(
-        epoll_wait(epoll_fd, events, kMaxEvents, -1));
-    if ((result < 0) && (errno != EWOULDBLOCK)) {
-      return ProcessWaitCleanup(out, err, exit_event, epoll_fd);
+  while ((out_tmp != NULL) || (err_tmp != NULL) || (exit_tmp != NULL)) {
+    mx_port_packet_t pkt;
+    status =
+        mx_port_wait(port, MX_TIME_INFINITE, reinterpret_cast<void*>(&pkt), 0);
+    if (status != MX_OK) {
+      Log::PrintErr("Process::Wait: mx_port_wait failed: %s\n",
+                    mx_status_get_string(status));
+      return false;
     }
-    for (intptr_t i = 0; i < result; i++) {
-      if ((events[i].events & EPOLLIN) != 0) {
-        const intptr_t avail = FDUtils::AvailableBytes(events[i].data.fd);
-        if (events[i].data.fd == out) {
-          if (!out_data.Read(out, avail)) {
-            return ProcessWaitCleanup(out, err, exit_event, epoll_fd);
-          }
-        } else if (events[i].data.fd == err) {
-          if (!err_data.Read(err, avail)) {
-            return ProcessWaitCleanup(out, err, exit_event, epoll_fd);
-          }
-        } else if (events[i].data.fd == exit_event) {
-          if (avail == 8) {
-            intptr_t b =
-                NO_RETRY_EXPECTED(read(exit_event, exit_code_data.bytes, 8));
-            if (b != 8) {
-              return ProcessWaitCleanup(out, err, exit_event, epoll_fd);
-            }
-          }
-        } else {
-          UNREACHABLE();
+    IOHandle* event_handle = reinterpret_cast<IOHandle*>(pkt.key);
+    const intptr_t event_mask = event_handle->WaitEnd(pkt.signal.observed);
+    if (event_handle == out_tmp) {
+      if ((event_mask & POLLIN) != 0) {
+        const intptr_t avail = FDUtils::AvailableBytes(out_tmp->fd());
+        if (!out_data.Read(out_tmp->fd(), avail)) {
+          return false;
         }
       }
-      if ((events[i].events & (EPOLLHUP | EPOLLRDHUP)) != 0) {
-        NO_RETRY_EXPECTED(close(events[i].data.fd));
-        active--;
-        VOID_NO_RETRY_EXPECTED(
-            epoll_ctl(epoll_fd, EPOLL_CTL_DEL, events[i].data.fd, NULL));
+      if ((event_mask & POLLRDHUP) != 0) {
+        out_tmp->CancelWait(port, out_key);
+        out_tmp = NULL;
+      }
+    } else if (event_handle == err_tmp) {
+      if ((event_mask & POLLIN) != 0) {
+        const intptr_t avail = FDUtils::AvailableBytes(err_tmp->fd());
+        if (!err_data.Read(err_tmp->fd(), avail)) {
+          return false;
+        }
+      }
+      if ((event_mask & POLLRDHUP) != 0) {
+        err_tmp->CancelWait(port, err_key);
+        err_tmp = NULL;
+      }
+    } else if (event_handle == exit_tmp) {
+      if ((event_mask & POLLIN) != 0) {
+        const intptr_t avail = FDUtils::AvailableBytes(exit_tmp->fd());
+        if (avail == 8) {
+          intptr_t b =
+              NO_RETRY_EXPECTED(read(exit_tmp->fd(), exit_code_data.bytes, 8));
+          if (b != 8) {
+            return false;
+          }
+        }
+      }
+      if ((event_mask & POLLRDHUP) != 0) {
+        exit_tmp->CancelWait(port, exit_key);
+        exit_tmp = NULL;
+      }
+    } else {
+      Log::PrintErr("Process::Wait: Unexpected wait key: %p\n", event_handle);
+    }
+    if (out_tmp != NULL) {
+      if (!out_tmp->AsyncWait(port, events, out_key)) {
+        return false;
+      }
+    }
+    if (err_tmp != NULL) {
+      if (!err_tmp->AsyncWait(port, events, err_key)) {
+        return false;
+      }
+    }
+    if (exit_tmp != NULL) {
+      if (!exit_tmp->AsyncWait(port, events, exit_key)) {
+        return false;
       }
     }
   }
-  VOID_NO_RETRY_EXPECTED(close(epoll_fd));
 
   // All handles closed and all data read.
   result->set_stdout_data(out_data.GetData());
@@ -600,7 +631,7 @@ bool Process::Kill(intptr_t id, int signal) {
     return false;
   }
   mx_status_t status = mx_task_kill(process);
-  if (status != NO_ERROR) {
+  if (status != MX_OK) {
     LOG_ERR("mx_task_kill failed: %s\n", mx_status_get_string(status));
     errno = EPERM;  // TODO(zra): Figure out what it really should be.
     return false;
@@ -688,7 +719,7 @@ class ProcessStarter {
     // Set up a launchpad.
     launchpad_t* lp = NULL;
     mx_status_t status = SetupLaunchpad(&lp);
-    if (status != NO_ERROR) {
+    if (status != MX_OK) {
       close(exit_pipe_fds[0]);
       close(exit_pipe_fds[1]);
       return status;
@@ -719,18 +750,22 @@ class ProcessStarter {
     ExitCodeHandler::Start();
     ExitCodeHandler::Add(process);
 
+    // The IOHandles allocated below are returned to Dart code. The Dart code
+    // calls into the runtime again to allocate a C++ Socket object, which
+    // becomes the native field of a Dart _NativeSocket object. The C++ Socket
+    // object and the EventHandler manage the lifetime of these IOHandles.
     *id_ = process;
     FDUtils::SetNonBlocking(read_in_);
-    *in_ = read_in_;
+    *in_ = reinterpret_cast<intptr_t>(new IOHandle(read_in_));
     read_in_ = -1;
     FDUtils::SetNonBlocking(read_err_);
-    *err_ = read_err_;
+    *err_ = reinterpret_cast<intptr_t>(new IOHandle(read_err_));
     read_err_ = -1;
     FDUtils::SetNonBlocking(write_out_);
-    *out_ = write_out_;
+    *out_ = reinterpret_cast<intptr_t>(new IOHandle(write_out_));
     write_out_ = -1;
     FDUtils::SetNonBlocking(exit_pipe_fds[0]);
-    *exit_event_ = exit_pipe_fds[0];
+    *exit_event_ = reinterpret_cast<intptr_t>(new IOHandle(exit_pipe_fds[0]));
     return 0;
   }
 
@@ -754,7 +789,7 @@ class ProcessStarter {
     mx_handle_t job = MX_HANDLE_INVALID;
     mx_status_t status =
         mx_handle_duplicate(mx_job_default(), MX_RIGHT_SAME_RIGHTS, &job);
-    if (status != NO_ERROR) {
+    if (status != MX_OK) {
       mx_handle_close(binary_vmo);
     }
     CHECK_FOR_ERROR(status, "mx_handle_duplicate");
@@ -764,7 +799,7 @@ class ProcessStarter {
     launchpad_create(job, program_arguments_[0], &lp);
     launchpad_set_args(lp, program_arguments_count_, program_arguments_);
     launchpad_set_environ(lp, program_environment_);
-    launchpad_clone(lp, LP_CLONE_MXIO_ROOT);
+    launchpad_clone(lp, LP_CLONE_MXIO_NAMESPACE);
     // TODO(zra): Use the supplied working directory when launchpad adds an
     // API to set it.
     launchpad_clone(lp, LP_CLONE_MXIO_CWD);
@@ -775,7 +810,7 @@ class ProcessStarter {
     launchpad_elf_load(lp, binary_vmo);
     launchpad_load_vdso(lp, MX_HANDLE_INVALID);
     *launchpad = lp;
-    return NO_ERROR;
+    return MX_OK;
   }
 
 #undef CHECK_FOR_ERROR
@@ -827,15 +862,12 @@ int Process::Start(const char* path,
   return starter.Start();
 }
 
-
 intptr_t Process::SetSignalHandler(intptr_t signal) {
   errno = ENOSYS;
   return -1;
 }
 
-
-void Process::ClearSignalHandler(intptr_t signal) {
-}
+void Process::ClearSignalHandler(intptr_t signal, Dart_Port port) {}
 
 }  // namespace bin
 }  // namespace dart

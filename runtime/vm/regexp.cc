@@ -18,8 +18,6 @@
 
 namespace dart {
 
-DECLARE_FLAG(bool, trace_irregexp);
-
 // Default to generating optimized regexp code.
 static const bool kRegexpOptimization = true;
 
@@ -298,10 +296,12 @@ class RegExpCompiler : public ValueObject {
 
   intptr_t AllocateRegister() { return next_register_++; }
 
+#if !defined(DART_PRECOMPILED_RUNTIME)
   RegExpEngine::CompilationResult Assemble(IRRegExpMacroAssembler* assembler,
                                            RegExpNode* start,
                                            intptr_t capture_count,
                                            const String& pattern);
+#endif
 
   RegExpEngine::CompilationResult Assemble(
       BytecodeRegExpMacroAssembler* assembler,
@@ -387,6 +387,7 @@ RegExpCompiler::RegExpCompiler(intptr_t capture_count,
 }
 
 
+#if !defined(DART_PRECOMPILED_RUNTIME)
 RegExpEngine::CompilationResult RegExpCompiler::Assemble(
     IRRegExpMacroAssembler* macro_assembler,
     RegExpNode* start,
@@ -416,6 +417,7 @@ RegExpEngine::CompilationResult RegExpCompiler::Assemble(
       macro_assembler->num_blocks(), macro_assembler->num_stack_locals(),
       next_register_);
 }
+#endif
 
 
 RegExpEngine::CompilationResult RegExpCompiler::Assemble(
@@ -3029,6 +3031,7 @@ void BoyerMooreLookahead::EmitSkipInstructions(RegExpMacroAssembler* masm) {
   BlockLabel cont, again;
 
   masm->BindBlock(&again);
+  masm->CheckPreemption(/*is_backtrack=*/false);
   masm->LoadCurrentCharacter(max_lookahead, &cont, true);
   masm->CheckBitInTable(boolean_skip_table, &cont);
   masm->AdvanceCurrentPosition(skip_distance);
@@ -3235,6 +3238,7 @@ Trace* ChoiceNode::EmitGreedyLoop(RegExpCompiler* compiler,
   greedy_match_trace.set_backtrack(&greedy_match_failed);
   BlockLabel loop_label;
   macro_assembler->BindBlock(&loop_label);
+  macro_assembler->CheckPreemption(/*is_backtrack=*/false);
   greedy_match_trace.set_stop_node(this);
   greedy_match_trace.set_loop_label(&loop_label);
   (*alternatives_)[0].node()->Emit(compiler, &greedy_match_trace);
@@ -4815,10 +4819,12 @@ void TextNode::FillInBMInfo(intptr_t initial_offset,
 }
 
 
+#if !defined(DART_PRECOMPILED_RUNTIME)
 RegExpEngine::CompilationResult RegExpEngine::CompileIR(
     RegExpCompileData* data,
     const ParsedFunction* parsed_function,
-    const ZoneGrowableArray<const ICData*>& ic_data_array) {
+    const ZoneGrowableArray<const ICData*>& ic_data_array,
+    intptr_t osr_id) {
   ASSERT(!FLAG_interpret_irregexp);
   Zone* zone = Thread::Current()->zone();
 
@@ -4894,9 +4900,9 @@ RegExpEngine::CompilationResult RegExpEngine::CompileIR(
 
   // Native regexp implementation.
 
-  IRRegExpMacroAssembler* macro_assembler =
-      new (zone) IRRegExpMacroAssembler(specialization_cid, data->capture_count,
-                                        parsed_function, ic_data_array, zone);
+  IRRegExpMacroAssembler* macro_assembler = new (zone)
+      IRRegExpMacroAssembler(specialization_cid, data->capture_count,
+                             parsed_function, ic_data_array, osr_id, zone);
 
   // Inserted here, instead of in Assembler, because it depends on information
   // in the AST that isn't replicated in the Node structure.
@@ -4922,6 +4928,7 @@ RegExpEngine::CompilationResult RegExpEngine::CompileIR(
 
   return result;
 }
+#endif  // !defined(DART_PRECOMPILED_RUNTIME)
 
 
 RegExpEngine::CompilationResult RegExpEngine::CompileBytecode(

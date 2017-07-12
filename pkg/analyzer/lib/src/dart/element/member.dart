@@ -59,7 +59,7 @@ class ConstructorMember extends ExecutableMember implements ConstructorElement {
       from(baseElement.redirectedConstructor, definingType);
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitConstructorElement(this);
 
   @override
@@ -174,19 +174,6 @@ abstract class ExecutableMember extends Member implements ExecutableElement {
   bool get isSynchronous => baseElement.isSynchronous;
 
   @override
-  List<LabelElement> get labels => baseElement.labels;
-
-  @override
-  List<LocalVariableElement> get localVariables {
-    //
-    // Elements within this element should have type parameters substituted,
-    // just like this element.
-    //
-    throw new UnsupportedError('localVariables');
-//    return getBaseElement().getLocalVariables();
-  }
-
-  @override
   List<ParameterElement> get parameters => type.parameters;
 
   @override
@@ -207,8 +194,6 @@ abstract class ExecutableMember extends Member implements ExecutableElement {
     // below so that we can safely invoke them.
     super.visitChildren(visitor);
     safelyVisitChildren(baseElement.functions, visitor);
-    safelyVisitChildren(labels, visitor);
-    safelyVisitChildren(baseElement.localVariables, visitor);
     safelyVisitChildren(parameters, visitor);
   }
 }
@@ -243,7 +228,7 @@ class FieldFormalParameterMember extends ParameterMember
   bool get isCovariant => baseElement.isCovariant;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitFieldFormalParameterElement(this);
 }
 
@@ -283,8 +268,7 @@ class FieldMember extends VariableMember implements FieldElement {
       PropertyAccessorMember.from(baseElement.setter, definingType);
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitFieldElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitFieldElement(this);
 
   @override
   VariableDeclaration computeNode() => baseElement.computeNode();
@@ -342,8 +326,7 @@ class FunctionMember extends ExecutableMember implements FunctionElement {
   SourceRange get visibleRange => baseElement.visibleRange;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitFunctionElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitFunctionElement(this);
 
   @override
   FunctionDeclaration computeNode() => baseElement.computeNode();
@@ -485,8 +468,7 @@ abstract class Member implements Element {
   AstNode computeNode() => _baseElement.computeNode();
 
   @override
-  Element/*=E*/ getAncestor/*<E extends Element >*/(
-          Predicate<Element> predicate) =>
+  E getAncestor<E extends Element>(Predicate<Element> predicate) =>
       baseElement.getAncestor(predicate);
 
   @override
@@ -562,8 +544,7 @@ class MethodMember extends ExecutableMember implements MethodElement {
   ClassElement get enclosingElement => baseElement.enclosingElement;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitMethodElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitMethodElement(this);
 
   @override
   MethodDeclaration computeNode() => baseElement.computeNode();
@@ -581,13 +562,46 @@ class MethodMember extends ExecutableMember implements MethodElement {
     buffer.write(baseElement.enclosingElement.displayName);
     buffer.write(".");
     buffer.write(baseElement.displayName);
+    int typeParameterCount = typeParameters.length;
+    if (typeParameterCount > 0) {
+      buffer.write('<');
+      for (int i = 0; i < typeParameterCount; i++) {
+        if (i > 0) {
+          buffer.write(", ");
+        }
+        (typeParameters[i] as TypeParameterElementImpl).appendTo(buffer);
+      }
+      buffer.write('>');
+    }
     buffer.write("(");
+    String closing = null;
+    ParameterKind kind = ParameterKind.REQUIRED;
     int parameterCount = parameters.length;
     for (int i = 0; i < parameterCount; i++) {
       if (i > 0) {
         buffer.write(", ");
       }
-      buffer.write(parameters[i]);
+      ParameterElement parameter = parameters[i];
+      ParameterKind parameterKind = parameter.parameterKind;
+      if (parameterKind != kind) {
+        if (closing != null) {
+          buffer.write(closing);
+        }
+        if (parameterKind == ParameterKind.POSITIONAL) {
+          buffer.write("[");
+          closing = "]";
+        } else if (parameterKind == ParameterKind.NAMED) {
+          buffer.write("{");
+          closing = "}";
+        } else {
+          closing = null;
+        }
+      }
+      kind = parameterKind;
+      parameter.appendToWithoutDelimiters(buffer);
+    }
+    if (closing != null) {
+      buffer.write(closing);
     }
     buffer.write(")");
     if (type != null) {
@@ -670,28 +684,25 @@ class ParameterMember extends VariableMember
   SourceRange get visibleRange => baseElement.visibleRange;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
-      visitor.visitParameterElement(this);
+  T accept<T>(ElementVisitor<T> visitor) => visitor.visitParameterElement(this);
 
   @override
   FormalParameter computeNode() => baseElement.computeNode();
 
   @override
-  Element/*=E*/ getAncestor/*<E extends Element>*/(
-      Predicate<Element> predicate) {
+  E getAncestor<E extends Element>(Predicate<Element> predicate) {
     Element element = baseElement.getAncestor(predicate);
     ParameterizedType definingType = this.definingType;
     if (definingType is InterfaceType) {
       if (element is ConstructorElement) {
-        return ConstructorMember.from(element, definingType) as Element/*=E*/;
+        return ConstructorMember.from(element, definingType) as E;
       } else if (element is MethodElement) {
-        return MethodMember.from(element, definingType) as Element/*=E*/;
+        return MethodMember.from(element, definingType) as E;
       } else if (element is PropertyAccessorElement) {
-        return PropertyAccessorMember.from(element, definingType)
-            as Element/*=E*/;
+        return PropertyAccessorMember.from(element, definingType) as E;
       }
     }
-    return element as Element/*=E*/;
+    return element as E;
   }
 
   @override
@@ -767,7 +778,7 @@ class PropertyAccessorMember extends ExecutableMember
   }
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitPropertyAccessorElement(this);
 
   @override
@@ -865,7 +876,7 @@ class TypeParameterMember extends Member implements TypeParameterElement {
       other is TypeParameterMember && baseElement == other.baseElement;
 
   @override
-  /*=T*/ accept/*<T>*/(ElementVisitor<dynamic/*=T*/ > visitor) =>
+  T accept<T>(ElementVisitor<T> visitor) =>
       visitor.visitTypeParameterElement(this);
 
   /**

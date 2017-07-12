@@ -11,6 +11,7 @@ import 'package:analyzer/src/util/sdk.dart';
 import 'package:analyzer_cli/src/ansi.dart' as ansi;
 import 'package:analyzer_cli/src/driver.dart';
 import 'package:args/args.dart';
+import 'package:telemetry/telemetry.dart' as telemetry;
 
 const _binaryName = 'dartanalyzer';
 
@@ -56,10 +57,6 @@ class CommandLineOptions {
   /// Whether to skip analysis when creating summaries in build mode.
   final bool buildSummaryOnly;
 
-  /// Whether to use diet parsing, i.e. skip function bodies. We don't need to
-  /// analyze function bodies to use summaries during future compilation steps.
-  final bool buildSummaryOnlyDiet;
-
   /// Whether to only produce unlinked summaries instead of linked summaries.
   /// Must be used in combination with `buildSummaryOnly`.
   final bool buildSummaryOnlyUnlinked;
@@ -98,9 +95,6 @@ class CommandLineOptions {
   /// errors.
   final bool enableTypeChecks;
 
-  /// Whether to treat hints as fatal
-  final bool hintsAreFatal;
-
   /// Whether to ignore unrecognized flags
   final bool ignoreUnrecognizedFlags;
 
@@ -118,7 +112,7 @@ class CommandLineOptions {
   final String perfReport;
 
   /// Batch mode (for unit testing)
-  final bool shouldBatch;
+  final bool batchMode;
 
   /// Whether to show package: warnings
   final bool showPackageWarnings;
@@ -135,6 +129,9 @@ class CommandLineOptions {
   /// Whether to treat warnings as fatal
   final bool warningsAreFatal;
 
+  /// Whether to treat info level items as fatal
+  final bool infosAreFatal;
+
   /// Whether to use strong static checking.
   final bool strongMode;
 
@@ -144,8 +141,7 @@ class CommandLineOptions {
   /// Whether implicit dynamic is enabled (mainly for strong mode users)
   final bool implicitDynamic;
 
-  // TODO(devoncarew): Do we need this flag? Shouldn't we go by the severity of
-  // the lint?
+  // TODO(devoncarew): Deprecate and remove this flag.
   /// Whether to treat lints as fatal
   final bool lintsAreFatal;
 
@@ -167,7 +163,6 @@ class CommandLineOptions {
         buildSummaryUnlinkedInputs =
             args['build-summary-unlinked-input'] as List<String>,
         buildSummaryOnly = args['build-summary-only'],
-        buildSummaryOnlyDiet = args['build-summary-only-diet'],
         buildSummaryOnlyUnlinked = args['build-summary-only-unlinked'],
         buildSummaryOutput = args['build-summary-output'],
         buildSummaryOutputSemantic = args['build-summary-output-semantic'],
@@ -180,24 +175,24 @@ class CommandLineOptions {
         displayVersion = args['version'],
         enableTypeChecks = args['enable_type_checks'],
         enableAssertInitializer = args['enable-assert-initializers'],
-        hintsAreFatal = args['fatal-hints'],
         ignoreUnrecognizedFlags = args['ignore-unrecognized-flags'],
         lints = args[lintsFlag],
         log = args['log'],
         machineFormat = args['format'] == 'machine',
         perfReport = args['x-perf-report'],
-        shouldBatch = args['batch'],
+        batchMode = args['batch'],
         showPackageWarnings = args['show-package-warnings'] ||
             args['package-warnings'] ||
             args['x-package-warnings-prefix'] != null,
         showPackageWarningsPrefix = args['x-package-warnings-prefix'],
         showSdkWarnings = args['sdk-warnings'],
         _sourceFiles = args.rest,
+        infosAreFatal = args['fatal-infos'] || args['fatal-hints'],
         warningsAreFatal = args['fatal-warnings'],
+        lintsAreFatal = args['fatal-lints'],
         strongMode = args['strong'],
         implicitCasts = !args['no-implicit-casts'],
         implicitDynamic = !args['no-implicit-dynamic'],
-        lintsAreFatal = args['fatal-lints'],
         useAnalysisDriverMemoryByteStore =
             args['use-analysis-driver-memory-byte-store'],
         verbose = args['verbose'],
@@ -239,8 +234,14 @@ class CommandLineOptions {
   /// analyzer options. In case of a format error, calls [printAndFail], which
   /// by default prints an error message to stderr and exits.
   static CommandLineOptions parse(List<String> args,
-      [printAndFail(String msg) = printAndFail]) {
+      {printAndFail(String msg) = printAndFail}) {
     CommandLineOptions options = _parse(args);
+
+    /// Only happens in testing.
+    if (options == null) {
+      return null;
+    }
+
     // Check SDK.
     if (!options.buildModePersistentWorker) {
       // Infer if unspecified.
@@ -273,11 +274,6 @@ class CommandLineOptions {
     if (options.buildModePersistentWorker && !options.buildMode) {
       printAndFail('The option --persisten_worker can be used only '
           'together with --build-mode.');
-      return null; // Only reachable in testing.
-    }
-    if (options.buildSummaryOnlyDiet && !options.buildSummaryOnly) {
-      printAndFail('The option --build-summary-only-diet can be used only '
-          'together with --build-summary-only.');
       return null; // Only reachable in testing.
     }
 
@@ -341,18 +337,14 @@ class CommandLineOptions {
           help: 'Do not show hint results.',
           defaultsTo: false,
           negatable: false)
-      ..addFlag('fatal-hints',
-          help: 'Treat hints as fatal.', defaultsTo: false, negatable: false)
+      ..addFlag('fatal-infos',
+          help: 'Treat infos as fatal.', defaultsTo: false, negatable: false)
       ..addFlag('fatal-warnings',
           help: 'Treat non-type warnings as fatal.',
           defaultsTo: false,
           negatable: false)
-      ..addFlag('fatal-lints',
-          help: 'Treat lints as fatal.', defaultsTo: false, negatable: false)
-      ..addFlag('package-warnings',
-          help: 'Show warnings from package: imports.',
-          defaultsTo: false,
-          negatable: false)
+      ..addFlag('analytics',
+          help: 'Enable or disable sending analytics information to Google.')
       ..addFlag('help',
           abbr: 'h',
           help:
@@ -406,11 +398,6 @@ class CommandLineOptions {
           hide: hide)
       ..addFlag('build-summary-only',
           help: 'Disable analysis (only generate summaries).',
-          defaultsTo: false,
-          negatable: false,
-          hide: hide)
-      ..addFlag('build-summary-only-diet',
-          help: 'Diet parse function bodies.',
           defaultsTo: false,
           negatable: false,
           hide: hide)
@@ -489,6 +476,21 @@ class CommandLineOptions {
           defaultsTo: false,
           negatable: false,
           hide: hide)
+      ..addFlag('fatal-hints',
+          help: 'Treat hints as fatal (deprecated: use --fatal-infos).',
+          defaultsTo: false,
+          negatable: false,
+          hide: hide)
+      ..addFlag('fatal-lints',
+          help: 'Treat lints as fatal.',
+          defaultsTo: false,
+          negatable: false,
+          hide: hide)
+      ..addFlag('package-warnings',
+          help: 'Show warnings from package: imports.',
+          defaultsTo: false,
+          negatable: false,
+          hide: hide)
       ..addOption('url-mapping',
           help: '--url-mapping=libraryUri,/path/to/library.dart directs the '
               'analyzer to use "library.dart" as the source for an import '
@@ -520,15 +522,25 @@ class CommandLineOptions {
 
       // Help requests.
       if (results['help']) {
-        _showUsage(parser);
+        _showUsage(parser, analytics, fromHelp: true);
         exitHandler(0);
         return null; // Only reachable in testing.
       }
+
+      // Enable / disable analytics.
+      if (results.wasParsed('analytics')) {
+        analytics.enabled = results['analytics'];
+        outSink
+            .writeln(telemetry.createAnalyticsStatusMessage(analytics.enabled));
+        exitHandler(0);
+        return null; // Only reachable in testing.
+      }
+
       // Batch mode and input files.
       if (results['batch']) {
         if (results.rest.isNotEmpty) {
           errorSink.writeln('No source files expected in the batch mode.');
-          _showUsage(parser);
+          _showUsage(parser, analytics);
           exitHandler(15);
           return null; // Only reachable in testing.
         }
@@ -536,7 +548,7 @@ class CommandLineOptions {
         if (results.rest.isNotEmpty) {
           errorSink.writeln(
               'No source files expected in the persistent worker mode.');
-          _showUsage(parser);
+          _showUsage(parser, analytics);
           exitHandler(15);
           return null; // Only reachable in testing.
         }
@@ -546,7 +558,7 @@ class CommandLineOptions {
         return null; // Only reachable in testing.
       } else {
         if (results.rest.isEmpty && !results['build-mode']) {
-          _showUsage(parser);
+          _showUsage(parser, analytics, fromHelp: true);
           exitHandler(15);
           return null; // Only reachable in testing.
         }
@@ -554,21 +566,46 @@ class CommandLineOptions {
       return new CommandLineOptions._fromArgs(results);
     } on FormatException catch (e) {
       errorSink.writeln(e.message);
-      _showUsage(parser);
+      _showUsage(parser, null);
       exitHandler(15);
       return null; // Only reachable in testing.
     }
   }
 
-  static _showUsage(ArgParser parser) {
+  static _showUsage(ArgParser parser, telemetry.Analytics analytics,
+      {bool fromHelp: false}) {
+    void printAnalyticsInfo() {
+      if (fromHelp) {
+        errorSink.writeln('');
+        errorSink.writeln(telemetry.analyticsNotice);
+      }
+
+      if (analytics != null) {
+        errorSink.writeln('');
+        errorSink.writeln(telemetry.createAnalyticsStatusMessage(
+            analytics.enabled,
+            command: 'analytics'));
+      }
+    }
+
     errorSink.writeln(
         'Usage: $_binaryName [options...] <directory or list of files>');
+
+    // If it's our first run, we display the analytics info more prominently.
+    if (analytics != null && analytics.firstRun) {
+      printAnalyticsInfo();
+    }
+
     errorSink.writeln('');
     errorSink.writeln(parser.usage);
+
+    if (analytics != null && !analytics.firstRun) {
+      printAnalyticsInfo();
+    }
+
     errorSink.writeln('');
     errorSink.writeln('''
 Run "dartanalyzer -h -v" for verbose help output, including less commonly used options.
-For more information, see http://www.dartlang.org/tools/analyzer.
-''');
+For more information, see https://www.dartlang.org/tools/analyzer.\n''');
   }
 }

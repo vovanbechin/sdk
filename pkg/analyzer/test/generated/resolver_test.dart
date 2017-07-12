@@ -26,6 +26,7 @@ import 'package:analyzer/src/generated/resolver.dart';
 import 'package:analyzer/src/generated/source_io.dart';
 import 'package:analyzer/src/generated/testing/ast_test_factory.dart';
 import 'package:analyzer/src/generated/testing/element_factory.dart';
+import 'package:analyzer/src/generated/testing/element_search.dart';
 import 'package:analyzer/src/generated/testing/test_type_provider.dart';
 import 'package:analyzer/src/generated/utilities_dart.dart';
 import 'package:analyzer/src/source/source_resource.dart';
@@ -195,32 +196,34 @@ class A {
   }
 
   test_enclosingElement_invalidLocalFunction() async {
-    Source source = addSource(r'''
+    String code = r'''
 class C {
   C() {
     int get x => 0;
   }
-}''');
-    LibraryElement library = resolve2(source);
+}''';
+    Source source = addSource(code);
+
+    TestAnalysisResult analysisResult = await computeAnalysisResult(source);
+    assertErrors(source, [ParserErrorCode.GETTER_IN_FUNCTION]);
+
+    CompilationUnitElement unit = analysisResult.unit.element;
+    LibraryElement library = unit.library;
     expect(library, isNotNull);
-    var unit = library.definingCompilationUnit;
-    expect(unit, isNotNull);
+    expect(unit.enclosingElement, same(library));
+
     var types = unit.types;
-    expect(types, isNotNull);
     expect(types, hasLength(1));
     var type = types[0];
     expect(type, isNotNull);
+
     var constructors = type.constructors;
-    expect(constructors, isNotNull);
     expect(constructors, hasLength(1));
     ConstructorElement constructor = constructors[0];
     expect(constructor, isNotNull);
-    List<FunctionElement> functions = constructor.functions;
-    expect(functions, isNotNull);
-    expect(functions, hasLength(1));
-    expect(functions[0].enclosingElement, constructor);
-    await computeAnalysisResult(source);
-    assertErrors(source, [ParserErrorCode.GETTER_IN_FUNCTION]);
+
+    FunctionElement x = findElementsByName(analysisResult.unit, 'x').single;
+    expect(x.enclosingElement, constructor);
   }
 }
 
@@ -3131,9 +3134,6 @@ A v = new A();
     expect(constructor.isFactory, isFalse);
     expect(constructor.isSynthetic, isTrue);
     expect(constructor.name, 'c1');
-    expect(constructor.functions, hasLength(0));
-    expect(constructor.labels, hasLength(0));
-    expect(constructor.localVariables, hasLength(0));
     expect(constructor.parameters, isEmpty);
   }
 
@@ -3162,9 +3162,6 @@ A v = new A();
     expect(constructor.isFactory, isFalse);
     expect(constructor.isSynthetic, isTrue);
     expect(constructor.name, '');
-    expect(constructor.functions, hasLength(0));
-    expect(constructor.labels, hasLength(0));
-    expect(constructor.localVariables, hasLength(0));
     expect(constructor.parameters, hasLength(1));
     expect(constructor.parameters[0].type, equals(classT.type));
     expect(constructor.parameters[0].name,
@@ -3193,9 +3190,6 @@ A v = new A();
     expect(constructor.isFactory, isFalse);
     expect(constructor.isSynthetic, isTrue);
     expect(constructor.name, '');
-    expect(constructor.functions, hasLength(0));
-    expect(constructor.labels, hasLength(0));
-    expect(constructor.localVariables, hasLength(0));
     expect(constructor.parameters, isEmpty);
   }
 
@@ -3624,5 +3618,5 @@ class _StaleElement extends ElementImpl {
   get kind => throw "_StaleElement's kind shouldn't be accessed";
 
   @override
-  /*=T*/ accept/*<T>*/(_) => throw "_StaleElement shouldn't be visited";
+  T accept<T>(_) => throw "_StaleElement shouldn't be visited";
 }

@@ -23,10 +23,10 @@ main() {
   var compiler = compilerFor(CODE, uri);
   asyncTest(() => compiler.run(uri).then((_) {
         var closedWorld = compiler.resolutionWorldBuilder.closedWorldForTesting;
-        var classA = findElement(compiler, 'A');
-        var classB = findElement(compiler, 'B');
-        var classC = findElement(compiler, 'C');
-        var classD = findElement(compiler, 'D');
+        dynamic classA = findElement(compiler, 'A');
+        dynamic classB = findElement(compiler, 'B');
+        dynamic classC = findElement(compiler, 'C');
+        dynamic classD = findElement(compiler, 'D');
 
         var exactA = new TypeMask.nonNullExact(classA, closedWorld);
         var exactB = new TypeMask.nonNullExact(classB, closedWorld);
@@ -37,7 +37,7 @@ main() {
         var subtypeA = new TypeMask.nonNullSubtype(classA, closedWorld);
 
         var subclassObject = new TypeMask.nonNullSubclass(
-            compiler.commonElements.objectClass, closedWorld);
+            closedWorld.commonElements.objectClass, closedWorld);
 
         var unionABC =
             UnionTypeMask.unionOf([exactA, exactB, exactC], closedWorld);

@@ -4,39 +4,36 @@
 
 import 'package:kernel/ast.dart' as ir;
 
+import '../closure.dart';
 import '../common.dart';
-import '../common/names.dart';
-import '../constants/constructors.dart';
-import '../constants/expressions.dart';
 import '../constants/values.dart';
 import '../common_elements.dart';
-import '../elements/elements.dart';
 import '../elements/entities.dart';
+import '../elements/jumps.dart';
 import '../elements/names.dart';
-import '../elements/operators.dart';
 import '../elements/types.dart';
-import '../js_backend/backend.dart' show JavaScriptBackend;
+import '../js/js.dart' as js;
+import '../js_backend/namer.dart';
+import '../js_emitter/code_emitter_task.dart';
 import '../native/native.dart' as native;
+import '../types/types.dart';
 import '../universe/call_structure.dart';
 import '../universe/selector.dart';
-import 'kernel_debug.dart';
+import '../world.dart';
 
 /// Interface that translates between Kernel IR nodes and entities.
 abstract class KernelToElementMap {
   /// Access to the commonly used elements and types.
   CommonElements get commonElements;
 
-  /// [ElementEnvironment] for library, class and member lookup.
-  ElementEnvironment get elementEnvironment;
-
   /// Returns the [DartType] corresponding to [type].
   DartType getDartType(ir.DartType type);
 
-  /// Returns the list of [DartType]s corresponding to [types].
-  List<DartType> getDartTypes(List<ir.DartType> types);
-
   /// Returns the [InterfaceType] corresponding to [type].
   InterfaceType getInterfaceType(ir.InterfaceType type);
+
+  /// Returns the [FunctionType] of the [node].
+  FunctionType getFunctionType(ir.FunctionNode node);
 
   /// Return the [InterfaceType] corresponding to the [cls] with the given
   /// [typeArguments].
@@ -50,15 +47,15 @@ abstract class KernelToElementMap {
   /// access of [node].
   Selector getSelector(ir.Expression node);
 
-  /// Returns the [ConstructorEntity] corresponding to the generative or factory
-  /// constructor [node].
-  ConstructorEntity getConstructor(ir.Member node);
-
   /// Returns the [MemberEntity] corresponding to the member [node].
   MemberEntity getMember(ir.Member node);
 
   /// Returns the [FunctionEntity] corresponding to the procedure [node].
   FunctionEntity getMethod(ir.Procedure node);
+
+  /// Returns the [ConstructorEntity] corresponding to the generative or factory
+  /// constructor [node].
+  ConstructorEntity getConstructor(ir.Member node);
 
   /// Returns the [FieldEntity] corresponding to the field [node].
   FieldEntity getField(ir.Field node);
@@ -70,26 +67,20 @@ abstract class KernelToElementMap {
   /// a [ir.FunctionDeclaration] or [ir.FunctionExpression].
   Local getLocalFunction(ir.TreeNode node);
 
-  /// Returns the [LibraryEntity] corresponding to the library [node].
-  LibraryEntity getLibrary(ir.Library node);
+  /// Returns the super [MemberEntity] for a super invocation, get or set of
+  /// [name] from the member [context].
+  ///
+  /// The IR doesn't always resolve super accesses to the corresponding
+  /// [target]. If not, the target is computed using [name] and [setter] from
+  /// the enclosing class of [context].
+  MemberEntity getSuperMember(ir.Member context, ir.Name name, ir.Member target,
+      {bool setter: false});
 
   /// Returns the [Name] corresponding to [name].
   Name getName(ir.Name name);
 
-  /// Returns `true` is [node] has a `@Native(...)` annotation.
-  bool isNativeClass(ir.Class node);
-
   /// Return `true` if [node] is the `dart:_foreign_helper` library.
   bool isForeignLibrary(ir.Library node);
-
-  /// Computes the native behavior for reading the native [field].
-  native.NativeBehavior getNativeBehaviorForFieldLoad(ir.Field field);
-
-  /// Computes the native behavior for writing to the native [field].
-  native.NativeBehavior getNativeBehaviorForFieldStore(ir.Field field);
-
-  /// Computes the native behavior for calling [procedure].
-  native.NativeBehavior getNativeBehaviorForMethod(ir.Procedure procedure);
 
   /// Computes the [native.NativeBehavior] for a call to the [JS] function.
   native.NativeBehavior getNativeBehaviorForJsCall(ir.StaticInvocation node);
@@ -104,15 +95,107 @@ abstract class KernelToElementMap {
   native.NativeBehavior getNativeBehaviorForJsEmbeddedGlobalCall(
       ir.StaticInvocation node);
 
+  /// Returns the [js.Name] for the `JsGetName` [constant] value.
+  js.Name getNameForJsGetName(ConstantValue constant, Namer namer);
+
+  /// Computes the [ConstantValue] for the constant [expression].
+  // TODO(johnniwinther): Move to [KernelToElementMapForBuilding]. This is only
+  // used in impact builder for symbol constants.
+  ConstantValue getConstantValue(ir.Expression expression,
+      {bool requireConstant: true, bool implicitNull: false});
+}
+
+/// Interface that translates between Kernel IR nodes and entities used for
+/// computing the [WorldImpact] for members.
+abstract class KernelToElementMapForImpact extends KernelToElementMap {
+  /// Adds libraries in [program] to the set of libraries.
+  ///
+  /// The main method of the first program is used as the main method for the
+  /// compilation.
+  void addProgram(ir.Program program);
+
+  /// Returns the [ConstructorEntity] corresponding to a super initializer in
+  /// [constructor].
+  ///
+  /// The IR resolves super initializers to a [target] up in the type hierarchy.
+  /// Most of the time, the result of this function will be the entity
+  /// corresponding to that target. In the presence of unnamed mixins, this
+  /// function returns an entity for an intermediate synthetic constructor that
+  /// kernel doesn't explicitly represent.
+  ///
+  /// For example:
+  ///     class M {}
+  ///     class C extends Object with M {}
+  ///
+  /// Kernel will say that C()'s super initializer resolves to Object(), but
+  /// this function will return an entity representing the unnamed mixin
+  /// application "Object+M"'s constructor.
+  ConstructorEntity getSuperConstructor(
+      ir.Constructor constructor, ir.Member target);
+
+  /// Returns `true` is [node] has a `@Native(...)` annotation.
+  bool isNativeClass(ir.Class node);
+
+  /// Computes the native behavior for reading the native [field].
+  native.NativeBehavior getNativeBehaviorForFieldLoad(ir.Field field,
+      {bool isJsInterop});
+
+  /// Computes the native behavior for writing to the native [field].
+  native.NativeBehavior getNativeBehaviorForFieldStore(ir.Field field);
+
+  /// Computes the native behavior for calling [procedure].
+  native.NativeBehavior getNativeBehaviorForMethod(ir.Procedure procedure,
+      {bool isJsInterop});
+
   /// Compute the kind of foreign helper function called by [node], if any.
   ForeignKind getForeignKind(ir.StaticInvocation node);
 
   /// Computes the [InterfaceType] referenced by a call to the
   /// [JS_INTERCEPTOR_CONSTANT] function, if any.
   InterfaceType getInterfaceTypeForJsInterceptorCall(ir.StaticInvocation node);
+}
 
-  /// Computes the [ConstantValue] for the constant [expression].
-  ConstantValue getConstantValue(ir.Expression expression);
+/// Interface that translates between Kernel IR nodes and entities used for
+/// global type inference and building the SSA graph for members.
+abstract class KernelToElementMapForBuilding implements KernelToElementMap {
+  /// [ElementEnvironment] for library, class and member lookup.
+  ElementEnvironment get elementEnvironment;
+
+  /// Returns the list of [DartType]s corresponding to [types].
+  List<DartType> getDartTypes(List<ir.DartType> types);
+
+  /// Returns the kernel IR node that defines the [member].
+  ir.Node getMemberNode(covariant MemberEntity member);
+
+  /// Returns the kernel IR node that defines the [cls].
+  ir.Class getClassNode(covariant ClassEntity cls);
+
+  /// Returns the [LibraryEntity] corresponding to the library [node].
+  LibraryEntity getLibrary(ir.Library node);
+
+  /// Returns the [js.Template] for the `JsBuiltin` [constant] value.
+  js.Template getJsBuiltinTemplate(
+      ConstantValue constant, CodeEmitterTask emitter);
+
+  /// Return the [ConstantValue] the initial value of [field] or `null` if
+  /// the initializer is not a constant expression.
+  ConstantValue getFieldConstantValue(ir.Field field);
+
+  /// Returns the `noSuchMethod` [FunctionEntity] call from a
+  /// `super.noSuchMethod` invocation within [cls].
+  FunctionEntity getSuperNoSuchMethod(ClassEntity cls);
+
+  /// Returns a [Spannable] for a message pointing to the IR [node] in the
+  /// context of [member].
+  Spannable getSpannable(MemberEntity member, ir.Node node);
+
+  /// Returns the constructor body entity corresponding to [constructor].
+  FunctionEntity getConstructorBody(ir.Constructor node);
+
+  /// Returns the uri for the deferred import [node].
+  // TODO(johnniwinther): Avoid this method by deriving the uri directly from
+  // the node.
+  String getDeferredUri(ir.LibraryDependency node);
 }
 
 /// Kinds of foreign functions.
@@ -124,698 +207,121 @@ enum ForeignKind {
   NONE,
 }
 
-abstract class KernelToElementMapMixin implements KernelToElementMap {
-  DiagnosticReporter get reporter;
-  FunctionType getFunctionType(ir.FunctionNode node);
-  native.BehaviorBuilder get nativeBehaviorBuilder;
-  ConstantValue computeConstantValue(ConstantExpression constant);
+/// Interface for type inference results for kernel IR nodes.
+abstract class KernelToTypeInferenceMap {
+  /// Returns the inferred return type of [function].
+  TypeMask getReturnTypeOf(FunctionEntity function);
 
-  @override
-  Name getName(ir.Name name) {
-    return new Name(
-        name.name, name.isPrivate ? getLibrary(name.library) : null);
-  }
+  /// Returns the inferred receiver type of the dynamic [invocation].
+  TypeMask typeOfInvocation(
+      ir.MethodInvocation invocation, ClosedWorld closedWorld);
 
-  @override
-  CallStructure getCallStructure(ir.Arguments arguments) {
-    int argumentCount = arguments.positional.length + arguments.named.length;
-    List<String> namedArguments = arguments.named.map((e) => e.name).toList();
-    return new CallStructure(argumentCount, namedArguments);
-  }
+  /// Returns the inferred receiver type of the dynamic [read].
+  TypeMask typeOfGet(ir.PropertyGet read);
 
-  @override
-  Selector getSelector(ir.Expression node) {
-    // TODO(efortuna): This is screaming for a common interface between
-    // PropertyGet and SuperPropertyGet (and same for *Get). Talk to kernel
-    // folks.
-    if (node is ir.PropertyGet) {
-      return getGetterSelector(node.name);
-    }
-    if (node is ir.SuperPropertyGet) {
-      return getGetterSelector(node.name);
-    }
-    if (node is ir.PropertySet) {
-      return getSetterSelector(node.name);
-    }
-    if (node is ir.SuperPropertySet) {
-      return getSetterSelector(node.name);
-    }
-    if (node is ir.InvocationExpression) {
-      return getInvocationSelector(node);
-    }
-    throw new SpannableAssertionFailure(
-        CURRENT_ELEMENT_SPANNABLE,
-        "Can only get the selector for a property get or an invocation: "
-        "${node}");
-  }
+  /// Returns the inferred receiver type of the dynamic [write].
+  TypeMask typeOfSet(ir.PropertySet write, ClosedWorld closedWorld);
 
-  Selector getInvocationSelector(ir.InvocationExpression invocation) {
-    Name name = getName(invocation.name);
-    SelectorKind kind;
-    if (Elements.isOperatorName(invocation.name.name)) {
-      if (name == Names.INDEX_NAME || name == Names.INDEX_SET_NAME) {
-        kind = SelectorKind.INDEX;
-      } else {
-        kind = SelectorKind.OPERATOR;
-      }
-    } else {
-      kind = SelectorKind.CALL;
-    }
+  /// Returns the inferred type of [listLiteral].
+  TypeMask typeOfListLiteral(covariant MemberEntity owner,
+      ir.ListLiteral listLiteral, ClosedWorld closedWorld);
 
-    CallStructure callStructure = getCallStructure(invocation.arguments);
-    return new Selector(kind, name, callStructure);
-  }
+  /// Returns the inferred type of iterator in [forInStatement].
+  TypeMask typeOfIterator(ir.ForInStatement forInStatement);
 
-  Selector getGetterSelector(ir.Name irName) {
-    Name name = new Name(
-        irName.name, irName.isPrivate ? getLibrary(irName.library) : null);
-    return new Selector.getter(name);
-  }
+  /// Returns the inferred type of `current` in [forInStatement].
+  TypeMask typeOfIteratorCurrent(ir.ForInStatement forInStatement);
 
-  Selector getSetterSelector(ir.Name irName) {
-    Name name = new Name(
-        irName.name, irName.isPrivate ? getLibrary(irName.library) : null);
-    return new Selector.setter(name);
-  }
+  /// Returns the inferred type of `moveNext` in [forInStatement].
+  TypeMask typeOfIteratorMoveNext(ir.ForInStatement forInStatement);
 
-  ConstantValue getConstantValue(ir.Expression node) {
-    ConstantExpression constant = new Constantifier(this).visit(node);
-    if (constant == null) {
-      throw new UnsupportedError(
-          'No constant for ${DebugPrinter.prettyPrint(node)}');
-    }
-    return computeConstantValue(constant);
-  }
+  /// Returns `true` if [forInStatement] is inferred to be a JavaScript
+  /// indexable iterator.
+  bool isJsIndexableIterator(
+      ir.ForInStatement forInStatement, ClosedWorld closedWorld);
 
-  /// Converts [annotations] into a list of [ConstantValue]s.
-  List<ConstantValue> getMetadata(List<ir.Expression> annotations) {
-    if (annotations.isEmpty) return const <ConstantValue>[];
-    List<ConstantValue> metadata = <ConstantValue>[];
-    annotations.forEach((ir.Expression node) {
-      metadata.add(getConstantValue(node));
-    });
-    return metadata;
-  }
+  /// Returns `true` if [mask] is inferred to have a JavaScript `length`
+  /// property.
+  bool isFixedLength(TypeMask mask, ClosedWorld closedWorld);
 
-  /// Returns `true` is [node] has a `@Native(...)` annotation.
-  // TODO(johnniwinther): Cache this for later use.
-  bool isNativeClass(ir.Class node) {
-    for (ir.Expression annotation in node.annotations) {
-      if (annotation is ir.ConstructorInvocation) {
-        FunctionEntity target = getConstructor(annotation.target);
-        if (target.enclosingClass == commonElements.nativeAnnotationClass) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
+  /// Returns the inferred index type of [forInStatement].
+  TypeMask inferredIndexType(ir.ForInStatement forInStatement);
 
-  /// Compute the kind of foreign helper function called by [node], if any.
-  ForeignKind getForeignKind(ir.StaticInvocation node) {
-    if (isForeignLibrary(node.target.enclosingLibrary)) {
-      switch (node.target.name.name) {
-        case JavaScriptBackend.JS:
-          return ForeignKind.JS;
-        case JavaScriptBackend.JS_BUILTIN:
-          return ForeignKind.JS_BUILTIN;
-        case JavaScriptBackend.JS_EMBEDDED_GLOBAL:
-          return ForeignKind.JS_EMBEDDED_GLOBAL;
-        case JavaScriptBackend.JS_INTERCEPTOR_CONSTANT:
-          return ForeignKind.JS_INTERCEPTOR_CONSTANT;
-      }
-    }
-    return ForeignKind.NONE;
-  }
+  /// Returns the inferred type of [member].
+  TypeMask getInferredTypeOf(MemberEntity member);
 
-  /// Return `true` if [node] is the `dart:_foreign_helper` library.
-  bool isForeignLibrary(ir.Library node) {
-    return node.importUri == Uris.dart__foreign_helper;
-  }
+  /// Returns the inferred type of the [parameter].
+  TypeMask getInferredTypeOfParameter(Local parameter);
 
-  /// Looks up [typeName] for use in the spec-string of a `JS` called.
-  // TODO(johnniwinther): Use this in [native.NativeBehavior] instead of calling
-  // the `ForeignResolver`.
-  // TODO(johnniwinther): Cache the result to avoid redundant lookups?
-  native.TypeLookup typeLookup({bool resolveAsRaw: true}) {
-    DartType lookup(String typeName, {bool required}) {
-      DartType findIn(Uri uri) {
-        LibraryEntity library = elementEnvironment.lookupLibrary(uri);
-        if (library != null) {
-          ClassEntity cls = elementEnvironment.lookupClass(library, typeName);
-          if (cls != null) {
-            // TODO(johnniwinther): Align semantics.
-            return resolveAsRaw
-                ? elementEnvironment.getRawType(cls)
-                : elementEnvironment.getThisType(cls);
-          }
-        }
-        return null;
-      }
+  /// Returns the inferred type of a dynamic [selector] access on a receiver of
+  /// type [mask].
+  TypeMask selectorTypeOf(Selector selector, TypeMask mask);
 
-      // TODO(johnniwinther): Narrow the set of lookups base on the depending
-      // library.
-      DartType type = findIn(Uris.dart_core);
-      type ??= findIn(Uris.dart__js_helper);
-      type ??= findIn(Uris.dart__interceptors);
-      type ??= findIn(Uris.dart__isolate_helper);
-      type ??= findIn(Uris.dart__native_typed_data);
-      type ??= findIn(Uris.dart_collection);
-      type ??= findIn(Uris.dart_math);
-      type ??= findIn(Uris.dart_html);
-      type ??= findIn(Uris.dart_html_common);
-      type ??= findIn(Uris.dart_svg);
-      type ??= findIn(Uris.dart_web_audio);
-      type ??= findIn(Uris.dart_web_gl);
-      type ??= findIn(Uris.dart_web_sql);
-      type ??= findIn(Uris.dart_indexed_db);
-      type ??= findIn(Uris.dart_typed_data);
-      if (type == null && required) {
-        reporter.reportErrorMessage(CURRENT_ELEMENT_SPANNABLE,
-            MessageKind.GENERIC, {'text': "Type '$typeName' not found."});
-      }
-      return type;
-    }
-
-    return lookup;
-  }
-
-  String _getStringArgument(ir.StaticInvocation node, int index) {
-    return node.arguments.positional[index].accept(new Stringifier());
-  }
-
-  /// Computes the [native.NativeBehavior] for a call to the [JS] function.
-  // TODO(johnniwinther): Cache this for later use.
-  native.NativeBehavior getNativeBehaviorForJsCall(ir.StaticInvocation node) {
-    if (node.arguments.positional.length < 2 ||
-        node.arguments.named.isNotEmpty) {
-      reporter.reportErrorMessage(
-          CURRENT_ELEMENT_SPANNABLE, MessageKind.WRONG_ARGUMENT_FOR_JS);
-      return new native.NativeBehavior();
-    }
-    String specString = _getStringArgument(node, 0);
-    if (specString == null) {
-      reporter.reportErrorMessage(
-          CURRENT_ELEMENT_SPANNABLE, MessageKind.WRONG_ARGUMENT_FOR_JS_FIRST);
-      return new native.NativeBehavior();
-    }
-
-    String codeString = _getStringArgument(node, 1);
-    if (codeString == null) {
-      reporter.reportErrorMessage(
-          CURRENT_ELEMENT_SPANNABLE, MessageKind.WRONG_ARGUMENT_FOR_JS_SECOND);
-      return new native.NativeBehavior();
-    }
-
-    return native.NativeBehavior.ofJsCall(
-        specString,
-        codeString,
-        typeLookup(resolveAsRaw: true),
-        CURRENT_ELEMENT_SPANNABLE,
-        reporter,
-        commonElements);
-  }
-
-  /// Computes the [native.NativeBehavior] for a call to the [JS_BUILTIN]
-  /// function.
-  // TODO(johnniwinther): Cache this for later use.
-  native.NativeBehavior getNativeBehaviorForJsBuiltinCall(
-      ir.StaticInvocation node) {
-    if (node.arguments.positional.length < 1) {
-      reporter.internalError(
-          CURRENT_ELEMENT_SPANNABLE, "JS builtin expression has no type.");
-      return new native.NativeBehavior();
-    }
-    if (node.arguments.positional.length < 2) {
-      reporter.internalError(
-          CURRENT_ELEMENT_SPANNABLE, "JS builtin is missing name.");
-      return new native.NativeBehavior();
-    }
-    String specString = _getStringArgument(node, 0);
-    if (specString == null) {
-      reporter.internalError(
-          CURRENT_ELEMENT_SPANNABLE, "Unexpected first argument.");
-      return new native.NativeBehavior();
-    }
-    return native.NativeBehavior.ofJsBuiltinCall(
-        specString,
-        typeLookup(resolveAsRaw: true),
-        CURRENT_ELEMENT_SPANNABLE,
-        reporter,
-        commonElements);
-  }
-
-  /// Computes the [native.NativeBehavior] for a call to the
-  /// [JS_EMBEDDED_GLOBAL] function.
-  // TODO(johnniwinther): Cache this for later use.
-  native.NativeBehavior getNativeBehaviorForJsEmbeddedGlobalCall(
-      ir.StaticInvocation node) {
-    if (node.arguments.positional.length < 1) {
-      reporter.internalError(CURRENT_ELEMENT_SPANNABLE,
-          "JS embedded global expression has no type.");
-      return new native.NativeBehavior();
-    }
-    if (node.arguments.positional.length < 2) {
-      reporter.internalError(
-          CURRENT_ELEMENT_SPANNABLE, "JS embedded global is missing name.");
-      return new native.NativeBehavior();
-    }
-    if (node.arguments.positional.length > 2 ||
-        node.arguments.named.isNotEmpty) {
-      reporter.internalError(CURRENT_ELEMENT_SPANNABLE,
-          "JS embedded global has more than 2 arguments.");
-      return new native.NativeBehavior();
-    }
-    String specString = _getStringArgument(node, 0);
-    if (specString == null) {
-      reporter.internalError(
-          CURRENT_ELEMENT_SPANNABLE, "Unexpected first argument.");
-      return new native.NativeBehavior();
-    }
-    return native.NativeBehavior.ofJsEmbeddedGlobalCall(
-        specString,
-        typeLookup(resolveAsRaw: true),
-        CURRENT_ELEMENT_SPANNABLE,
-        reporter,
-        commonElements);
-  }
-
-  /// Computes the [InterfaceType] referenced by a call to the
-  /// [JS_INTERCEPTOR_CONSTANT] function, if any.
-  InterfaceType getInterfaceTypeForJsInterceptorCall(ir.StaticInvocation node) {
-    if (node.arguments.positional.length != 1 ||
-        node.arguments.named.isNotEmpty) {
-      reporter.reportErrorMessage(CURRENT_ELEMENT_SPANNABLE,
-          MessageKind.WRONG_ARGUMENT_FOR_JS_INTERCEPTOR_CONSTANT);
-    }
-    ir.Node argument = node.arguments.positional.first;
-    if (argument is ir.TypeLiteral && argument.type is ir.InterfaceType) {
-      return getInterfaceType(argument.type);
-    }
-    return null;
-  }
-
-  /// Computes the native behavior for reading the native [field].
-  // TODO(johnniwinther): Cache this for later use.
-  native.NativeBehavior getNativeBehaviorForFieldLoad(ir.Field field) {
-    DartType type = getDartType(field.type);
-    List<ConstantValue> metadata = getMetadata(field.annotations);
-    // TODO(johnniwinther): Provide the correct value for [isJsInterop].
-    return nativeBehaviorBuilder.buildFieldLoadBehavior(
-        type, metadata, typeLookup(resolveAsRaw: false),
-        isJsInterop: false);
-  }
-
-  /// Computes the native behavior for writing to the native [field].
-  // TODO(johnniwinther): Cache this for later use.
-  native.NativeBehavior getNativeBehaviorForFieldStore(ir.Field field) {
-    DartType type = getDartType(field.type);
-    return nativeBehaviorBuilder.buildFieldStoreBehavior(type);
-  }
-
-  /// Computes the native behavior for calling [procedure].
-  // TODO(johnniwinther): Cache this for later use.
-  native.NativeBehavior getNativeBehaviorForMethod(ir.Procedure procedure) {
-    DartType type = getFunctionType(procedure.function);
-    List<ConstantValue> metadata = getMetadata(procedure.annotations);
-    // TODO(johnniwinther): Provide the correct value for [isJsInterop].
-    return nativeBehaviorBuilder.buildMethodBehavior(
-        type, metadata, typeLookup(resolveAsRaw: false),
-        isJsInterop: false);
-  }
+  /// Returns the returned type annotation in the [nativeBehavior].
+  TypeMask typeFromNativeBehavior(
+      native.NativeBehavior nativeBehavior, ClosedWorld closedWorld);
 }
 
-/// Visitor that converts string literals and concatenations of string literals
-/// into the string value.
-class Stringifier extends ir.ExpressionVisitor<String> {
-  @override
-  String visitStringLiteral(ir.StringLiteral node) => node.value;
+/// Map from kernel IR nodes to local entities.
+abstract class KernelToLocalsMap {
+  /// The member currently being built.
+  MemberEntity get currentMember;
 
-  @override
-  String visitStringConcatenation(ir.StringConcatenation node) {
-    StringBuffer sb = new StringBuffer();
-    for (ir.Expression expression in node.expressions) {
-      String value = expression.accept(this);
-      if (value == null) return null;
-      sb.write(value);
-    }
-    return sb.toString();
-  }
+  // TODO(johnniwinther): Make these return the [KernelToLocalsMap] to use from
+  // now on.
+  /// Call to notify that [member] is currently being inlined.
+  void enterInlinedMember(covariant MemberEntity member);
+
+  /// Call to notify that [member] is no longer being inlined.
+  void leaveInlinedMember(covariant MemberEntity member);
+
+  /// Returns the [Local] for [node].
+  Local getLocal(ir.VariableDeclaration node);
+
+  /// Returns the [JumpTarget] for the break statement [node].
+  JumpTarget getJumpTargetForBreak(ir.BreakStatement node);
+
+  /// Returns `true` if [node] should generate a `continue` to its [JumpTarget].
+  bool generateContinueForBreak(ir.BreakStatement node);
+
+  /// Returns the [JumpTarget] defined by the labelled statement [node] or
+  /// `null` if [node] is not a jump target.
+  JumpTarget getJumpTargetForLabel(ir.LabeledStatement node);
+
+  /// Returns the [JumpTarget] defined by the switch statement [node] or `null`
+  /// if [node] is not a jump target.
+  JumpTarget getJumpTargetForSwitch(ir.SwitchStatement node);
+
+  /// Returns the [JumpTarget] for the continue switch statement [node].
+  JumpTarget getJumpTargetForContinueSwitch(ir.ContinueSwitchStatement node);
+
+  /// Returns the [JumpTarget] defined by the switch case [node] or `null`
+  /// if [node] is not a jump target.
+  JumpTarget getJumpTargetForSwitchCase(ir.SwitchCase node);
+
+  /// Returns the [JumpTarget] defined the do statement [node] or `null`
+  /// if [node] is not a jump target.
+  JumpTarget getJumpTargetForDo(ir.DoStatement node);
+
+  /// Returns the [JumpTarget] defined by the for statement [node] or `null`
+  /// if [node] is not a jump target.
+  JumpTarget getJumpTargetForFor(ir.ForStatement node);
+
+  /// Returns the [JumpTarget] defined by the for-in statement [node] or `null`
+  /// if [node] is not a jump target.
+  JumpTarget getJumpTargetForForIn(ir.ForInStatement node);
+
+  /// Returns the [JumpTarget] defined by the while statement [node] or `null`
+  /// if [node] is not a jump target.
+  JumpTarget getJumpTargetForWhile(ir.WhileStatement node);
+
+  /// Returns the [LoopClosureScope] for the loop [node] in [closureClassMaps].
+  LoopClosureScope getLoopClosureScope(
+      ClosureDataLookup closureLookup, ir.TreeNode node);
 }
 
-/// Visitor that converts a kernel constant expression into a
-/// [ConstantExpression].
-class Constantifier extends ir.ExpressionVisitor<ConstantExpression> {
-  final bool requireConstant;
-  final KernelToElementMapMixin elementAdapter;
-
-  Constantifier(this.elementAdapter, {this.requireConstant: true});
-
-  CommonElements get _commonElements => elementAdapter.commonElements;
-
-  ConstantExpression visit(ir.Expression node) {
-    ConstantExpression constant = node.accept(this);
-    if (constant == null && requireConstant) {
-      throw new UnsupportedError(
-          "No constant computed for $node (${node.runtimeType})");
-    }
-    return constant;
-  }
-
-  ConstantExpression defaultExpression(ir.Expression node) {
-    throw new UnimplementedError(
-        'Unimplemented constant expression $node (${node.runtimeType})');
-  }
-
-  List<ConstantExpression> _computeList(List<ir.Expression> expressions) {
-    List<ConstantExpression> list = <ConstantExpression>[];
-    for (ir.Expression expression in expressions) {
-      ConstantExpression constant = visit(expression);
-      if (constant == null) return null;
-      list.add(constant);
-    }
-    return list;
-  }
-
-  List<ConstantExpression> _computeArguments(ir.Arguments node) {
-    List<ConstantExpression> arguments = <ConstantExpression>[];
-    for (ir.Expression argument in node.positional) {
-      ConstantExpression constant = visit(argument);
-      if (constant == null) return null;
-      arguments.add(constant);
-    }
-    for (ir.NamedExpression argument in node.named) {
-      ConstantExpression constant = visit(argument.value);
-      if (constant == null) return null;
-      arguments.add(constant);
-    }
-    return arguments;
-  }
-
-  ConstructedConstantExpression _computeConstructorInvocation(
-      ir.Constructor target, ir.Arguments arguments) {
-    return new ConstructedConstantExpression(
-        elementAdapter.createInterfaceType(
-            target.enclosingClass, arguments.types),
-        elementAdapter.getConstructor(target),
-        elementAdapter.getCallStructure(arguments),
-        _computeArguments(arguments));
-  }
-
-  @override
-  ConstantExpression visitConstructorInvocation(ir.ConstructorInvocation node) {
-    return _computeConstructorInvocation(node.target, node.arguments);
-  }
-
-  @override
-  ConstantExpression visitVariableGet(ir.VariableGet node) {
-    if (node.variable.parent is ir.FunctionNode) {
-      ir.FunctionNode function = node.variable.parent;
-      int index = function.positionalParameters.indexOf(node.variable);
-      if (index != -1) {
-        return new PositionalArgumentReference(index);
-      } else {
-        assert(function.namedParameters.contains(node.variable));
-        return new NamedArgumentReference(node.variable.name);
-      }
-    }
-    throw new UnimplementedError(
-        'Unimplemented constant expression $node (${node.runtimeType})');
-  }
-
-  @override
-  ConstantExpression visitStaticGet(ir.StaticGet node) {
-    if (node.target is ir.Field) {
-      return new FieldConstantExpression(elementAdapter.getField(node.target));
-    } else if (node.target is ir.Procedure) {
-      FunctionEntity function = elementAdapter.getMethod(node.target);
-      DartType type = elementAdapter.getFunctionType(node.target.function);
-      return new FunctionConstantExpression(function, type);
-    }
-    throw new UnimplementedError(
-        'Unexpected constant expression $node (${node.runtimeType})');
-  }
-
-  @override
-  ConstantExpression visitNullLiteral(ir.NullLiteral node) {
-    return new NullConstantExpression();
-  }
-
-  @override
-  ConstantExpression visitBoolLiteral(ir.BoolLiteral node) {
-    return new BoolConstantExpression(node.value);
-  }
-
-  @override
-  ConstantExpression visitIntLiteral(ir.IntLiteral node) {
-    return new IntConstantExpression(node.value);
-  }
-
-  @override
-  ConstantExpression visitDoubleLiteral(ir.DoubleLiteral node) {
-    return new DoubleConstantExpression(node.value);
-  }
-
-  @override
-  ConstantExpression visitStringLiteral(ir.StringLiteral node) {
-    return new StringConstantExpression(node.value);
-  }
-
-  @override
-  ConstantExpression visitSymbolLiteral(ir.SymbolLiteral node) {
-    return new SymbolConstantExpression(node.value);
-  }
-
-  @override
-  ConstantExpression visitStringConcatenation(ir.StringConcatenation node) {
-    return new ConcatenateConstantExpression(_computeList(node.expressions));
-  }
-
-  @override
-  ConstantExpression visitMapLiteral(ir.MapLiteral node) {
-    if (!node.isConst) {
-      throw new UnimplementedError(
-          'Unexpected constant expression $node (${node.runtimeType})');
-    }
-    DartType keyType = elementAdapter.getDartType(node.keyType);
-    DartType valueType = elementAdapter.getDartType(node.valueType);
-    List<ConstantExpression> keys = <ConstantExpression>[];
-    List<ConstantExpression> values = <ConstantExpression>[];
-    for (ir.MapEntry entry in node.entries) {
-      keys.add(visit(entry.key));
-      values.add(visit(entry.value));
-    }
-    return new MapConstantExpression(
-        _commonElements.mapType(keyType, valueType), keys, values);
-  }
-
-  @override
-  ConstantExpression visitListLiteral(ir.ListLiteral node) {
-    if (!node.isConst) {
-      throw new UnimplementedError(
-          'Unexpected constant expression $node (${node.runtimeType})');
-    }
-    DartType elementType = elementAdapter.getDartType(node.typeArgument);
-    List<ConstantExpression> values = <ConstantExpression>[];
-    for (ir.Expression value in node.expressions) {
-      values.add(visit(value));
-    }
-    return new ListConstantExpression(
-        _commonElements.listType(elementType), values);
-  }
-
-  @override
-  ConstantExpression visitConditionalExpression(ir.ConditionalExpression node) {
-    ConstantExpression condition = visit(node.condition);
-    ConstantExpression trueExp = visit(node.then);
-    ConstantExpression falseExp = visit(node.otherwise);
-    return new ConditionalConstantExpression(condition, trueExp, falseExp);
-  }
-
-  @override
-  ConstantExpression visitPropertyGet(ir.PropertyGet node) {
-    if (node.name.name != 'length') {
-      throw new UnimplementedError(
-          'Unexpected constant expression $node (${node.runtimeType})');
-    }
-    ConstantExpression receiver = visit(node.receiver);
-    return new StringLengthConstantExpression(receiver);
-  }
-
-  @override
-  ConstantExpression visitMethodInvocation(ir.MethodInvocation node) {
-    // Method invocations are generally not constant expressions but unary
-    // and binary expressions are encoded as method invocations in kernel.
-    if (node.arguments.named.isNotEmpty) {
-      throw new UnimplementedError(
-          'Unexpected constant expression $node (${node.runtimeType})');
-    }
-    if (node.arguments.positional.length == 0) {
-      UnaryOperator operator;
-      if (node.name.name == UnaryOperator.NEGATE.selectorName) {
-        operator = UnaryOperator.NEGATE;
-      } else {
-        operator = UnaryOperator.parse(node.name.name);
-      }
-      if (operator != null) {
-        ConstantExpression expression = visit(node.receiver);
-        return new UnaryConstantExpression(operator, expression);
-      }
-    }
-    if (node.arguments.positional.length == 1) {
-      BinaryOperator operator = BinaryOperator.parse(node.name.name);
-      if (operator != null) {
-        ConstantExpression left = visit(node.receiver);
-        ConstantExpression right = visit(node.arguments.positional.single);
-        return new BinaryConstantExpression(left, operator, right);
-      }
-    }
-    throw new UnimplementedError(
-        'Unexpected constant expression $node (${node.runtimeType})');
-  }
-
-  @override
-  ConstantExpression visitStaticInvocation(ir.StaticInvocation node) {
-    MemberEntity member = elementAdapter.getMember(node.target);
-    if (member == _commonElements.identicalFunction) {
-      if (node.arguments.positional.length == 2 &&
-          node.arguments.named.isEmpty) {
-        ConstantExpression left = visit(node.arguments.positional[0]);
-        ConstantExpression right = visit(node.arguments.positional[1]);
-        return new IdenticalConstantExpression(left, right);
-      }
-    } else if (member.name == 'fromEnvironment' &&
-        node.arguments.positional.length == 1) {
-      ConstantExpression name = visit(node.arguments.positional.single);
-      ConstantExpression defaultValue;
-      if (node.arguments.named.length == 1) {
-        if (node.arguments.named.single.name != 'defaultValue') {
-          throw new UnimplementedError(
-              'Unexpected constant expression $node (${node.runtimeType})');
-        }
-        defaultValue = visit(node.arguments.named.single.value);
-      }
-      if (member.enclosingClass == _commonElements.boolClass) {
-        return new BoolFromEnvironmentConstantExpression(name, defaultValue);
-      } else if (member.enclosingClass == _commonElements.intClass) {
-        return new IntFromEnvironmentConstantExpression(name, defaultValue);
-      } else if (member.enclosingClass == _commonElements.stringClass) {
-        return new StringFromEnvironmentConstantExpression(name, defaultValue);
-      }
-    }
-    throw new UnimplementedError(
-        'Unexpected constant expression $node (${node.runtimeType})');
-  }
-
-  @override
-  ConstantExpression visitLogicalExpression(ir.LogicalExpression node) {
-    BinaryOperator operator = BinaryOperator.parse(node.operator);
-    if (operator != null) {
-      ConstantExpression left = visit(node.left);
-      ConstantExpression right = visit(node.right);
-      return new BinaryConstantExpression(left, operator, right);
-    }
-    throw new UnimplementedError(
-        'Unexpected constant expression $node (${node.runtimeType})');
-  }
-
-  @override
-  ConstantExpression visitLet(ir.Let node) {
-    ir.Expression body = node.body;
-    if (body is ir.ConditionalExpression) {
-      ir.Expression condition = body.condition;
-      if (condition is ir.MethodInvocation) {
-        ir.Expression receiver = condition.receiver;
-        ir.Expression otherwise = body.otherwise;
-        if (condition.name.name == BinaryOperator.EQ.name &&
-            receiver is ir.VariableGet &&
-            condition.arguments.positional.single is ir.NullLiteral &&
-            otherwise is ir.VariableGet) {
-          if (receiver.variable == node.variable &&
-              otherwise.variable == node.variable) {
-            // We have <left> ?? <right> encoded as:
-            //    let #1 = <left> in #1 == null ? <right> : #1
-            ConstantExpression left = visit(node.variable.initializer);
-            ConstantExpression right = visit(body.then);
-            // TODO(johnniwinther): Remove [IF_NULL] binary constant expression
-            // when the resolver is removed; then we no longer need the
-            // expressions to be structurally equivalence for equivalence
-            // testing.
-            return new BinaryConstantExpression(
-                left, BinaryOperator.IF_NULL, right);
-          }
-        }
-      }
-    }
-    throw new UnimplementedError(
-        'Unexpected constant expression $node (${node.runtimeType})');
-  }
-
-  /// Compute the [ConstantConstructor] corresponding to the const constructor
-  /// [node].
-  ConstantConstructor computeConstantConstructor(ir.Constructor node) {
-    assert(node.isConst);
-    ir.Class cls = node.enclosingClass;
-    InterfaceType type = elementAdapter.elementEnvironment
-        .getThisType(elementAdapter.getClass(cls));
-
-    Map<dynamic, ConstantExpression> defaultValues =
-        <dynamic, ConstantExpression>{};
-    int parameterIndex = 0;
-    node.function.positionalParameters
-        .forEach((ir.VariableDeclaration parameter) {
-      if (parameterIndex >= node.function.requiredParameterCount) {
-        if (parameter.initializer != null) {
-          defaultValues[parameterIndex] = parameter.initializer.accept(this);
-        } else {
-          defaultValues[parameterIndex] = new NullConstantExpression();
-        }
-      }
-      parameterIndex++;
-    });
-    node.function.namedParameters.forEach((ir.VariableDeclaration parameter) {
-      defaultValues[parameter.name] = parameter.initializer.accept(this);
-    });
-
-    bool isRedirecting = node.initializers.length == 1 &&
-        node.initializers.single is ir.RedirectingInitializer;
-
-    Map<FieldEntity, ConstantExpression> fieldMap =
-        <FieldEntity, ConstantExpression>{};
-
-    void registerField(ir.Field field, ConstantExpression constant) {
-      fieldMap[elementAdapter.getField(field)] = constant;
-    }
-
-    if (!isRedirecting) {
-      for (ir.Field field in cls.fields) {
-        if (field.initializer != null) {
-          registerField(field, field.initializer.accept(this));
-        }
-      }
-    }
-
-    ConstructedConstantExpression superConstructorInvocation;
-    for (ir.Initializer initializer in node.initializers) {
-      if (initializer is ir.FieldInitializer) {
-        registerField(initializer.field, initializer.value.accept(this));
-      } else if (initializer is ir.SuperInitializer) {
-        superConstructorInvocation = _computeConstructorInvocation(
-            initializer.target, initializer.arguments);
-      } else if (initializer is ir.RedirectingInitializer) {
-        superConstructorInvocation = _computeConstructorInvocation(
-            initializer.target, initializer.arguments);
-      } else {
-        throw new UnsupportedError(
-            'Unexpected initializer $node (${node.runtimeType})');
-      }
-    }
-    if (isRedirecting) {
-      return new RedirectingGenerativeConstantConstructor(
-          defaultValues, superConstructorInvocation);
-    } else {
-      return new GenerativeConstantConstructor(
-          type, defaultValues, fieldMap, superConstructorInvocation);
-    }
-  }
+/// Comparator for the canonical order or named arguments.
+// TODO(johnniwinther): Remove this when named parameters are sorted in dill.
+int namedOrdering(ir.VariableDeclaration a, ir.VariableDeclaration b) {
+  return a.name.compareTo(b.name);
 }

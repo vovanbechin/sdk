@@ -365,6 +365,23 @@ void Heap::UpdateClassHeapStatsBeforeGC(Heap::Space space) {
 #endif
 
 
+void Heap::EvacuateNewSpace(Thread* thread, GCReason reason) {
+  ASSERT(reason == kFull);
+  if (BeginNewSpaceGC(thread)) {
+    RecordBeforeGC(kNew, kFull);
+    VMTagScope tagScope(thread, VMTag::kGCNewSpaceTagId);
+    TIMELINE_FUNCTION_GC_DURATION(thread, "EvacuateNewGeneration");
+    NOT_IN_PRODUCT(UpdateClassHeapStatsBeforeGC(kNew));
+    new_space_.Evacuate();
+    NOT_IN_PRODUCT(isolate()->class_table()->UpdatePromoted());
+    RecordAfterGC(kNew);
+    PrintStats();
+    NOT_IN_PRODUCT(PrintStatsToTimeline(&tds));
+    EndNewSpaceGC();
+  }
+}
+
+
 void Heap::CollectNewSpaceGarbage(Thread* thread,
                                   ApiCallbacks api_callbacks,
                                   GCReason reason) {
@@ -444,7 +461,10 @@ void Heap::CollectGarbage(Space space) {
 
 void Heap::CollectAllGarbage() {
   Thread* thread = Thread::Current();
-  CollectNewSpaceGarbage(thread, kInvokeApiCallbacks, kFull);
+
+  // New space is evacuated so this GC will collect all dead objects
+  // kept alive by a cross-generational pointer.
+  EvacuateNewSpace(thread, kFull);
   CollectOldSpaceGarbage(thread, kInvokeApiCallbacks, kFull);
 }
 
@@ -517,6 +537,29 @@ void Heap::Init(Isolate* isolate,
   Heap* heap = new Heap(isolate, max_new_gen_words, max_old_gen_words,
                         max_external_words);
   isolate->set_heap(heap);
+}
+
+
+void Heap::RegionName(Heap* heap, Space space, char* name, intptr_t name_size) {
+  const bool no_isolate_name = (heap == NULL) || (heap->isolate() == NULL) ||
+                               (heap->isolate()->debugger_name() == NULL);
+  const char* isolate_name =
+      no_isolate_name ? "<unknown>" : heap->isolate()->debugger_name();
+  const char* space_name = NULL;
+  switch (space) {
+    case kNew:
+      space_name = "newspace";
+      break;
+    case kOld:
+      space_name = "oldspace";
+      break;
+    case kCode:
+      space_name = "codespace";
+      break;
+    default:
+      UNREACHABLE();
+  }
+  OS::SNPrint(name, name_size, "dart-%s %s", space_name, isolate_name);
 }
 
 
@@ -642,11 +685,12 @@ int64_t Heap::PeerCount() const {
   return new_weak_tables_[kPeers]->count() + old_weak_tables_[kPeers]->count();
 }
 
-
+#if !defined(HASH_IN_OBJECT_HEADER)
 int64_t Heap::HashCount() const {
   return new_weak_tables_[kHashes]->count() +
          old_weak_tables_[kHashes]->count();
 }
+#endif
 
 
 int64_t Heap::ObjectIdCount() const {

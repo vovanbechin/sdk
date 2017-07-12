@@ -70,22 +70,22 @@ class AstCloner implements AstVisitor<AstNode> {
   /**
    * Return a clone of the given [node].
    */
-  AstNode/*=E*/ cloneNode/*<E extends AstNode>*/(AstNode/*=E*/ node) {
+  E cloneNode<E extends AstNode>(E node) {
     if (node == null) {
       return null;
     }
-    return node.accept(this) as AstNode/*=E*/;
+    return node.accept(this) as E;
   }
 
   /**
    * Return a list containing cloned versions of the nodes in the given list of
    * [nodes].
    */
-  List<AstNode/*=E*/ > cloneNodeList/*<E extends AstNode>*/(List/*<E>*/ nodes) {
+  List<E> cloneNodeList<E extends AstNode>(List<E> nodes) {
     int count = nodes.length;
-    List/*<E>*/ clonedNodes = new List/*<E>*/();
+    List<E> clonedNodes = new List<E>();
     for (int i = 0; i < count; i++) {
-      clonedNodes.add((nodes[i]).accept(this) as AstNode/*=E*/);
+      clonedNodes.add((nodes[i]).accept(this) as E);
     }
     return clonedNodes;
   }
@@ -994,8 +994,7 @@ class AstCloner implements AstVisitor<AstNode> {
 
     token = nonComment(token);
     if (_lastCloned == null) {
-      _lastCloned = new Token(TokenType.EOF, -1);
-      _lastCloned.setNext(_lastCloned);
+      _lastCloned = new Token.eof(-1);
     }
     while (token != null) {
       Token clone = token.copy();
@@ -3875,19 +3874,19 @@ class IncrementalAstCloner implements AstVisitor<AstNode> {
           _cloneNode(node.expression),
           _mapToken(node.semicolon));
 
-  AstNode/*=E*/ _cloneNode/*<E extends AstNode>*/(AstNode/*=E*/ node) {
+  E _cloneNode<E extends AstNode>(E node) {
     if (node == null) {
       return null;
     }
     if (identical(node, _oldNode)) {
-      return _newNode as AstNode/*=E*/;
+      return _newNode as E;
     }
-    return node.accept(this) as AstNode/*=E*/;
+    return node.accept(this) as E;
   }
 
-  List/*<E>*/ _cloneNodeList/*<E extends AstNode>*/(NodeList/*<E>*/ nodes) {
-    List/*<E>*/ clonedNodes = new List/*<E>*/();
-    for (AstNode/*=E*/ node in nodes) {
+  List<E> _cloneNodeList<E extends AstNode>(NodeList<E> nodes) {
+    List<E> clonedNodes = new List<E>();
+    for (E node in nodes) {
       clonedNodes.add(_cloneNode(node));
     }
     return clonedNodes;
@@ -3978,7 +3977,10 @@ class NodeLocator extends UnifyingAstVisitor<Object> {
     Token endToken = node.endToken;
     // Don't include synthetic tokens.
     while (endToken != beginToken) {
-      if (endToken.type == TokenType.EOF || !endToken.isSynthetic) {
+      // Fasta scanner reports unterminated string literal errors
+      // and generates a synthetic string token with non-zero length.
+      // Because of this, check for length > 0 rather than !isSynthetic.
+      if (endToken.type == TokenType.EOF || endToken.length > 0) {
         break;
       }
       endToken = endToken.previous;
@@ -4075,7 +4077,10 @@ class NodeLocator2 extends UnifyingAstVisitor<Object> {
     Token endToken = node.endToken;
     // Don't include synthetic tokens.
     while (endToken != beginToken) {
-      if (endToken.type == TokenType.EOF || !endToken.isSynthetic) {
+      // Fasta scanner reports unterminated string literal errors
+      // and generates a synthetic string token with non-zero length.
+      // Because of this, check for length > 0 rather than !isSynthetic.
+      if (endToken.type == TokenType.EOF || endToken.length > 0) {
         break;
       }
       endToken = endToken.previous;
@@ -5968,13 +5973,13 @@ class ResolutionCopier implements AstVisitor<bool> {
 
   @override
   bool visitGenericFunctionType(GenericFunctionType node) {
-    GenericFunctionType toNode = this._toNode as GenericFunctionType;
+    GenericFunctionTypeImpl toNode = this._toNode as GenericFunctionTypeImpl;
     if (_and(
         _isEqualNodes(node.returnType, toNode.returnType),
         _isEqualTokens(node.functionKeyword, toNode.functionKeyword),
         _isEqualNodes(node.typeParameters, toNode.typeParameters),
         _isEqualNodes(node.parameters, toNode.parameters))) {
-      // TODO(brianwilkerson) Copy the type information.
+      toNode.type = node.type;
       return true;
     }
     return false;
@@ -5982,7 +5987,7 @@ class ResolutionCopier implements AstVisitor<bool> {
 
   @override
   bool visitGenericTypeAlias(GenericTypeAlias node) {
-    GenericTypeAlias toNode = this._toNode as GenericTypeAlias;
+    GenericTypeAliasImpl toNode = this._toNode as GenericTypeAliasImpl;
     if (_and(
         _isEqualNodes(node.documentationComment, toNode.documentationComment),
         _isEqualNodeLists(node.metadata, toNode.metadata),
@@ -5992,7 +5997,6 @@ class ResolutionCopier implements AstVisitor<bool> {
         _isEqualTokens(node.equals, toNode.equals),
         _isEqualNodes(node.functionType, toNode.functionType),
         _isEqualTokens(node.semicolon, toNode.semicolon))) {
-      // TODO(brianwilkerson) Copy the type and element information.
       return true;
     }
     return false;

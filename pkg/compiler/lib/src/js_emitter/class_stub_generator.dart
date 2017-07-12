@@ -44,9 +44,9 @@ class ClassStubGenerator {
     //            fields.map(
     //                (name) => js('this.# = #', [name, name]))]));
     var typeParameters = const <jsAst.Parameter>[];
-    var typeInits = const <jsAst.Expression>[];
+    dynamic typeInits = const <jsAst.Expression>[];
     if (hasRtiField) {
-      var rtiName = _namer.rtiFieldJsName;
+      dynamic rtiName = _namer.rtiFieldJsName;
       typeParameters = rtiName;
       typeInits = js('this.# = #', [rtiName, rtiName]);
     }
@@ -87,7 +87,7 @@ class ClassStubGenerator {
   Map<jsAst.Name, jsAst.Expression> generateCallStubsForGetter(
       MemberEntity member, Map<Selector, SelectorConstraints> selectors) {
     // If the method is intercepted, the stub gets the
-    // receiver explicitely and we need to pass it to the getter call.
+    // receiver explicitly and we need to pass it to the getter call.
     bool isInterceptedMethod = _interceptorData.isInterceptedMethod(member);
     bool isInterceptedClass =
         _interceptorData.isInterceptedClass(member.enclosingClass);
@@ -244,9 +244,9 @@ List<jsAst.Statement> buildTearOffCode(CompilerOptions options, Emitter emitter,
   if (closureFromTearOff != null) {
     tearOffAccessExpression = emitter.staticFunctionAccess(closureFromTearOff);
     tearOffGlobalObject =
-        js.stringPart(namer.globalObjectForMethod(closureFromTearOff));
+        js.stringPart(namer.globalObjectForMember(closureFromTearOff));
     tearOffGlobalObjectString =
-        js.string(namer.globalObjectForMethod(closureFromTearOff));
+        js.string(namer.globalObjectForMember(closureFromTearOff));
   } else {
     // Default values for mocked-up test libraries.
     tearOffAccessExpression =

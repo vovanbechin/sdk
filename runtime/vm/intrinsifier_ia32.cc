@@ -212,8 +212,9 @@ void Intrinsifier::GrowableArray_add(Assembler* assembler) {
     /* only scale by 8. */                                                     \
     scale_factor = TIMES_8;                                                    \
   }                                                                            \
-  const intptr_t fixed_size = sizeof(Raw##type_name) + kObjectAlignment - 1;   \
-  __ leal(EDI, Address(EDI, scale_factor, fixed_size));                        \
+  const intptr_t fixed_size_plus_alignment_padding =                           \
+      sizeof(Raw##type_name) + kObjectAlignment - 1;                           \
+  __ leal(EDI, Address(EDI, scale_factor, fixed_size_plus_alignment_padding)); \
   __ andl(EDI, Immediate(-kObjectAlignment));                                  \
   Heap::Space space = Heap::kNew;                                              \
   __ movl(ECX, Address(THR, Thread::heap_offset()));                           \
@@ -1889,6 +1890,16 @@ void Intrinsifier::StringBaseSubstringMatches(Assembler* assembler) {
 }
 
 
+void Intrinsifier::Object_getHash(Assembler* assembler) {
+  UNREACHABLE();
+}
+
+
+void Intrinsifier::Object_setHash(Assembler* assembler) {
+  UNREACHABLE();
+}
+
+
 void Intrinsifier::StringBaseCharAt(Assembler* assembler) {
   Label fall_through, try_two_byte_string;
   __ movl(EBX, Address(ESP, +1 * kWordSize));  // Index.
@@ -2027,8 +2038,10 @@ static void TryAllocateOnebyteString(Assembler* assembler,
   Label pop_and_fail;
   __ pushl(EDI);  // Preserve length.
   __ SmiUntag(EDI);
-  const intptr_t fixed_size = sizeof(RawString) + kObjectAlignment - 1;
-  __ leal(EDI, Address(EDI, TIMES_1, fixed_size));  // EDI is untagged.
+  const intptr_t fixed_size_plus_alignment_padding =
+      sizeof(RawString) + kObjectAlignment - 1;
+  __ leal(EDI, Address(EDI, TIMES_1,
+                       fixed_size_plus_alignment_padding));  // EDI is untagged.
   __ andl(EDI, Immediate(-kObjectAlignment));
 
   const intptr_t cid = kOneByteStringCid;

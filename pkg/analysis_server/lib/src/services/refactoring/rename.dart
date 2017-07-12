@@ -2,8 +2,6 @@
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
 
-library services.src.refactoring.rename;
-
 import 'dart:async';
 
 import 'package:analysis_server/src/protocol_server.dart' hide Element;
@@ -18,25 +16,6 @@ import 'package:analyzer/src/generated/java_core.dart';
 import 'package:analyzer/src/generated/source.dart';
 import 'package:analyzer_plugin/utilities/range_factory.dart';
 import 'package:path/path.dart' as pathos;
-
-/**
- * Returns `true` if two given [Element]s are [LocalElement]s and have
- * intersecting with visibility ranges.
- */
-bool haveIntersectingRanges(LocalElement localElement, Element element) {
-  if (element is! LocalElement) {
-    return false;
-  }
-  LocalElement localElement2 = element as LocalElement;
-  Source localSource = localElement.source;
-  Source localSource2 = localElement2.source;
-  SourceRange localRange = localElement.visibleRange;
-  SourceRange localRange2 = localElement2.visibleRange;
-  return localSource2 == localSource &&
-      localRange != null &&
-      localRange2 != null &&
-      localRange2.intersects(localRange);
-}
 
 /**
  * Checks if [element] is defined in the library containing [source].

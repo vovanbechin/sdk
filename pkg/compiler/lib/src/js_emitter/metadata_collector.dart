@@ -8,8 +8,6 @@ import 'package:js_ast/src/precedence.dart' as js_precedence;
 
 import '../common.dart';
 import '../constants/values.dart';
-import '../elements/resolution_types.dart'
-    show ResolutionDartType, ResolutionTypedefType;
 import '../deferred_load.dart' show DeferredLoadTask, OutputUnit;
 import '../elements/elements.dart'
     show
@@ -17,18 +15,21 @@ import '../elements/elements.dart'
         ConstructorElement,
         Element,
         FieldElement,
-        FunctionElement,
         FunctionSignature,
         LibraryElement,
         MemberElement,
         MethodElement,
         MetadataAnnotation,
         ParameterElement;
+import '../elements/entities.dart';
+import '../elements/resolution_types.dart'
+    show ResolutionDartType, ResolutionTypedefType;
+import '../elements/types.dart';
 import '../js/js.dart' as jsAst;
 import '../js/js.dart' show js;
-import '../js_backend/backend.dart' show RuntimeTypesEncoder;
 import '../js_backend/constant_handler_javascript.dart';
 import '../js_backend/mirrors_data.dart';
+import '../js_backend/runtime_types.dart' show RuntimeTypesEncoder;
 import '../js_backend/type_variable_handler.dart'
     show TypeVariableCodegenAnalysis;
 import '../options.dart';
@@ -78,7 +79,7 @@ class _BoundMetadataEntry extends _MetadataEntry {
     if (_rc == 1) entry.accept(visitor);
   }
 
-  int compareTo(_MetadataEntry other) => other._rc - this._rc;
+  int compareTo(covariant _MetadataEntry other) => other._rc - this._rc;
 }
 
 abstract class Placeholder implements jsAst.DeferredNumber {
@@ -181,29 +182,37 @@ class MetadataCollector implements jsAst.TokenFinalizer {
     _globalMetadataMap = new Map<String, _BoundMetadataEntry>();
   }
 
-  jsAst.Fun buildLibraryMetadataFunction(LibraryElement element) {
+  jsAst.Fun buildLibraryMetadataFunction(LibraryEntity element) {
     if (!_mirrorsData.mustRetainMetadata ||
         !_mirrorsData.isLibraryReferencedFromMirrorSystem(element)) {
       return null;
     }
-    return _buildMetadataFunction(element);
+    return _buildMetadataFunction(element as LibraryElement);
   }
 
-  jsAst.Fun buildClassMetadataFunction(ClassElement element) {
+  jsAst.Fun buildClassMetadataFunction(ClassEntity cls) {
     if (!_mirrorsData.mustRetainMetadata ||
-        !_mirrorsData.isClassReferencedFromMirrorSystem(element)) {
+        !_mirrorsData.isClassReferencedFromMirrorSystem(cls)) {
       return null;
     }
+    // TODO(redemption): Handle class entities.
+    ClassElement element = cls;
     return _buildMetadataFunction(element);
   }
 
-  bool _mustEmitMetadataForMember(MemberElement element) {
-    return _mirrorsData.mustRetainMetadata &&
-        _mirrorsData.isMemberReferencedFromMirrorSystem(element);
+  bool _mustEmitMetadataForMember(MemberEntity member) {
+    if (!_mirrorsData.mustRetainMetadata) {
+      return false;
+    }
+    // TODO(redemption): Handle member entities.
+    MemberElement element = member;
+    return _mirrorsData.isMemberReferencedFromMirrorSystem(element);
   }
 
-  jsAst.Fun buildFieldMetadataFunction(FieldElement element) {
-    if (!_mustEmitMetadataForMember(element)) return null;
+  jsAst.Fun buildFieldMetadataFunction(FieldEntity field) {
+    if (!_mustEmitMetadataForMember(field)) return null;
+    // TODO(redemption): Handle field entities.
+    FieldElement element = field;
     return _buildMetadataFunction(element);
   }
 
@@ -231,7 +240,7 @@ class MetadataCollector implements jsAst.TokenFinalizer {
     });
   }
 
-  List<jsAst.DeferredNumber> reifyDefaultArguments(FunctionElement function) {
+  List<jsAst.DeferredNumber> reifyDefaultArguments(MethodElement function) {
     function = function.implementation;
     FunctionSignature signature = function.functionSignature;
     if (signature.optionalParameterCount == 0) return const [];
@@ -319,8 +328,7 @@ class MetadataCollector implements jsAst.TokenFinalizer {
     return _addGlobalMetadata(_emitter.constantReference(constant));
   }
 
-  jsAst.Expression reifyType(ResolutionDartType type,
-      {ignoreTypeVariables: false}) {
+  jsAst.Expression reifyType(DartType type, {ignoreTypeVariables: false}) {
     return reifyTypeForOutputUnit(type, _deferredLoadTask.mainOutputUnit,
         ignoreTypeVariables: ignoreTypeVariables);
   }

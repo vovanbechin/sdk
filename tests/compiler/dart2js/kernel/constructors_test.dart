@@ -48,7 +48,7 @@ main() => new Foo(number: 3);
   });
 
   // TODO(efortuna): Kernel needs to have some additional constructor
-  // implementaion work before this is legitimately equivalent code to the
+  // implementation work before this is legitimately equivalent code to the
   // original AST.
 /*  test('initialized field and constructor', () {
     String code = '''
@@ -70,7 +70,8 @@ main() => new Foo();
 }
 
 defaultConstructorFor(String className) => (Compiler compiler) {
-      LibraryElement mainApp = compiler.mainApp;
+      LibraryElement mainApp =
+          compiler.frontendStrategy.elementEnvironment.mainLibrary;
       ClassElement clazz = mainApp.find(className);
       return clazz.lookupDefaultConstructor();
     };

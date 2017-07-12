@@ -13,6 +13,39 @@ import 'package:kernel/core_types.dart';
 import 'package:kernel/type_algebra.dart';
 import 'package:kernel/type_environment.dart';
 
+// TODO(paulberry): try to push this functionality into kernel.
+FunctionType substituteTypeParams(
+    FunctionType type,
+    Map<TypeParameter, DartType> substitutionMap,
+    List<TypeParameter> newTypeParameters) {
+  var substitution = Substitution.fromMap(substitutionMap);
+  return new FunctionType(
+      type.positionalParameters.map(substitution.substituteType).toList(),
+      substitution.substituteType(type.returnType),
+      namedParameters: type.namedParameters
+          .map((named) => new NamedType(
+              named.name, substitution.substituteType(named.type)))
+          .toList(),
+      typeParameters: newTypeParameters,
+      requiredParameterCount: type.requiredParameterCount);
+}
+
+/// Given a [FunctionType], gets the type of the named parameter with the given
+/// [name], or `dynamic` if there is no parameter with the given name.
+DartType getNamedParameterType(FunctionType functionType, String name) {
+  return functionType.getNamedParameter(name) ?? const DynamicType();
+}
+
+/// Given a [FunctionType], gets the type of the [i]th positional parameter, or
+/// `dynamic` if there is no parameter with that index.
+DartType getPositionalParameterType(FunctionType functionType, int i) {
+  if (i < functionType.positionalParameters.length) {
+    return functionType.positionalParameters[i];
+  } else {
+    return const DynamicType();
+  }
+}
+
 /// A constraint on a type parameter that we're inferring.
 class TypeConstraint {
   /// The lower bound of the type being constrained.  This bound must be a
@@ -36,7 +69,11 @@ class TypeConstraint {
 }
 
 class TypeSchemaEnvironment extends TypeEnvironment {
-  TypeSchemaEnvironment(CoreTypes coreTypes, ClassHierarchy hierarchy)
+  @override
+  final bool strongMode;
+
+  TypeSchemaEnvironment(
+      CoreTypes coreTypes, ClassHierarchy hierarchy, this.strongMode)
       : super(coreTypes, hierarchy);
 
   /// Modify the given [constraint]'s lower bound to include [lower].
@@ -47,6 +84,28 @@ class TypeSchemaEnvironment extends TypeEnvironment {
   /// Modify the given [constraint]'s upper bound to include [upper].
   void addUpperBound(TypeConstraint constraint, DartType upper) {
     constraint.upper = getGreatestLowerBound(constraint.upper, upper);
+  }
+
+  /// Implements the function "flatten" defined in the spec, where T is [type]:
+  ///
+  ///     If T = Future<S> then flatten(T) = flatten(S).
+  ///
+  ///     Otherwise if T <: Future then let S be a type such that T << Future<S>
+  ///     and for all R, if T << Future<R> then S << R.  Then flatten(T) = S.
+  ///
+  ///     In any other circumstance, flatten(T) = T.
+  DartType flattenFutures(DartType type) {
+    if (type is InterfaceType) {
+      if (identical(type.classNode, coreTypes.futureClass)) {
+        return flattenFutures(type.typeArguments[0]);
+      }
+      InterfaceType futureBase =
+          hierarchy.getTypeAsInstanceOf(type, coreTypes.futureClass);
+      if (futureBase != null) {
+        return futureBase.typeArguments[0];
+      }
+    }
+    return type;
   }
 
   /// Computes the greatest lower bound of [type1] and [type2].
@@ -158,6 +217,18 @@ class TypeSchemaEnvironment extends TypeEnvironment {
     return const DynamicType();
   }
 
+  @override
+  DartType getTypeOfOverloadedArithmetic(DartType type1, DartType type2) {
+    // TODO(paulberry): this matches what is defined in the spec.  It would be
+    // nice if we could change kernel to match the spec and not have to
+    // override.
+    if (type1 == intType) {
+      if (type2 == intType) return type2;
+      if (type2 == doubleType) return type2;
+    }
+    return numType;
+  }
+
   /// Infers a generic type, function, method, or list/map literal
   /// instantiation, using the downward context type as well as the argument
   /// types if available.
@@ -198,7 +269,7 @@ class TypeSchemaEnvironment extends TypeEnvironment {
     // are implied by this.
     var gatherer = new TypeConstraintGatherer(this, typeParametersToInfer);
 
-    if (returnContextType != null) {
+    if (!isEmptyContext(returnContextType)) {
       gatherer.trySubtypeMatch(declaredReturnType, returnContextType);
     }
 
@@ -343,9 +414,43 @@ class TypeSchemaEnvironment extends TypeEnvironment {
   bool isBottom(DartType t) {
     if (t is UnknownType) {
       return true;
+    } else if (t is InterfaceType &&
+        identical(t.classNode, coreTypes.nullClass)) {
+      return true;
     } else {
       return super.isBottom(t);
     }
+  }
+
+  bool isEmptyContext(DartType context) {
+    if (context is DynamicType) {
+      // Analyzer treats a type context of `dynamic` as equivalent to an empty
+      // context.  TODO(paulberry): this is not spec'ed anywhere; do we still
+      // want to do this?
+      return true;
+    }
+    return context == null;
+  }
+
+  /// True if [member] is a binary operator that returns an `int` if both
+  /// operands are `int`, and otherwise returns `double`.
+  ///
+  /// Note that this behavior depends on the receiver type, so we can only make
+  /// this determination if we know the type of the receiver.
+  ///
+  /// This is a case of type-based overloading, which in Dart is only supported
+  /// by giving special treatment to certain arithmetic operators.
+  bool isOverloadedArithmeticOperatorAndType(
+      Procedure member, DartType receiverType) {
+    // TODO(paulberry): this matches what is defined in the spec.  It would be
+    // nice if we could change kernel to match the spec and not have to
+    // override.
+    if (member.name.name == 'remainder') return false;
+    if (!(receiverType is InterfaceType &&
+        identical(receiverType.classNode, coreTypes.intClass))) {
+      return false;
+    }
+    return isOverloadedArithmeticOperator(member);
   }
 
   @override

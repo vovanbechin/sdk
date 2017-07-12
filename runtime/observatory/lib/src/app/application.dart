@@ -9,7 +9,7 @@ part of app;
 class ObservatoryApplication {
   static ObservatoryApplication app;
   final RenderingQueue queue = new RenderingQueue();
-  final TargetRepository targets = new TargetRepository();
+  final TargetRepository targets = new TargetRepository(isConnectedVMTarget);
   final EventRepository events = new EventRepository();
   final NotificationRepository notifications = new NotificationRepository();
   final _pageRegistry = new List<Page>();
@@ -20,10 +20,10 @@ class ObservatoryApplication {
   VM _vm;
   VM get vm => _vm;
 
-  bool isConnectedVMTarget(WebSocketVMTarget target) {
-    if (_vm is CommonWebSocketVM) {
-      if ((_vm as CommonWebSocketVM).target == target) {
-        return _vm.isConnected;
+  static bool isConnectedVMTarget(WebSocketVMTarget target) {
+    if (app._vm is CommonWebSocketVM) {
+      if ((app._vm as CommonWebSocketVM).target == target) {
+        return app._vm.isConnected;
       }
     }
     return false;
@@ -171,6 +171,7 @@ class ObservatoryApplication {
     _pageRegistry.add(new PortsPage(this));
     _pageRegistry.add(new LoggingPage(this));
     _pageRegistry.add(new TimelinePage(this));
+    _pageRegistry.add(new MemoryDashboardPage(this));
     // Note that ErrorPage must be the last entry in the list as it is
     // the catch all.
     _pageRegistry.add(new ErrorPage(this));
@@ -234,13 +235,18 @@ class ObservatoryApplication {
       }
       if (targets.current == null) {
         _switchVM(null);
-      }
-      final bool currentTarget =
-          (_vm as WebSocketVM)?.target == targets.current;
-      final bool currentTargetConnected = (_vm != null) && !_vm.isDisconnected;
-      if (!currentTarget || !currentTargetConnected) {
-        _switchVM(new WebSocketVM(targets.current));
-        app.locationManager.go(Uris.vm());
+      } else {
+        final bool currentTarget =
+            (_vm as WebSocketVM)?.target == targets.current;
+        final bool currentTargetConnected = (_vm != null) && _vm.isConnected;
+        if (!currentTarget || !currentTargetConnected) {
+          _switchVM(new WebSocketVM(targets.current));
+          _vm.onConnect.then((_) {
+            app.locationManager.go(Uris.vm());
+          });
+        } else if (currentTargetConnected) {
+          app.locationManager.go(Uris.vm());
+        }
       }
     });
 
