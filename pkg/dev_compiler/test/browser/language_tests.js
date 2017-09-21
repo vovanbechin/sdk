@@ -298,6 +298,7 @@ define(['dart_sdk', 'async_helper', 'expect', 'unittest', 'is', 'require'],
     },
 
     'lib/async': {
+      'async_await_zones_test': fail,
       'first_regression_test': async_unittest,
       'future_or_bad_type_test_implements_multi': fail,
       'future_or_bad_type_test_none_multi': fail,
@@ -338,9 +339,7 @@ define(['dart_sdk', 'async_helper', 'expect', 'unittest', 'is', 'require'],
       'timer_not_available_test': fail,
       'timer_repeat_test': async_unittest,
       'timer_test': async_unittest,
-      'zone_bind_callback_test': fail,
       'zone_error_callback_test': fail,
-      'zone_register_callback_test': fail,
       'zone_run_unary_test': fail,
     },
 
