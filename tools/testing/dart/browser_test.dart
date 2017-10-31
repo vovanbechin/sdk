@@ -91,6 +91,7 @@ requirejs(["$testName", "dart_sdk", "async_helper"],
   // these packages when possible.
   async_helper.async_helper.asyncTestInitialize(function() {});
   dart_sdk._isolate_helper.startRootIsolate(function() {}, []);
+  dart_sdk._debugger.registerDevtoolsFormatter();
   dartMainRunner($testName.$testName.main);
 });
 </script>
