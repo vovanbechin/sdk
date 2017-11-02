@@ -2894,7 +2894,11 @@ class CodeGenerator extends Object
     var name = element.name;
     name = _friendlyOperatorName[name] ?? name;
     if (name.isNotEmpty) {
-      gen = new JS.NamedFunction(new JS.Identifier(name), gen);
+      // Name the function if possible, to get better stack traces.
+      //
+      // Also use a temporary ID so we don't conflict with the function
+      // itself, for recursive calls.
+      gen = new JS.NamedFunction(new JS.TemporaryId(name), gen);
     }
 
     if (JS.This.foundIn(gen)) {
